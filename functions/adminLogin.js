@@ -1,6 +1,6 @@
-import { Client } from "pg";
+const { Client } = require("pg");
 
-export async function handler(event) {
+exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
@@ -53,8 +53,8 @@ export async function handler(event) {
   } catch (error) {
     return { statusCode: 500, body: JSON.stringify({ success: false, error: "Server error" }) };
   } finally {
-    try { await client.end(); } catch {}
+    try { await client.end(); } catch {} 
   }
-}
+};
 
 

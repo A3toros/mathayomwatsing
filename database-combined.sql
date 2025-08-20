@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS test_results (
     test_id INTEGER REFERENCES tests(id) ON DELETE CASCADE,
     grade_level INTEGER NOT NULL,
     score INTEGER,
+    max_score INTEGER NOT NULL,
     answers JSONB,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed BOOLEAN DEFAULT FALSE,
@@ -471,60 +472,85 @@ SELECT COUNT(*) as total_users FROM users;
 SELECT username, student_id, grade_level, class_name FROM users LIMIT 10;
 
 -- Insert test results with random data for grade 6 students
-INSERT INTO test_results (user_id, test_id, score, max_score, answers, submitted_at, completed) VALUES
--- Tong Tong's results
-(1, 1, 92, 100, '{"vocabulary_score": 92, "time_taken": 42}', '2024-06-18 14:25:00', true),
-(1, 2, 85, 100, '{"grammar_score": 85, "time_taken": 38}', '2024-07-02 11:15:00', true),
-(1, 3, 89, 100, '{"reading_score": 89, "time_taken": 72}', '2024-07-22 16:40:00', true),
-(1, 4, 78, 100, '{"writing_score": 78, "time_taken": 108}', '2024-08-12 13:30:00', true),
-(1, 5, 91, 100, '{"final_score": 91, "time_taken": 88}', '2024-09-03 09:45:00', true),
+INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitted_at, completed) VALUES
+-- Munich's results (Grade 6)
+(1, 8, 6, 92, '{"vocabulary_score": 92, "time_taken": 42}', '2024-06-18 14:25:00', true),
+(1, 9, 6, 85, '{"grammar_score": 85, "time_taken": 38}', '2024-07-02 11:15:00', true),
+(1, 10, 6, 89, '{"reading_score": 89, "time_taken": 72}', '2024-07-22 16:40:00', true),
+(1, 11, 6, 78, '{"writing_score": 78, "time_taken": 108}', '2024-08-12 13:30:00', true),
+(1, 12, 6, 91, '{"final_score": 91, "time_taken": 88}', '2024-09-03 09:45:00', true),
 
--- Idea's results
-(2, 1, 88, 100, '{"vocabulary_score": 88, "time_taken": 47}', '2024-06-20 10:30:00', true),
-(2, 2, 93, 100, '{"grammar_score": 93, "time_taken": 35}', '2024-07-05 15:20:00', true),
-(2, 3, 76, 100, '{"reading_score": 76, "time_taken": 81}', '2024-07-25 12:15:00', true),
-(2, 4, 87, 100, '{"writing_score": 87, "time_taken": 104}', '2024-08-15 14:50:00', true),
-(2, 5, 84, 100, '{"final_score": 84, "time_taken": 95}', '2024-09-06 11:20:00', true),
+-- Bright's results (Grade 6)
+(2, 8, 6, 88, '{"vocabulary_score": 88, "time_taken": 47}', '2024-06-20 10:30:00', true),
+(2, 9, 6, 93, '{"grammar_score": 93, "time_taken": 35}', '2024-07-05 15:20:00', true),
+(2, 10, 6, 76, '{"reading_score": 76, "time_taken": 81}', '2024-07-25 12:15:00', true),
+(2, 11, 6, 87, '{"writing_score": 87, "time_taken": 104}', '2024-08-15 14:50:00', true),
+(2, 12, 6, 84, '{"final_score": 84, "time_taken": 95}', '2024-09-06 11:20:00', true),
 
--- Tun's results
-(3, 1, 95, 100, '{"vocabulary_score": 95, "time_taken": 33}', '2024-06-19 13:45:00', true),
-(3, 2, 79, 100, '{"grammar_score": 79, "time_taken": 44}', '2024-07-03 09:10:00', true),
-(3, 3, 91, 100, '{"reading_score": 91, "time_taken": 68}', '2024-07-24 17:25:00', true),
-(3, 4, 82, 100, '{"writing_score": 82, "time_taken": 115}', '2024-08-16 10:40:00', true),
-(3, 5, 89, 100, '{"final_score": 89, "time_taken": 92}', '2024-09-04 16:15:00', true),
+-- Don's results (Grade 6)
+(3, 8, 6, 95, '{"vocabulary_score": 95, "time_taken": 33}', '2024-06-19 13:45:00', true),
+(3, 9, 6, 79, '{"grammar_score": 79, "time_taken": 44}', '2024-07-03 09:10:00', true),
+(3, 10, 6, 91, '{"reading_score": 91, "time_taken": 68}', '2024-07-24 17:25:00', true),
+(3, 11, 6, 82, '{"writing_score": 82, "time_taken": 115}', '2024-08-16 10:40:00', true),
+(3, 12, 6, 89, '{"final_score": 89, "time_taken": 92}', '2024-09-04 16:15:00', true),
 
--- Pupha's results
-(4, 1, 81, 100, '{"vocabulary_score": 81, "time_taken": 51}', '2024-06-21 08:55:00', true),
-(4, 2, 88, 100, '{"grammar_score": 88, "time_taken": 37}', '2024-07-06 14:30:00', true),
-(4, 3, 83, 100, '{"reading_score": 83, "time_taken": 75}', '2024-07-26 11:20:00', true),
-(4, 3, 90, 100, '{"writing_score": 90, "time_taken": 99}', '2024-08-17 15:10:00', true),
-(4, 5, 86, 100, '{"final_score": 86, "time_taken": 89}', '2024-09-05 12:35:00', true),
+-- Dollar's results (Grade 6)
+(4, 8, 6, 81, '{"vocabulary_score": 81, "time_taken": 51}', '2024-06-21 08:55:00', true),
+(4, 9, 6, 88, '{"grammar_score": 88, "time_taken": 37}', '2024-07-06 14:30:00', true),
+(4, 10, 6, 83, '{"reading_score": 83, "time_taken": 75}', '2024-07-26 11:20:00', true),
+(4, 11, 6, 90, '{"writing_score": 90, "time_taken": 99}', '2024-08-17 15:10:00', true),
+(4, 12, 6, 86, '{"final_score": 86, "time_taken": 89}', '2024-09-05 12:35:00', true),
 
--- Sprite's results
-(5, 1, 87, 100, '{"vocabulary_score": 87, "time_taken": 45}', '2024-06-22 16:20:00', true),
-(5, 2, 91, 100, '{"grammar_score": 91, "time_taken": 32}', '2024-07-07 10:45:00', true),
-(5, 3, 77, 100, '{"reading_score": 77, "time_taken": 79}', '2024-07-27 13:55:00', true),
-(5, 4, 85, 100, '{"writing_score": 85, "time_taken": 111}', '2024-08-18 09:25:00', true),
-(5, 5, 93, 100, '{"final_score": 93, "time_taken": 87}', '2024-09-07 14:40:00', true),
+-- Tonmai's results (Grade 6)
+(5, 8, 6, 87, '{"vocabulary_score": 87, "time_taken": 45}', '2024-06-22 16:20:00', true),
+(5, 9, 6, 91, '{"grammar_score": 91, "time_taken": 32}', '2024-07-07 10:45:00', true),
+(5, 10, 6, 77, '{"reading_score": 77, "time_taken": 79}', '2024-07-27 13:55:00', true),
+(5, 11, 6, 85, '{"writing_score": 85, "time_taken": 111}', '2024-08-18 09:25:00', true),
+(5, 12, 6, 93, '{"final_score": 93, "time_taken": 87}', '2024-09-07 14:40:00', true),
 
--- Sea's results
-(6, 1, 94, 100, '{"vocabulary_score": 94, "time_taken": 36}', '2024-06-23 12:10:00', true),
-(6, 2, 86, 100, '{"grammar_score": 86, "time_taken": 40}', '2024-07-08 16:15:00', true),
-(6, 3, 88, 100, '{"reading_score": 88, "time_taken": 71}', '2024-07-28 08:30:00', true),
-(6, 4, 79, 100, '{"writing_score": 79, "time_taken": 118}', '2024-08-19 17:45:00', true),
-(6, 5, 90, 100, '{"final_score": 90, "time_taken": 91}', '2024-09-08 10:20:00', true),
+-- Pupha's results (Grade 6)
+(6, 8, 6, 94, '{"vocabulary_score": 94, "time_taken": 36}', '2024-06-23 12:10:00', true),
+(6, 9, 6, 86, '{"grammar_score": 86, "time_taken": 40}', '2024-07-08 16:15:00', true),
+(6, 10, 6, 88, '{"reading_score": 88, "time_taken": 71}', '2024-07-28 08:30:00', true),
+(6, 11, 6, 79, '{"writing_score": 79, "time_taken": 118}', '2024-08-19 17:45:00', true),
+(6, 12, 6, 90, '{"final_score": 90, "time_taken": 91}', '2024-09-08 10:20:00', true),
 
--- Chirew's results
-(7, 1, 89, 100, '{"vocabulary_score": 89, "time_taken": 41}', '2024-06-24 15:40:00', true),
-(7, 2, 94, 100, '{"grammar_score": 94, "time_taken": 31}', '2024-07-09 11:25:00', true),
-(7, 3, 85, 100, '{"reading_score": 85, "time_taken": 76}', '2024-07-29 14:50:00', true),
-(7, 4, 93, 100, '{"writing_score": 93, "time_taken": 96}', '2024-08-20 12:15:00', true),
-(7, 5, 97, 100, '{"final_score": 97, "time_taken": 78}', '2024-09-09 13:30:00', true),
+-- Oil's results (Grade 6)
+(7, 8, 6, 89, '{"vocabulary_score": 89, "time_taken": 41}', '2024-06-24 15:40:00', true),
+(7, 9, 6, 94, '{"grammar_score": 94, "time_taken": 31}', '2024-07-09 11:25:00', true),
+(7, 10, 6, 85, '{"reading_score": 85, "time_taken": 76}', '2024-07-29 14:50:00', true),
+(7, 11, 6, 93, '{"writing_score": 93, "time_taken": 96}', '2024-08-20 12:15:00', true),
+(7, 12, 6, 97, '{"final_score": 97, "time_taken": 78}', '2024-09-09 13:30:00', true),
 
--- Rose's results
-(8, 1, 83, 100, '{"vocabulary_score": 83, "time_taken": 49}', '2024-06-25 09:15:00', true),
-(8, 2, 90, 100, '{"grammar_score": 90, "time_taken": 34}', '2024-07-10 15:35:00', true),
-(8, 3, 92, 100, '{"reading_score": 92, "time_taken": 67}', '2024-07-30 10:45:00', true),
-(8, 4, 86, 100, '{"writing_score": 86, "time_taken": 107}', '2024-08-21 16:20:00', true),
-(8, 5, 88, 100, '{"final_score": 88, "time_taken": 94}', '2024-09-10 11:55:00', true)
+-- Gift's results (Grade 6)
+(8, 8, 6, 83, '{"vocabulary_score": 83, "time_taken": 49}', '2024-06-25 09:15:00', true),
+(8, 9, 6, 90, '{"grammar_score": 90, "time_taken": 34}', '2024-07-10 15:35:00', true),
+(8, 10, 6, 92, '{"reading_score": 92, "time_taken": 67}', '2024-07-30 10:45:00', true),
+(8, 11, 6, 86, '{"writing_score": 86, "time_taken": 107}', '2024-08-21 16:20:00', true),
+(8, 12, 6, 88, '{"final_score": 88, "time_taken": 94}', '2024-09-10 11:55:00', true)
 ON CONFLICT DO NOTHING;
+
+-- Create test visibility table for admin controls
+CREATE TABLE IF NOT EXISTS test_visibility (
+    id SERIAL PRIMARY KEY,
+    test_id VARCHAR(50) UNIQUE NOT NULL,
+    is_visible BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default test visibility settings (all tests initially hidden)
+INSERT INTO test_visibility (test_id, is_visible) VALUES
+('grade1-listening', false),
+('grade2-listening', false),
+('grade2-vocabulary', false),
+('grade3-listening', false),
+('grade3-vocabulary', false),
+('grade4-vocabulary', false),
+('grade5-vocabulary', false),
+('grade6-vocabulary', false),
+('grade6-grammar', false),
+('grade6-reading', false),
+('grade6-writing', false),
+('grade6-final', false)
+ON CONFLICT (test_id) DO NOTHING;

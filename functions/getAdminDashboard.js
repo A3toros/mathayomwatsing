@@ -1,4 +1,4 @@
-import { Client } from "pg";
+const { Client } = require("pg");
 
 function isAuthorized(headers) {
   const auth = headers["authorization"] || headers["Authorization"] || "";
@@ -15,7 +15,7 @@ function isAuthorized(headers) {
   }
 }
 
-export async function handler(event) {
+exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
