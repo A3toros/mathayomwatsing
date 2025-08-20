@@ -13,30 +13,56 @@ exports.handler = async (event) => {
   try {
     await client.connect();
 
-    const dbInfo = await client.query("select current_database() as db, current_user as user");
-    const usersCount = await client.query("SELECT COUNT(*)::int AS count FROM users");
-    let grade6Count = { rows: [{ count: 0 }] };
+    // Check if tables exist and have data
+    const tables = ['users', 'grade_1', 'grade_2', 'grade_3', 'grade_4', 'grade_5', 'grade_6', 'test_results'];
+    const results = {};
+
+    for (const table of tables) {
+      try {
+        const result = await client.query(`SELECT COUNT(*) as count FROM ${table}`);
+        results[table] = result.rows[0].count;
+      } catch (e) {
+        results[table] = `Error: ${e.message}`;
+      }
+    }
+
+    // Check specific student data
+    let sampleStudents = [];
     try {
-      grade6Count = await client.query("SELECT COUNT(*)::int AS count FROM grade_6");
-    } catch (e) {}
+      const studentResult = await client.query(`
+        SELECT username, nickname, student_id, grade_level, class_name 
+        FROM users 
+        LIMIT 5
+      `);
+      sampleStudents = studentResult.rows;
+    } catch (e) {
+      sampleStudents = `Error: ${e.message}`;
+    }
+
+    await client.end();
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        database: dbInfo.rows[0].db,
-        db_user: dbInfo.rows[0].user,
-        counts: {
-          users: usersCount.rows[0].count,
-          grade_6: grade6Count.rows[0].count
-        }
+        tableCounts: results,
+        sampleStudents: sampleStudents,
+        message: "Database debug information"
       })
     };
-  } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ success: false, error: e.message }) };
-  } finally {
+
+  } catch (error) {
+    console.error('Database debug error:', error);
     try { await client.end(); } catch {}
+    
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        success: false,
+        error: error.message
+      })
+    };
   }
-}
+};
 
 

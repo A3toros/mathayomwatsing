@@ -18,15 +18,32 @@
             <form id="loginForm" class="login-form">
                 <div class="form-group">
                     <label for="username">Username (Nickname):</label>
-                    <input type="text" id="username" name="username" required placeholder="Enter your nickname">
+                    <input type="text" id="username" name="username" placeholder="Enter your nickname" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password (Student ID):</label>
-                    <input type="password" id="password" name="password" required placeholder="Enter your Student ID">
+                    <input type="password" id="password" name="password" placeholder="Enter your student ID" required>
                 </div>
-                <button type="submit" class="login-btn">Login to Personal Cabinet</button>
+                <button type="submit">Login</button>
             </form>
-            <div id="login-status" class="login-status"></div>
+            <div id="login-status" class="status"></div>
+        </section>
+
+        <!-- Admin Login Section -->
+        <section id="admin-login-section" class="admin-login-section" style="margin-top: 30px; padding: 20px; border-top: 1px solid #eee;">
+            <h3 style="text-align: center; color: #666; margin-bottom: 20px;">Administrator Access</h3>
+            <form id="adminLoginForm" class="admin-login-form" style="max-width: 300px; margin: 0 auto;">
+                <div class="form-group">
+                    <label for="admin-username">Admin Username:</label>
+                    <input type="text" id="admin-username" name="admin-username" placeholder="admin" value="admin" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-password">Admin Password:</label>
+                    <input type="password" id="admin-password" name="admin-password" placeholder="Enter admin password" required>
+                </div>
+                <button type="submit" style="width: 100%;">Access Admin Panel</button>
+            </form>
+            <div id="admin-login-status" class="status"></div>
         </section>
 
         <!-- Welcome Section (Hidden until login) -->

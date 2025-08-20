@@ -5,6 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Control Panel</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .grade-tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .grade-tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: #f5f5f5;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+        }
+        .grade-tab.active {
+            background: #007bff;
+            color: white;
+        }
+        .class-tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .class-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: #e9ecef;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        .class-tab.active {
+            background: #28a745;
+            color: white;
+        }
+        .grade-content {
+            display: none;
+        }
+        .grade-content.active {
+            display: block;
+        }
+        .students-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .students-table th,
+        .students-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .students-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        .students-table th[colspan] {
+            background-color: #e9ecef;
+            font-weight: bold;
+            color: #495057;
+        }
+        .students-table th[rowspan] {
+            background-color: #f8f9fa;
+            vertical-align: middle;
+        }
+        .test-score {
+            text-align: center;
+            font-weight: bold;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        .term-header {
+            background-color: #007bff !important;
+            color: white !important;
+            font-weight: bold;
+        }
+        .total-header {
+            background-color: #28a745 !important;
+            color: white !important;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -27,106 +116,318 @@
         </section>
 
         <section id="admin-dashboard" style="display:none;">
-            <h2>Admin Dashboard</h2>
+            <h2>Student Progress Dashboard</h2>
             
+            <!-- Grade Tabs -->
+            <div class="grade-tabs">
+                <button class="grade-tab active" data-grade="1">Grade 1 (M1)</button>
+                <button class="grade-tab" data-grade="2">Grade 2 (M2)</button>
+                <button class="grade-tab" data-grade="3">Grade 3 (M3)</button>
+                <button class="grade-tab" data-grade="4">Grade 4 (M4)</button>
+                <button class="grade-tab" data-grade="5">Grade 5 (M5)</button>
+                <button class="grade-tab" data-grade="6">Grade 6 (M6)</button>
+            </div>
+
+            <!-- Grade 1 Content -->
+            <div id="grade-1-content" class="grade-content active">
+                <div class="class-tabs">
+                    <button class="class-tab active" data-class="1/15">Class 1/15</button>
+                    <button class="class-tab" data-class="1/16">Class 1/16</button>
+                </div>
+                <div id="grade-1-table-container"></div>
+            </div>
+
+            <!-- Grade 2 Content -->
+            <div id="grade-2-content" class="grade-content">
+                <div class="class-tabs">
+                    <button class="class-tab active" data-class="2/15">Class 2/15</button>
+                    <button class="class-tab" data-class="2/16">Class 2/16</button>
+                </div>
+                <div id="grade-2-table-container"></div>
+            </div>
+
+            <!-- Grade 3 Content -->
+            <div id="grade-3-content" class="grade-content">
+                <div class="class-tabs">
+                    <button class="class-tab active" data-class="3/15">Class 3/15</button>
+                    <button class="class-tab" data-class="3/16">Class 3/16</button>
+                </div>
+                <div id="grade-3-table-container"></div>
+            </div>
+
+            <!-- Grade 4 Content -->
+            <div id="grade-4-content" class="grade-content">
+                <div id="grade-4-table-container"></div>
+            </div>
+
+            <!-- Grade 5 Content -->
+            <div id="grade-5-content" class="grade-content">
+                <div id="grade-5-table-container"></div>
+            </div>
+
+            <!-- Grade 6 Content -->
+            <div id="grade-6-content" class="grade-content">
+                <div id="grade-6-table-container"></div>
+            </div>
+
             <!-- Test Visibility Controls -->
-            <section id="test-controls" class="admin-section">
+            <section id="test-controls" class="admin-section" style="margin-top: 40px;">
                 <h3>Test Visibility Controls</h3>
                 <div class="test-controls-grid">
                     <div class="test-control-group">
-                        <h4>Grade 1 Tests</h4>
+                        <h4>Grade 1 (M1) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade1-listening" data-test="listening_test_m1" data-grade="1">
-                            Listening Test M1
+                            <input type="checkbox" id="grade1-term1-test1" data-test="listening_test_m1" data-grade="1" data-term="1" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term1-test2" data-test="grade1_test2" data-grade="1" data-term="1" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term1-test3" data-test="grade1_test3" data-grade="1" data-term="1" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term1-test4" data-test="grade1_test4" data-grade="1" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 1 (M1) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term2-test1" data-test="grade1_term2_test1" data-grade="1" data-term="2" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term2-test2" data-test="grade1_term2_test2" data-grade="1" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term2-test3" data-test="grade1_term2_test3" data-grade="1" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term2-test4" data-test="grade1_term2_test4" data-grade="1" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-term2-test5" data-test="grade1_term2_test5" data-grade="1" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                     
                     <div class="test-control-group">
-                        <h4>Grade 2 Tests</h4>
+                        <h4>Grade 2 (M2) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade2-listening" data-test="listening_test_m2" data-grade="2">
-                            Listening Test M2
+                            <input type="checkbox" id="grade2-term1-test1" data-test="vocabulary_test_m2" data-grade="2" data-term="1" data-points="10">
+                            Test 1 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade2-vocabulary" data-test="vocabulary_test_m2" data-grade="2">
-                            Vocabulary Test M2
+                            <input type="checkbox" id="grade2-term1-test2" data-test="grade2_test2" data-grade="2" data-term="1" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term1-test3" data-test="grade2_test3" data-grade="2" data-term="1" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term1-test4" data-test="grade2_test4" data-grade="2" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 2 (M2) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term2-test1" data-test="grade2_term2_test1" data-grade="2" data-term="2" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term2-test2" data-test="grade2_term2_test2" data-grade="2" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term2-test3" data-test="grade2_term2_test3" data-grade="2" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term2-test4" data-test="grade2_term2_test4" data-grade="2" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-term2-test5" data-test="grade2_term2_test5" data-grade="2" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                     
                     <div class="test-control-group">
-                        <h4>Grade 3 Tests</h4>
+                        <h4>Grade 3 (M3) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade3-listening" data-test="listening_test_m3" data-grade="3">
-                            Listening Test M3
+                            <input type="checkbox" id="grade3-term1-test1" data-test="vocabulary_test_m3" data-grade="3" data-term="1" data-points="10">
+                            Test 1 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade3-vocabulary" data-test="vocabulary_test_m3" data-grade="3">
-                            Vocabulary Test M3
+                            <input type="checkbox" id="grade3-term1-test2" data-test="grade3_test2" data-grade="3" data-term="1" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term1-test3" data-test="grade3_test3" data-grade="3" data-term="1" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term1-test4" data-test="grade3_test4" data-grade="3" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 3 (M3) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term2-test1" data-test="grade3_term2_test1" data-grade="3" data-term="2" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term2-test2" data-test="grade3_term2_test2" data-grade="3" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term2-test3" data-test="grade3_term2_test3" data-grade="3" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term2-test4" data-test="grade3_term2_test4" data-grade="3" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-term2-test5" data-test="grade3_term2_test5" data-grade="3" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                     
                     <div class="test-control-group">
-                        <h4>Grade 4 Tests</h4>
+                        <h4>Grade 4 (M4) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade4-vocabulary" data-test="vocabulary_test_m4" data-grade="4">
-                            Vocabulary Test M4
+                            <input type="checkbox" id="grade4-term1-test1" data-test="vocabulary_test_m4" data-grade="4" data-term="1" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term1-test2" data-test="grade4_test2" data-grade="4" data-term="1" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term1-test3" data-test="grade4_test3" data-grade="4" data-term="1" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term1-test4" data-test="grade4_test4" data-grade="4" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 4 (M4) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term2-test1" data-test="grade4_term2_test1" data-grade="4" data-term="2" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term2-test2" data-test="grade4_term2_test2" data-grade="4" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term2-test3" data-test="grade4_term2_test3" data-grade="4" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term2-test4" data-test="grade4_term2_test4" data-grade="4" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-term2-test5" data-test="grade4_term2_test5" data-grade="4" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                     
                     <div class="test-control-group">
-                        <h4>Grade 5 Tests</h4>
+                        <h4>Grade 5 (M5) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade5-vocabulary" data-test="vocabulary_test_m5" data-grade="5">
-                            Vocabulary Test M5
+                            <input type="checkbox" id="grade5-term1-test1" data-test="vocabulary_test_m5" data-grade="5" data-term="1" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term1-test2" data-test="grade5_test2" data-grade="5" data-term="1" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term1-test3" data-test="grade5_test3" data-grade="5" data-term="1" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term1-test4" data-test="grade5_test4" data-grade="5" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 5 (M5) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term2-test1" data-test="grade5_term2_test1" data-grade="5" data-term="2" data-points="10">
+                            Test 1 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term2-test2" data-test="grade5_term2_test2" data-grade="5" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term2-test3" data-test="grade5_term2_test3" data-grade="5" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term2-test4" data-test="grade5_term2_test4" data-grade="5" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-term2-test5" data-test="grade5_term2_test5" data-grade="5" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                     
                     <div class="test-control-group">
-                        <h4>Grade 6 Tests</h4>
+                        <h4>Grade 6 (M6) - Term 1</h4>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade6-vocabulary" data-test="vocabulary_test_m6" data-grade="6">
-                            Vocabulary Test M6
+                            <input type="checkbox" id="grade6-term1-test1" data-test="vocabulary_test_m6" data-grade="6" data-term="1" data-points="10">
+                            Test 1 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade6-grammar" data-test="grammar-test" data-grade="6">
-                            Grammar Test
+                            <input type="checkbox" id="grade6-term1-test2" data-test="grade6_test2" data-grade="6" data-term="1" data-points="10">
+                            Test 2 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade6-reading" data-test="reading-comprehension" data-grade="6">
-                            Reading Comprehension
+                            <input type="checkbox" id="grade6-term1-test3" data-test="grade6_test3" data-grade="6" data-term="1" data-points="10">
+                            Test 3 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade6-writing" data-test="writing-assignment" data-grade="6">
-                            Writing Assignment
+                            <input type="checkbox" id="grade6-term1-test4" data-test="grade6_test4" data-grade="6" data-term="1" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <h4>Grade 6 (M6) - Term 2</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-term2-test1" data-test="grade6_term2_test1" data-grade="6" data-term="2" data-points="10">
+                            Test 1 (10 points)
                         </label>
                         <label class="test-toggle">
-                            <input type="checkbox" id="grade6-final" data-test="final-exam" data-grade="6">
-                            Final Exam
+                            <input type="checkbox" id="grade6-term2-test2" data-test="grade6_term2_test2" data-grade="6" data-term="2" data-points="10">
+                            Test 2 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-term2-test3" data-test="grade6_term2_test3" data-grade="6" data-term="2" data-points="10">
+                            Test 3 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-term2-test4" data-test="grade6_term2_test4" data-grade="6" data-term="2" data-points="10">
+                            Test 4 (10 points)
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-term2-test5" data-test="grade6_term2_test5" data-grade="6" data-term="2" data-points="20">
+                            Test 5 (20 points)
                         </label>
                     </div>
                 </div>
-                <button id="save-test-visibility" class="admin-btn">Save Test Visibility</button>
-            </section>
-            
-            <!-- Students Progress Section -->
-            <section id="students-progress" class="admin-section">
-                <h3>Students Progress</h3>
-                <div class="form-group">
-                    <input type="text" id="search" placeholder="Search by name, class, student_id...">
-                </div>
-                <div id="stats" class="status"></div>
-                <div id="students-table"></div>
+                <button id="save-test-visibility" class="admin-btn">Save Visibility</button>
+                <div id="test-visibility-status" class="status"></div>
             </section>
         </section>
     </div>
 
     <script src="admin.js"></script>
-    <script>
-        // Optional: pre-fill default password for quick testing
-        // document.getElementById('admin-password').value = 'BigusDickus';
-    </script>
 </body>
-export default ''
 </html>
 
 

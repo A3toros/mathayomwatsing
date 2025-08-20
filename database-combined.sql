@@ -120,21 +120,95 @@ CREATE TABLE IF NOT EXISTS terms (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 CREATE TABLE IF NOT EXISTS tests (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    term_id INTEGER REFERENCES terms(id) ON DELETE CASCADE,
-    test_type VARCHAR(20) NOT NULL CHECK (test_type IN ('online','offline')) DEFAULT 'online',
-    test_url VARCHAR(500),
-    max_score INTEGER DEFAULT 10,
-    duration_minutes INTEGER,
     grade_level INTEGER NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    start_date TIMESTAMP,
-    end_date TIMESTAMP,
+    term INTEGER NOT NULL,
+    test_number INTEGER NOT NULL,
+    max_score INTEGER NOT NULL,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(1, 'Term 1 Test 1', 'Grade 1 Term 1 Test 1', 1, 1, 1, 10),
+(2, 'Term 1 Test 2', 'Grade 1 Term 1 Test 2', 1, 1, 2, 10),
+(3, 'Term 1 Test 3', 'Grade 1 Term 1 Test 3', 1, 1, 3, 10),
+(4, 'Term 1 Test 4', 'Grade 1 Term 1 Test 4', 1, 1, 4, 10),
+(5, 'Term 2 Test 1', 'Grade 1 Term 2 Test 1', 1, 2, 1, 10),
+(6, 'Term 2 Test 2', 'Grade 1 Term 2 Test 2', 1, 2, 2, 10),
+(7, 'Term 2 Test 3', 'Grade 1 Term 2 Test 3', 1, 2, 3, 10),
+(8, 'Term 2 Test 4', 'Grade 1 Term 2 Test 4', 1, 2, 4, 10),
+(9, 'Term 2 Test 5', 'Grade 1 Term 2 Test 5', 1, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(11, 'Term 1 Test 1', 'Grade 2 Term 1 Test 1', 2, 1, 1, 10),
+(12, 'Term 1 Test 2', 'Grade 2 Term 1 Test 2', 2, 1, 2, 10),
+(13, 'Term 1 Test 3', 'Grade 2 Term 1 Test 3', 2, 1, 3, 10),
+(14, 'Term 1 Test 4', 'Grade 2 Term 1 Test 4', 2, 1, 4, 10),
+(15, 'Term 2 Test 1', 'Grade 2 Term 2 Test 1', 2, 2, 1, 10),
+(16, 'Term 2 Test 2', 'Grade 2 Term 2 Test 2', 2, 2, 2, 10),
+(17, 'Term 2 Test 3', 'Grade 2 Term 2 Test 3', 2, 2, 3, 10),
+(18, 'Term 2 Test 4', 'Grade 2 Term 2 Test 4', 2, 2, 4, 10),
+(19, 'Term 2 Test 5', 'Grade 2 Term 2 Test 5', 2, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
+
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(21, 'Term 1 Test 1', 'Grade 3 Term 1 Test 1', 3, 1, 1, 10),
+(22, 'Term 1 Test 2', 'Grade 3 Term 1 Test 2', 3, 1, 2, 10),
+(23, 'Term 1 Test 3', 'Grade 3 Term 1 Test 3', 3, 1, 3, 10),
+(24, 'Term 1 Test 4', 'Grade 3 Term 1 Test 4', 3, 1, 4, 10),
+(25, 'Term 2 Test 1', 'Grade 3 Term 2 Test 1', 3, 2, 1, 10),
+(26, 'Term 2 Test 2', 'Grade 3 Term 2 Test 2', 3, 2, 2, 10),
+(27, 'Term 2 Test 3', 'Grade 3 Term 2 Test 3', 3, 2, 3, 10),
+(28, 'Term 2 Test 4', 'Grade 3 Term 2 Test 4', 3, 2, 4, 10),
+(29, 'Term 2 Test 5', 'Grade 3 Term 2 Test 5', 3, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
+
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(31, 'Term 1 Test 1', 'Grade 4 Term 1 Test 1', 4, 1, 1, 10),
+(32, 'Term 1 Test 2', 'Grade 4 Term 1 Test 2', 4, 1, 2, 10),
+(33, 'Term 1 Test 3', 'Grade 4 Term 1 Test 3', 4, 1, 3, 10),
+(34, 'Term 1 Test 4', 'Grade 4 Term 1 Test 4', 4, 1, 4, 10),
+(35, 'Term 2 Test 1', 'Grade 4 Term 2 Test 1', 4, 2, 1, 10),
+(36, 'Term 2 Test 2', 'Grade 4 Term 2 Test 2', 4, 2, 2, 10),
+(37, 'Term 2 Test 3', 'Grade 4 Term 2 Test 3', 4, 2, 3, 10),
+(38, 'Term 2 Test 4', 'Grade 4 Term 2 Test 4', 4, 2, 4, 10),
+(39, 'Term 2 Test 5', 'Grade 4 Term 2 Test 5', 4, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
+
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(41, 'Term 1 Test 1', 'Grade 5 Term 1 Test 1', 5, 1, 1, 10),
+(42, 'Term 1 Test 2', 'Grade 5 Term 1 Test 2', 5, 1, 2, 10),
+(43, 'Term 1 Test 3', 'Grade 5 Term 1 Test 3', 5, 1, 3, 10),
+(44, 'Term 1 Test 4', 'Grade 5 Term 1 Test 4', 5, 1, 4, 10),
+(45, 'Term 2 Test 1', 'Grade 5 Term 2 Test 1', 5, 2, 1, 10),
+(46, 'Term 2 Test 2', 'Grade 5 Term 2 Test 2', 5, 2, 2, 10),
+(47, 'Term 2 Test 3', 'Grade 5 Term 2 Test 3', 5, 2, 3, 10),
+(48, 'Term 2 Test 4', 'Grade 5 Term 2 Test 4', 5, 2, 4, 10),
+(49, 'Term 2 Test 5', 'Grade 5 Term 2 Test 5', 5, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
+
+
+INSERT INTO tests (id, name, description, grade_level, term, test_number, max_score) VALUES
+(51, 'Term 1 Test 1', 'Grade 6 Term 1 Test 1', 6, 1, 1, 10),
+(52, 'Term 1 Test 2', 'Grade 6 Term 1 Test 2', 6, 1, 2, 10),
+(53, 'Term 1 Test 3', 'Grade 6 Term 1 Test 3', 6, 1, 3, 10),
+(54, 'Term 1 Test 4', 'Grade 6 Term 1 Test 4', 6, 1, 4, 10),
+(55, 'Term 2 Test 1', 'Grade 6 Term 2 Test 1', 6, 2, 1, 10),
+(56, 'Term 2 Test 2', 'Grade 6 Term 2 Test 2', 6, 2, 2, 10),
+(57, 'Term 2 Test 3', 'Grade 6 Term 2 Test 3', 6, 2, 3, 10),
+(58, 'Term 2 Test 4', 'Grade 6 Term 2 Test 4', 6, 2, 4, 10),
+(59, 'Term 2 Test 5', 'Grade 6 Term 2 Test 5', 6, 2, 5, 20)
+ON CONFLICT (id) DO NOTHING;
 
 
 CREATE TABLE IF NOT EXISTS test_assignments (
@@ -471,58 +545,57 @@ ORDER BY grade;
 SELECT COUNT(*) as total_users FROM users;
 SELECT username, student_id, grade_level, class_name FROM users LIMIT 10;
 
--- Insert test results with random data for grade 6 students
 INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitted_at, completed) VALUES
--- Munich's results (Grade 6)
+
 (1, 8, 6, 92, '{"vocabulary_score": 92, "time_taken": 42}', '2024-06-18 14:25:00', true),
 (1, 9, 6, 85, '{"grammar_score": 85, "time_taken": 38}', '2024-07-02 11:15:00', true),
 (1, 10, 6, 89, '{"reading_score": 89, "time_taken": 72}', '2024-07-22 16:40:00', true),
 (1, 11, 6, 78, '{"writing_score": 78, "time_taken": 108}', '2024-08-12 13:30:00', true),
 (1, 12, 6, 91, '{"final_score": 91, "time_taken": 88}', '2024-09-03 09:45:00', true),
 
--- Bright's results (Grade 6)
+
 (2, 8, 6, 88, '{"vocabulary_score": 88, "time_taken": 47}', '2024-06-20 10:30:00', true),
 (2, 9, 6, 93, '{"grammar_score": 93, "time_taken": 35}', '2024-07-05 15:20:00', true),
 (2, 10, 6, 76, '{"reading_score": 76, "time_taken": 81}', '2024-07-25 12:15:00', true),
 (2, 11, 6, 87, '{"writing_score": 87, "time_taken": 104}', '2024-08-15 14:50:00', true),
 (2, 12, 6, 84, '{"final_score": 84, "time_taken": 95}', '2024-09-06 11:20:00', true),
 
--- Don's results (Grade 6)
+
 (3, 8, 6, 95, '{"vocabulary_score": 95, "time_taken": 33}', '2024-06-19 13:45:00', true),
 (3, 9, 6, 79, '{"grammar_score": 79, "time_taken": 44}', '2024-07-03 09:10:00', true),
 (3, 10, 6, 91, '{"reading_score": 91, "time_taken": 68}', '2024-07-24 17:25:00', true),
 (3, 11, 6, 82, '{"writing_score": 82, "time_taken": 115}', '2024-08-16 10:40:00', true),
 (3, 12, 6, 89, '{"final_score": 89, "time_taken": 92}', '2024-09-04 16:15:00', true),
 
--- Dollar's results (Grade 6)
+
 (4, 8, 6, 81, '{"vocabulary_score": 81, "time_taken": 51}', '2024-06-21 08:55:00', true),
 (4, 9, 6, 88, '{"grammar_score": 88, "time_taken": 37}', '2024-07-06 14:30:00', true),
 (4, 10, 6, 83, '{"reading_score": 83, "time_taken": 75}', '2024-07-26 11:20:00', true),
 (4, 11, 6, 90, '{"writing_score": 90, "time_taken": 99}', '2024-08-17 15:10:00', true),
 (4, 12, 6, 86, '{"final_score": 86, "time_taken": 89}', '2024-09-05 12:35:00', true),
 
--- Tonmai's results (Grade 6)
+
 (5, 8, 6, 87, '{"vocabulary_score": 87, "time_taken": 45}', '2024-06-22 16:20:00', true),
 (5, 9, 6, 91, '{"grammar_score": 91, "time_taken": 32}', '2024-07-07 10:45:00', true),
 (5, 10, 6, 77, '{"reading_score": 77, "time_taken": 79}', '2024-07-27 13:55:00', true),
 (5, 11, 6, 85, '{"writing_score": 85, "time_taken": 111}', '2024-08-18 09:25:00', true),
 (5, 12, 6, 93, '{"final_score": 93, "time_taken": 87}', '2024-09-07 14:40:00', true),
 
--- Pupha's results (Grade 6)
+
 (6, 8, 6, 94, '{"vocabulary_score": 94, "time_taken": 36}', '2024-06-23 12:10:00', true),
 (6, 9, 6, 86, '{"grammar_score": 86, "time_taken": 40}', '2024-07-08 16:15:00', true),
 (6, 10, 6, 88, '{"reading_score": 88, "time_taken": 71}', '2024-07-28 08:30:00', true),
 (6, 11, 6, 79, '{"writing_score": 79, "time_taken": 118}', '2024-08-19 17:45:00', true),
 (6, 12, 6, 90, '{"final_score": 90, "time_taken": 91}', '2024-09-08 10:20:00', true),
 
--- Oil's results (Grade 6)
+
 (7, 8, 6, 89, '{"vocabulary_score": 89, "time_taken": 41}', '2024-06-24 15:40:00', true),
 (7, 9, 6, 94, '{"grammar_score": 94, "time_taken": 31}', '2024-07-09 11:25:00', true),
 (7, 10, 6, 85, '{"reading_score": 85, "time_taken": 76}', '2024-07-29 14:50:00', true),
 (7, 11, 6, 93, '{"writing_score": 93, "time_taken": 96}', '2024-08-20 12:15:00', true),
 (7, 12, 6, 97, '{"final_score": 97, "time_taken": 78}', '2024-09-09 13:30:00', true),
 
--- Gift's results (Grade 6)
+
 (8, 8, 6, 83, '{"vocabulary_score": 83, "time_taken": 49}', '2024-06-25 09:15:00', true),
 (8, 9, 6, 90, '{"grammar_score": 90, "time_taken": 34}', '2024-07-10 15:35:00', true),
 (8, 10, 6, 92, '{"reading_score": 92, "time_taken": 67}', '2024-07-30 10:45:00', true),
@@ -530,7 +603,54 @@ INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitt
 (8, 12, 6, 88, '{"final_score": 88, "time_taken": 94}', '2024-09-10 11:55:00', true)
 ON CONFLICT DO NOTHING;
 
--- Create test visibility table for admin controls
+
+INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitted_at, completed) VALUES
+
+(1, 51, 6, 9, '{"term1_test1_score": 9, "time_taken": 25}', '2024-06-18 14:25:00', true),
+(1, 52, 6, 8, '{"term1_test2_score": 8, "time_taken": 30}', '2024-06-25 11:15:00', true),
+(1, 53, 6, 10, '{"term1_test3_score": 10, "time_taken": 28}', '2024-07-02 16:40:00', true),
+(1, 54, 6, 7, '{"term1_test4_score": 7, "time_taken": 32}', '2024-07-09 13:30:00', true),
+(1, 55, 6, 9, '{"term2_test1_score": 9, "time_taken": 26}', '2024-08-15 09:45:00', true),
+(1, 56, 6, 8, '{"term2_test2_score": 8, "time_taken": 29}', '2024-08-22 14:20:00', true),
+(1, 57, 6, 10, '{"term2_test3_score": 10, "time_taken": 27}', '2024-08-29 11:10:00', true),
+(1, 58, 6, 9, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 15:35:00', true),
+(1, 59, 6, 18, '{"term2_test5_score": 18, "time_taken": 45}', '2024-09-12 10:15:00', true),
+
+-- Bright's results (Grade 6)
+(2, 51, 6, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-18 15:30:00', true),
+(2, 52, 6, 9, '{"term1_test2_score": 9, "time_taken": 28}', '2024-06-25 12:45:00', true),
+(2, 53, 6, 8, '{"term1_test3_score": 8, "time_taken": 30}', '2024-07-02 17:20:00', true),
+(2, 54, 6, 10, '{"term1_test4_score": 10, "time_taken": 25}', '2024-07-09 14:15:00', true),
+(2, 55, 6, 10, '{"term2_test1_score": 10, "time_taken": 24}', '2024-08-15 10:30:00', true),
+(2, 56, 6, 9, '{"term2_test2_score": 9, "time_taken": 27}', '2024-08-22 15:45:00', true),
+(2, 57, 6, 8, '{"term2_test3_score": 8, "time_taken": 32}', '2024-08-29 12:20:00', true),
+(2, 58, 6, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-05 16:10:00', true),
+(2, 59, 6, 19, '{"term2_test5_score": 19, "time_taken": 42}', '2024-09-12 11:25:00', true),
+
+-- Don's results (Grade 6)
+(3, 51, 6, 7, '{"term1_test1_score": 7, "time_taken": 35}', '2024-06-18 16:15:00', true),
+(3, 52, 6, 6, '{"term1_test2_score": 6, "time_taken": 38}', '2024-06-25 13:30:00', true),
+(3, 53, 6, 8, '{"term1_test3_score": 8, "time_taken": 33}', '2024-07-02 18:45:00', true),
+(3, 54, 6, 7, '{"term1_test4_score": 7, "time_taken": 36}', '2024-07-09 15:20:00', true),
+(3, 55, 6, 8, '{"term2_test1_score": 8, "time_taken": 34}', '2024-08-15 11:15:00', true),
+(3, 56, 6, 7, '{"term2_test2_score": 7, "time_taken": 37}', '2024-08-22 16:30:00', true),
+(3, 57, 6, 9, '{"term2_test3_score": 9, "time_taken": 31}', '2024-08-29 13:45:00', true),
+(3, 58, 6, 8, '{"term2_test4_score": 8, "time_taken": 35}', '2024-09-05 17:20:00', true),
+(3, 59, 6, 16, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-12 12:15:00', true),
+
+-- Dollar's results (Grade 6)
+(4, 51, 6, 9, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-18 17:00:00', true),
+(4, 52, 6, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-25 14:15:00', true),
+(4, 53, 6, 9, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-02 19:30:00', true),
+(4, 54, 6, 8, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-09 16:45:00', true),
+(4, 55, 6, 9, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-15 12:00:00', true),
+(4, 56, 6, 10, '{"term2_test2_score": 10, "time_taken": 25}', '2024-08-22 17:15:00', true),
+(4, 57, 6, 9, '{"term2_test3_score": 9, "time_taken": 29}', '2024-08-29 14:30:00', true),
+(4, 58, 6, 9, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 18:45:00', true),
+(4, 59, 6, 17, '{"term2_test5_score": 17, "time_taken": 44}', '2024-09-12 13:00:00', true)
+ON CONFLICT DO NOTHING;
+
+
 CREATE TABLE IF NOT EXISTS test_visibility (
     id SERIAL PRIMARY KEY,
     test_id VARCHAR(50) UNIQUE NOT NULL,
@@ -539,18 +659,77 @@ CREATE TABLE IF NOT EXISTS test_visibility (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default test visibility settings (all tests initially hidden)
+-- Insert test visibility settings for all tests
 INSERT INTO test_visibility (test_id, is_visible) VALUES
-('grade1-listening', false),
-('grade2-listening', false),
-('grade2-vocabulary', false),
-('grade3-listening', false),
-('grade3-vocabulary', false),
-('grade4-vocabulary', false),
-('grade5-vocabulary', false),
-('grade6-vocabulary', false),
-('grade6-grammar', false),
-('grade6-reading', false),
-('grade6-writing', false),
-('grade6-final', false)
+-- Grade 1 (M1) - Term 1
+('grade1-term1-test1', false),
+('grade1-term1-test2', false),
+('grade1-term1-test3', false),
+('grade1-term1-test4', false),
+-- Grade 1 (M1) - Term 2
+('grade1-term2-test1', false),
+('grade1-term2-test2', false),
+('grade1-term2-test3', false),
+('grade1-term2-test4', false),
+('grade1-term2-test5', false),
+
+-- Grade 2 (M2) - Term 1
+('grade2-term1-test1', false),
+('grade2-term1-test2', false),
+('grade2-term1-test3', false),
+('grade2-term1-test4', false),
+-- Grade 2 (M2) - Term 2
+('grade2-term2-test1', false),
+('grade2-term2-test2', false),
+('grade2-term2-test3', false),
+('grade2-term2-test4', false),
+('grade2-term2-test5', false),
+
+-- Grade 3 (M3) - Term 1
+('grade3-term1-test1', false),
+('grade3-term1-test2', false),
+('grade3-term1-test3', false),
+('grade3-term1-test4', false),
+-- Grade 3 (M3) - Term 2
+('grade3-term2-test1', false),
+('grade3-term2-test2', false),
+('grade3-term2-test3', false),
+('grade3-term2-test4', false),
+('grade3-term2-test5', false),
+
+-- Grade 4 (M4) - Term 1
+('grade4-term1-test1', false),
+('grade4-term1-test2', false),
+('grade4-term1-test3', false),
+('grade4-term1-test4', false),
+-- Grade 4 (M4) - Term 2
+('grade4-term2-test1', false),
+('grade4-term2-test2', false),
+('grade4-term2-test3', false),
+('grade4-term2-test4', false),
+('grade4-term2-test5', false),
+
+-- Grade 5 (M5) - Term 1
+('grade5-term1-test1', false),
+('grade5-term1-test2', false),
+('grade5-term1-test3', false),
+('grade5-term1-test4', false),
+-- Grade 5 (M5) - Term 2
+('grade5-term2-test1', false),
+('grade5-term2-test2', false),
+('grade5-term2-test3', false),
+('grade5-term2-test4', false),
+('grade5-term2-test5', false),
+
+-- Grade 6 (M6) - Term 1
+('grade6-term1-test1', false),
+('grade6-term1-test2', false),
+('grade6-term1-test3', false),
+('grade6-term1-test4', false),
+-- Grade 6 (M6) - Term 2
+('grade6-term2-test1', false),
+('grade6-term2-test2', false),
+('grade6-term2-test3', false),
+('grade6-term2-test4', false),
+('grade6-term2-test5', false)
 ON CONFLICT (test_id) DO NOTHING;

@@ -170,6 +170,51 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("Type of submitted:", currentUser.submitted, typeof currentUser.submitted);
   });
 
+  // Admin login form submission
+  const adminLoginForm = document.getElementById('adminLoginForm');
+  if (adminLoginForm) {
+      adminLoginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const adminStatus = document.getElementById('admin-login-status');
+          adminStatus.textContent = 'Logging in...';
+          adminStatus.className = 'status';
+          
+          try {
+              const username = document.getElementById('admin-username').value.trim();
+              const password = document.getElementById('admin-password').value.trim();
+              
+              const response = await fetch('/.netlify/functions/adminLogin', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ username, password })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                  adminStatus.textContent = 'Login successful! Redirecting to admin panel...';
+                  adminStatus.className = 'status success';
+                  
+                  // Store admin token
+                  localStorage.setItem('adminToken', data.token);
+                  
+                  // Redirect to admin panel
+                  setTimeout(() => {
+                      window.location.href = '/admin.html';
+                  }, 1000);
+              } else {
+                  adminStatus.textContent = data.error || 'Login failed';
+                  adminStatus.className = 'status error';
+              }
+          } catch (error) {
+              adminStatus.textContent = 'Error: ' + error.message;
+              adminStatus.className = 'status error';
+          }
+      });
+  }
+
   // ======== Questionnaire logic ========
   const questionnaireForm = document.getElementById('questionnaire-form');
   const questionnaireStatus = document.getElementById('questionnaire-status');
