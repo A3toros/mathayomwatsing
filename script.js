@@ -96,8 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loginForm.addEventListener('submit', async e => {
     e.preventDefault();
 
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value.trim();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
 
     // Clear any existing error messages
     loginStatus.textContent = '';
