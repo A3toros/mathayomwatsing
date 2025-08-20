@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   let currentUser = null;
   let isSubmitting = false;
-  let countdownInterval;
-  let visibilityTimeout;
 
   // ======== Login form handling ========
   const loginForm = document.getElementById('login-form');
@@ -17,25 +15,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const userNickname = localStorage.getItem('userNickname');
     
     if (token && userId && userNickname) {
-      // Restore user session
-      currentUser = {
-        id: userId,
-        nickname: userNickname,
-        submitted: localStorage.getItem('userSubmitted') === 'true',
-        score: localStorage.getItem('userScore') ? parseInt(localStorage.getItem('userScore')) : null,
-        answers: localStorage.getItem('userAnswers') ? JSON.parse(localStorage.getItem('userAnswers')) : null
-      };
-      
-      // Show appropriate section
-      if (currentUser.submitted) {
-        loginSection.style.display = 'none';
-        questionnaireSection.style.display = 'block';
-        showCompletion(currentUser.score, false);
-      } else {
-        loginSection.style.display = 'none';
-        questionnaireSection.style.display = 'block';
-        startTimer(600);
-        restoreFormData();
+      // Verify the token contains the correct user ID
+      try {
+        const decodedToken = atob(token);
+        const [tokenUserId] = decodedToken.split(':');
+        
+        // Only restore session if token user ID matches stored user ID
+        if (tokenUserId === userId) {
+          // Restore user session
+          currentUser = {
+            id: userId,
+            nickname: userNickname,
+            submitted: localStorage.getItem('userSubmitted') === 'true',
+            score: localStorage.getItem('userScore') ? parseInt(localStorage.getItem('userScore')) : null,
+            answers: localStorage.getItem('userAnswers') ? JSON.parse(localStorage.getItem('userAnswers')) : null
+          };
+          
+          // Show appropriate section
+          if (currentUser.submitted) {
+            loginSection.style.display = 'none';
+            questionnaireSection.style.display = 'block';
+            showCompletion(currentUser.score, false);
+          } else {
+            loginSection.style.display = 'none';
+            questionnaireSection.style.display = 'block';
+            restoreFormData();
+          }
+        } else {
+          // Token mismatch, clear invalid session data
+          console.log("Token mismatch, clearing invalid session");
+          logout();
+        }
+      } catch (error) {
+        console.error("Error decoding token, clearing session:", error);
+        logout();
       }
     }
   }
@@ -86,6 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value.trim();
 
+    // Clear any existing error messages
+    loginStatus.textContent = '';
+    loginStatus.className = 'status';
+
     try {
       const response = await fetch('/.netlify/functions/login', {
         method: 'POST',
@@ -102,6 +119,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Clear any existing session data before setting new user data
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userNickname');
+      localStorage.removeItem('userSubmitted');
+      localStorage.removeItem('userScore');
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('formAnswers');
+
       currentUser = result.user;
       
       // Store user data in localStorage
@@ -115,13 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const token = btoa(`${currentUser.id}:${Date.now()}`);
       localStorage.setItem('token', token);
 
+      // Clear the login form
+      loginForm.reset();
+
       loginSection.style.display = 'none';
       questionnaireSection.style.display = 'block';
 
       if (currentUser.submitted === true) {
         await showCompletion(currentUser.score, false);
       } else {
-        startTimer(600);
         setupFormDataPersistence();
         restoreFormData();
       }
@@ -133,12 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("User after login:", currentUser);
     console.log("Type of submitted:", currentUser.submitted, typeof currentUser.submitted);
   });
-  
 
   // ======== Questionnaire logic ========
   const questionnaireForm = document.getElementById('questionnaire-form');
   const questionnaireStatus = document.getElementById('questionnaire-status');
-  const timerElement = document.getElementById('timer');
 
   const correctAnswers = {
     'question1': ['pitch', 'sales pitch'],
@@ -255,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Check if user has already submitted
     if (currentUser && currentUser.submitted) {
-      console.log("User already submitted, skipping auto-submission");
+      console.log("User already submitted, skipping submission");
       return;
     }
     
@@ -290,7 +316,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       await showCompletion(score, showFailedNotice);
-      clearInterval(countdownInterval);
     } catch (err) {
         console.error(err);
         showStatus(questionnaireStatus, err.message || "Submission failed", "error");
@@ -304,57 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       await submitToServer(false);
     });
-  }
-
-  // Auto-submit on visibility change
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      // Only set timeout if user hasn't submitted yet
-      if (!currentUser || !currentUser.submitted) {
-        visibilityTimeout = setTimeout(async () => {
-          if (!currentUser || !currentUser.submitted) {
-            try {
-              console.log("Visibility check triggered - auto-submitting...");
-              await submitToServer(true);
-            } catch (error) {
-              console.error("Auto-submission failed:", error);
-              // Show user-friendly message about what happened
-              if (questionnaireStatus) {
-                showStatus(questionnaireStatus, "Auto-submission failed. You can manually submit your answers.", "error");
-              }
-            }
-          }
-        }, 5000);
-      }
-    } else {
-      clearTimeout(visibilityTimeout);
-    }
-  });
-
-  // Countdown timer
-  function startTimer(duration) {
-    let timeRemaining = duration;
-    countdownInterval = setInterval(async () => {
-      const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
-      const seconds = (timeRemaining % 60).toString().padStart(2, '0');
-      if (timerElement) timerElement.textContent = `${minutes}:${seconds}`;
-      if (timeRemaining <= 0) {
-        clearInterval(countdownInterval);
-        if (!currentUser || !currentUser.submitted) {
-          try {
-            console.log("Timer expired - auto-submitting...");
-            await submitToServer(true);
-          } catch (error) {
-            console.error("Timer auto-submission failed:", error);
-            // Show user-friendly message
-            if (questionnaireStatus) {
-              showStatus(questionnaireStatus, "Time's up! Auto-submission failed. You can manually submit your answers.", "error");
-            }
-          }
-        }
-      }
-      timeRemaining--;
-    }, 1000);
   }
 
   // Add logout functionality
@@ -372,10 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUser = null;
     isSubmitting = false;
     
-    // Clear timers
-    if (countdownInterval) clearInterval(countdownInterval);
-    if (visibilityTimeout) clearTimeout(visibilityTimeout);
-    
     // Show login form
     loginSection.style.display = 'block';
     questionnaireSection.style.display = 'none';
@@ -390,20 +360,240 @@ document.addEventListener('DOMContentLoaded', () => {
     if (questionnaireStatus) questionnaireStatus.textContent = '';
   }
 
-  // Add logout button to questionnaire section
-  function addLogoutButton() {
-    if (!document.getElementById('logout-btn')) {
-      const logoutBtn = document.createElement('button');
-      logoutBtn.id = 'logout-btn';
-      logoutBtn.textContent = 'Logout';
-      logoutBtn.className = 'logout-btn';
-      logoutBtn.onclick = logout;
+  // Add user dropdown menu to questionnaire section
+  function addUserDropdown() {
+    if (!document.getElementById('user-dropdown')) {
+      const dropdownContainer = document.createElement('div');
+      dropdownContainer.className = 'user-dropdown-container';
+      
+      const dropdownBtn = document.createElement('button');
+      dropdownBtn.className = 'user-dropdown-btn';
+      dropdownBtn.textContent = currentUser ? currentUser.nickname : 'User';
+      dropdownBtn.onclick = toggleDropdown;
+      
+      const dropdownMenu = document.createElement('div');
+      dropdownMenu.className = 'user-dropdown-menu';
+      dropdownMenu.id = 'user-dropdown-menu';
+      
+      const personalCabinetItem = document.createElement('div');
+      personalCabinetItem.className = 'dropdown-item';
+      personalCabinetItem.textContent = 'Personal Cabinet';
+      personalCabinetItem.onclick = showPersonalCabinet;
+      
+      const logoutItem = document.createElement('div');
+      logoutItem.className = 'dropdown-item';
+      logoutItem.textContent = 'Logout';
+      logoutItem.onclick = logout;
+      
+      dropdownMenu.appendChild(personalCabinetItem);
+      dropdownMenu.appendChild(logoutItem);
+      
+      dropdownContainer.appendChild(dropdownBtn);
+      dropdownContainer.appendChild(dropdownMenu);
       
       // Insert at the beginning of questionnaire section
       const firstChild = questionnaireSection.firstChild;
-      questionnaireSection.insertBefore(logoutBtn, firstChild);
+      questionnaireSection.insertBefore(dropdownContainer, firstChild);
     }
   }
+
+  // Toggle dropdown menu
+  function toggleDropdown() {
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    if (dropdownMenu) {
+      dropdownMenu.classList.toggle('show');
+    }
+  }
+
+  // Show personal cabinet
+  async function showPersonalCabinet() {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('User not found. Please login again.');
+        return;
+      }
+
+      // Fetch comprehensive personal cabinet data
+      const response = await fetch('/.netlify/functions/getPersonalCabinet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        displayPersonalCabinet(result.personal_cabinet);
+      } else {
+        alert('Failed to load personal cabinet: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error loading personal cabinet:', error);
+      alert('Failed to load personal cabinet. Please try again.');
+    }
+  }
+
+  // Display comprehensive personal cabinet
+  function displayPersonalCabinet(data) {
+    const cabinetContainer = document.createElement('div');
+    cabinetContainer.className = 'personal-cabinet';
+    
+    let html = `
+      <div class="cabinet-header">
+        <div class="user-info">
+          <h2>Personal Cabinet - ${data.user.nickname}</h2>
+          <p class="student-details">Student ID: ${data.user.student_id} | Grade: ${data.user.grade_level} | Class: ${data.user.class_name}</p>
+        </div>
+        <button class="close-cabinet-btn" onclick="closePersonalCabinet()">×</button>
+      </div>
+    `;
+
+    // Current Test Section (prominently displayed)
+    if (data.current_test) {
+      html += `
+        <div class="current-test-section">
+          <h3>🎯 Current Test</h3>
+          <div class="current-test-card">
+            <div class="test-info">
+              <h4>${data.current_test.name}</h4>
+              <p>${data.current_test.description}</p>
+              <div class="test-meta">
+                <span class="semester-tag">${data.current_test.semester_name}</span>
+                <span class="term-tag">${data.current_test.term_name}</span>
+                <span class="duration-tag">${data.current_test.duration_minutes} min</span>
+              </div>
+            </div>
+            <div class="test-action">
+              <a href="${data.current_test.test_url}" class="take-test-btn">Take Test Now</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Semesters and Terms
+    html += `<div class="semesters-container">`;
+    
+    data.semesters.forEach(semester => {
+      html += `
+        <div class="semester-section ${semester.is_active ? 'active' : ''}">
+          <h3 class="semester-title">
+            📚 ${semester.name} (${semester.academic_year})
+            ${semester.is_active ? '<span class="active-badge">Active</span>' : ''}
+          </h3>
+      `;
+
+      semester.terms.forEach(term => {
+        html += `
+          <div class="term-section ${term.is_active ? 'active' : ''}">
+            <h4 class="term-title">
+              📖 ${term.name}
+              ${term.is_active ? '<span class="active-badge">Active</span>' : ''}
+            </h4>
+            <div class="tests-grid">
+        `;
+
+        term.tests.forEach(test => {
+          const statusClass = test.status === 'completed' ? 'completed' : 
+                             test.status === 'current' ? 'current' : 'upcoming';
+          
+          const scoreDisplay = test.completed ? 
+            `<div class="test-score ${getScoreClass(test.score, test.max_score)}">${test.score}/${test.max_score}</div>` : '';
+          
+          const actionButton = test.status === 'current' && test.test_url ? 
+            `<a href="${test.test_url}" class="test-action-btn current">Take Test</a>` :
+            test.status === 'upcoming' && test.test_url ? 
+            `<span class="test-action-btn upcoming">Coming Soon</span>` :
+            test.status === 'completed' ? 
+            `<span class="test-action-btn completed">Completed</span>` : 
+            `<span class="test-action-btn offline">Offline Test</span>`;
+
+          html += `
+            <div class="test-card ${statusClass}">
+              <div class="test-header">
+                <h5>${test.name}</h5>
+                <span class="test-type ${test.test_type}">${test.test_type}</span>
+              </div>
+              <p class="test-description">${test.description}</p>
+              <div class="test-meta">
+                <span class="max-score">Max: ${test.max_score}</span>
+                ${test.duration_minutes ? `<span class="duration">${test.duration_minutes} min</span>` : ''}
+                <span class="test-date">${formatDate(test.start_date)}</span>
+              </div>
+              ${scoreDisplay}
+              <div class="test-actions">
+                ${actionButton}
+              </div>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    });
+
+    html += `
+        </div>
+        <button class="back-to-test-btn" onclick="closePersonalCabinet()">Back to Test</button>
+      </div>
+    `;
+    
+    cabinetContainer.innerHTML = html;
+    
+    // Replace questionnaire with personal cabinet
+    questionnaireSection.style.opacity = '0';
+    setTimeout(() => {
+      questionnaireSection.parentNode.replaceChild(cabinetContainer, questionnaireSection);
+      cabinetContainer.style.opacity = '1';
+    }, 300);
+  }
+
+  // Helper function to get score class for styling
+  function getScoreClass(score, maxScore) {
+    const percentage = (score / maxScore) * 100;
+    if (percentage >= 80) return 'high-score';
+    if (percentage >= 60) return 'medium-score';
+    return 'low-score';
+  }
+
+  // Helper function to format dates
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
+  // Close personal cabinet
+  window.closePersonalCabinet = function() {
+    const cabinet = document.querySelector('.personal-cabinet');
+    if (cabinet) {
+      cabinet.style.opacity = '0';
+      setTimeout(() => {
+        cabinet.parentNode.replaceChild(questionnaireSection, cabinet);
+        questionnaireSection.style.opacity = '1';
+      }, 300);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.user-dropdown-container');
+    if (dropdown && !dropdown.contains(event.target)) {
+      const dropdownMenu = document.getElementById('user-dropdown-menu');
+      if (dropdownMenu) {
+        dropdownMenu.classList.remove('show');
+      }
+    }
+  });
 
   // Dynamic styles
   function initStyles() {
@@ -419,61 +609,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initStyles();
   checkExistingSession(); // Call checkExistingSession on page load
-  addLogoutButton(); // Add logout button on page load
+  addUserDropdown(); // Add user dropdown on page load
 
-  // Handle visibility check failure gracefully
-  function handleVisibilityFailure() {
-    if (currentUser && !currentUser.submitted) {
-      // Show a message to the user about what happened
-      const failureMessage = document.createElement('div');
-      failureMessage.className = 'status error visibility-failure';
-      failureMessage.innerHTML = `
-        <h3>Page Visibility Check Failed</h3>
-        <p>Your test was automatically submitted due to page visibility changes.</p>
-        <p>If you believe this was an error, you can:</p>
-        <button onclick="restartTest()" class="restart-btn">Restart Test</button>
-        <button onclick="continueWithSubmission()" class="continue-btn">Continue with Submission</button>
-      `;
-      
-      // Replace the form with the failure message
-      questionnaireForm.style.opacity = '0';
-      setTimeout(() => {
-        questionnaireForm.parentNode.replaceChild(failureMessage, questionnaireForm);
-        failureMessage.style.opacity = '1';
-      }, 300);
-    }
+  // ======== Generic Test Pages (no timer, JS centralized here) ========
+  function handleVocabularyPage() {
+    const vocabForm = document.getElementById('vocabularyTestForm') || document.getElementById('vocabularyForm');
+    if (!vocabForm) return;
+
+    vocabForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const answers = {};
+      for (let i = 1; i <= 10; i++) {
+        const input = document.querySelector(`[name="word${i}"]`) || document.getElementById(`word${i}`);
+        answers[`word${i}`] = (input && input.value ? input.value : '').toString().trim();
+      }
+
+      console.log('Vocabulary test submitted!', { title: document.title, answers });
+      alert('Vocabulary test submitted successfully!');
+      window.location.href = '/';
+    });
   }
 
-  // Restart test function
-  window.restartTest = function() {
-    // Clear form data
-    localStorage.removeItem('formAnswers');
-    
-    // Reset form
-    if (questionnaireForm) {
-      questionnaireForm.reset();
-    }
-    
-    // Show form again
-    const failureMessage = document.querySelector('.visibility-failure');
-    if (failureMessage) {
-      failureMessage.style.opacity = '0';
-      setTimeout(() => {
-        failureMessage.parentNode.replaceChild(questionnaireForm, failureMessage);
-        questionnaireForm.style.opacity = '1';
-      }, 300);
-    }
-    
-    // Restart timer
-    if (countdownInterval) clearInterval(countdownInterval);
-    startTimer(600);
-    
-    // Setup form persistence again
-    setupFormDataPersistence();
-  };
+  function handleListeningPage() {
+    const listeningForm = document.getElementById('listeningTestForm');
+    if (!listeningForm) return;
 
-  // Continue with submission function
-  window.continueWithSubmission = function() {
-    submitToServer(true);
-  };
+    listeningForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const answers = {};
+      const totalQuestions = 15;
+      for (let i = 1; i <= totalQuestions; i++) {
+        const value = (new FormData(listeningForm)).get(`q${i}`);
+        answers[`question${i}`] = value || '';
+      }
+
+      console.log('Listening test submitted!', { title: document.title, answers });
+      alert('Listening test submitted successfully!');
+      window.location.href = '/';
+    });
+  }
+
+  handleVocabularyPage();
+  handleListeningPage();
 });

@@ -5,11 +5,17 @@ export async function handler(event) {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  const { username, password } = JSON.parse(event.body);
+  const { username, password } = JSON.parse(event.body || "{}");
 
   if (!username || !password) {
     return { statusCode: 400, body: JSON.stringify({ success: false, error: "Missing username or password" }) };
   }
+
+  // New login policy:
+  // - username is the student's Nickname
+  // - password is the Student ID
+  const nicknameInput = String(username).trim();
+  const studentIdInput = String(password).trim();
 
   const client = new Client({
     connectionString: process.env.NEON_DATABASE_URL,
@@ -18,38 +24,78 @@ export async function handler(event) {
 
   try {
     await client.connect();
-    const res = await client.query(
-      "SELECT id, nickname, number, submitted, answers, score FROM users WHERE username=$1 AND password=$2",
-      [username, password]
-    );
+
+    // Try grade-specific tables first
+    const gradeTablesQuery = `
+      SELECT id, nickname, student_id, class_name, 1 AS grade_level, 'grade_1' AS table_name FROM grade_1 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      UNION ALL
+      SELECT id, nickname, student_id, class_name, 2 AS grade_level, 'grade_2' AS table_name FROM grade_2 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      UNION ALL
+      SELECT id, nickname, student_id, class_name, 3 AS grade_level, 'grade_3' AS table_name FROM grade_3 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      UNION ALL
+      SELECT id, nickname, student_id, class_name, 4 AS grade_level, 'grade_4' AS table_name FROM grade_4 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      UNION ALL
+      SELECT id, nickname, student_id, class_name, 5 AS grade_level, 'grade_5' AS table_name FROM grade_5 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      UNION ALL
+      SELECT id, nickname, student_id, class_name, 6 AS grade_level, 'grade_6' AS table_name FROM grade_6 WHERE LOWER(nickname)=LOWER($1) AND student_id=$2
+      LIMIT 1
+    `;
+
+    let result;
+    try {
+      result = await client.query(gradeTablesQuery, [nicknameInput, studentIdInput]);
+    } catch (e) {
+      // If grade tables are not present, fall back to unified users table only
+      result = { rows: [] };
+    }
+
+    if (result.rows.length === 0) {
+      // Fall back to unified users table that supports nickname + student_id
+      // This does NOT accept legacy username/pass like pass1, pass2
+      try {
+        const resUsers = await client.query(
+          `SELECT id, nickname, student_id, class_name, grade_level FROM users WHERE LOWER(nickname)=LOWER($1) AND student_id=$2 LIMIT 1`,
+          [nicknameInput, studentIdInput]
+        );
+        result = resUsers;
+      } catch (e) {
+        // If unified users table not compatible/missing columns, treat as not found
+        result = { rows: [] };
+      }
+    }
+
     await client.end();
 
-    if (res.rows.length === 0) {
+    if (result.rows.length === 0) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ success: false, error: "Invalid credentials" })
+        body: JSON.stringify({ success: false, error: "Invalid nickname or student ID" })
       };
     }
 
-    const user = res.rows[0];
+    const row = result.rows[0];
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
         user: {
-          id: user.id,
-          nickname: user.nickname,
-          number: user.number,
-          submitted: user.submitted,
-          answers: user.answers,
-          score: user.score
+          id: row.id,
+          nickname: row.nickname,
+          number: null,
+          submitted: false,
+          answers: null,
+          score: null,
+          student_id: row.student_id,
+          class_name: row.class_name || null,
+          grade_level: row.grade_level || null
         }
       })
     };
 
   } catch (err) {
     console.error(err);
+    try { await client.end(); } catch {}
     return { statusCode: 500, body: JSON.stringify({ success: false, error: "Server error" }) };
   }
 }

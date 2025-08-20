@@ -1,94 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>M6</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Testing System - Personal Cabinet</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <section class="container" id="login-section">
+    <div class="container">
+        <header>
+            <h1>🏫 School Testing System</h1>
+            <p>Access your Personal Cabinet to view tests, scores, and progress</p>
+        </header>
 
+        <!-- Login Section -->
+        <section id="loginSection" class="login-section">
+            <h2>🔐 Student Login</h2>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username (Nickname):</label>
+                    <input type="text" id="username" name="username" required placeholder="Enter your nickname">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password (Student ID):</label>
+                    <input type="password" id="password" name="password" required placeholder="Enter your Student ID">
+                </div>
+                <button type="submit" class="login-btn">Login to Personal Cabinet</button>
+            </form>
+            <div id="loginStatus" class="login-status"></div>
+        </section>
 
-    <h1>Vocabulary test Semester 1, class 6/14</h1>
-    <h2>Login</h2>
-    <form id="login-form">
-      <div class="form-group">
-        <label for="login-username">Username:</label>
-        <input type="text" id="login-username" name="login-username" required>
-      </div>
+        <!-- User Dropdown Button (Hidden until login) -->
+        <div id="userDropdownContainer" class="user-dropdown-container" style="display: none;">
+            <button id="userDropdownBtn" class="user-dropdown-btn" onclick="toggleDropdown()">
+                👤 Personal Menu
+            </button>
+            <div id="userDropdownMenu" class="user-dropdown-menu">
+                <a href="#" onclick="showPersonalCabinet()">📚 Personal Cabinet</a>
+                <a href="#" onclick="logout()">🚪 Log Out</a>
+            </div>
+        </div>
 
-      <div class="form-group">
-        <label for="login-password">Password:</label>
-        <input type="password" id="login-password" name="login-password" required>
-      </div>
+        <!-- Personal Cabinet Section (Hidden until login) -->
+        <section id="personalCabinetSection" class="personal-cabinet" style="display: none;">
+            <!-- Personal Cabinet content will be dynamically generated -->
+        </section>
+    </div>
 
-      <button type="submit">Login</button>
-      <div id="login-status" class="status"></div>
-    </form>
-  </section>
-    
-    <!-- Questionnaire Form -->
-    <section id="questionnaire-section" style="display: none;">
-      <h1>Questionnaire</h1>
-      <form id="questionnaire-form">
-        <div id="timer" class="matrix-timer">10:00</div>
-        <div class="form-group">
-          <label for="question1">(Noun) A short presentation of your product aimed at convincing people to buy:</label>
-          <input type="text" id="question1" name="question1" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question2">(Verb) To start sales of your product:</label>
-          <input type="text" id="question2" name="question2" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question3">(Noun) A remote machine that stores your username and password and allows you to access your profile on the website (the word is not "cloud"):</label>
-          <input type="text" id="question3" name="question3" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question4">(Noun)A letter that you send along with you CV, where you describe your work experience:</label>
-          <input type="text" id="question4" name="question4" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question5">(Verb) To reimburse the employee the money spent on clients:</label>
-          <input type="text" id="question5" name="question5" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question6">(Adj) Something that is very difficult to do (the word is not "complicated")  :</label>
-          <input type="text" id="question6" name="question6" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question7">(adj) Correct or suitable to the situation:</label>
-          <input type="text" id="question7" name="question7" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question8">(Noun) Expression of disapprovement, judgement passed on someone for their mistakes:</label>
-          <input type="text" id="question8" name="question8" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question9">(Verb) Politely or formally ask for something:</label>
-          <input type="text" id="question9" name="question9" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="question10">(Noun) A compilation of projects you have worked on that showcases your skills and experience:</label>
-          <input type="text" id="question10" name="question10" required>
-        </div>
-        
-        <button type="submit">Submit</button>
-        
-        <div id="questionnaire-status" class="status"></div>
-      </form>
-    </section>
-  </div>
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
