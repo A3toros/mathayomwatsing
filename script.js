@@ -390,12 +390,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Toggle dropdown menu
-  function toggleDropdown() {
+  window.toggleDropdown = function() {
     const dropdownMenu = document.getElementById('user-dropdown-menu');
     if (dropdownMenu) {
       dropdownMenu.classList.toggle('show');
     }
-  }
+  };
 
   // Show personal cabinet
   async function showPersonalCabinet() {
