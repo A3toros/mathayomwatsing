@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   const loginStatus = document.getElementById('login-status');
   const loginSection = document.getElementById('login-section');
-  const testsSection = document.getElementById('tests-section');
+  const welcomeSection = document.getElementById('welcome-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
   
   // Check if user is already logged in on page load
@@ -35,11 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
           // Show appropriate section
           if (currentUser.submitted) {
             loginSection.style.display = 'none';
-            testsSection.style.display = 'block';
+            welcomeSection.style.display = 'block';
             showCompletion(currentUser.score, false);
           } else {
             loginSection.style.display = 'none';
-            testsSection.style.display = 'block';
+            welcomeSection.style.display = 'block';
             restoreFormData();
           }
           
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Hide login, show tests section
       loginSection.style.display = 'none';
-      testsSection.style.display = 'block';
+      welcomeSection.style.display = 'block';
 
       // Show user dropdown
       addUserDropdown();
@@ -354,10 +354,16 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUser = null;
     isSubmitting = false;
     
-    // Show login form
+    // Show login form, hide everything else
     loginSection.style.display = 'block';
-    testsSection.style.display = 'none'; // Ensure tests section is hidden
+    welcomeSection.style.display = 'none';
     questionnaireSection.style.display = 'none';
+    
+    // Hide personal menu
+    const dropdownContainer = document.getElementById('user-dropdown');
+    if (dropdownContainer) {
+      dropdownContainer.style.display = 'none';
+    }
     
     // Clear form
     if (questionnaireForm) {
@@ -371,19 +377,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Add user dropdown menu to tests section
   function addUserDropdown() {
-    const existingDropdown = document.getElementById('user-dropdown');
-    if (existingDropdown) {
-      existingDropdown.style.display = 'block';
-      return;
-    }
-
     const dropdownContainer = document.getElementById('user-dropdown');
-    if (dropdownContainer) {
+    if (dropdownContainer && currentUser) {
       dropdownContainer.style.display = 'block';
       
-      // Update dropdown button text
+      // Update dropdown button text with user's nickname
       const dropdownBtn = document.getElementById('userDropdownBtn');
-      if (dropdownBtn && currentUser) {
+      if (dropdownBtn) {
         dropdownBtn.textContent = currentUser.nickname;
       }
     }
@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Display comprehensive personal cabinet
-  function displayPersonalCabinet(data) {
+  async function displayPersonalCabinet(data) {
     const cabinetContainer = document.createElement('div');
     cabinetContainer.className = 'personal-cabinet';
     
@@ -441,11 +441,154 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
+    // Grade-specific Tests Section (above scores) - Only show if admin made them visible
+    const userGrade = data.user.grade_level;
+    
+    try {
+      // Fetch test visibility settings
+      const visibilityRes = await fetch('/.netlify/functions/getTestVisibility', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (visibilityRes.ok) {
+        const visibilityData = await visibilityRes.json();
+        const testVisibility = visibilityData.visibility || {};
+        
+        // Only show tests section if there are visible tests for this grade
+        const visibleTests = [];
+        
+        if (userGrade === 1 && testVisibility['grade1-listening']) {
+          visibleTests.push({
+            id: 'grade1-listening',
+            name: 'Listening Test M1',
+            description: 'Listening comprehension test for 1st grade students',
+            url: '/listening_test_m1.html'
+          });
+        } else if (userGrade === 2) {
+          if (testVisibility['grade2-listening']) {
+            visibleTests.push({
+              id: 'grade2-listening',
+              name: 'Listening Test M2',
+              description: 'Listening comprehension test for 2nd grade students',
+              url: '/listening_test_m2.html'
+            });
+          }
+          if (testVisibility['grade2-vocabulary']) {
+            visibleTests.push({
+              id: 'grade2-vocabulary',
+              name: 'Vocabulary Test M2',
+              description: 'Vocabulary test for 2nd grade students',
+              url: '/vocabulary_test_m2.html'
+            });
+          }
+        } else if (userGrade === 3) {
+          if (testVisibility['grade3-listening']) {
+            visibleTests.push({
+              id: 'grade3-listening',
+              name: 'Listening Test M3',
+              description: 'Listening comprehension test for 3rd grade students',
+              url: '/listening_test_m3.html'
+            });
+          }
+          if (testVisibility['grade3-vocabulary']) {
+            visibleTests.push({
+              id: 'grade3-vocabulary',
+              name: 'Vocabulary Test M3',
+              description: 'Vocabulary test for 3rd grade students',
+              url: '/vocabulary_test_m3.html'
+            });
+          }
+        } else if (userGrade === 4 && testVisibility['grade4-vocabulary']) {
+          visibleTests.push({
+            id: 'grade4-vocabulary',
+            name: 'Vocabulary Test M4',
+            description: 'Vocabulary test for 4th grade students',
+            url: '/vocabulary_test_m4.html'
+          });
+        } else if (userGrade === 5 && testVisibility['grade5-vocabulary']) {
+          visibleTests.push({
+            id: 'grade5-vocabulary',
+            name: 'Vocabulary Test M5',
+            description: 'Vocabulary test for 5th grade students',
+            url: '/vocabulary_test_m5.html'
+          });
+        } else if (userGrade === 6) {
+          if (testVisibility['grade6-vocabulary']) {
+            visibleTests.push({
+              id: 'grade6-vocabulary',
+              name: 'Vocabulary Test M6',
+              description: 'Vocabulary test for 6th grade students',
+              url: '/vocabulary_test_m6.html'
+            });
+          }
+          if (testVisibility['grade6-grammar']) {
+            visibleTests.push({
+              id: 'grade6-grammar',
+              name: 'Grammar Test',
+              description: 'Basic grammar concepts',
+              url: '/grammar-test'
+            });
+          }
+          if (testVisibility['grade6-reading']) {
+            visibleTests.push({
+              id: 'grade6-reading',
+              name: 'Reading Comprehension',
+              description: 'Reading and understanding text',
+              url: '/reading-comprehension'
+            });
+          }
+          if (testVisibility['grade6-writing']) {
+            visibleTests.push({
+              id: 'grade6-writing',
+              name: 'Writing Assignment',
+              description: 'Essay writing test',
+              url: '/writing-assignment'
+            });
+          }
+          if (testVisibility['grade6-final']) {
+            visibleTests.push({
+              id: 'grade6-final',
+              name: 'Final Exam',
+              description: 'Comprehensive semester exam',
+              url: '/final-exam'
+            });
+          }
+        }
+        
+        // Only show tests section if there are visible tests
+        if (visibleTests.length > 0) {
+          html += `
+            <div class="grade-tests-section">
+              <h3>Available Tests for Grade ${userGrade}</h3>
+              <div class="grade-tests-grid">
+          `;
+          
+          visibleTests.forEach(test => {
+            html += `
+              <div class="test-card available">
+                <h4>${test.name}</h4>
+                <p>${test.description}</p>
+                <a href="${test.url}" class="test-action-btn current">Take Test</a>
+              </div>
+            `;
+          });
+          
+          html += `
+              </div>
+            </div>
+          `;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading test visibility:', error);
+    }
+
     // Current Test Section (prominently displayed)
     if (data.current_test) {
       html += `
         <div class="current-test-section">
-          <h3>🎯 Current Test</h3>
+          <h3>Current Test</h3>
           <div class="current-test-card">
             <div class="test-info">
               <h4>${data.current_test.name}</h4>
@@ -570,8 +713,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cabinet) {
       cabinet.style.opacity = '0';
       setTimeout(() => {
-        cabinet.parentNode.replaceChild(testsSection, cabinet);
-        testsSection.style.opacity = '1';
+        cabinet.parentNode.replaceChild(welcomeSection, cabinet);
+        welcomeSection.style.opacity = '1';
       }, 300);
     }
   };
@@ -601,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initStyles();
   checkExistingSession(); // Call checkExistingSession on page load
-  addUserDropdown(); // Add user dropdown on page load
+  // addUserDropdown(); // Only call after successful login
 
   // ======== Generic Test Pages (no timer, JS centralized here) ========
   function handleVocabularyPage() {

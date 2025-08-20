@@ -27,12 +27,96 @@
         </section>
 
         <section id="admin-dashboard" style="display:none;">
-            <h2>Students Progress</h2>
-            <div class="form-group">
-                <input type="text" id="search" placeholder="Search by name, class, student_id...">
-            </div>
-            <div id="stats" class="status"></div>
-            <div id="students-table"></div>
+            <h2>Admin Dashboard</h2>
+            
+            <!-- Test Visibility Controls -->
+            <section id="test-controls" class="admin-section">
+                <h3>Test Visibility Controls</h3>
+                <div class="test-controls-grid">
+                    <div class="test-control-group">
+                        <h4>Grade 1 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade1-listening" data-test="listening_test_m1" data-grade="1">
+                            Listening Test M1
+                        </label>
+                    </div>
+                    
+                    <div class="test-control-group">
+                        <h4>Grade 2 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-listening" data-test="listening_test_m2" data-grade="2">
+                            Listening Test M2
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade2-vocabulary" data-test="vocabulary_test_m2" data-grade="2">
+                            Vocabulary Test M2
+                        </label>
+                    </div>
+                    
+                    <div class="test-control-group">
+                        <h4>Grade 3 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-listening" data-test="listening_test_m3" data-grade="3">
+                            Listening Test M3
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade3-vocabulary" data-test="vocabulary_test_m3" data-grade="3">
+                            Vocabulary Test M3
+                        </label>
+                    </div>
+                    
+                    <div class="test-control-group">
+                        <h4>Grade 4 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade4-vocabulary" data-test="vocabulary_test_m4" data-grade="4">
+                            Vocabulary Test M4
+                        </label>
+                    </div>
+                    
+                    <div class="test-control-group">
+                        <h4>Grade 5 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade5-vocabulary" data-test="vocabulary_test_m5" data-grade="5">
+                            Vocabulary Test M5
+                        </label>
+                    </div>
+                    
+                    <div class="test-control-group">
+                        <h4>Grade 6 Tests</h4>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-vocabulary" data-test="vocabulary_test_m6" data-grade="6">
+                            Vocabulary Test M6
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-grammar" data-test="grammar-test" data-grade="6">
+                            Grammar Test
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-reading" data-test="reading-comprehension" data-grade="6">
+                            Reading Comprehension
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-writing" data-test="writing-assignment" data-grade="6">
+                            Writing Assignment
+                        </label>
+                        <label class="test-toggle">
+                            <input type="checkbox" id="grade6-final" data-test="final-exam" data-grade="6">
+                            Final Exam
+                        </label>
+                    </div>
+                </div>
+                <button id="save-test-visibility" class="admin-btn">Save Test Visibility</button>
+            </section>
+            
+            <!-- Students Progress Section -->
+            <section id="students-progress" class="admin-section">
+                <h3>Students Progress</h3>
+                <div class="form-group">
+                    <input type="text" id="search" placeholder="Search by name, class, student_id...">
+                </div>
+                <div id="stats" class="status"></div>
+                <div id="students-table"></div>
+            </section>
         </section>
     </div>
 

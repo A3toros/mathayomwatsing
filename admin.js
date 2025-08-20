@@ -6,9 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const studentsTable = document.getElementById('students-table');
   const stats = document.getElementById('stats');
   const searchInput = document.getElementById('search');
+  const saveTestVisibilityBtn = document.getElementById('save-test-visibility');
 
   let token = localStorage.getItem('adminToken') || '';
   let students = [];
+  let testVisibility = {};
 
   function setStatus(el, msg, type='') {
     if (!el) return;
@@ -71,6 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load');
       students = data.students || [];
       renderTable(students);
+      
+      // Load test visibility settings
+      await loadTestVisibility();
     } catch (e) {
       setStatus(adminLoginStatus, e.message || 'Failed to load dashboard', 'error');
     }
@@ -109,6 +114,71 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     renderTable(filtered);
   });
+
+  // Load test visibility settings
+  async function loadTestVisibility() {
+    try {
+      const res = await fetch('/.netlify/functions/getTestVisibility', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        testVisibility = data.visibility || {};
+        updateTestVisibilityUI();
+      }
+    } catch (e) {
+      console.error('Failed to load test visibility:', e);
+    }
+  }
+
+  // Update test visibility UI based on loaded settings
+  function updateTestVisibilityUI() {
+    Object.keys(testVisibility).forEach(testId => {
+      const checkbox = document.getElementById(testId);
+      if (checkbox) {
+        checkbox.checked = testVisibility[testId];
+      }
+    });
+  }
+
+  // Save test visibility settings
+  async function saveTestVisibility() {
+    try {
+      // Collect all checkbox states
+      const checkboxes = document.querySelectorAll('.test-toggle input[type="checkbox"]');
+      const visibility = {};
+      
+      checkboxes.forEach(checkbox => {
+        visibility[checkbox.id] = checkbox.checked;
+      });
+
+      const res = await fetch('/.netlify/functions/updateTestVisibility', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ visibility })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        testVisibility = visibility;
+        setStatus(adminLoginStatus, 'Test visibility updated successfully!', 'success');
+        setTimeout(() => setStatus(adminLoginStatus, ''), 3000);
+      } else {
+        throw new Error(data.error || 'Failed to update test visibility');
+      }
+    } catch (e) {
+      setStatus(adminLoginStatus, e.message || 'Failed to update test visibility', 'error');
+    }
+  }
+
+  // Add event listener for save button
+  if (saveTestVisibilityBtn) {
+    saveTestVisibilityBtn.addEventListener('click', saveTestVisibility);
+  }
 
   // Auto-restore if token exists
   if (token) {
