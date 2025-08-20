@@ -18,14 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Semester tabs
-    document.querySelectorAll('.semester-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const semester = tab.dataset.semester;
-        switchSemester(semester);
-      });
-    });
-
     // Class tabs
     document.querySelectorAll('.class-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -35,8 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
-
-  let currentSemester = 1;
 
   function switchGrade(grade) {
     // Hide all grade content
@@ -55,22 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load data for this grade
     loadGradeData(grade);
-  }
-
-  function switchSemester(semester) {
-    currentSemester = parseInt(semester);
-    
-    // Update semester tab active state
-    document.querySelectorAll('.semester-tab').forEach(tab => {
-      tab.classList.remove('active');
-    });
-    document.querySelector(`[data-semester="${semester}"]`).classList.add('active');
-    
-    // Refresh current table with new semester data
-    const currentGrade = document.querySelector('.grade-tab.active')?.dataset.grade;
-    if (currentGrade) {
-      loadGradeData(currentGrade);
-    }
   }
 
   function switchClass(grade, className) {
@@ -101,9 +75,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const students = allStudents.filter(s => s.grade_level == grade);
       console.log(`Students in grade ${grade}:`, students); // Debug
       
-      // Load test results for this grade
+      // Load test results for this grade (both terms)
       const testResults = allTestResults.filter(tr => tr.grade_level == grade);
       console.log(`Test results in grade ${grade}:`, testResults); // Debug
+      
+      // Additional debugging for Grade 4
+      if (grade === 4) {
+        console.log('=== GRADE 4 DEBUG ===');
+        console.log('All students with grade 4:', allStudents.filter(s => s.grade_level == 4));
+        console.log('All test results with grade 4:', allTestResults.filter(tr => tr.grade_level == 4));
+        console.log('Grade 4 students found:', students.length);
+        console.log('Grade 4 test results found:', testResults.length);
+      }
       
       // Display data for each class in this grade
       if (grade <= 3) {
@@ -113,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (grade <= 5) {
         // Grades 4-5 have one class each
         const className = grade === 4 ? '4/14' : '5/14';
+        console.log(`Displaying class ${className} for grade ${grade}`); // Debug
         displayClassStudents(grade, className);
       } else {
         // Grade 6 has one class
@@ -127,7 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const containerId = `grade-${grade}-table-container`;
     const container = document.getElementById(containerId);
     
-    if (!container) return;
+    if (!container) {
+      console.error(`Container not found: ${containerId}`); // Debug
+      return;
+    }
     
     console.log(`Looking for grade ${grade}, class ${className}`); // Debug
     console.log('All students:', allStudents); // Debug
@@ -141,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Class students:', classStudents); // Debug
     
     if (classStudents.length === 0) {
+      console.log(`No students found for grade ${grade}, class ${className}`); // Debug
       container.innerHTML = '<div class="no-data">No students found in this class.</div>';
       return;
     }
@@ -150,6 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tr.grade_level == grade && 
       classStudents.some(s => s.id === tr.user_id)
     );
+    
+    console.log(`Found ${classTestResults.length} test results for class ${className}`); // Debug
     
     // Create table
     const table = createStudentsTable(classStudents, classTestResults, grade);
@@ -185,12 +175,19 @@ document.addEventListener('DOMContentLoaded', () => {
     thNickname.rowSpan = 2;
     headerRow1.appendChild(thNickname);
     
-    // Terms (based on selected semester)
-    const thTerms = document.createElement('th');
-    thTerms.textContent = 'Terms';
-    thTerms.colSpan = currentSemester === 1 ? 6 : 7;
-    thTerms.className = 'semester-header';
-    headerRow1.appendChild(thTerms);
+    // Term 1 header (4 tests)
+    const thTerm1 = document.createElement('th');
+    thTerm1.textContent = 'Term 1';
+    thTerm1.colSpan = 4;
+    thTerm1.className = 'term-header';
+    headerRow1.appendChild(thTerm1);
+    
+    // Term 2 header (6 columns: 5 tests + 1 total)
+    const thTerm2 = document.createElement('th');
+    thTerm2.textContent = 'Term 2';
+    thTerm2.colSpan = 6;
+    thTerm2.className = 'term-header';
+    headerRow1.appendChild(thTerm2);
     
     // Total column
     const thTotal = document.createElement('th');
@@ -211,17 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
       headerRow2.appendChild(th);
     }
     
-    // Term 1 Total (first 3 tests)
-    const thTerm1Total = document.createElement('th');
-    thTerm1Total.textContent = 'Total (30)';
-    thTerm1Total.className = 'summary-header';
-    headerRow2.appendChild(thTerm1Total);
-    
-    // Term 1 Test 4
-    const thTerm1Test4 = document.createElement('th');
-    thTerm1Test4.textContent = 'Test 4 (10)';
-    thTerm1Test4.className = 'summary-header';
-    headerRow2.appendChild(thTerm1Test4);
+
     
     // Term 2 tests (1, 2, 3, 4, 5)
     for (let i = 1; i <= 5; i++) {
@@ -230,23 +217,11 @@ document.addEventListener('DOMContentLoaded', () => {
       headerRow2.appendChild(th);
     }
     
-    // Term 2 Total (first 3 tests)
+    // Term 2 Total column
     const thTerm2Total = document.createElement('th');
-    thTerm2Total.textContent = 'Total (30)';
+    thTerm2Total.textContent = 'Total';
     thTerm2Total.className = 'summary-header';
     headerRow2.appendChild(thTerm2Total);
-    
-    // Term 2 Test 4
-    const thTerm2Test4 = document.createElement('th');
-    thTerm2Test4.textContent = 'Test 4 (10)';
-    thTerm2Test4.className = 'summary-header';
-    headerRow2.appendChild(thTerm2Test4);
-    
-    // Term 2 Test 5
-    const thTerm2Test5 = document.createElement('th');
-    thTerm2Test5.textContent = 'Test 5 (20)';
-    thTerm2Test5.className = 'summary-header';
-    headerRow2.appendChild(thTerm2Test5);
     
     thead.appendChild(headerRow2);
     table.appendChild(thead);
@@ -310,41 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(td);
       }
       
-      // Term 1 Total (first 3 tests)
-      const tdTerm1Total = document.createElement('td');
-      tdTerm1Total.className = 'summary-score';
-      tdTerm1Total.textContent = term1First3Total;
-      tdTerm1Total.style.color = term1First3Total >= 24 ? 'green' : term1First3Total >= 18 ? 'orange' : 'red';
-      tdTerm1Total.style.fontWeight = 'bold';
-      row.appendChild(tdTerm1Total);
-      
-      // Term 1 Test 4 (separate column)
-      const tdTerm1Test4 = document.createElement('td');
-      tdTerm1Test4.className = 'test-score editable-score';
-      
-      const term1Test4Result = testResults.find(tr => 
-        tr.user_id === student.id && 
-        tr.test_id === getTestId(grade, 1, 4)
-      );
-      
-      if (term1Test4Result) {
-        tdTerm1Test4.textContent = term1Test4Result.score;
-        tdTerm1Test4.style.color = term1Test4Result.score >= 8 ? 'green' : term1Test4Result.score >= 6 ? 'orange' : 'red';
-        tdTerm1Test4.dataset.testResultId = term1Test4Result.id;
-        tdTerm1Test4.dataset.userId = student.id;
-        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
-        tdTerm1Test4.dataset.maxScore = 10;
-        tdTerm1Test4.addEventListener('click', makeScoreEditable);
-      } else {
-        tdTerm1Test4.textContent = '-';
-        tdTerm1Test4.style.color = '#999';
-        tdTerm1Test4.dataset.userId = student.id;
-        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
-        tdTerm1Test4.dataset.maxScore = 10;
-        tdTerm1Test4.addEventListener('click', makeScoreEditable);
-      }
-      
-      row.appendChild(tdTerm1Test4);
+
       
       // Term 2 tests (5 tests: 4 tests × 10 points + 1 test × 20 points)
       let term2Total = 0;
@@ -388,70 +329,13 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(td);
       }
       
-      // Term 2 Total (first 3 tests)
-      const tdTerm2Total = document.createElement('td');
-      tdTerm2Total.className = 'summary-score';
-      tdTerm2Total.textContent = term2First3Total;
-      tdTerm2Total.style.color = term2First3Total >= 24 ? 'green' : term2First3Total >= 18 ? 'orange' : 'red';
-      tdTerm2Total.style.fontWeight = 'bold';
-      row.appendChild(tdTerm2Total);
-      
-      // Term 2 Test 4 (separate column)
-      const tdTerm2Test4 = document.createElement('td');
-      tdTerm2Test4.className = 'test-score editable-score';
-      
-      const term2Test4Result = testResults.find(tr => 
-        tr.user_id === student.id && 
-        tr.test_id === getTestId(grade, 2, 4)
-      );
-      
-      if (term2Test4Result) {
-        tdTerm2Test4.textContent = term2Test4Result.score;
-        tdTerm2Test4.style.color = term2Test4Result.score >= 8 ? 'green' : term2Test4Result.score >= 6 ? 'orange' : 'red';
-        tdTerm2Test4.dataset.testResultId = term2Test4Result.id;
-        tdTerm2Test4.dataset.userId = student.id;
-        tdTerm2Test4.dataset.testId = getTestId(grade, 2, 4);
-        tdTerm2Test4.dataset.maxScore = 10;
-        tdTerm2Test4.addEventListener('click', makeScoreEditable);
-      } else {
-        tdTerm2Test4.textContent = '-';
-        tdTerm2Test4.style.color = '#999';
-        tdTerm2Test4.dataset.userId = student.id;
-        tdTerm2Test4.dataset.testId = getTestId(grade, 2, 4);
-        tdTerm2Test4.dataset.maxScore = 10;
-        tdTerm2Test4.addEventListener('click', makeScoreEditable);
-      }
-      
-      row.appendChild(tdTerm2Test4);
-      
-      // Term 2 Test 5 (separate column)
-      const tdTerm2Test5 = document.createElement('td');
-      tdTerm2Test5.className = 'test-score editable-score';
-      
-      const term2Test5Result = testResults.find(tr => 
-        tr.user_id === student.id && 
-        tr.test_id === getTestId(grade, 2, 5)
-      );
-      
-      if (term2Test5Result) {
-        tdTerm2Test5.textContent = term2Test5Result.score;
-        const percentage = (term2Test5Result.score / 20) * 100;
-        tdTerm2Test5.style.color = percentage >= 80 ? 'green' : percentage >= 60 ? 'orange' : 'red';
-        tdTerm2Test5.dataset.testResultId = term2Test5Result.id;
-        tdTerm2Test5.dataset.userId = student.id;
-        tdTerm2Test5.dataset.testId = getTestId(grade, 2, 5);
-        tdTerm2Test5.dataset.maxScore = 20;
-        tdTerm2Test5.addEventListener('click', makeScoreEditable);
-      } else {
-        tdTerm2Test5.textContent = '-';
-        tdTerm2Test5.style.color = '#999';
-        tdTerm2Test5.dataset.userId = student.id;
-        tdTerm2Test5.dataset.testId = getTestId(grade, 2, 5);
-        tdTerm2Test5.dataset.maxScore = 20;
-        tdTerm2Test5.addEventListener('click', makeScoreEditable);
-      }
-      
-      row.appendChild(tdTerm2Test5);
+             // Term 2 Total column
+       const tdTerm2Total = document.createElement('td');
+       tdTerm2Total.className = 'summary-score';
+       tdTerm2Total.textContent = term2Total;
+       tdTerm2Total.style.color = term2Total >= 60 ? 'green' : term2Total >= 45 ? 'orange' : 'red';
+       tdTerm2Total.style.fontWeight = 'bold';
+       row.appendChild(tdTerm2Total);
       
       // Total score (out of 100)
       const tdTotal = document.createElement('td');
@@ -484,24 +368,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // This function maps grade, term, and test number to actual test IDs
     // Based on the database schema:
     // Grade 1: 1-9, Grade 2: 11-19, Grade 3: 21-29, Grade 4: 31-39, Grade 5: 41-49, Grade 6: 51-59
-    if (grade === 1) {
-      return (term - 1) * 5 + testNum;
-    } else if (grade === 2) {
-      return 10 + (term - 1) * 5 + testNum;
-    } else if (grade === 3) {
-      return 20 + (term - 1) * 5 + testNum;
-    } else if (grade === 4) {
-      return 30 + (term - 1) * 5 + testNum;
-    } else if (grade === 5) {
-      return 40 + (term - 1) * 5 + testNum;
-    } else if (grade === 6) {
-      return 50 + (term - 1) * 5 + testNum;
+    
+    // Calculate the base ID for each grade
+    const baseId = (grade - 1) * 10 + 1;
+    
+    // Calculate the offset within the grade (term 1: 0-3, term 2: 4-8)
+    let offset;
+    if (term === 1) {
+      offset = testNum - 1; // Term 1: tests 1-4 become 0-3
+    } else {
+      offset = 3 + testNum; // Term 2: tests 1-5 become 4-8
     }
-    return 0;
+    
+    return baseId + offset;
   }
 
   function getAvailableTests(grade) {
-    // Updated to reflect the new term-based structure
+    // Updated to reflect the new term-based structure with correct test IDs
     const testMap = {
       1: [
         // Term 1: 4 tests × 10 points each
@@ -845,9 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function refreshCurrentTable() {
     // Refresh the current grade/class table
     const currentGrade = document.querySelector('.grade-tab.active')?.dataset.grade;
-    const currentClass = document.querySelector('.class-tab.active')?.dataset.class;
-    
-    if (currentGrade && currentClass) {
+    if (currentGrade) {
       await loadGradeData(parseInt(currentGrade));
     }
   }
@@ -970,13 +851,15 @@ document.addEventListener('DOMContentLoaded', () => {
            Success: ${data.success}<br>
            <br>
            <strong>Table Counts:</strong><br>
-           Users: ${data.counts.users || 'N/A'}<br>
-           Tests: ${data.counts.tests || 'N/A'}<br>
-           Test Results: ${data.counts.test_results || 'N/A'}<br>
-           Test Visibility: ${data.counts.test_visibility || 'N/A'}<br>
+           Users: ${data.tableCounts?.users || 'N/A'}<br>
+           Tests: ${data.tableCounts?.tests || 'N/A'}<br>
+           Test Results: ${data.tableCounts?.test_results || 'N/A'}<br>
+           Test Visibility: ${data.tableCounts?.test_visibility || 'N/A'}<br>
            <br>
-           <strong>Sample Data:</strong><br>
-           ${data.sampleData ? Object.entries(data.sampleData).map(([table, count]) => `${table}: ${count} records`).join('<br>') : 'No sample data'}
+           <strong>Sample Students:</strong><br>
+           ${data.sampleStudents ? (Array.isArray(data.sampleStudents) ? 
+             data.sampleStudents.map(s => `${s.username}: ${s.nickname} (Grade ${s.grade_level}, Class ${s.class_name})`).join('<br>') : 
+             data.sampleStudents) : 'No sample data'}
          `;
        } else {
          debugOutput.innerHTML = `
