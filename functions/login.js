@@ -64,8 +64,6 @@ export async function handler(event) {
       }
     }
 
-    await client.end();
-
     if (result.rows.length === 0) {
       return {
         statusCode: 401,
@@ -74,6 +72,30 @@ export async function handler(event) {
     }
 
     const row = result.rows[0];
+
+    // Best-effort upsert into unified users table when login succeeded via grade tables
+    // This helps keep the unified users table populated for admin dashboards and joins
+    try {
+      const usernameUnified = row.nickname; // using nickname as username per policy
+      const passwordUnified = row.student_id; // using student ID as password per policy
+      const gradeLevelUnified = row.grade_level || null;
+      const classNameUnified = row.class_name || null;
+
+      await client.query(
+        `INSERT INTO users (username, password, nickname, student_id, grade_level, class_name)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (username) DO UPDATE SET
+           nickname = EXCLUDED.nickname,
+           student_id = EXCLUDED.student_id,
+           grade_level = EXCLUDED.grade_level,
+           class_name = EXCLUDED.class_name`,
+        [usernameUnified, passwordUnified, row.nickname, row.student_id, gradeLevelUnified, classNameUnified]
+      );
+    } catch (e) {
+      // Ignore if unified users table doesn't exist or has incompatible schema
+    }
+
+    await client.end();
 
     return {
       statusCode: 200,

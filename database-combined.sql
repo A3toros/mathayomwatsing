@@ -1,6 +1,4 @@
--- Combined from: setup-database.sql, database-update.sql, database-schema.sql, database-schema-separate-tables.sql, database-schema-multiple-classes.sql
 
--- Admins table for control panel access
 CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -677,3 +675,61 @@ INSERT INTO users (username, password, nickname, student_id, title, first_name, 
 ('New', '50440', 'New', '50440', 'Miss', 'Kunpriya', 'Butnamrak', 6, '6/14'),
 ('Ing', '50442', 'Ing', '50442', 'Miss', 'Arada', 'Wang', 6, '6/14')
 ON CONFLICT (username) DO NOTHING;
+
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    nickname VARCHAR(50) NOT NULL,
+    student_id VARCHAR(20) UNIQUE NOT NULL,
+    grade_level INTEGER NOT NULL,
+    class_name VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Grade 6 table (idempotent)
+CREATE TABLE IF NOT EXISTS grade_6 (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    nickname VARCHAR(50) NOT NULL,
+    student_id VARCHAR(20) UNIQUE NOT NULL,
+    title VARCHAR(10),
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    class_name VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS tests (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    term_id INTEGER,
+    test_type VARCHAR(20) NOT NULL CHECK (test_type IN ('online','offline')),
+    test_url VARCHAR(500),
+    max_score INTEGER DEFAULT 10,
+    duration_minutes INTEGER,
+    is_active BOOLEAN DEFAULT TRUE,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO grade_6 (username, password, nickname, student_id, title, first_name, last_name, class_name) VALUES
+('Munich', '48457', 'Munich', '48457', 'Mr.', 'Eakkanin', 'Sithchaisurakool', '6/14'),
+('Bright', '48458', 'Bright', '48458', 'Mr.', 'Chayodom', 'Disayawan', '6/14'),
+('Don', '48461', 'Don', '48461', 'Mr.', 'Don', 'Don', '6/14')
+ON CONFLICT (username) DO NOTHING;
+
+
+INSERT INTO users (username, password, nickname, student_id, grade_level, class_name)
+SELECT nickname AS username, student_id AS password, nickname, student_id, 6 AS grade_level, class_name
+FROM grade_6
+ON CONFLICT (username) DO UPDATE SET
+  nickname = EXCLUDED.nickname,
+  student_id = EXCLUDED.student_id,
+  grade_level = EXCLUDED.grade_level,
+  class_name = EXCLUDED.class_name;
