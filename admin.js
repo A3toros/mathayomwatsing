@@ -93,17 +93,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadGradeData(grade) {
     try {
+      console.log(`Loading data for grade ${grade}`); // Debug
+      console.log('All students:', allStudents); // Debug
+      console.log('All test results:', allTestResults); // Debug
+      
       // Load students for this grade
       const students = allStudents.filter(s => s.grade_level == grade);
+      console.log(`Students in grade ${grade}:`, students); // Debug
       
       // Load test results for this grade
       const testResults = allTestResults.filter(tr => tr.grade_level == grade);
+      console.log(`Test results in grade ${grade}:`, testResults); // Debug
       
       // Display data for each class in this grade
       if (grade <= 3) {
         // Grades 1-3 have two classes each
-        displayClassStudents(grade, '1/15');
-        displayClassStudents(grade, '1/16');
+        displayClassStudents(grade, `${grade}/15`);
+        displayClassStudents(grade, `${grade}/16`);
       } else if (grade <= 5) {
         // Grades 4-5 have one class each
         const className = grade === 4 ? '4/14' : '5/14';
@@ -123,10 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!container) return;
     
+    console.log(`Looking for grade ${grade}, class ${className}`); // Debug
+    console.log('All students:', allStudents); // Debug
+    
     // Filter students by grade and class
     const classStudents = allStudents.filter(s => 
       s.grade_level == grade && s.class_name === className
     );
+    
+    console.log(`Found ${classStudents.length} students for grade ${grade}, class ${className}`); // Debug
+    console.log('Class students:', classStudents); // Debug
     
     if (classStudents.length === 0) {
       container.innerHTML = '<div class="no-data">No students found in this class.</div>';
@@ -575,17 +587,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchDashboard() {
-    setStatus(adminLoginStatus, '');
     try {
+      console.log('Fetching dashboard data...'); // Debug
+      console.log('Token:', token); // Debug
+      
       // Fetch all students
       const studentsRes = await fetch('/.netlify/functions/getAllStudents', {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      console.log('Students response status:', studentsRes.status); // Debug
+      
       if (studentsRes.ok) {
         const studentsData = await studentsRes.json();
         allStudents = studentsData.students || [];
+        console.log('Loaded students:', allStudents); // Debug
+        console.log('Students count:', allStudents.length); // Debug
+      } else {
+        const errorText = await studentsRes.text();
+        console.error('Failed to fetch students:', errorText); // Debug
       }
       
       // Fetch all test results
@@ -594,9 +615,16 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      console.log('Test results response status:', resultsRes.status); // Debug
+      
       if (resultsRes.ok) {
         const resultsData = await resultsRes.json();
         allTestResults = resultsData.results || [];
+        console.log('Loaded test results:', allTestResults); // Debug
+        console.log('Test results count:', allTestResults.length); // Debug
+      } else {
+        const errorText = await resultsRes.text();
+        console.error('Failed to fetch test results:', errorText); // Debug
       }
       
       // Load test visibility settings
@@ -606,6 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadGradeData(1);
       
     } catch (e) {
+      console.error('Error in fetchDashboard:', e); // Debug
       setStatus(adminLoginStatus, e.message || 'Failed to load dashboard', 'error');
     }
   }
@@ -683,15 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dashboardSection.style.display = 'none';
   }
 
-  if (saveTestVisibilityBtn) {
-    saveTestVisibilityBtn.addEventListener('click', saveTestVisibility);
-  }
 
-  // Setup tabs
-  setupTabs();
-
-  // Check if admin is already logged in
-  checkAdminLogin();
 
   // Score editing functionality
   function makeScoreEditable(event) {
@@ -827,9 +848,151 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentClass = document.querySelector('.class-tab.active')?.dataset.class;
     
     if (currentGrade && currentClass) {
-      await loadGradeData(parseInt(currentGrade), currentClass);
+      await loadGradeData(parseInt(currentGrade));
     }
   }
+
+  // Initialize admin panel
+  function initAdminPanel() {
+    // Setup tabs
+    setupTabs();
+    
+    // Setup event listeners
+    if (saveTestVisibilityBtn) {
+      saveTestVisibilityBtn.addEventListener('click', saveTestVisibility);
+    }
+    
+         // Setup debug buttons
+     const debugDataBtn = document.getElementById('debug-data');
+     const testFetchBtn = document.getElementById('test-fetch');
+     const debugDbBtn = document.getElementById('debug-db');
+     
+     if (debugDataBtn) {
+       debugDataBtn.addEventListener('click', debugData);
+     }
+     
+     if (testFetchBtn) {
+       testFetchBtn.addEventListener('click', testFetch);
+     }
+     
+     if (debugDbBtn) {
+       debugDbBtn.addEventListener('click', debugDatabase);
+     }
+    
+    // Check if admin is already logged in
+    checkAdminLogin();
+  }
+
+  // Debug functions
+  function debugData() {
+    const debugOutput = document.getElementById('debug-output');
+    if (!debugOutput) return;
+    
+    debugOutput.innerHTML = `
+      <strong>Debug Information:</strong><br>
+      Token: ${token ? 'Present' : 'Missing'}<br>
+      All Students Count: ${allStudents.length}<br>
+      All Test Results Count: ${allTestResults.length}<br>
+      <br>
+      <strong>Students by Grade:</strong><br>
+      ${[1,2,3,4,5,6].map(grade => {
+        const gradeStudents = allStudents.filter(s => s.grade_level == grade);
+        return `Grade ${grade}: ${gradeStudents.length} students`;
+      }).join('<br>')}
+      <br>
+      <br>
+      <strong>Sample Students:</strong><br>
+      ${allStudents.slice(0, 5).map(s => 
+        `ID: ${s.id}, Username: ${s.username}, Grade: ${s.grade_level}, Class: ${s.class_name}`
+      ).join('<br>')}
+    `;
+  }
+
+     async function testFetch() {
+     const debugOutput = document.getElementById('debug-output');
+     if (!debugOutput) return;
+     
+     debugOutput.innerHTML = 'Testing fetch...';
+     
+     try {
+       // Test getAllStudents
+       const studentsRes = await fetch('/.netlify/functions/getAllStudents', {
+         method: 'GET',
+         headers: { 'Authorization': `Bearer ${token}` }
+       });
+       
+       const studentsData = await studentsRes.json();
+       
+       // Test getAllTestResults
+       const resultsRes = await fetch('/.netlify/functions/getAllTestResults', {
+         method: 'GET',
+         headers: { 'Authorization': `Bearer ${token}` }
+       });
+       
+       const resultsData = await resultsRes.json();
+       
+       debugOutput.innerHTML = `
+         <strong>Fetch Test Results:</strong><br>
+         <br>
+         <strong>getAllStudents:</strong><br>
+         Status: ${studentsRes.status}<br>
+         Success: ${studentsData.success}<br>
+         Students Count: ${studentsData.students ? studentsData.students.length : 'N/A'}<br>
+         ${studentsData.error ? `Error: ${studentsData.error}` : ''}
+         <br>
+         <br>
+         <strong>getAllTestResults:</strong><br>
+         Status: ${resultsRes.status}<br>
+         Success: ${resultsData.success}<br>
+         Results Count: ${resultsData.results ? resultsData.results.length : 'N/A'}<br>
+         ${resultsData.error ? `Error: ${resultsData.error}` : ''}
+       `;
+       
+     } catch (error) {
+       debugOutput.innerHTML = `Fetch Error: ${error.message}`;
+     }
+   }
+   
+   async function debugDatabase() {
+     const debugOutput = document.getElementById('debug-output');
+     if (!debugOutput) return;
+     
+     debugOutput.innerHTML = 'Testing database connection...';
+     
+     try {
+       const res = await fetch('/.netlify/functions/debugDb');
+       const data = await res.json();
+       
+       if (res.ok && data.success) {
+         debugOutput.innerHTML = `
+           <strong>Database Connection Test:</strong><br>
+           Status: ${res.status}<br>
+           Success: ${data.success}<br>
+           <br>
+           <strong>Table Counts:</strong><br>
+           Users: ${data.counts.users || 'N/A'}<br>
+           Tests: ${data.counts.tests || 'N/A'}<br>
+           Test Results: ${data.counts.test_results || 'N/A'}<br>
+           Test Visibility: ${data.counts.test_visibility || 'N/A'}<br>
+           <br>
+           <strong>Sample Data:</strong><br>
+           ${data.sampleData ? Object.entries(data.sampleData).map(([table, count]) => `${table}: ${count} records`).join('<br>') : 'No sample data'}
+         `;
+       } else {
+         debugOutput.innerHTML = `
+           <strong>Database Connection Failed:</strong><br>
+           Status: ${res.status}<br>
+           Error: ${data.error || 'Unknown error'}
+         `;
+       }
+     } catch (error) {
+       debugOutput.innerHTML = `Database Test Error: ${error.message}`;
+     }
+   }
+
+  // Start initialization
+  initAdminPanel();
 });
+
 
 

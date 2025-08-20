@@ -365,6 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('userScore');
     localStorage.removeItem('userAnswers');
     localStorage.removeItem('formAnswers');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('userInfo');
     
     // Reset state
     currentUser = null;
@@ -374,6 +376,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loginSection.style.display = 'block';
     welcomeSection.style.display = 'none';
     questionnaireSection.style.display = 'none';
+    
+    // Hide personal cabinet
+    const personalCabinetSection = document.getElementById('personalCabinetSection');
+    if (personalCabinetSection) {
+      personalCabinetSection.style.display = 'none';
+    }
     
     // Hide personal menu
     const dropdownContainer = document.getElementById('user-dropdown');
@@ -389,6 +397,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear status messages
     if (loginStatus) loginStatus.textContent = '';
     if (questionnaireStatus) questionnaireStatus.textContent = '';
+    
+    // Reset container centering
+    const container = document.querySelector('.container');
+    if (container) {
+      container.style.justifyContent = 'center';
+    }
   };
 
   // Add user dropdown menu to tests section
@@ -474,100 +488,69 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only show tests section if there are visible tests for this grade
         const visibleTests = [];
         
-        if (userGrade === 1 && testVisibility['grade1-listening']) {
-          visibleTests.push({
-            id: 'grade1-listening',
-            name: 'Listening Test M1',
-            description: 'Listening comprehension test for 1st grade students',
-            url: '/listening_test_m1.html'
-          });
-        } else if (userGrade === 2) {
-          if (testVisibility['grade2-listening']) {
+        // Grade 1 tests
+        if (userGrade === 1) {
+          if (testVisibility['grade1-term1-test1']) {
             visibleTests.push({
-              id: 'grade2-listening',
-              name: 'Listening Test M2',
-              description: 'Listening comprehension test for 2nd grade students',
-              url: '/listening_test_m2.html'
+              id: 'grade1-term1-test1',
+              name: 'Listening Test M1',
+              description: 'Listening comprehension test for 1st grade students',
+              url: '/listening_test_m1.html'
             });
           }
-          if (testVisibility['grade2-vocabulary']) {
+        }
+        // Grade 2 tests
+        else if (userGrade === 2) {
+          if (testVisibility['grade2-term1-test1']) {
             visibleTests.push({
-              id: 'grade2-vocabulary',
+              id: 'grade2-term1-test1',
               name: 'Vocabulary Test M2',
               description: 'Vocabulary test for 2nd grade students',
               url: '/vocabulary_test_m2.html'
             });
           }
-        } else if (userGrade === 3) {
-          if (testVisibility['grade3-listening']) {
+        }
+        // Grade 3 tests
+        else if (userGrade === 3) {
+          if (testVisibility['grade3-term1-test1']) {
             visibleTests.push({
-              id: 'grade3-listening',
-              name: 'Listening Test M3',
-              description: 'Listening comprehension test for 3rd grade students',
-              url: '/listening_test_m3.html'
-            });
-          }
-          if (testVisibility['grade3-vocabulary']) {
-            visibleTests.push({
-              id: 'grade3-vocabulary',
+              id: 'grade3-term1-test1',
               name: 'Vocabulary Test M3',
               description: 'Vocabulary test for 3rd grade students',
               url: '/vocabulary_test_m3.html'
             });
           }
-        } else if (userGrade === 4 && testVisibility['grade4-vocabulary']) {
-          visibleTests.push({
-            id: 'grade4-vocabulary',
-            name: 'Vocabulary Test M4',
-            description: 'Vocabulary test for 4th grade students',
-            url: '/vocabulary_test_m4.html'
-          });
-        } else if (userGrade === 5 && testVisibility['grade5-vocabulary']) {
-          visibleTests.push({
-            id: 'grade5-vocabulary',
-            name: 'Vocabulary Test M5',
-            description: 'Vocabulary test for 5th grade students',
-            url: '/vocabulary_test_m5.html'
-          });
-        } else if (userGrade === 6) {
-          if (testVisibility['grade6-vocabulary']) {
+        }
+        // Grade 4 tests
+        else if (userGrade === 4) {
+          if (testVisibility['grade4-term1-test1']) {
             visibleTests.push({
-              id: 'grade6-vocabulary',
+              id: 'grade4-term1-test1',
+              name: 'Vocabulary Test M4',
+              description: 'Vocabulary test for 4th grade students',
+              url: '/vocabulary_test_m4.html'
+            });
+          }
+        }
+        // Grade 5 tests
+        else if (userGrade === 5) {
+          if (testVisibility['grade5-term1-test1']) {
+            visibleTests.push({
+              id: 'grade5-term1-test1',
+              name: 'Vocabulary Test M5',
+              description: 'Vocabulary test for 5th grade students',
+              url: '/vocabulary_test_m5.html'
+            });
+          }
+        }
+        // Grade 6 tests
+        else if (userGrade === 6) {
+          if (testVisibility['grade6-term1-test1']) {
+            visibleTests.push({
+              id: 'grade6-term1-test1',
               name: 'Vocabulary Test M6',
               description: 'Vocabulary test for 6th grade students',
               url: '/vocabulary_test_m6.html'
-            });
-          }
-          if (testVisibility['grade6-grammar']) {
-            visibleTests.push({
-              id: 'grade6-grammar',
-              name: 'Grammar Test',
-              description: 'Basic grammar concepts',
-              url: '/grammar-test'
-            });
-          }
-          if (testVisibility['grade6-reading']) {
-            visibleTests.push({
-              id: 'grade6-reading',
-              name: 'Reading Comprehension',
-              description: 'Reading and understanding text',
-              url: '/reading-comprehension'
-            });
-          }
-          if (testVisibility['grade6-writing']) {
-            visibleTests.push({
-              id: 'grade6-writing',
-              name: 'Writing Assignment',
-              description: 'Essay writing test',
-              url: '/writing-assignment'
-            });
-          }
-          if (testVisibility['grade6-final']) {
-            visibleTests.push({
-              id: 'grade6-final',
-              name: 'Final Exam',
-              description: 'Comprehensive semester exam',
-              url: '/final-exam'
             });
           }
         }

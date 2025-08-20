@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -259,20 +258,20 @@ ON CONFLICT DO NOTHING;
 INSERT INTO grade_6 (username, password, nickname, student_id, title, first_name, last_name, class_name) VALUES
 ('Munich', '48457', 'Munich', '48457', 'Mr.', 'Eakkanin', 'Sithchaisurakool', '6/14'),
 ('Bright', '48458', 'Bright', '48458', 'Mr.', 'Chayodom', 'Disayawan', '6/14'),
-('Don', '48461', 'Don', '48461', 'Mr.', 'Don', 'Don', '6/14'),
-('Dollar', '48483', 'Dollar', '48483', 'Mr.', 'Dollar', 'Dollar', '6/14'),
-('Tonmai', '50438', 'Tonmai', '50438', 'Mr.', 'Tonmai', 'Tonmai', '6/14'),
-('Pupha', '50439', 'Pupha', 'Pupha', 'Mr.', 'Pupha', 'Pupha', '6/14'),
-('Oil', '48489', 'Oil', '48489', 'Mr.', 'Oil', 'Oil', '6/14'),
-('Gift', '48490', 'Gift', '48490', 'Mr.', 'Gift', 'Gift', '6/14'),
-('Ink', '48491', 'Ink', '48491', 'Mr.', 'Ink', 'Ink', '6/14'),
-('Tongkaw', '48496', 'Tongkaw', '48496', 'Mr.', 'Tongkaw', 'Tongkaw', '6/14'),
-('Bam', '48498', 'Bam', '48498', 'Mr.', 'Bam', 'Bam', '6/14'),
-('Praew', '48500', 'Praew', '48500', 'Mr.', 'Praew', 'Praew', '6/14'),
-('Noodee', '48501', 'Noodee', '48501', 'Mr.', 'Noodee', 'Noodee', '6/14'),
-('Sayo', '50323', 'Sayo', '50323', 'Mr.', 'Sayo', 'Sayo', '6/14'),
-('New', '50440', 'New', '50440', 'Mr.', 'New', 'New', '6/14'),
-('Ing', '50442', 'Ing', '50442', 'Mr.', 'Ing', 'Ing', '6/14')
+('Don', '48461', 'Don', '48461', 'Mr.', 'Donlawat', 'Jongjitvimol', '6/14'),
+('Dollar', '48483', 'Dollar', '48483', 'Mr.', 'Thanaphat', 'Khongkhunthian', '6/14'),
+('Tonmai', '50438', 'Tonmai', '50438', 'Mr.', 'Thanakit', 'Maiprasert', '6/14'),
+('Pupha', '50439', 'Pupha', '50439', 'Mr.', 'Pupha', 'Srisawat', '6/14'),
+('Oil', '48489', 'Oil', '48489', 'Mr.', 'Nathapong', 'Chitranukroh', '6/14'),
+('Gift', '48490', 'Gift', '48490', 'Mr.', 'Phatthanan', 'Maneerat', '6/14'),
+('Ink', '48491', 'Ink', '48491', 'Mr.', 'Thanawat', 'Inkwan', '6/14'),
+('Tongkaw', '48496', 'Tongkaw', '48496', 'Mr.', 'Sirawit', 'Tongkaw', '6/14'),
+('Bam', '48498', 'Bam', '48498', 'Mr.', 'Bamrung', 'Saetang', '6/14'),
+('Praew', '48500', 'Praew', '48500', 'Miss', 'Praewpan', 'Suksawat', '6/14'),
+('Noodee', '48501', 'Noodee', '48501', 'Miss', 'Nuttida', 'Noodee', '6/14'),
+('Sayo', '50323', 'Sayo', '50323', 'Miss', 'Sayamon', 'Thepsiri', '6/14'),
+('New', '50440', 'New', '50440', 'Miss', 'Newza', 'Jaidee', '6/14'),
+('Ing', '50442', 'Ing', '50442', 'Miss', 'Ingfah', 'Charoensuk', '6/14')
 ON CONFLICT (username) DO NOTHING;
 
 
@@ -534,93 +533,238 @@ SELECT username, student_id, grade_level, class_name FROM users LIMIT 10;
 
 
 
-INSERT INTO test_results (user_id, test_id, grade_level, score, max_score, answers, submitted_at, completed) VALUES
-(1, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 25}', '2024-06-18 14:25:00', true),
-(1, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 30}', '2024-06-25 11:15:00', true),
-(1, 53, 6, 10, 10, '{"term1_test3_score": 10, "time_taken": 28}', '2024-07-02 16:40:00', true),
-(1, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 32}', '2024-07-09 13:30:00', true),
-(1, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 26}', '2024-08-15 09:45:00', true),
-(1, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 29}', '2024-08-22 14:20:00', true),
-(1, 57, 6, 10, 10, '{"term2_test3_score": 10, "time_taken": 27}', '2024-08-29 11:10:00', true),
-(1, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 15:35:00', true),
-(1, 59, 6, 18, 20, '{"term2_test5_score": 18, "time_taken": 45}', '2024-09-12 10:15:00', true),
+-- Insert test results for Grade 6 students using their actual usernames
+-- We'll use a subquery to get the correct user_id from the users table
+INSERT INTO test_results (user_id, test_id, grade_level, score, max_score, answers, submitted_at, completed)
+SELECT u.id, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 25}'::jsonb, '2024-06-18 14:25:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 30}'::jsonb, '2024-06-25 11:15:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 10, 10, '{"term1_test3_score": 10, "time_taken": 28}'::jsonb, '2024-07-02 16:40:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 32}'::jsonb, '2024-07-09 13:30:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 26}'::jsonb, '2024-08-15 09:45:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 29}'::jsonb, '2024-08-22 14:20:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 10, 10, '{"term2_test3_score": 10, "time_taken": 27}'::jsonb, '2024-08-29 11:10:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}'::jsonb, '2024-09-05 15:35:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 18, 20, '{"term2_test5_score": 18, "time_taken": 45}'::jsonb, '2024-09-12 10:15:00', true
+FROM users u WHERE u.username = 'Munich' AND u.grade_level = 6
 
+UNION ALL
 
-(2, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-18 15:30:00', true),
-(2, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 28}', '2024-06-25 12:45:00', true),
-(2, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 30}', '2024-07-02 17:20:00', true),
-(2, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 25}', '2024-07-09 14:15:00', true),
-(2, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 24}', '2024-08-15 10:30:00', true),
-(2, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 27}', '2024-08-22 15:45:00', true),
-(2, 57, 6, 8, 10, '{"term2_test3_score": 8, "time_taken": 32}', '2024-08-29 12:20:00', true),
-(2, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-05 16:10:00', true),
-(2, 59, 6, 19, 20, '{"term2_test5_score": 19, "time_taken": 42}', '2024-09-12 11:25:00', true),
+SELECT u.id, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-18 15:30:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 28}', '2024-06-25 12:45:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 30}', '2024-07-02 17:20:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 25}', '2024-07-09 14:15:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 24}', '2024-08-15 10:30:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 27}', '2024-08-22 15:45:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 8, 10, '{"term2_test3_score": 8, "time_taken": 32}', '2024-08-29 12:20:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-05 16:10:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 19, 20, '{"term2_test5_score": 19, "time_taken": 42}', '2024-09-12 11:25:00', true
+FROM users u WHERE u.username = 'Bright' AND u.grade_level = 6
 
+UNION ALL
 
-(3, 51, 6, 7, 10, '{"term1_test1_score": 7, "time_taken": 35}', '2024-06-18 16:15:00', true),
-(3, 52, 6, 6, 10, '{"term1_test2_score": 6, "time_taken": 38}', '2024-06-25 13:30:00', true),
-(3, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 33}', '2024-07-02 18:45:00', true),
-(3, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 36}', '2024-07-09 15:20:00', true),
-(3, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 34}', '2024-08-15 11:15:00', true),
-(3, 56, 6, 7, 10, '{"term2_test2_score": 7, "time_taken": 37}', '2024-08-22 16:30:00', true),
-(3, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 31}', '2024-08-29 13:45:00', true),
-(3, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 35}', '2024-09-05 17:20:00', true),
-(3, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-12 12:15:00', true),
+SELECT u.id, 51, 6, 7, 10, '{"term1_test1_score": 7, "time_taken": 35}', '2024-06-18 16:15:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 6, 10, '{"term1_test2_score": 6, "time_taken": 38}', '2024-06-25 13:30:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 33}', '2024-07-02 18:45:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 36}', '2024-07-09 15:20:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 34}', '2024-08-15 11:15:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 7, 10, '{"term2_test2_score": 7, "time_taken": 37}', '2024-08-22 16:30:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 31}', '2024-08-29 13:45:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 35}', '2024-09-05 17:20:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-12 12:15:00', true
+FROM users u WHERE u.username = 'Don' AND u.grade_level = 6
 
+UNION ALL
 
-(4, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-18 17:00:00', true),
-(4, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-25 14:15:00', true),
-(4, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-02 19:30:00', true),
-(4, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-09 16:45:00', true),
-(4, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-15 12:00:00', true),
-(4, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 25}', '2024-08-22 17:15:00', true),
-(4, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 29}', '2024-08-29 14:30:00', true),
-(4, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 18:45:00', true),
-(4, 59, 6, 17, 20, '{"term2_test5_score": 17, "time_taken": 44}', '2024-09-12 13:00:00', true),
+SELECT u.id, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-18 17:00:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-25 14:15:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-02 19:30:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-09 16:45:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-15 12:00:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 25}', '2024-08-22 17:15:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 29}', '2024-08-29 14:30:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 18:45:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 17, 20, '{"term2_test5_score": 17, "time_taken": 44}', '2024-09-12 13:00:00', true
+FROM users u WHERE u.username = 'Dollar' AND u.grade_level = 6
 
+UNION ALL
 
-(5, 51, 6, 8, 10, '{"term1_test1_score": 8, "time_taken": 28}', '2024-06-19 10:20:00', true),
-(5, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 25}', '2024-06-26 14:30:00', true),
-(5, 53, 6, 7, 10, '{"term1_test3_score": 7, "time_taken": 35}', '2024-07-03 11:45:00', true),
-(5, 54, 6, 9, 10, '{"term1_test4_score": 9, "time_taken": 29}', '2024-07-10 16:15:00', true),
-(5, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 30}', '2024-08-16 09:30:00', true),
-(5, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 26}', '2024-08-23 15:20:00', true),
-(5, 57, 6, 7, 10, '{"term2_test3_score": 7, "time_taken": 33}', '2024-08-30 12:40:00', true),
-(5, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 32}', '2024-09-06 17:25:00', true),
-(5, 59, 6, 15, 20, '{"term2_test5_score": 15, "time_taken": 50}', '2024-09-13 13:45:00', true),
+SELECT u.id, 51, 6, 8, 10, '{"term1_test1_score": 8, "time_taken": 28}', '2024-06-19 10:20:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 25}', '2024-06-26 14:30:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 7, 10, '{"term1_test3_score": 7, "time_taken": 35}', '2024-07-03 11:45:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 9, 10, '{"term1_test4_score": 9, "time_taken": 29}', '2024-07-10 16:15:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 30}', '2024-08-16 09:30:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 26}', '2024-08-23 15:20:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 7, 10, '{"term2_test3_score": 7, "time_taken": 33}', '2024-08-30 12:40:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 32}', '2024-09-06 17:25:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 15, 20, '{"term2_test5_score": 15, "time_taken": 50}', '2024-09-13 13:45:00', true
+FROM users u WHERE u.username = 'Tonmai' AND u.grade_level = 6
 
+UNION ALL
 
-(6, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-20 13:15:00', true),
-(6, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-27 10:25:00', true),
-(6, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 27}', '2024-07-04 15:50:00', true),
-(6, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 23}', '2024-07-11 12:35:00', true),
-(6, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 25}', '2024-08-17 11:20:00', true),
-(6, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 24}', '2024-08-24 16:15:00', true),
-(6, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-08-31 13:30:00', true),
-(6, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-07 18:40:00', true),
-(6, 59, 6, 20, 20, '{"term2_test5_score": 20, "time_taken": 40}', '2024-09-14 14:55:00', true),
+SELECT u.id, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-20 13:15:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-27 10:25:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 27}', '2024-07-04 15:50:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 23}', '2024-07-11 12:35:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 25}', '2024-08-17 11:20:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 24}', '2024-08-24 16:15:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-08-31 13:30:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-07 18:40:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 20, 20, '{"term2_test5_score": 20, "time_taken": 40}', '2024-09-14 14:55:00', true
+FROM users u WHERE u.username = 'Pupha' AND u.grade_level = 6
 
+UNION ALL
 
-(7, 51, 6, 6, 10, '{"term1_test1_score": 6, "time_taken": 40}', '2024-06-21 09:45:00', true),
-(7, 52, 6, 7, 10, '{"term1_test2_score": 7, "time_taken": 35}', '2024-06-28 14:20:00', true),
-(7, 53, 6, 6, 10, '{"term1_test3_score": 6, "time_taken": 38}', '2024-07-05 11:30:00', true),
-(7, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 31}', '2024-07-12 17:10:00', true),
-(7, 55, 6, 7, 10, '{"term2_test1_score": 7, "time_taken": 36}', '2024-08-18 10:15:00', true),
-(7, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 32}', '2024-08-25 15:45:00', true),
-(7, 57, 6, 6, 10, '{"term2_test3_score": 6, "time_taken": 39}', '2024-09-01 12:25:00', true),
-(7, 58, 6, 7, 10, '{"term2_test4_score": 7, "time_taken": 34}', '2024-09-08 18:20:00', true),
-(7, 59, 6, 14, 20, '{"term2_test5_score": 14, "time_taken": 55}', '2024-09-15 14:30:00', true),
+SELECT u.id, 51, 6, 6, 10, '{"term1_test1_score": 6, "time_taken": 40}', '2024-06-21 09:45:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 7, 10, '{"term1_test2_score": 7, "time_taken": 35}', '2024-06-28 14:20:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 6, 10, '{"term1_test3_score": 6, "time_taken": 38}', '2024-07-05 11:30:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 31}', '2024-07-12 17:10:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 7, 10, '{"term2_test1_score": 7, "time_taken": 36}', '2024-08-18 10:15:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 32}', '2024-08-25 15:45:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 6, 10, '{"term2_test3_score": 6, "time_taken": 39}', '2024-09-01 12:25:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 7, 10, '{"term2_test4_score": 7, "time_taken": 34}', '2024-09-08 18:20:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 14, 20, '{"term2_test5_score": 14, "time_taken": 55}', '2024-09-15 14:30:00', true
+FROM users u WHERE u.username = 'Oil' AND u.grade_level = 6
 
+UNION ALL
 
-(8, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-22 12:30:00', true),
-(8, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 29}', '2024-06-29 15:40:00', true),
-(8, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-06 10:55:00', true),
-(8, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-13 16:25:00', true),
-(8, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-19 11:35:00', true),
-(8, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 30}', '2024-08-26 14:50:00', true),
-(8, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-09-02 13:15:00', true),
-(8, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 31}', '2024-09-09 17:30:00', true),
-(8, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-16 15:45:00', true)
+SELECT u.id, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-22 12:30:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 29}', '2024-06-29 15:40:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-06 10:55:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-13 16:25:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-19 11:35:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 30}', '2024-08-26 14:50:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-09-02 13:15:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 31}', '2024-09-09 17:30:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
+UNION ALL
+SELECT u.id, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-16 15:45:00', true
+FROM users u WHERE u.username = 'Gift' AND u.grade_level = 6
 ON CONFLICT DO NOTHING;
 
 
