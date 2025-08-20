@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>School Testing System - Personal Cabinet</title>
+    <title>School Testing System - Student Portal</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🏫 School Testing System</h1>
-            <p>Access your Personal Cabinet to view tests, scores, and progress</p>
+            <h1>School Testing System</h1>
+            <nav class="main-nav">
+                <a href="/" class="nav-link active">Student Portal</a>
+                <a href="/admin.html" class="nav-link">Admin Panel</a>
+            </nav>
         </header>
 
         <!-- Login Section -->
         <section id="login-section" class="login-section">
-            <h2>🔐 Student Login</h2>
+            <h2>Student Login</h2>
             <form id="loginForm" class="login-form">
                 <div class="form-group">
                     <label for="username">Username (Nickname):</label>
@@ -28,30 +31,6 @@
                 <button type="submit" class="login-btn">Login to Personal Cabinet</button>
             </form>
             <div id="login-status" class="login-status"></div>
-        </section>
-
-        <!-- Questionnaire Section (Hidden until login) -->
-        <section id="questionnaire-section" style="display: none;">
-            <form id="questionnaire-form">
-                <!-- Optional: inputs question1..question10 could be added by specific test pages -->
-            </form>
-            <div id="questionnaire-status" class="status"></div>
-        </section>
-
-        <!-- User Dropdown Button (Hidden until login) -->
-        <div id="user-dropdown" class="user-dropdown-container" style="display: none;">
-            <button id="userDropdownBtn" class="user-dropdown-btn" onclick="toggleDropdown()">
-                👤 Personal Menu
-            </button>
-            <div id="user-dropdown-menu" class="user-dropdown-menu">
-                <a href="#" onclick="showPersonalCabinet()">📚 Personal Cabinet</a>
-                <a href="#" onclick="logout()">🚪 Log Out</a>
-            </div>
-        </div>
-
-        <!-- Personal Cabinet Section (Hidden until login) -->
-        <section id="personalCabinetSection" class="personal-cabinet" style="display: none;">
-            <!-- Personal Cabinet content will be dynamically generated -->
         </section>
 
         <!-- Available Tests Section (Hidden until login) -->
@@ -79,6 +58,30 @@
                     </div>
                 </div>
             </div>
+        </section>
+
+        <!-- User Dropdown Button (Hidden until login) -->
+        <div id="user-dropdown" class="user-dropdown-container" style="display: none;">
+            <button id="userDropdownBtn" class="user-dropdown-btn" onclick="toggleDropdown()">
+                Personal Menu
+            </button>
+            <div id="user-dropdown-menu" class="user-dropdown-menu">
+                <a href="#" onclick="showPersonalCabinet()">Personal Cabinet</a>
+                <a href="#" onclick="logout()">Log Out</a>
+            </div>
+        </div>
+
+        <!-- Personal Cabinet Section (Hidden until login) -->
+        <section id="personalCabinetSection" class="personal-cabinet" style="display: none;">
+            <!-- Personal Cabinet content will be dynamically generated -->
+        </section>
+
+        <!-- Questionnaire Section (Hidden until login) -->
+        <section id="questionnaire-section" style="display: none;">
+            <form id="questionnaire-form">
+                <!-- Optional: inputs question1..question10 could be added by specific test pages -->
+            </form>
+            <div id="questionnaire-status" class="status"></div>
         </section>
     </div>
 

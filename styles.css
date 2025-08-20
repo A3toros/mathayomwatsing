@@ -85,6 +85,14 @@ header {
   margin-top: 30px;
 }
 
+.welcome-message {
+  text-align: center;
+  color: var(--text-light);
+  margin-bottom: 25px;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
 .tests-grid {
   display: grid;
   grid-template-columns: 1fr;

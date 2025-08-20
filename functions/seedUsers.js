@@ -34,24 +34,17 @@ export async function handler(event) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`);
 
-    // Ensure required columns exist (for older schemas)
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)`);
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id VARCHAR(20)`);
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS grade_level INTEGER`);
-    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS class_name VARCHAR(20)`);
-
-    // Ensure unique constraint on username for upsert
+    // Insert sample users directly into unified users table
     await client.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conname = 'users_username_key'
-            AND conrelid = 'users'::regclass
-        ) THEN
-          ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
-        END IF;
-      END$$;
+      INSERT INTO users (username, password, nickname, student_id, grade_level, class_name) VALUES
+      ('Munich', '48457', 'Munich', '48457', 6, '6/14'),
+      ('Bright', '48458', 'Bright', '48458', 6, '6/14'),
+      ('Don', '48461', 'Don', '48461', 6, '6/14')
+      ON CONFLICT (username) DO UPDATE SET
+        nickname = EXCLUDED.nickname,
+        student_id = EXCLUDED.student_id,
+        grade_level = EXCLUDED.grade_level,
+        class_name = EXCLUDED.class_name
     `);
 
     // Discover existing columns to build a compatible INSERT
