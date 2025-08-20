@@ -93,6 +93,24 @@
             color: white !important;
             font-weight: bold;
         }
+        .semester-tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .semester-tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: #f5f5f5;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+        }
+        .semester-tab.active {
+            background: #6f42c1;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -126,6 +144,12 @@
                 <button class="grade-tab" data-grade="4">Grade 4 (M4)</button>
                 <button class="grade-tab" data-grade="5">Grade 5 (M5)</button>
                 <button class="grade-tab" data-grade="6">Grade 6 (M6)</button>
+            </div>
+            
+            <!-- Semester Tabs -->
+            <div class="semester-tabs" style="margin-top: 20px; margin-bottom: 20px;">
+                <button class="semester-tab active" data-semester="1">Semester 1</button>
+                <button class="semester-tab" data-semester="2">Semester 2</button>
             </div>
 
             <!-- Grade 1 Content -->

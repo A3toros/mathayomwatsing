@@ -1,7 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
   const adminLoginSection = document.getElementById('admin-login-section');
-  const adminLoginForm = document.getElementById('adminLoginForm');
-  const adminLoginStatus = document.getElementById('admin-login-status');
   const dashboardSection = document.getElementById('admin-dashboard');
   const saveTestVisibilityBtn = document.getElementById('save-test-visibility');
 
@@ -20,6 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    // Semester tabs
+    document.querySelectorAll('.semester-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const semester = tab.dataset.semester;
+        switchSemester(semester);
+      });
+    });
+
     // Class tabs
     document.querySelectorAll('.class-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -29,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  let currentSemester = 1;
 
   function switchGrade(grade) {
     // Hide all grade content
@@ -47,6 +55,22 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load data for this grade
     loadGradeData(grade);
+  }
+
+  function switchSemester(semester) {
+    currentSemester = parseInt(semester);
+    
+    // Update semester tab active state
+    document.querySelectorAll('.semester-tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    document.querySelector(`[data-semester="${semester}"]`).classList.add('active');
+    
+    // Refresh current table with new semester data
+    const currentGrade = document.querySelector('.grade-tab.active')?.dataset.grade;
+    if (currentGrade) {
+      loadGradeData(currentGrade);
+    }
   }
 
   function switchClass(grade, className) {
@@ -149,19 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
     thNickname.rowSpan = 2;
     headerRow1.appendChild(thNickname);
     
-    // Semester 1 (Term 1 + summary)
-    const thSemester1 = document.createElement('th');
-    thSemester1.textContent = 'Semester 1';
-    thSemester1.colSpan = 6;
-    thSemester1.className = 'semester-header';
-    headerRow1.appendChild(thSemester1);
-    
-    // Semester 2 (Term 2 + summary)
-    const thSemester2 = document.createElement('th');
-    thSemester2.textContent = 'Semester 2';
-    thSemester2.colSpan = 7;
-    thSemester2.className = 'semester-header';
-    headerRow1.appendChild(thSemester2);
+    // Terms (based on selected semester)
+    const thTerms = document.createElement('th');
+    thTerms.textContent = 'Terms';
+    thTerms.colSpan = currentSemester === 1 ? 6 : 7;
+    thTerms.className = 'semester-header';
+    headerRow1.appendChild(thTerms);
     
     // Total column
     const thTotal = document.createElement('th');
@@ -641,35 +658,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Event listeners
-  adminLoginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    setStatus(adminLoginStatus, 'Logging in...');
+  // Check if admin is already logged in from main page
+  function checkAdminLogin() {
+    const adminToken = localStorage.getItem('adminToken');
+    const userInfo = localStorage.getItem('userInfo');
     
-    try {
-      const username = (document.getElementById('admin-username').value || '').trim();
-      const password = (document.getElementById('admin-password').value || '').trim();
-      
-      const res = await fetch('/.netlify/functions/adminLogin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Login failed');
-      
-      token = data.token;
-      localStorage.setItem('adminToken', token);
-      adminLoginSection.style.display = 'none';
-      dashboardSection.style.display = 'block';
-      
-      await fetchDashboard();
-      
-    } catch (e) {
-      setStatus(adminLoginStatus, e.message || 'Login failed', 'error');
+    if (adminToken && userInfo) {
+      try {
+        const user = JSON.parse(userInfo);
+        if (user.username === 'admin' || user.isAdmin) {
+          token = adminToken;
+          adminLoginSection.style.display = 'none';
+          dashboardSection.style.display = 'block';
+          fetchDashboard();
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing user info:', e);
+      }
     }
-  });
+    
+    // If not logged in, show the info message
+    adminLoginSection.style.display = 'block';
+    dashboardSection.style.display = 'none';
+  }
 
   if (saveTestVisibilityBtn) {
     saveTestVisibilityBtn.addEventListener('click', saveTestVisibility);
@@ -678,12 +690,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Setup tabs
   setupTabs();
 
-  // Check if already logged in
-  if (token) {
-    adminLoginSection.style.display = 'none';
-    dashboardSection.style.display = 'block';
-    fetchDashboard();
-  }
+  // Check if admin is already logged in
+  checkAdminLogin();
 
   // Score editing functionality
   function makeScoreEditable(event) {

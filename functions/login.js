@@ -11,7 +11,28 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ success: false, error: "Missing username or password" }) };
   }
 
-  // New login policy:
+  // Check for admin credentials first
+  const envUsername = process.env.ADMIN_USERNAME || "admin";
+  const envPassword = process.env.ADMIN_PASSWORD || "BigusDickus";
+  
+  if (username === envUsername && password === envPassword) {
+    // Admin login successful
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+        user: {
+          id: 'admin',
+          username: 'admin',
+          nickname: 'Admin',
+          isAdmin: true
+        },
+        token: Buffer.from(`admin:${password}`).toString("base64")
+      })
+    };
+  }
+
+  // Regular student login policy:
   // - username is the student's Nickname
   // - password is the Student ID
   const nicknameInput = String(username).trim();

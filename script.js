@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Check if user is admin and redirect accordingly
-      if (result.user && result.user.username === 'admin') {
+      if (result.user && (result.user.username === 'admin' || result.user.isAdmin)) {
         // Admin login - redirect to admin panel
         localStorage.setItem('adminToken', result.token || 'admin-token');
         localStorage.setItem('userInfo', JSON.stringify(result.user));

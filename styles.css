@@ -1419,12 +1419,13 @@ textarea:focus {
 }
 
 .summary-header {
-  background: var(--secondary-color);
-  color: white;
+  background: white;
+  color: black;
   text-align: center;
   font-weight: bold;
   padding: 8px;
   font-size: 0.9em;
+  border: 1px solid #ddd;
 }
 
 .summary-score {
