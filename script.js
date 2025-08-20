@@ -123,6 +123,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Check if user is admin and redirect accordingly
+      if (result.user && result.user.username === 'admin') {
+        // Admin login - redirect to admin panel
+        localStorage.setItem('adminToken', result.token || 'admin-token');
+        localStorage.setItem('userInfo', JSON.stringify(result.user));
+        
+        loginStatus.textContent = 'Admin login successful! Redirecting to admin panel...';
+        loginStatus.className = 'status success';
+        
+        setTimeout(() => {
+          window.location.href = '/admin.html';
+        }, 1000);
+        return;
+      }
+
+      // Regular user login
       // Clear any existing session data before setting new user data
       localStorage.removeItem('token');
       localStorage.removeItem('userId');
@@ -169,51 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("User after login:", currentUser);
     console.log("Type of submitted:", currentUser.submitted, typeof currentUser.submitted);
   });
-
-  // Admin login form submission
-  const adminLoginForm = document.getElementById('adminLoginForm');
-  if (adminLoginForm) {
-      adminLoginForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const adminStatus = document.getElementById('admin-login-status');
-          adminStatus.textContent = 'Logging in...';
-          adminStatus.className = 'status';
-          
-          try {
-              const username = document.getElementById('admin-username').value.trim();
-              const password = document.getElementById('admin-password').value.trim();
-              
-              const response = await fetch('/.netlify/functions/adminLogin', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({ username, password })
-              });
-              
-              const data = await response.json();
-              
-              if (data.success) {
-                  adminStatus.textContent = 'Login successful! Redirecting to admin panel...';
-                  adminStatus.className = 'status success';
-                  
-                  // Store admin token
-                  localStorage.setItem('adminToken', data.token);
-                  
-                  // Redirect to admin panel
-                  setTimeout(() => {
-                      window.location.href = '/admin.html';
-                  }, 1000);
-              } else {
-                  adminStatus.textContent = data.error || 'Login failed';
-                  adminStatus.className = 'status error';
-              }
-          } catch (error) {
-              adminStatus.textContent = 'Error: ' + error.message;
-              adminStatus.className = 'status error';
-          }
-      });
-  }
 
   // ======== Questionnaire logic ========
   const questionnaireForm = document.getElementById('questionnaire-form');
@@ -486,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    // Grade-specific Tests Section (above scores) - Only show if admin made them visible
+    // Grade-specific Tests Section (above scores) - Only show if tests are made visible
     const userGrade = data.user.grade_level;
     
     try {

@@ -253,20 +253,7 @@ INSERT INTO terms (semester_id, name, term_number, start_date, end_date, is_acti
 ON CONFLICT DO NOTHING;
 
 
-INSERT INTO tests (name, description, term_id, test_type, test_url, max_score, duration_minutes, start_date, end_date, grade_level) VALUES
-('Listening Test M1', 'Listening comprehension test for 1st grade students', 1, 'online', '/listening_test_m1', 15, 45, '2024-10-15 09:00:00', '2024-10-15 17:00:00', 1),
-('Vocabulary Test M2', 'Vocabulary test for 2nd grade students', 1, 'online', '/vocabulary_test_m2', 10, 30, '2024-10-20 09:00:00', '2024-10-20 17:00:00', 2),
-('Listening Test M2', 'Listening comprehension test for 2nd grade students', 1, 'online', '/listening_test_m2', 15, 45, '2024-10-25 09:00:00', '2024-10-25 17:00:00', 2),
-('Vocabulary Test M3', 'Vocabulary test for 3rd grade students', 1, 'online', '/vocabulary_test_m3', 10, 30, '2024-10-30 09:00:00', '2024-10-30 17:00:00', 3),
-('Listening Test M3', 'Listening comprehension test for 3rd grade students', 1, 'online', '/listening_test_m3', 15, 45, '2024-11-05 09:00:00', '2024-11-05 17:00:00', 3),
-('Vocabulary Test M4', 'Vocabulary test for 4th grade students', 1, 'online', '/vocabulary_test_m4', 10, 30, '2024-11-10 09:00:00', '2024-11-10 17:00:00', 4),
-('Vocabulary Test M5', 'Vocabulary test for 5th grade students', 1, 'online', '/vocabulary_test_m5', 10, 30, '2024-11-15 09:00:00', '2024-11-15 17:00:00', 5),
-('Vocabulary Test M6', 'Vocabulary test for 6th grade students', 1, 'online', '/vocabulary_test_m6', 10, 30, '2024-10-15 09:00:00', '2024-10-15 17:00:00', 6),
-('Grammar Test', 'Basic grammar concepts', 1, 'online', '/grammar-test', 15, 45, '2024-11-01 09:00:00', '2024-11-01 17:00:00', 6),
-('Reading Comprehension', 'Reading and understanding text', 1, 'offline', NULL, 20, 90, '2024-11-15 09:00:00', '2024-11-15 17:00:00', 6),
-('Writing Assignment', 'Essay writing test', 2, 'offline', NULL, 25, 120, '2024-12-15 09:00:00', '2024-12-15 17:00:00', 6),
-('Final Exam', 'Comprehensive semester exam', 2, 'online', '/final-exam', 50, 180, '2025-01-20 09:00:00', '2025-01-20 17:00:00', 6)
-ON CONFLICT DO NOTHING;
+
 
 
 INSERT INTO grade_6 (username, password, nickname, student_id, title, first_name, last_name, class_name) VALUES
@@ -545,109 +532,95 @@ ORDER BY grade;
 SELECT COUNT(*) as total_users FROM users;
 SELECT username, student_id, grade_level, class_name FROM users LIMIT 10;
 
-INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitted_at, completed) VALUES
-
-(1, 8, 6, 92, '{"vocabulary_score": 92, "time_taken": 42}', '2024-06-18 14:25:00', true),
-(1, 9, 6, 85, '{"grammar_score": 85, "time_taken": 38}', '2024-07-02 11:15:00', true),
-(1, 10, 6, 89, '{"reading_score": 89, "time_taken": 72}', '2024-07-22 16:40:00', true),
-(1, 11, 6, 78, '{"writing_score": 78, "time_taken": 108}', '2024-08-12 13:30:00', true),
-(1, 12, 6, 91, '{"final_score": 91, "time_taken": 88}', '2024-09-03 09:45:00', true),
 
 
-(2, 8, 6, 88, '{"vocabulary_score": 88, "time_taken": 47}', '2024-06-20 10:30:00', true),
-(2, 9, 6, 93, '{"grammar_score": 93, "time_taken": 35}', '2024-07-05 15:20:00', true),
-(2, 10, 6, 76, '{"reading_score": 76, "time_taken": 81}', '2024-07-25 12:15:00', true),
-(2, 11, 6, 87, '{"writing_score": 87, "time_taken": 104}', '2024-08-15 14:50:00', true),
-(2, 12, 6, 84, '{"final_score": 84, "time_taken": 95}', '2024-09-06 11:20:00', true),
+INSERT INTO test_results (user_id, test_id, grade_level, score, max_score, answers, submitted_at, completed) VALUES
+(1, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 25}', '2024-06-18 14:25:00', true),
+(1, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 30}', '2024-06-25 11:15:00', true),
+(1, 53, 6, 10, 10, '{"term1_test3_score": 10, "time_taken": 28}', '2024-07-02 16:40:00', true),
+(1, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 32}', '2024-07-09 13:30:00', true),
+(1, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 26}', '2024-08-15 09:45:00', true),
+(1, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 29}', '2024-08-22 14:20:00', true),
+(1, 57, 6, 10, 10, '{"term2_test3_score": 10, "time_taken": 27}', '2024-08-29 11:10:00', true),
+(1, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 15:35:00', true),
+(1, 59, 6, 18, 20, '{"term2_test5_score": 18, "time_taken": 45}', '2024-09-12 10:15:00', true),
 
 
-(3, 8, 6, 95, '{"vocabulary_score": 95, "time_taken": 33}', '2024-06-19 13:45:00', true),
-(3, 9, 6, 79, '{"grammar_score": 79, "time_taken": 44}', '2024-07-03 09:10:00', true),
-(3, 10, 6, 91, '{"reading_score": 91, "time_taken": 68}', '2024-07-24 17:25:00', true),
-(3, 11, 6, 82, '{"writing_score": 82, "time_taken": 115}', '2024-08-16 10:40:00', true),
-(3, 12, 6, 89, '{"final_score": 89, "time_taken": 92}', '2024-09-04 16:15:00', true),
+(2, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-18 15:30:00', true),
+(2, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 28}', '2024-06-25 12:45:00', true),
+(2, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 30}', '2024-07-02 17:20:00', true),
+(2, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 25}', '2024-07-09 14:15:00', true),
+(2, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 24}', '2024-08-15 10:30:00', true),
+(2, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 27}', '2024-08-22 15:45:00', true),
+(2, 57, 6, 8, 10, '{"term2_test3_score": 8, "time_taken": 32}', '2024-08-29 12:20:00', true),
+(2, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-05 16:10:00', true),
+(2, 59, 6, 19, 20, '{"term2_test5_score": 19, "time_taken": 42}', '2024-09-12 11:25:00', true),
 
 
-(4, 8, 6, 81, '{"vocabulary_score": 81, "time_taken": 51}', '2024-06-21 08:55:00', true),
-(4, 9, 6, 88, '{"grammar_score": 88, "time_taken": 37}', '2024-07-06 14:30:00', true),
-(4, 10, 6, 83, '{"reading_score": 83, "time_taken": 75}', '2024-07-26 11:20:00', true),
-(4, 11, 6, 90, '{"writing_score": 90, "time_taken": 99}', '2024-08-17 15:10:00', true),
-(4, 12, 6, 86, '{"final_score": 86, "time_taken": 89}', '2024-09-05 12:35:00', true),
+(3, 51, 6, 7, 10, '{"term1_test1_score": 7, "time_taken": 35}', '2024-06-18 16:15:00', true),
+(3, 52, 6, 6, 10, '{"term1_test2_score": 6, "time_taken": 38}', '2024-06-25 13:30:00', true),
+(3, 53, 6, 8, 10, '{"term1_test3_score": 8, "time_taken": 33}', '2024-07-02 18:45:00', true),
+(3, 54, 6, 7, 10, '{"term1_test4_score": 7, "time_taken": 36}', '2024-07-09 15:20:00', true),
+(3, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 34}', '2024-08-15 11:15:00', true),
+(3, 56, 6, 7, 10, '{"term2_test2_score": 7, "time_taken": 37}', '2024-08-22 16:30:00', true),
+(3, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 31}', '2024-08-29 13:45:00', true),
+(3, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 35}', '2024-09-05 17:20:00', true),
+(3, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-12 12:15:00', true),
 
 
-(5, 8, 6, 87, '{"vocabulary_score": 87, "time_taken": 45}', '2024-06-22 16:20:00', true),
-(5, 9, 6, 91, '{"grammar_score": 91, "time_taken": 32}', '2024-07-07 10:45:00', true),
-(5, 10, 6, 77, '{"reading_score": 77, "time_taken": 79}', '2024-07-27 13:55:00', true),
-(5, 11, 6, 85, '{"writing_score": 85, "time_taken": 111}', '2024-08-18 09:25:00', true),
-(5, 12, 6, 93, '{"final_score": 93, "time_taken": 87}', '2024-09-07 14:40:00', true),
+(4, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-18 17:00:00', true),
+(4, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-25 14:15:00', true),
+(4, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-02 19:30:00', true),
+(4, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-09 16:45:00', true),
+(4, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-15 12:00:00', true),
+(4, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 25}', '2024-08-22 17:15:00', true),
+(4, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 29}', '2024-08-29 14:30:00', true),
+(4, 58, 6, 9, 10, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 18:45:00', true),
+(4, 59, 6, 17, 20, '{"term2_test5_score": 17, "time_taken": 44}', '2024-09-12 13:00:00', true),
 
 
-(6, 8, 6, 94, '{"vocabulary_score": 94, "time_taken": 36}', '2024-06-23 12:10:00', true),
-(6, 9, 6, 86, '{"grammar_score": 86, "time_taken": 40}', '2024-07-08 16:15:00', true),
-(6, 10, 6, 88, '{"reading_score": 88, "time_taken": 71}', '2024-07-28 08:30:00', true),
-(6, 11, 6, 79, '{"writing_score": 79, "time_taken": 118}', '2024-08-19 17:45:00', true),
-(6, 12, 6, 90, '{"final_score": 90, "time_taken": 91}', '2024-09-08 10:20:00', true),
+(5, 51, 6, 8, 10, '{"term1_test1_score": 8, "time_taken": 28}', '2024-06-19 10:20:00', true),
+(5, 52, 6, 9, 10, '{"term1_test2_score": 9, "time_taken": 25}', '2024-06-26 14:30:00', true),
+(5, 53, 6, 7, 10, '{"term1_test3_score": 7, "time_taken": 35}', '2024-07-03 11:45:00', true),
+(5, 54, 6, 9, 10, '{"term1_test4_score": 9, "time_taken": 29}', '2024-07-10 16:15:00', true),
+(5, 55, 6, 8, 10, '{"term2_test1_score": 8, "time_taken": 30}', '2024-08-16 09:30:00', true),
+(5, 56, 6, 9, 10, '{"term2_test2_score": 9, "time_taken": 26}', '2024-08-23 15:20:00', true),
+(5, 57, 6, 7, 10, '{"term2_test3_score": 7, "time_taken": 33}', '2024-08-30 12:40:00', true),
+(5, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 32}', '2024-09-06 17:25:00', true),
+(5, 59, 6, 15, 20, '{"term2_test5_score": 15, "time_taken": 50}', '2024-09-13 13:45:00', true),
 
 
-(7, 8, 6, 89, '{"vocabulary_score": 89, "time_taken": 41}', '2024-06-24 15:40:00', true),
-(7, 9, 6, 94, '{"grammar_score": 94, "time_taken": 31}', '2024-07-09 11:25:00', true),
-(7, 10, 6, 85, '{"reading_score": 85, "time_taken": 76}', '2024-07-29 14:50:00', true),
-(7, 11, 6, 93, '{"writing_score": 93, "time_taken": 96}', '2024-08-20 12:15:00', true),
-(7, 12, 6, 97, '{"final_score": 97, "time_taken": 78}', '2024-09-09 13:30:00', true),
+(6, 51, 6, 10, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-20 13:15:00', true),
+(6, 52, 6, 10, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-27 10:25:00', true),
+(6, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 27}', '2024-07-04 15:50:00', true),
+(6, 54, 6, 10, 10, '{"term1_test4_score": 10, "time_taken": 23}', '2024-07-11 12:35:00', true),
+(6, 55, 6, 10, 10, '{"term2_test1_score": 10, "time_taken": 25}', '2024-08-17 11:20:00', true),
+(6, 56, 6, 10, 10, '{"term2_test2_score": 10, "time_taken": 24}', '2024-08-24 16:15:00', true),
+(6, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-08-31 13:30:00', true),
+(6, 58, 6, 10, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-07 18:40:00', true),
+(6, 59, 6, 20, 20, '{"term2_test5_score": 20, "time_taken": 40}', '2024-09-14 14:55:00', true),
 
 
-(8, 8, 6, 83, '{"vocabulary_score": 83, "time_taken": 49}', '2024-06-25 09:15:00', true),
-(8, 9, 6, 90, '{"grammar_score": 90, "time_taken": 34}', '2024-07-10 15:35:00', true),
-(8, 10, 6, 92, '{"reading_score": 92, "time_taken": 67}', '2024-07-30 10:45:00', true),
-(8, 11, 6, 86, '{"writing_score": 86, "time_taken": 107}', '2024-08-21 16:20:00', true),
-(8, 12, 6, 88, '{"final_score": 88, "time_taken": 94}', '2024-09-10 11:55:00', true)
-ON CONFLICT DO NOTHING;
+(7, 51, 6, 6, 10, '{"term1_test1_score": 6, "time_taken": 40}', '2024-06-21 09:45:00', true),
+(7, 52, 6, 7, 10, '{"term1_test2_score": 7, "time_taken": 35}', '2024-06-28 14:20:00', true),
+(7, 53, 6, 6, 10, '{"term1_test3_score": 6, "time_taken": 38}', '2024-07-05 11:30:00', true),
+(7, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 31}', '2024-07-12 17:10:00', true),
+(7, 55, 6, 7, 10, '{"term2_test1_score": 7, "time_taken": 36}', '2024-08-18 10:15:00', true),
+(7, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 32}', '2024-08-25 15:45:00', true),
+(7, 57, 6, 6, 10, '{"term2_test3_score": 6, "time_taken": 39}', '2024-09-01 12:25:00', true),
+(7, 58, 6, 7, 10, '{"term2_test4_score": 7, "time_taken": 34}', '2024-09-08 18:20:00', true),
+(7, 59, 6, 14, 20, '{"term2_test5_score": 14, "time_taken": 55}', '2024-09-15 14:30:00', true),
 
 
-INSERT INTO test_results (user_id, test_id, grade_level, score, answers, submitted_at, completed) VALUES
-
-(1, 51, 6, 9, '{"term1_test1_score": 9, "time_taken": 25}', '2024-06-18 14:25:00', true),
-(1, 52, 6, 8, '{"term1_test2_score": 8, "time_taken": 30}', '2024-06-25 11:15:00', true),
-(1, 53, 6, 10, '{"term1_test3_score": 10, "time_taken": 28}', '2024-07-02 16:40:00', true),
-(1, 54, 6, 7, '{"term1_test4_score": 7, "time_taken": 32}', '2024-07-09 13:30:00', true),
-(1, 55, 6, 9, '{"term2_test1_score": 9, "time_taken": 26}', '2024-08-15 09:45:00', true),
-(1, 56, 6, 8, '{"term2_test2_score": 8, "time_taken": 29}', '2024-08-22 14:20:00', true),
-(1, 57, 6, 10, '{"term2_test3_score": 10, "time_taken": 27}', '2024-08-29 11:10:00', true),
-(1, 58, 6, 9, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 15:35:00', true),
-(1, 59, 6, 18, '{"term2_test5_score": 18, "time_taken": 45}', '2024-09-12 10:15:00', true),
-
--- Bright's results (Grade 6)
-(2, 51, 6, 10, '{"term1_test1_score": 10, "time_taken": 22}', '2024-06-18 15:30:00', true),
-(2, 52, 6, 9, '{"term1_test2_score": 9, "time_taken": 28}', '2024-06-25 12:45:00', true),
-(2, 53, 6, 8, '{"term1_test3_score": 8, "time_taken": 30}', '2024-07-02 17:20:00', true),
-(2, 54, 6, 10, '{"term1_test4_score": 10, "time_taken": 25}', '2024-07-09 14:15:00', true),
-(2, 55, 6, 10, '{"term2_test1_score": 10, "time_taken": 24}', '2024-08-15 10:30:00', true),
-(2, 56, 6, 9, '{"term2_test2_score": 9, "time_taken": 27}', '2024-08-22 15:45:00', true),
-(2, 57, 6, 8, '{"term2_test3_score": 8, "time_taken": 32}', '2024-08-29 12:20:00', true),
-(2, 58, 6, 10, '{"term2_test4_score": 10, "time_taken": 26}', '2024-09-05 16:10:00', true),
-(2, 59, 6, 19, '{"term2_test5_score": 19, "time_taken": 42}', '2024-09-12 11:25:00', true),
-
--- Don's results (Grade 6)
-(3, 51, 6, 7, '{"term1_test1_score": 7, "time_taken": 35}', '2024-06-18 16:15:00', true),
-(3, 52, 6, 6, '{"term1_test2_score": 6, "time_taken": 38}', '2024-06-25 13:30:00', true),
-(3, 53, 6, 8, '{"term1_test3_score": 8, "time_taken": 33}', '2024-07-02 18:45:00', true),
-(3, 54, 6, 7, '{"term1_test4_score": 7, "time_taken": 36}', '2024-07-09 15:20:00', true),
-(3, 55, 6, 8, '{"term2_test1_score": 8, "time_taken": 34}', '2024-08-15 11:15:00', true),
-(3, 56, 6, 7, '{"term2_test2_score": 7, "time_taken": 37}', '2024-08-22 16:30:00', true),
-(3, 57, 6, 9, '{"term2_test3_score": 9, "time_taken": 31}', '2024-08-29 13:45:00', true),
-(3, 58, 6, 8, '{"term2_test4_score": 8, "time_taken": 35}', '2024-09-05 17:20:00', true),
-(3, 59, 6, 16, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-12 12:15:00', true),
-
--- Dollar's results (Grade 6)
-(4, 51, 6, 9, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-18 17:00:00', true),
-(4, 52, 6, 10, '{"term1_test2_score": 10, "time_taken": 24}', '2024-06-25 14:15:00', true),
-(4, 53, 6, 9, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-02 19:30:00', true),
-(4, 54, 6, 8, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-09 16:45:00', true),
-(4, 55, 6, 9, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-15 12:00:00', true),
-(4, 56, 6, 10, '{"term2_test2_score": 10, "time_taken": 25}', '2024-08-22 17:15:00', true),
-(4, 57, 6, 9, '{"term2_test3_score": 9, "time_taken": 29}', '2024-08-29 14:30:00', true),
-(4, 58, 6, 9, '{"term2_test4_score": 9, "time_taken": 31}', '2024-09-05 18:45:00', true),
-(4, 59, 6, 17, '{"term2_test5_score": 17, "time_taken": 44}', '2024-09-12 13:00:00', true)
+(8, 51, 6, 9, 10, '{"term1_test1_score": 9, "time_taken": 26}', '2024-06-22 12:30:00', true),
+(8, 52, 6, 8, 10, '{"term1_test2_score": 8, "time_taken": 29}', '2024-06-29 15:40:00', true),
+(8, 53, 6, 9, 10, '{"term1_test3_score": 9, "time_taken": 28}', '2024-07-06 10:55:00', true),
+(8, 54, 6, 8, 10, '{"term1_test4_score": 8, "time_taken": 30}', '2024-07-13 16:25:00', true),
+(8, 55, 6, 9, 10, '{"term2_test1_score": 9, "time_taken": 27}', '2024-08-19 11:35:00', true),
+(8, 56, 6, 8, 10, '{"term2_test2_score": 8, "time_taken": 30}', '2024-08-26 14:50:00', true),
+(8, 57, 6, 9, 10, '{"term2_test3_score": 9, "time_taken": 28}', '2024-09-02 13:15:00', true),
+(8, 58, 6, 8, 10, '{"term2_test4_score": 8, "time_taken": 31}', '2024-09-09 17:30:00', true),
+(8, 59, 6, 16, 20, '{"term2_test5_score": 16, "time_taken": 48}', '2024-09-16 15:45:00', true)
 ON CONFLICT DO NOTHING;
 
 
@@ -659,74 +632,73 @@ CREATE TABLE IF NOT EXISTS test_visibility (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert test visibility settings for all tests
 INSERT INTO test_visibility (test_id, is_visible) VALUES
--- Grade 1 (M1) - Term 1
+
 ('grade1-term1-test1', false),
 ('grade1-term1-test2', false),
 ('grade1-term1-test3', false),
 ('grade1-term1-test4', false),
--- Grade 1 (M1) - Term 2
+
 ('grade1-term2-test1', false),
 ('grade1-term2-test2', false),
 ('grade1-term2-test3', false),
 ('grade1-term2-test4', false),
 ('grade1-term2-test5', false),
 
--- Grade 2 (M2) - Term 1
+
 ('grade2-term1-test1', false),
 ('grade2-term1-test2', false),
 ('grade2-term1-test3', false),
 ('grade2-term1-test4', false),
--- Grade 2 (M2) - Term 2
+
 ('grade2-term2-test1', false),
 ('grade2-term2-test2', false),
 ('grade2-term2-test3', false),
 ('grade2-term2-test4', false),
 ('grade2-term2-test5', false),
 
--- Grade 3 (M3) - Term 1
+
 ('grade3-term1-test1', false),
 ('grade3-term1-test2', false),
 ('grade3-term1-test3', false),
 ('grade3-term1-test4', false),
--- Grade 3 (M3) - Term 2
+
 ('grade3-term2-test1', false),
 ('grade3-term2-test2', false),
 ('grade3-term2-test3', false),
 ('grade3-term2-test4', false),
 ('grade3-term2-test5', false),
 
--- Grade 4 (M4) - Term 1
+
 ('grade4-term1-test1', false),
 ('grade4-term1-test2', false),
 ('grade4-term1-test3', false),
 ('grade4-term1-test4', false),
--- Grade 4 (M4) - Term 2
+
 ('grade4-term2-test1', false),
 ('grade4-term2-test2', false),
 ('grade4-term2-test3', false),
 ('grade4-term2-test4', false),
 ('grade4-term2-test5', false),
 
--- Grade 5 (M5) - Term 1
+
 ('grade5-term1-test1', false),
 ('grade5-term1-test2', false),
 ('grade5-term1-test3', false),
 ('grade5-term1-test4', false),
--- Grade 5 (M5) - Term 2
+
 ('grade5-term2-test1', false),
 ('grade5-term2-test2', false),
 ('grade5-term2-test3', false),
 ('grade5-term2-test4', false),
 ('grade5-term2-test5', false),
 
--- Grade 6 (M6) - Term 1
+
 ('grade6-term1-test1', false),
 ('grade6-term1-test2', false),
 ('grade6-term1-test3', false),
 ('grade6-term1-test4', false),
--- Grade 6 (M6) - Term 2
+
 ('grade6-term2-test1', false),
 ('grade6-term2-test2', false),
 ('grade6-term2-test3', false),

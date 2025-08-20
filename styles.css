@@ -1358,3 +1358,77 @@ textarea:focus {
 }
 
 /* Personal Cabinet */
+
+/* Editable Score Styles */
+.editable-score {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.editable-score:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.score-input {
+  width: 100%;
+  border: 2px solid var(--primary-color);
+  border-radius: 4px;
+  padding: 4px;
+  text-align: center;
+  font-size: inherit;
+  background: white;
+}
+
+.score-input:focus {
+  outline: none;
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Info Box Styles */
+.info-box {
+  background: #e8f4fd;
+  border: 1px solid #3498db;
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.info-box p {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Admin Panel Table Headers */
+.semester-header {
+  background: var(--primary-dark);
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  padding: 10px;
+}
+
+.term-header {
+  background: var(--primary-color);
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  padding: 10px;
+}
+
+.summary-header {
+  background: var(--secondary-color);
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  padding: 8px;
+  font-size: 0.9em;
+}
+
+.summary-score {
+  background: #f8f9fa;
+  font-weight: bold;
+  text-align: center;
+}

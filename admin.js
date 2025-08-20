@@ -149,19 +149,19 @@ document.addEventListener('DOMContentLoaded', () => {
     thNickname.rowSpan = 2;
     headerRow1.appendChild(thNickname);
     
-    // Term 1 (4 tests)
-    const thTerm1 = document.createElement('th');
-    thTerm1.textContent = 'Term 1';
-    thTerm1.colSpan = 4;
-    thTerm1.className = 'term-header';
-    headerRow1.appendChild(thTerm1);
+    // Semester 1 (Term 1 + summary)
+    const thSemester1 = document.createElement('th');
+    thSemester1.textContent = 'Semester 1';
+    thSemester1.colSpan = 6;
+    thSemester1.className = 'semester-header';
+    headerRow1.appendChild(thSemester1);
     
-    // Term 2 (5 tests)
-    const thTerm2 = document.createElement('th');
-    thTerm2.textContent = 'Term 2';
-    thTerm2.colSpan = 5;
-    thTerm2.className = 'term-header';
-    headerRow1.appendChild(thTerm2);
+    // Semester 2 (Term 2 + summary)
+    const thSemester2 = document.createElement('th');
+    thSemester2.textContent = 'Semester 2';
+    thSemester2.colSpan = 7;
+    thSemester2.className = 'semester-header';
+    headerRow1.appendChild(thSemester2);
     
     // Total column
     const thTotal = document.createElement('th');
@@ -182,12 +182,42 @@ document.addEventListener('DOMContentLoaded', () => {
       headerRow2.appendChild(th);
     }
     
+    // Term 1 Total (first 3 tests)
+    const thTerm1Total = document.createElement('th');
+    thTerm1Total.textContent = 'Total (30)';
+    thTerm1Total.className = 'summary-header';
+    headerRow2.appendChild(thTerm1Total);
+    
+    // Term 1 Test 4
+    const thTerm1Test4 = document.createElement('th');
+    thTerm1Test4.textContent = 'Test 4 (10)';
+    thTerm1Test4.className = 'summary-header';
+    headerRow2.appendChild(thTerm1Test4);
+    
     // Term 2 tests (1, 2, 3, 4, 5)
     for (let i = 1; i <= 5; i++) {
       const th = document.createElement('th');
       th.textContent = i.toString();
       headerRow2.appendChild(th);
     }
+    
+    // Term 2 Total (first 3 tests)
+    const thTerm2Total = document.createElement('th');
+    thTerm2Total.textContent = 'Total (30)';
+    thTerm2Total.className = 'summary-header';
+    headerRow2.appendChild(thTerm2Total);
+    
+    // Term 2 Test 4
+    const thTerm2Test4 = document.createElement('th');
+    thTerm2Test4.textContent = 'Test 4 (10)';
+    thTerm2Test4.className = 'summary-header';
+    headerRow2.appendChild(thTerm2Test4);
+    
+    // Term 2 Test 5
+    const thTerm2Test5 = document.createElement('th');
+    thTerm2Test5.textContent = 'Test 5 (20)';
+    thTerm2Test5.className = 'summary-header';
+    headerRow2.appendChild(thTerm2Test5);
     
     thead.appendChild(headerRow2);
     table.appendChild(thead);
@@ -215,9 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Term 1 tests (4 tests, 10 points each)
       let term1Total = 0;
+      let term1First3Total = 0;
       for (let testNum = 1; testNum <= 4; testNum++) {
         const td = document.createElement('td');
-        td.className = 'test-score';
+        td.className = 'test-score editable-score';
         
         // Find test result for this test number in Term 1
         const result = testResults.find(tr => 
@@ -228,20 +259,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result) {
           td.textContent = result.score;
           term1Total += result.score;
+          if (testNum <= 3) {
+            term1First3Total += result.score;
+          }
           td.style.color = result.score >= 8 ? 'green' : result.score >= 6 ? 'orange' : 'red';
+          td.dataset.testResultId = result.id;
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 1, testNum);
+          td.dataset.maxScore = 10;
         } else {
           td.textContent = '-';
           td.style.color = '#999';
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 1, testNum);
+          td.dataset.maxScore = 10;
         }
+        
+        // Make score editable
+        td.addEventListener('click', makeScoreEditable);
         
         row.appendChild(td);
       }
       
+      // Term 1 Total (first 3 tests)
+      const tdTerm1Total = document.createElement('td');
+      tdTerm1Total.className = 'summary-score';
+      tdTerm1Total.textContent = term1First3Total;
+      tdTerm1Total.style.color = term1First3Total >= 24 ? 'green' : term1First3Total >= 18 ? 'orange' : 'red';
+      tdTerm1Total.style.fontWeight = 'bold';
+      row.appendChild(tdTerm1Total);
+      
+      // Term 1 Test 4 (separate column)
+      const tdTerm1Test4 = document.createElement('td');
+      tdTerm1Test4.className = 'test-score editable-score';
+      
+      const term1Test4Result = testResults.find(tr => 
+        tr.user_id === student.id && 
+        tr.test_id === getTestId(grade, 1, 4)
+      );
+      
+      if (term1Test4Result) {
+        tdTerm1Test4.textContent = term1Test4Result.score;
+        tdTerm1Test4.style.color = term1Test4Result.score >= 8 ? 'green' : term1Test4Result.score >= 6 ? 'orange' : 'red';
+        tdTerm1Test4.dataset.testResultId = term1Test4Result.id;
+        tdTerm1Test4.dataset.userId = student.id;
+        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
+        tdTerm1Test4.dataset.maxScore = 10;
+        tdTerm1Test4.addEventListener('click', makeScoreEditable);
+      } else {
+        tdTerm1Test4.textContent = '-';
+        tdTerm1Test4.style.color = '#999';
+        tdTerm1Test4.dataset.userId = student.id;
+        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
+        tdTerm1Test4.dataset.maxScore = 10;
+        tdTerm1Test4.addEventListener('click', makeScoreEditable);
+      }
+      
+      row.appendChild(tdTerm1Test4);
+      
       // Term 2 tests (5 tests: 4 tests × 10 points + 1 test × 20 points)
       let term2Total = 0;
+      let term2First3Total = 0;
       for (let testNum = 1; testNum <= 5; testNum++) {
         const td = document.createElement('td');
-        td.className = 'test-score';
+        td.className = 'test-score editable-score';
         
         // Find test result for this test number in Term 2
         const result = testResults.find(tr => 
@@ -249,20 +330,99 @@ document.addEventListener('DOMContentLoaded', () => {
           tr.test_id === getTestId(grade, 2, testNum)
         );
         
+        const maxScore = testNum === 5 ? 20 : 10;
+        
         if (result) {
           td.textContent = result.score;
           term2Total += result.score;
+          if (testNum <= 3) {
+            term2First3Total += result.score;
+          }
           // Color coding based on test type (10 or 20 points)
-          const maxScore = testNum === 5 ? 20 : 10;
           const percentage = (result.score / maxScore) * 100;
           td.style.color = percentage >= 80 ? 'green' : percentage >= 60 ? 'orange' : 'red';
+          td.dataset.testResultId = result.id;
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 2, testNum);
+          td.dataset.maxScore = maxScore;
         } else {
           td.textContent = '-';
           td.style.color = '#999';
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 2, testNum);
+          td.dataset.maxScore = maxScore;
         }
+        
+        // Make score editable
+        td.addEventListener('click', makeScoreEditable);
         
         row.appendChild(td);
       }
+      
+      // Term 2 Total (first 3 tests)
+      const tdTerm2Total = document.createElement('td');
+      tdTerm2Total.className = 'summary-score';
+      tdTerm2Total.textContent = term2First3Total;
+      tdTerm2Total.style.color = term2First3Total >= 24 ? 'green' : term2First3Total >= 18 ? 'orange' : 'red';
+      tdTerm2Total.style.fontWeight = 'bold';
+      row.appendChild(tdTerm2Total);
+      
+      // Term 2 Test 4 (separate column)
+      const tdTerm2Test4 = document.createElement('td');
+      tdTerm2Test4.className = 'test-score editable-score';
+      
+      const term2Test4Result = testResults.find(tr => 
+        tr.user_id === student.id && 
+        tr.test_id === getTestId(grade, 2, 4)
+      );
+      
+      if (term2Test4Result) {
+        tdTerm2Test4.textContent = term2Test4Result.score;
+        tdTerm2Test4.style.color = term2Test4Result.score >= 8 ? 'green' : term2Test4Result.score >= 6 ? 'orange' : 'red';
+        tdTerm2Test4.dataset.testResultId = term2Test4Result.id;
+        tdTerm2Test4.dataset.userId = student.id;
+        tdTerm2Test4.dataset.testId = getTestId(grade, 2, 4);
+        tdTerm2Test4.dataset.maxScore = 10;
+        tdTerm2Test4.addEventListener('click', makeScoreEditable);
+      } else {
+        tdTerm2Test4.textContent = '-';
+        tdTerm2Test4.style.color = '#999';
+        tdTerm2Test4.dataset.userId = student.id;
+        tdTerm2Test4.dataset.testId = getTestId(grade, 2, 4);
+        tdTerm2Test4.dataset.maxScore = 10;
+        tdTerm2Test4.addEventListener('click', makeScoreEditable);
+      }
+      
+      row.appendChild(tdTerm2Test4);
+      
+      // Term 2 Test 5 (separate column)
+      const tdTerm2Test5 = document.createElement('td');
+      tdTerm2Test5.className = 'test-score editable-score';
+      
+      const term2Test5Result = testResults.find(tr => 
+        tr.user_id === student.id && 
+        tr.test_id === getTestId(grade, 2, 5)
+      );
+      
+      if (term2Test5Result) {
+        tdTerm2Test5.textContent = term2Test5Result.score;
+        const percentage = (term2Test5Result.score / 20) * 100;
+        tdTerm2Test5.style.color = percentage >= 80 ? 'green' : percentage >= 60 ? 'orange' : 'red';
+        tdTerm2Test5.dataset.testResultId = term2Test5Result.id;
+        tdTerm2Test5.dataset.userId = student.id;
+        tdTerm2Test5.dataset.testId = getTestId(grade, 2, 5);
+        tdTerm2Test5.dataset.maxScore = 20;
+        tdTerm2Test5.addEventListener('click', makeScoreEditable);
+      } else {
+        tdTerm2Test5.textContent = '-';
+        tdTerm2Test5.style.color = '#999';
+        tdTerm2Test5.dataset.userId = student.id;
+        tdTerm2Test5.dataset.testId = getTestId(grade, 2, 5);
+        tdTerm2Test5.dataset.maxScore = 20;
+        tdTerm2Test5.addEventListener('click', makeScoreEditable);
+      }
+      
+      row.appendChild(tdTerm2Test5);
       
       // Total score (out of 100)
       const tdTotal = document.createElement('td');
@@ -293,9 +453,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getTestId(grade, term, testNum) {
     // This function maps grade, term, and test number to actual test IDs
-    // For now, we'll use a simple mapping system
-    const baseId = (grade - 1) * 10 + (term - 1) * 5 + testNum;
-    return baseId;
+    // Based on the database schema:
+    // Grade 1: 1-9, Grade 2: 11-19, Grade 3: 21-29, Grade 4: 31-39, Grade 5: 41-49, Grade 6: 51-59
+    if (grade === 1) {
+      return (term - 1) * 5 + testNum;
+    } else if (grade === 2) {
+      return 10 + (term - 1) * 5 + testNum;
+    } else if (grade === 3) {
+      return 20 + (term - 1) * 5 + testNum;
+    } else if (grade === 4) {
+      return 30 + (term - 1) * 5 + testNum;
+    } else if (grade === 5) {
+      return 40 + (term - 1) * 5 + testNum;
+    } else if (grade === 6) {
+      return 50 + (term - 1) * 5 + testNum;
+    }
+    return 0;
   }
 
   function getAvailableTests(grade) {
@@ -425,10 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/.netlify/functions/getTestVisibility');
       const data = await res.json();
       if (res.ok && data.success) {
-        testVisibility = data.visibility.reduce((acc, item) => {
-          acc[item.test_id] = item.is_visible;
-          return acc;
-        }, {});
+        // data.visibility is already an object, no need for reduce
+        testVisibility = data.visibility;
         
         // Update checkboxes based on loaded visibility
         document.querySelectorAll('.test-toggle input[type="checkbox"]').forEach(checkbox => {
@@ -512,6 +683,144 @@ document.addEventListener('DOMContentLoaded', () => {
     adminLoginSection.style.display = 'none';
     dashboardSection.style.display = 'block';
     fetchDashboard();
+  }
+
+  // Score editing functionality
+  function makeScoreEditable(event) {
+    const td = event.target;
+    const currentScore = td.textContent;
+    const maxScore = parseInt(td.dataset.maxScore);
+    
+    if (currentScore === '-') {
+      // Create new test result
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = maxScore;
+      input.value = '';
+      input.className = 'score-input';
+      
+      input.addEventListener('blur', () => saveScore(td, input.value, maxScore));
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          input.blur();
+        }
+      });
+      
+      td.textContent = '';
+      td.appendChild(input);
+      input.focus();
+    } else {
+      // Edit existing score
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = maxScore;
+      input.value = currentScore;
+      input.className = 'score-input';
+      
+      input.addEventListener('blur', () => saveScore(td, input.value, maxScore));
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          input.blur();
+        }
+      });
+      
+      td.textContent = '';
+      td.appendChild(input);
+      input.focus();
+    }
+  }
+
+  async function saveScore(td, newScore, maxScore) {
+    const score = parseInt(newScore);
+    if (isNaN(score) || score < 0 || score > maxScore) {
+      // Restore original value
+      const originalScore = td.dataset.testResultId ? td.textContent : '-';
+      td.textContent = originalScore;
+      return;
+    }
+
+    const userId = td.dataset.userId;
+    const testId = td.dataset.testId;
+    const testResultId = td.dataset.testResultId;
+    
+    try {
+      let response;
+      if (testResultId) {
+        // Update existing test result
+        response = await fetch('/.netlify/functions/updateTestResult', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            testResultId,
+            score,
+            maxScore
+          })
+        });
+      } else {
+        // Create new test result
+        response = await fetch('/.netlify/functions/createTestResult', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId,
+            testId,
+            score,
+            maxScore
+          })
+        });
+      }
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        // Update the cell
+        td.textContent = score;
+        
+        // Update color coding
+        if (maxScore === 10) {
+          td.style.color = score >= 8 ? 'green' : score >= 6 ? 'orange' : 'red';
+        } else {
+          const percentage = (score / maxScore) * 100;
+          td.style.color = percentage >= 80 ? 'green' : percentage >= 60 ? 'orange' : 'red';
+        }
+        
+        // Update dataset if new result was created
+        if (result.testResultId) {
+          td.dataset.testResultId = result.testResultId;
+        }
+        
+        // Refresh the table to update totals
+        await refreshCurrentTable();
+      } else {
+        alert('Failed to save score: ' + (result.error || 'Unknown error'));
+        // Restore original value
+        const originalScore = td.dataset.testResultId ? td.textContent : '-';
+        td.textContent = originalScore;
+      }
+    } catch (error) {
+      console.error('Error saving score:', error);
+      alert('Error saving score. Please try again.');
+      // Restore original value
+      const originalScore = td.dataset.testResultId ? td.textContent : '-';
+      td.textContent = originalScore;
+    }
+  }
+
+  async function refreshCurrentTable() {
+    // Refresh the current grade/class table
+    const currentGrade = document.querySelector('.grade-tab.active')?.dataset.grade;
+    const currentClass = document.querySelector('.class-tab.active')?.dataset.class;
+    
+    if (currentGrade && currentClass) {
+      await loadGradeData(parseInt(currentGrade), currentClass);
+    }
   }
 });
 
