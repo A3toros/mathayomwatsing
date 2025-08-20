@@ -14,7 +14,7 @@
         </header>
 
         <!-- Login Section -->
-        <section id="loginSection" class="login-section">
+        <section id="login-section" class="login-section">
             <h2>🔐 Student Login</h2>
             <form id="loginForm" class="login-form">
                 <div class="form-group">
@@ -27,15 +27,23 @@
                 </div>
                 <button type="submit" class="login-btn">Login to Personal Cabinet</button>
             </form>
-            <div id="loginStatus" class="login-status"></div>
+            <div id="login-status" class="login-status"></div>
+        </section>
+
+        <!-- Questionnaire Section (Hidden until login) -->
+        <section id="questionnaire-section" style="display: none;">
+            <form id="questionnaire-form">
+                <!-- Optional: inputs question1..question10 could be added by specific test pages -->
+            </form>
+            <div id="questionnaire-status" class="status"></div>
         </section>
 
         <!-- User Dropdown Button (Hidden until login) -->
-        <div id="userDropdownContainer" class="user-dropdown-container" style="display: none;">
+        <div id="user-dropdown" class="user-dropdown-container" style="display: none;">
             <button id="userDropdownBtn" class="user-dropdown-btn" onclick="toggleDropdown()">
                 👤 Personal Menu
             </button>
-            <div id="userDropdownMenu" class="user-dropdown-menu">
+            <div id="user-dropdown-menu" class="user-dropdown-menu">
                 <a href="#" onclick="showPersonalCabinet()">📚 Personal Cabinet</a>
                 <a href="#" onclick="logout()">🚪 Log Out</a>
             </div>

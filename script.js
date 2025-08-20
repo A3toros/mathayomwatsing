@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isSubmitting = false;
 
   // ======== Login form handling ========
-  const loginForm = document.getElementById('login-form');
+  const loginForm = document.getElementById('loginForm');
   const loginStatus = document.getElementById('login-status');
   const loginSection = document.getElementById('login-section');
   const questionnaireSection = document.getElementById('questionnaire-section');

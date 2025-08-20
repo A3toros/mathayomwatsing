@@ -1,5 +1,17 @@
 -- Combined from: setup-database.sql, database-update.sql, database-schema.sql, database-schema-separate-tables.sql, database-schema-multiple-classes.sql
 
+-- Admins table for control panel access
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO admins (username, password)
+VALUES ('admin', 'BigusDickus')
+ON CONFLICT (username) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
