@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   const loginStatus = document.getElementById('login-status');
   const loginSection = document.getElementById('login-section');
+  const testsSection = document.getElementById('tests-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
   
   // Check if user is already logged in on page load
@@ -34,13 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
           // Show appropriate section
           if (currentUser.submitted) {
             loginSection.style.display = 'none';
-            questionnaireSection.style.display = 'block';
+            testsSection.style.display = 'block';
             showCompletion(currentUser.score, false);
           } else {
             loginSection.style.display = 'none';
-            questionnaireSection.style.display = 'block';
+            testsSection.style.display = 'block';
             restoreFormData();
           }
+          
+          // Show user dropdown
+          addUserDropdown();
         } else {
           // Token mismatch, clear invalid session data
           console.log("Token mismatch, clearing invalid session");
@@ -144,8 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Clear the login form
       loginForm.reset();
 
+      // Hide login, show tests section
       loginSection.style.display = 'none';
-      questionnaireSection.style.display = 'block';
+      testsSection.style.display = 'block';
+
+      // Show user dropdown
+      addUserDropdown();
 
       if (currentUser.submitted === true) {
         await showCompletion(currentUser.score, false);
@@ -348,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Show login form
     loginSection.style.display = 'block';
+    testsSection.style.display = 'none'; // Ensure tests section is hidden
     questionnaireSection.style.display = 'none';
     
     // Clear form
@@ -360,40 +369,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (questionnaireStatus) questionnaireStatus.textContent = '';
   }
 
-  // Add user dropdown menu to questionnaire section
+  // Add user dropdown menu to tests section
   function addUserDropdown() {
-    if (!document.getElementById('user-dropdown')) {
-      const dropdownContainer = document.createElement('div');
-      dropdownContainer.className = 'user-dropdown-container';
+    const existingDropdown = document.getElementById('user-dropdown');
+    if (existingDropdown) {
+      existingDropdown.style.display = 'block';
+      return;
+    }
+
+    const dropdownContainer = document.getElementById('user-dropdown');
+    if (dropdownContainer) {
+      dropdownContainer.style.display = 'block';
       
-      const dropdownBtn = document.createElement('button');
-      dropdownBtn.className = 'user-dropdown-btn';
-      dropdownBtn.textContent = currentUser ? currentUser.nickname : 'User';
-      dropdownBtn.onclick = toggleDropdown;
-      
-      const dropdownMenu = document.createElement('div');
-      dropdownMenu.className = 'user-dropdown-menu';
-      dropdownMenu.id = 'user-dropdown-menu';
-      
-      const personalCabinetItem = document.createElement('div');
-      personalCabinetItem.className = 'dropdown-item';
-      personalCabinetItem.textContent = 'Personal Cabinet';
-      personalCabinetItem.onclick = showPersonalCabinet;
-      
-      const logoutItem = document.createElement('div');
-      logoutItem.className = 'dropdown-item';
-      logoutItem.textContent = 'Logout';
-      logoutItem.onclick = logout;
-      
-      dropdownMenu.appendChild(personalCabinetItem);
-      dropdownMenu.appendChild(logoutItem);
-      
-      dropdownContainer.appendChild(dropdownBtn);
-      dropdownContainer.appendChild(dropdownMenu);
-      
-      // Insert at the beginning of questionnaire section
-      const firstChild = questionnaireSection.firstChild;
-      questionnaireSection.insertBefore(dropdownContainer, firstChild);
+      // Update dropdown button text
+      const dropdownBtn = document.getElementById('userDropdownBtn');
+      if (dropdownBtn && currentUser) {
+        dropdownBtn.textContent = currentUser.nickname;
+      }
     }
   }
 
@@ -479,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       html += `
         <div class="semester-section ${semester.is_active ? 'active' : ''}">
           <h3 class="semester-title">
-            📚 ${semester.name} (${semester.academic_year})
+            ${semester.name} (${semester.academic_year})
             ${semester.is_active ? '<span class="active-badge">Active</span>' : ''}
           </h3>
       `;
@@ -488,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         html += `
           <div class="term-section ${term.is_active ? 'active' : ''}">
             <h4 class="term-title">
-              📖 ${term.name}
+              ${term.name}
               ${term.is_active ? '<span class="active-badge">Active</span>' : ''}
             </h4>
             <div class="tests-grid">
@@ -578,8 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cabinet) {
       cabinet.style.opacity = '0';
       setTimeout(() => {
-        cabinet.parentNode.replaceChild(questionnaireSection, cabinet);
-        questionnaireSection.style.opacity = '1';
+        cabinet.parentNode.replaceChild(testsSection, cabinet);
+        testsSection.style.opacity = '1';
       }, 300);
     }
   };
