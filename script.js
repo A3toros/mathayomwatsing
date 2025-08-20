@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Add logout functionality
-  function logout() {
+  window.logout = function() {
     // Clear all stored data
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear status messages
     if (loginStatus) loginStatus.textContent = '';
     if (questionnaireStatus) questionnaireStatus.textContent = '';
-  }
+  };
 
   // Add user dropdown menu to tests section
   function addUserDropdown() {

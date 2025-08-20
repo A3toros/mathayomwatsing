@@ -311,6 +311,28 @@ form.completed select {
   background-color: #f5f5f5;
 }
 
+/* Updated dropdown menu styles to match user dropdown button */
+.user-dropdown-menu a {
+  display: block;
+  padding: 12px 16px;
+  color: #333;
+  text-decoration: none;
+  border-bottom: 1px solid #eee;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.user-dropdown-menu a:last-child {
+  border-bottom: none;
+}
+
+.user-dropdown-menu a:hover {
+  background-color: #e6e6fa;
+  color: #333;
+  transform: translateX(5px);
+}
+
 /* Enhanced Personal Cabinet Styles */
 .personal-cabinet {
   padding: 30px;
