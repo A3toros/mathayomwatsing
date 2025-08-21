@@ -107,6 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loginStatus.textContent = '';
     loginStatus.className = 'status';
 
+    // Show "Logging in..." message
+    loginStatus.textContent = 'Logging in...';
+    loginStatus.className = 'status info';
+
     try {
       const response = await fetch('/.netlify/functions/login', {
         method: 'POST',
@@ -471,116 +475,101 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    // Grade-specific Tests Section (above scores) - Only show if tests are made visible
+    // Grade-specific Tests Section - Show tests that are actually assigned to the user
     const userGrade = data.user.grade_level;
     
-    try {
-      // Fetch test visibility settings
-      const visibilityRes = await fetch('/.netlify/functions/getTestVisibility', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+    // Show available tests based on user's grade level
+    const availableTests = [];
+    
+    // Grade 1 tests
+    if (userGrade === 1) {
+      availableTests.push({
+        id: 'grade1-listening',
+        name: 'Listening Test M1',
+        description: 'Listening comprehension test for 1st grade students',
+        url: '/listening_test_m1.html'
+      });
+    }
+    // Grade 2 tests
+    else if (userGrade === 2) {
+      availableTests.push({
+        id: 'grade2-listening',
+        name: 'Listening Test M2',
+        description: 'Listening comprehension test for 2nd grade students',
+        url: '/listening_test_m2.html'
+      });
+      availableTests.push({
+        id: 'grade2-vocabulary',
+        name: 'Vocabulary Test M2',
+        description: 'Vocabulary test for 2nd grade students',
+        url: '/vocabulary_test_m2.html'
+      });
+    }
+    // Grade 3 tests
+    else if (userGrade === 3) {
+      availableTests.push({
+        id: 'grade3-listening',
+        name: 'Listening Test M3',
+        description: 'Listening comprehension test for 3rd grade students',
+        url: '/listening_test_m3.html'
+      });
+      availableTests.push({
+        id: 'grade3-vocabulary',
+        name: 'Vocabulary Test M3',
+        description: 'Vocabulary test for 3rd grade students',
+        url: '/vocabulary_test_m3.html'
+      });
+    }
+    // Grade 4 tests
+    else if (userGrade === 4) {
+      availableTests.push({
+        id: 'grade4-vocabulary',
+        name: 'Vocabulary Test M4',
+        description: 'Vocabulary test for 4th grade students',
+        url: '/vocabulary_test_m4.html'
+      });
+    }
+    // Grade 5 tests
+    else if (userGrade === 5) {
+      availableTests.push({
+        id: 'grade5-vocabulary',
+        name: 'Vocabulary Test M5',
+        description: 'Vocabulary test for 5th grade students',
+        url: '/vocabulary_test_m5.html'
+      });
+    }
+    // Grade 6 tests
+    else if (userGrade === 6) {
+      availableTests.push({
+        id: 'grade6-vocabulary',
+        name: 'Vocabulary Test M6',
+        description: 'Vocabulary test for 6th grade students',
+        url: '/vocabulary_test_m6.html'
+      });
+    }
+    
+    // Show available tests section
+    if (availableTests.length > 0) {
+      html += `
+        <div class="grade-tests-section">
+          <h3>Available Tests for Grade ${userGrade}</h3>
+          <div class="grade-tests-grid">
+      `;
+      
+      availableTests.forEach(test => {
+        html += `
+          <div class="test-card available">
+            <h4>${test.name}</h4>
+            <p>${test.description}</p>
+            <a href="${test.url}" class="test-action-btn current">Take Test</a>
+          </div>
+        `;
       });
       
-      if (visibilityRes.ok) {
-        const visibilityData = await visibilityRes.json();
-        const testVisibility = visibilityData.visibility || {};
-        
-        // Only show tests section if there are visible tests for this grade
-        const visibleTests = [];
-        
-        // Grade 1 tests
-        if (userGrade === 1) {
-          if (testVisibility['grade1-term1-test1']) {
-            visibleTests.push({
-              id: 'grade1-term1-test1',
-              name: 'Listening Test M1',
-              description: 'Listening comprehension test for 1st grade students',
-              url: '/listening_test_m1.html'
-            });
-          }
-        }
-        // Grade 2 tests
-        else if (userGrade === 2) {
-          if (testVisibility['grade2-term1-test1']) {
-            visibleTests.push({
-              id: 'grade2-term1-test1',
-              name: 'Vocabulary Test M2',
-              description: 'Vocabulary test for 2nd grade students',
-              url: '/vocabulary_test_m2.html'
-            });
-          }
-        }
-        // Grade 3 tests
-        else if (userGrade === 3) {
-          if (testVisibility['grade3-term1-test1']) {
-            visibleTests.push({
-              id: 'grade3-term1-test1',
-              name: 'Vocabulary Test M3',
-              description: 'Vocabulary test for 3rd grade students',
-              url: '/vocabulary_test_m3.html'
-            });
-          }
-        }
-        // Grade 4 tests
-        else if (userGrade === 4) {
-          if (testVisibility['grade4-term1-test1']) {
-            visibleTests.push({
-              id: 'grade4-term1-test1',
-              name: 'Vocabulary Test M4',
-              description: 'Vocabulary test for 4th grade students',
-              url: '/vocabulary_test_m4.html'
-            });
-          }
-        }
-        // Grade 5 tests
-        else if (userGrade === 5) {
-          if (testVisibility['grade5-term1-test1']) {
-            visibleTests.push({
-              id: 'grade5-term1-test1',
-              name: 'Vocabulary Test M5',
-              description: 'Vocabulary test for 5th grade students',
-              url: '/vocabulary_test_m5.html'
-            });
-          }
-        }
-        // Grade 6 tests
-        else if (userGrade === 6) {
-          if (testVisibility['grade6-term1-test1']) {
-            visibleTests.push({
-              id: 'grade6-term1-test1',
-              name: 'Vocabulary Test M6',
-              description: 'Vocabulary test for 6th grade students',
-              url: '/vocabulary_test_m6.html'
-            });
-          }
-        }
-        
-        // Only show tests section if there are visible tests
-        if (visibleTests.length > 0) {
-          html += `
-            <div class="grade-tests-section">
-              <h3>Available Tests for Grade ${userGrade}</h3>
-              <div class="grade-tests-grid">
-          `;
-          
-          visibleTests.forEach(test => {
-            html += `
-              <div class="test-card available">
-                <h4>${test.name}</h4>
-                <p>${test.description}</p>
-                <a href="${test.url}" class="test-action-btn current">Take Test</a>
-              </div>
-            `;
-          });
-          
-          html += `
-              </div>
-            </div>
-          `;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading test visibility:', error);
+      html += `
+          </div>
+        </div>
+      `;
     }
 
     // Current Test Section (prominently displayed)
