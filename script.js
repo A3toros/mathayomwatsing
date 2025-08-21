@@ -32,19 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
             answers: localStorage.getItem('userAnswers') ? JSON.parse(localStorage.getItem('userAnswers')) : null
           };
           
-          // Show appropriate section
-          if (currentUser.submitted) {
-            loginSection.style.display = 'none';
-            welcomeSection.style.display = 'block';
-            showCompletion(currentUser.score, false);
-          } else {
-            loginSection.style.display = 'none';
-            welcomeSection.style.display = 'block';
-            restoreFormData();
-          }
-          
-          // Show user dropdown
-          addUserDropdown();
+                     // Hide login, show personal cabinet directly
+           loginSection.style.display = 'none';
+           welcomeSection.style.display = 'none';
+           
+           // Show user dropdown
+           addUserDropdown();
+           
+           // Automatically load personal cabinet
+           showPersonalCabinet();
         } else {
           // Token mismatch, clear invalid session data
           console.log("Token mismatch, clearing invalid session");
@@ -168,19 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
       // Clear the login form
       loginForm.reset();
 
-      // Hide login, show tests section
-      loginSection.style.display = 'none';
-      welcomeSection.style.display = 'block';
+             // Hide login, show personal cabinet directly
+       loginSection.style.display = 'none';
+       welcomeSection.style.display = 'none';
 
-      // Show user dropdown
-      addUserDropdown();
+       // Show user dropdown
+       addUserDropdown();
 
-      if (currentUser.submitted === true) {
-        await showCompletion(currentUser.score, false);
-      } else {
-        setupFormDataPersistence();
-        restoreFormData();
-      }
+       // Automatically load personal cabinet after login
+       await showPersonalCabinet();
     } catch (err) {
       console.error(err);
       loginStatus.textContent = "Login failed. Try again.";
@@ -434,12 +426,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Show personal cabinet
   async function showPersonalCabinet() {
     try {
+      console.log('🔍 showPersonalCabinet called');
+      
       const userId = localStorage.getItem('userId');
+      console.log('🔍 User ID from localStorage:', userId);
+      
       if (!userId) {
         alert('User not found. Please login again.');
         return;
       }
 
+      console.log('🔍 Fetching personal cabinet data...');
+      
       // Fetch comprehensive personal cabinet data
       const response = await fetch('/.netlify/functions/getPersonalCabinet', {
         method: 'POST',
@@ -447,15 +445,20 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ userId })
       });
 
+      console.log('🔍 Response status:', response.status);
+      
       const result = await response.json();
+      console.log('🔍 Response data:', result);
       
       if (result.success) {
+        console.log('🔍 Displaying personal cabinet...');
         displayPersonalCabinet(result.personal_cabinet);
       } else {
+        console.error('🔍 Failed to load personal cabinet:', result.error);
         alert('Failed to load personal cabinet: ' + result.error);
       }
     } catch (error) {
-      console.error('Error loading personal cabinet:', error);
+      console.error('🔍 Error loading personal cabinet:', error);
       alert('Failed to load personal cabinet. Please try again.');
     }
   }
@@ -597,12 +600,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     cabinetContainer.innerHTML = html;
     
-    // Replace questionnaire with personal cabinet
-    questionnaireSection.style.opacity = '0';
-    setTimeout(() => {
-      questionnaireSection.parentNode.replaceChild(cabinetContainer, questionnaireSection);
-      cabinetContainer.style.opacity = '1';
-    }, 300);
+         // Replace login section with personal cabinet
+     loginSection.style.opacity = '0';
+     setTimeout(() => {
+       loginSection.parentNode.replaceChild(cabinetContainer, loginSection);
+       cabinetContainer.style.opacity = '1';
+     }, 300);
   }
 
   // Helper function to get score class for styling
@@ -623,17 +626,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Close personal cabinet
-  window.closePersonalCabinet = function() {
-    const cabinet = document.querySelector('.personal-cabinet');
-    if (cabinet) {
-      cabinet.style.opacity = '0';
-      setTimeout(() => {
-        cabinet.parentNode.replaceChild(welcomeSection, cabinet);
-        welcomeSection.style.opacity = '1';
-      }, 300);
-    }
-  };
+     // Close personal cabinet
+   window.closePersonalCabinet = function() {
+     const cabinet = document.querySelector('.personal-cabinet');
+     if (cabinet) {
+       cabinet.style.opacity = '0';
+       setTimeout(() => {
+         cabinet.parentNode.replaceChild(loginSection, cabinet);
+         loginSection.style.opacity = '1';
+       }, 300);
+     }
+   };
 
   // Close dropdown when clicking outside
   document.addEventListener('click', function(event) {
