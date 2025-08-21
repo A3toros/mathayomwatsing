@@ -25,7 +25,7 @@ exports.handler = async (event) => {
   try {
     await client.connect();
     
-    // Get comprehensive personal cabinet data
+    // Get comprehensive personal cabinet data - simplified to match actual schema
     const result = await client.query(`
       SELECT 
         u.id as user_id,
@@ -33,14 +33,6 @@ exports.handler = async (event) => {
         u.student_id,
         u.grade_level,
         u.class_name,
-        s.id as semester_id,
-        s.name as semester_name,
-        s.academic_year,
-        s.is_active as semester_active,
-        t.id as term_id,
-        t.name as term_name,
-        t.term_number,
-        t.is_active as term_active,
         test.id as test_id,
         test.name as test_name,
         test.description as test_description,
@@ -51,18 +43,16 @@ exports.handler = async (event) => {
         test.start_date as test_start,
         test.end_date as test_end,
         test.is_active as test_active,
+        test.term as term_number,
         tr.score,
         tr.completed,
         tr.submitted_at,
         tr.answers
       FROM users u
-      JOIN test_assignments ta ON u.id = ta.user_id
-      JOIN tests test ON ta.test_id = test.id
-      JOIN terms t ON test.term_id = t.id
-      JOIN semesters s ON t.semester_id = s.id
+      JOIN tests test ON test.grade_level = u.grade_level
       LEFT JOIN test_results tr ON u.id = tr.user_id AND test.id = tr.test_id
       WHERE u.id = $1
-      ORDER BY s.id, t.term_number, test.start_date
+      ORDER BY test.term, test.test_number
     `, [userId]);
 
     if (result.rows.length === 0) {
@@ -72,7 +62,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Get current active test (most recent upcoming or current test)
+    // Get current active test (most recent upcoming or current test) - simplified
     const currentTestResult = await client.query(`
       SELECT 
         test.id,
@@ -83,13 +73,10 @@ exports.handler = async (event) => {
         test.duration_minutes,
         test.start_date,
         test.end_date,
-        s.name as semester_name,
-        t.name as term_name
+        'Term ' || test.term as term_name,
+        'Semester 1' as semester_name
       FROM tests test
-      JOIN terms t ON test.term_id = t.id
-      JOIN semesters s ON t.semester_id = s.id
-      JOIN test_assignments ta ON test.id = ta.test_id
-      WHERE ta.user_id = $1 
+      WHERE test.grade_level = (SELECT grade_level FROM users WHERE id = $1)
         AND test.is_active = true
         AND test.start_date <= NOW()
         AND test.end_date >= NOW()
@@ -100,7 +87,7 @@ exports.handler = async (event) => {
       LIMIT 1
     `, [userId]);
 
-    // Organize data by semester and term
+    // Organize data by term (simplified structure)
     const personalCabinet = {
       user: {
         id: result.rows[0].user_id,
@@ -110,30 +97,25 @@ exports.handler = async (event) => {
         class_name: result.rows[0].class_name
       },
       current_test: currentTestResult.rows[0] || null,
-      semesters: {}
+      semesters: [{
+        id: 1,
+        name: 'Semester 1',
+        academic_year: '2024-2025',
+        is_active: true,
+        terms: {}
+      }]
     };
 
-    // Process results and organize by semester/term
+    // Process results and organize by term
     result.rows.forEach(row => {
-      const semesterKey = `semester_${row.semester_id}`;
-      const termKey = `term_${row.term_id}`;
+      const termKey = `term_${row.term_number}`;
       
-      if (!personalCabinet.semesters[semesterKey]) {
-        personalCabinet.semesters[semesterKey] = {
-          id: row.semester_id,
-          name: row.semester_name,
-          academic_year: row.academic_year,
-          is_active: row.semester_active,
-          terms: {}
-        };
-      }
-      
-      if (!personalCabinet.semesters[semesterKey].terms[termKey]) {
-        personalCabinet.semesters[semesterKey].terms[termKey] = {
-          id: row.term_id,
-          name: row.term_name,
+      if (!personalCabinet.semesters[0].terms[termKey]) {
+        personalCabinet.semesters[0].terms[termKey] = {
+          id: row.term_number,
+          name: `Term ${row.term_number}`,
           term_number: row.term_number,
-          is_active: row.term_active,
+          is_active: true,
           tests: []
         };
       }
@@ -158,17 +140,17 @@ exports.handler = async (event) => {
         answers: row.answers
       };
       
-      personalCabinet.semesters[semesterKey].terms[termKey].tests.push(testData);
+      personalCabinet.semesters[0].terms[termKey].tests.push(testData);
     });
 
     // Convert to array format for easier frontend handling
-    const semestersArray = Object.values(personalCabinet.semesters).map(semester => ({
+    const semestersArray = personalCabinet.semesters.map(semester => ({
       ...semester,
       terms: Object.values(semester.terms).map(term => ({
         ...term,
-        tests: term.tests.sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+        tests: term.tests.sort((a, b) => a.test_number - b.test_number)
       })).sort((a, b) => a.term_number - b.term_number)
-    })).sort((a, b) => a.id - b.id);
+    }));
 
     return {
       statusCode: 200,
