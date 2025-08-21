@@ -14,7 +14,7 @@ exports.handler = async (event) => {
     await client.connect();
 
     // Check if tables exist and have data
-    const tables = ['users', 'grade_1', 'grade_2', 'grade_3', 'grade_4', 'grade_5', 'grade_6', 'test_results'];
+    const tables = ['users', 'tests', 'test_results', 'test_visibility'];
     const results = {};
 
     for (const table of tables) {
@@ -39,6 +39,28 @@ exports.handler = async (event) => {
       sampleStudents = `Error: ${e.message}`;
     }
 
+    // Check sample test results
+    let sampleTestResults = [];
+    try {
+      const testResultQuery = await client.query(`
+        SELECT 
+          u.nickname,
+          u.grade_level,
+          t.test_number,
+          tr.score,
+          tr.max_score,
+          tr.completed
+        FROM test_results tr
+        JOIN users u ON tr.user_id = u.id
+        JOIN tests t ON tr.test_id = t.id
+        ORDER BY u.grade_level, u.nickname, t.test_number
+        LIMIT 10
+      `);
+      sampleTestResults = testResultQuery.rows;
+    } catch (e) {
+      sampleTestResults = `Error: ${e.message}`;
+    }
+
     await client.end();
 
     return {
@@ -47,6 +69,7 @@ exports.handler = async (event) => {
         success: true,
         tableCounts: results,
         sampleStudents: sampleStudents,
+        sampleTestResults: sampleTestResults,
         message: "Database debug information"
       })
     };

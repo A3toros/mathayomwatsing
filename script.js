@@ -798,6 +798,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ======== Debug Functions ========
   
+  // Debug database tables
+  window.debugDatabaseTables = async function() {
+    const debugOutput = document.getElementById('debug-output');
+    if (!debugOutput) {
+      console.log('Debug output element not found');
+      return;
+    }
+    
+    console.log('Starting database debug...');
+    debugOutput.innerHTML = '🔍 Debugging database tables...';
+    
+    try {
+      console.log('Fetching debugDb function...');
+      const response = await fetch('/.netlify/functions/debugDb');
+      console.log('Response received:', response);
+      
+      const result = await response.json();
+      console.log('Result parsed:', result);
+      
+      if (result.success) {
+        debugOutput.innerHTML = `
+          <div class="debug-info">
+            <h4>🗄️ Database Tables Debug</h4>
+            
+            <div class="debug-section">
+              <h5>📊 Table Counts:</h5>
+              <ul>
+                <li>Users: ${result.tableCounts?.users || 'N/A'}</li>
+                <li>Tests: ${result.tableCounts?.tests || 'N/A'}</li>
+                <li>Test Results: ${result.tableCounts?.test_results || 'N/A'}</li>
+                <li>Test Visibility: ${result.tableCounts?.test_visibility || 'N/A'}</li>
+              </ul>
+            </div>
+            
+            <div class="debug-section">
+              <h5>👥 Sample Users:</h5>
+              ${result.sampleUsers ? 
+                `<pre>${JSON.stringify(result.sampleUsers, null, 2)}</pre>` : 
+                '<p class="no-data">No sample users available</p>'
+              }
+            </div>
+            
+            <div class="debug-section">
+              <h5>📝 Sample Test Results:</h5>
+              ${result.sampleTestResults ? 
+                `<pre>${JSON.stringify(result.sampleTestResults, null, 2)}</pre>` : 
+                '<p class="no-data">No sample test results available</p>'
+              }
+            </div>
+          </div>
+        `;
+      } else {
+        debugOutput.innerHTML = `
+          <div class="debug-error">
+            <h4>❌ Error debugging database</h4>
+            <p>Response: ${JSON.stringify(result, null, 2)}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('Debug error:', error);
+      debugOutput.innerHTML = `
+        <div class="debug-error">
+          <h4>❌ Error debugging database</h4>
+          <p>Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  };
+
   // Debug test results for a specific user
   window.debugTestResults = async function(userId, userGrade) {
     const debugOutput = document.getElementById('debug-output');
