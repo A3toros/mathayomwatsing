@@ -33,6 +33,9 @@ exports.handler = async (event) => {
         u.student_id,
         u.grade_level,
         u.class_name,
+        u.submitted as user_submitted,
+        u.score as user_score,
+        u.answers as user_answers,
         test.id as test_id,
         test.name as test_name,
         test.description as test_description,
@@ -45,10 +48,10 @@ exports.handler = async (event) => {
         test.is_active as test_active,
         test.term as term_number,
         test.test_number,
-        tr.score,
-        tr.completed,
-        tr.submitted_at,
-        tr.answers
+        tr.score as tr_score,
+        tr.completed as tr_completed,
+        tr.submitted_at as tr_submitted_at,
+        tr.answers as tr_answers
       FROM users u
       JOIN tests test ON test.grade_level = u.grade_level
       LEFT JOIN test_results tr ON u.id = tr.user_id AND test.id = tr.test_id
@@ -83,6 +86,11 @@ exports.handler = async (event) => {
         AND test.is_active = true
         AND test.id NOT IN (
           SELECT test_id FROM test_results WHERE user_id = $1 AND completed = true
+        )
+        AND test.id NOT IN (
+          SELECT t.id FROM tests t 
+          JOIN users u ON u.grade_level = t.grade_level 
+          WHERE u.id = $1 AND u.submitted = true
         )
       ORDER BY test.term, test.test_number ASC
       LIMIT 1
@@ -136,11 +144,11 @@ exports.handler = async (event) => {
         start_date: row.test_start,
         end_date: row.test_end,
         is_active: row.test_active,
-        status: row.completed ? 'completed' : 'upcoming',
-        score: row.score || null,
-        completed: row.completed || false,
-        submitted_at: row.submitted_at,
-        answers: row.answers
+        status: (row.tr_completed || row.user_submitted) ? 'completed' : 'upcoming',
+        score: row.tr_score || row.user_score || null,
+        completed: row.tr_completed || row.user_submitted || false,
+        submitted_at: row.tr_submitted_at || null,
+        answers: row.tr_answers || row.user_answers || null
       };
       
       personalCabinet.semesters[0].terms[termKey].tests.push(testData);
