@@ -95,8 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
         displayClassStudents(grade, `${grade}/16`);
       } else if (grade <= 5) {
         // Grades 4-5 have one class each
-        const className = grade === 4 ? '4/14' : '5/14';
-        console.log(`Displaying class ${className} for grade ${grade}`); // Debug
+        const className = grade == 4 ? '4/14' : '5/14';
+        console.log(`Grade: ${grade}, Type: ${typeof grade}, Class: ${className}`); // Debug
         displayClassStudents(grade, className);
       } else {
         // Grade 6 has one class
@@ -175,14 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
     thNickname.rowSpan = 2;
     headerRow1.appendChild(thNickname);
     
-    // Term 1 header (4 tests)
+    // Term 1 header (5 columns: 3 tests + subtotal + 1 test)
     const thTerm1 = document.createElement('th');
     thTerm1.textContent = 'Term 1';
-    thTerm1.colSpan = 4;
+    thTerm1.colSpan = 5;
     thTerm1.className = 'term-header';
     headerRow1.appendChild(thTerm1);
     
-    // Term 2 header (6 columns: 5 tests + 1 total)
+    // Term 2 header (6 columns: 3 tests + subtotal + 2 tests)
     const thTerm2 = document.createElement('th');
     thTerm2.textContent = 'Term 2';
     thTerm2.colSpan = 6;
@@ -201,27 +201,45 @@ document.addEventListener('DOMContentLoaded', () => {
     // Header Row 2: Individual test numbers
     const headerRow2 = document.createElement('tr');
     
-    // Term 1 tests (1, 2, 3, 4)
-    for (let i = 1; i <= 4; i++) {
+    // Term 1 tests (1, 2, 3, subtotal, 4)
+    for (let i = 1; i <= 3; i++) {
       const th = document.createElement('th');
       th.textContent = i.toString();
       headerRow2.appendChild(th);
     }
+    
+    // Term 1 subtotal (Tests 1-3)
+    const thTerm1Subtotal = document.createElement('th');
+    thTerm1Subtotal.textContent = 'Subtotal';
+    thTerm1Subtotal.className = 'summary-header';
+    headerRow2.appendChild(thTerm1Subtotal);
+    
+    // Term 1 test 4
+    const thTerm1Test4 = document.createElement('th');
+    thTerm1Test4.textContent = '4';
+    headerRow2.appendChild(thTerm1Test4);
     
 
     
-    // Term 2 tests (1, 2, 3, 4, 5)
-    for (let i = 1; i <= 5; i++) {
+    // Term 2 tests (1, 2, 3, subtotal, 4, 5)
+    for (let i = 1; i <= 3; i++) {
       const th = document.createElement('th');
       th.textContent = i.toString();
       headerRow2.appendChild(th);
     }
     
-    // Term 2 Total column
-    const thTerm2Total = document.createElement('th');
-    thTerm2Total.textContent = 'Total';
-    thTerm2Total.className = 'summary-header';
-    headerRow2.appendChild(thTerm2Total);
+    // Term 2 subtotal (Tests 1-3)
+    const thTerm2Subtotal = document.createElement('th');
+    thTerm2Subtotal.textContent = 'Subtotal';
+    thTerm2Subtotal.className = 'summary-header';
+    headerRow2.appendChild(thTerm2Subtotal);
+    
+    // Term 2 tests 4 and 5
+    for (let i = 4; i <= 5; i++) {
+      const th = document.createElement('th');
+      th.textContent = i.toString();
+      headerRow2.appendChild(th);
+    }
     
     thead.appendChild(headerRow2);
     table.appendChild(thead);
@@ -247,10 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
       tdNickname.textContent = student.nickname;
       row.appendChild(tdNickname);
       
-      // Term 1 tests (4 tests, 10 points each)
+      // Term 1 tests (3 tests, 10 points each)
       let term1Total = 0;
       let term1First3Total = 0;
-      for (let testNum = 1; testNum <= 4; testNum++) {
+      for (let testNum = 1; testNum <= 3; testNum++) {
         const td = document.createElement('td');
         td.className = 'test-score editable-score';
         
@@ -263,9 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result) {
           td.textContent = result.score;
           term1Total += result.score;
-          if (testNum <= 3) {
-            term1First3Total += result.score;
-          }
+          term1First3Total += result.score;
           td.style.color = result.score >= 8 ? 'green' : result.score >= 6 ? 'orange' : 'red';
           td.dataset.testResultId = result.id;
           td.dataset.userId = student.id;
@@ -285,12 +301,93 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(td);
       }
       
+      // Term 1 subtotal (Tests 1-3)
+      const tdTerm1Subtotal = document.createElement('td');
+      tdTerm1Subtotal.className = 'summary-score';
+      tdTerm1Subtotal.textContent = term1First3Total;
+      tdTerm1Subtotal.style.color = term1First3Total >= 24 ? 'green' : term1First3Total >= 18 ? 'orange' : 'red';
+      tdTerm1Subtotal.style.fontWeight = 'bold';
+      row.appendChild(tdTerm1Subtotal);
+      
+      // Term 1 test 4
+      const tdTerm1Test4 = document.createElement('td');
+      tdTerm1Test4.className = 'test-score editable-score';
+      
+      // Find test result for test 4 in Term 1
+      const result4 = testResults.find(tr => 
+        tr.user_id === student.id && 
+        tr.test_id === getTestId(grade, 1, 4)
+      );
+      
+      if (result4) {
+        tdTerm1Test4.textContent = result4.score;
+        term1Total += result4.score;
+        tdTerm1Test4.style.color = result4.score >= 8 ? 'green' : result4.score >= 6 ? 'orange' : 'red';
+        tdTerm1Test4.dataset.testResultId = result4.id;
+        tdTerm1Test4.dataset.userId = student.id;
+        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
+        tdTerm1Test4.dataset.maxScore = 10;
+      } else {
+        tdTerm1Test4.textContent = '-';
+        tdTerm1Test4.style.color = '#999';
+        tdTerm1Test4.dataset.userId = student.id;
+        tdTerm1Test4.dataset.testId = getTestId(grade, 1, 4);
+        tdTerm1Test4.dataset.maxScore = 10;
+      }
+      
+      // Make score editable
+      tdTerm1Test4.addEventListener('click', makeScoreEditable);
+      row.appendChild(tdTerm1Test4);
+      
 
       
-      // Term 2 tests (5 tests: 4 tests × 10 points + 1 test × 20 points)
+      // Term 2 tests (3 tests: 10 points each)
       let term2Total = 0;
       let term2First3Total = 0;
-      for (let testNum = 1; testNum <= 5; testNum++) {
+      for (let testNum = 1; testNum <= 3; testNum++) {
+        const td = document.createElement('td');
+        td.className = 'test-score editable-score';
+        
+        // Find test result for this test number in Term 2
+        const result = testResults.find(tr => 
+          tr.user_id === student.id && 
+          tr.test_id === getTestId(grade, 2, testNum)
+        );
+        
+        if (result) {
+          td.textContent = result.score;
+          term2Total += result.score;
+          term2First3Total += result.score;
+          // Color coding for 10-point tests
+          td.style.color = result.score >= 8 ? 'green' : result.score >= 6 ? 'orange' : 'red';
+          td.dataset.testResultId = result.id;
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 2, testNum);
+          td.dataset.maxScore = 10;
+        } else {
+          td.textContent = '-';
+          td.style.color = '#999';
+          td.dataset.userId = student.id;
+          td.dataset.testId = getTestId(grade, 2, testNum);
+          td.dataset.maxScore = 10;
+        }
+        
+        // Make score editable
+        td.addEventListener('click', makeScoreEditable);
+        
+        row.appendChild(td);
+      }
+      
+      // Term 2 subtotal (Tests 1-3)
+      const tdTerm2Subtotal = document.createElement('td');
+      tdTerm2Subtotal.className = 'summary-score';
+      tdTerm2Subtotal.textContent = term2First3Total;
+      tdTerm2Subtotal.style.color = term2First3Total >= 24 ? 'green' : term2First3Total >= 18 ? 'orange' : 'red';
+      tdTerm2Subtotal.style.fontWeight = 'bold';
+      row.appendChild(tdTerm2Subtotal);
+      
+      // Term 2 tests 4 and 5
+      for (let testNum = 4; testNum <= 5; testNum++) {
         const td = document.createElement('td');
         td.className = 'test-score editable-score';
         
@@ -305,9 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result) {
           td.textContent = result.score;
           term2Total += result.score;
-          if (testNum <= 3) {
-            term2First3Total += result.score;
-          }
           // Color coding based on test type (10 or 20 points)
           const percentage = (result.score / maxScore) * 100;
           td.style.color = percentage >= 80 ? 'green' : percentage >= 60 ? 'orange' : 'red';
@@ -329,13 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(td);
       }
       
-             // Term 2 Total column
-       const tdTerm2Total = document.createElement('td');
-       tdTerm2Total.className = 'summary-score';
-       tdTerm2Total.textContent = term2Total;
-       tdTerm2Total.style.color = term2Total >= 60 ? 'green' : term2Total >= 45 ? 'orange' : 'red';
-       tdTerm2Total.style.fontWeight = 'bold';
-       row.appendChild(tdTerm2Total);
+             
       
       // Total score (out of 100)
       const tdTotal = document.createElement('td');
