@@ -44,6 +44,7 @@ exports.handler = async (event) => {
         test.end_date as test_end,
         test.is_active as test_active,
         test.term as term_number,
+        test.test_number,
         tr.score,
         tr.completed,
         tr.submitted_at,
@@ -68,22 +69,22 @@ exports.handler = async (event) => {
         test.id,
         test.name,
         test.description,
-        test.test_url,
         test.max_score,
         test.duration_minutes,
         test.start_date,
         test.end_date,
+        test.grade_level,
+        test.test_type,
+        test.term,
         'Term ' || test.term as term_name,
         'Semester 1' as semester_name
       FROM tests test
       WHERE test.grade_level = (SELECT grade_level FROM users WHERE id = $1)
         AND test.is_active = true
-        AND test.start_date <= NOW()
-        AND test.end_date >= NOW()
         AND test.id NOT IN (
           SELECT test_id FROM test_results WHERE user_id = $1 AND completed = true
         )
-      ORDER BY test.start_date ASC
+      ORDER BY test.term, test.test_number ASC
       LIMIT 1
     `, [userId]);
 
@@ -96,7 +97,10 @@ exports.handler = async (event) => {
         grade_level: result.rows[0].grade_level,
         class_name: result.rows[0].class_name
       },
-      current_test: currentTestResult.rows[0] || null,
+      current_test: currentTestResult.rows[0] ? {
+        ...currentTestResult.rows[0],
+        test_url: getTestUrl(currentTestResult.rows[0].grade_level, currentTestResult.rows[0].test_type, currentTestResult.rows[0].term)
+      } : null,
       semesters: [{
         id: 1,
         name: 'Semester 1',
@@ -126,14 +130,13 @@ exports.handler = async (event) => {
         name: row.test_name,
         description: row.test_description,
         test_type: row.test_type,
-        test_url: row.test_url,
+        test_url: getTestUrl(row.grade_level, row.test_type, row.term_number),
         max_score: row.max_score,
         duration_minutes: row.duration_minutes,
         start_date: row.test_start,
         end_date: row.test_end,
         is_active: row.test_active,
-        status: row.completed ? 'completed' : 
-                (row.test_start <= new Date() && row.test_end >= new Date()) ? 'current' : 'upcoming',
+        status: row.completed ? 'completed' : 'upcoming',
         score: row.score || null,
         completed: row.completed || false,
         submitted_at: row.submitted_at,
@@ -168,5 +171,21 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: error.message || "Failed to fetch personal cabinet" }) };
   } finally {
     await client.end();
+  }
+}
+
+// Helper function to generate test URLs based on grade and type
+function getTestUrl(gradeLevel, testType, termNumber) {
+  if (testType === 'listening') {
+    return `/listening_test_m${gradeLevel}.html`;
+  } else if (testType === 'vocabulary') {
+    return `/vocabulary_test_m${gradeLevel}.html`;
+  }
+  
+  // Default fallback based on grade level
+  if (gradeLevel <= 3) {
+    return `/listening_test_m${gradeLevel}.html`;
+  } else {
+    return `/vocabulary_test_m${gradeLevel}.html`;
   }
 }
