@@ -478,6 +478,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Grade-specific Tests Section - Show tests that are actually assigned to the user
     const userGrade = data.user.grade_level;
     
+    // Add debugging tool for test results
+    html += `
+      <div class="debug-section">
+        <h3>🔍 Debug Information</h3>
+        <div class="debug-controls">
+          <button onclick="debugTestResults(${data.user.id}, ${userGrade})" class="debug-btn">
+            Debug Test Results
+          </button>
+          <button onclick="debugDatabaseTables()" class="debug-btn">
+            Debug Database Tables
+          </button>
+          <button onclick="debugUserData(${data.user.id})" class="debug-btn">
+            Debug User Data
+          </button>
+        </div>
+        <div id="debug-output" class="debug-output"></div>
+      </div>
+    `;
+    
     // Show available tests based on user's grade level
     const availableTests = [];
     
@@ -776,4 +795,216 @@ document.addEventListener('DOMContentLoaded', () => {
 
   handleVocabularyPage();
   handleListeningPage();
+
+  // ======== Debug Functions ========
+  
+  // Debug test results for a specific user
+  window.debugTestResults = async function(userId, userGrade) {
+    const debugOutput = document.getElementById('debug-output');
+    if (!debugOutput) return;
+    
+    debugOutput.innerHTML = '🔍 Debugging test results...';
+    
+    try {
+      // Get all test results for this user
+      const response = await fetch('/.netlify/functions/getAllTestResults', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.results) {
+        const userResults = result.results.filter(r => r.user_id == userId);
+        const gradeResults = result.results.filter(r => r.grade_level == userGrade);
+        
+        debugOutput.innerHTML = `
+          <div class="debug-info">
+            <h4>📊 Test Results Debug for User ID: ${userId}, Grade: ${userGrade}</h4>
+            
+            <div class="debug-section">
+              <h5>🔍 All Test Results in Database:</h5>
+              <p>Total test results: ${result.results.length}</p>
+              <p>Results for this user: ${userResults.length}</p>
+              <p>Results for this grade: ${gradeResults.length}</p>
+            </div>
+            
+            <div class="debug-section">
+              <h5>👤 User's Test Results:</h5>
+              ${userResults.length > 0 ? 
+                `<pre>${JSON.stringify(userResults, null, 2)}</pre>` : 
+                '<p class="no-data">❌ No test results found for this user</p>'
+              }
+            </div>
+            
+            <div class="debug-section">
+              <h5>📚 Grade ${userGrade} Test Results:</h5>
+              ${gradeResults.length > 0 ? 
+                `<pre>${JSON.stringify(gradeResults.slice(0, 5), null, 2)}</pre>` : 
+                '<p class="no-data">❌ No test results found for this grade</p>'
+              }
+              ${gradeResults.length > 5 ? `<p>... and ${gradeResults.length - 5} more</p>` : ''}
+            </div>
+            
+            <div class="debug-section">
+              <h5>🔢 Test ID Mapping for Grade ${userGrade}:</h5>
+              <p>Expected test IDs for this grade:</p>
+              <ul>
+                <li>Term 1 Tests: ${(userGrade-1)*10 + 1} to ${(userGrade-1)*10 + 4}</li>
+                <li>Term 2 Tests: ${(userGrade-1)*10 + 5} to ${(userGrade-1)*10 + 9}</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      } else {
+        debugOutput.innerHTML = `
+          <div class="debug-error">
+            <h4>❌ Error fetching test results</h4>
+            <p>Response: ${JSON.stringify(result, null, 2)}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      debugOutput.innerHTML = `
+        <div class="debug-error">
+          <h4>❌ Error debugging test results</h4>
+          <p>Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  };
+
+  // Debug database tables
+  window.debugDatabaseTables = async function() {
+    const debugOutput = document.getElementById('debug-output');
+    if (!debugOutput) return;
+    
+    debugOutput.innerHTML = '🔍 Debugging database tables...';
+    
+    try {
+      const response = await fetch('/.netlify/functions/debugDb');
+      const result = await response.json();
+      
+      if (result.success) {
+        debugOutput.innerHTML = `
+          <div class="debug-info">
+            <h4>🗄️ Database Tables Debug</h4>
+            
+            <div class="debug-section">
+              <h5>📊 Table Counts:</h5>
+              <ul>
+                <li>Users: ${result.tableCounts?.users || 'N/A'}</li>
+                <li>Tests: ${result.tableCounts?.tests || 'N/A'}</li>
+                <li>Test Results: ${result.tableCounts?.test_results || 'N/A'}</li>
+                <li>Test Visibility: ${result.tableCounts?.test_visibility || 'N/A'}</li>
+              </ul>
+            </div>
+            
+            <div class="debug-section">
+              <h5>👥 Sample Users:</h5>
+              ${result.sampleUsers ? 
+                `<pre>${JSON.stringify(result.sampleUsers, null, 2)}</pre>` : 
+                '<p class="no-data">No sample users available</p>'
+              }
+            </div>
+            
+            <div class="debug-section">
+              <h5>📝 Sample Test Results:</h5>
+              ${result.sampleTestResults ? 
+                `<pre>${JSON.stringify(result.sampleTestResults, null, 2)}</pre>` : 
+                '<p class="no-data">No sample test results available</p>'
+              }
+            </div>
+          </div>
+        `;
+      } else {
+        debugOutput.innerHTML = `
+          <div class="debug-error">
+            <h4>❌ Error debugging database</h4>
+            <p>Response: ${JSON.stringify(result, null, 2)}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      debugOutput.innerHTML = `
+        <div class="debug-error">
+          <h4>❌ Error debugging database</h4>
+          <p>Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  };
+
+  // Debug user data
+  window.debugUserData = async function(userId) {
+    const debugOutput = document.getElementById('debug-output');
+    if (!debugOutput) return;
+    
+    debugOutput.innerHTML = '🔍 Debugging user data...';
+    
+    try {
+      // Get user info from localStorage
+      const userInfo = localStorage.getItem('userInfo');
+      const currentUser = userInfo ? JSON.parse(userInfo) : null;
+      
+      // Get all students to find this user
+      const response = await fetch('/.netlify/functions/getAllStudents', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.students) {
+        const user = result.students.find(s => s.id == userId);
+        
+        debugOutput.innerHTML = `
+          <div class="debug-info">
+            <h4>👤 User Data Debug for User ID: ${userId}</h4>
+            
+            <div class="debug-section">
+              <h5>💾 Local Storage User Info:</h5>
+              <pre>${JSON.stringify(currentUser, null, 2)}</pre>
+            </div>
+            
+            <div class="debug-section">
+              <h5>🗄️ Database User Record:</h5>
+              ${user ? 
+                `<pre>${JSON.stringify(user, null, 2)}</pre>` : 
+                '<p class="no-data">❌ User not found in database</p>'
+              }
+            </div>
+            
+            <div class="debug-section">
+              <h5>🔍 User Search Results:</h5>
+              <p>Total students in database: ${result.students.length}</p>
+              <p>Students with similar IDs:</p>
+              <ul>
+                ${result.students
+                  .filter(s => s.id.toString().includes(userId.toString().slice(-2)))
+                  .slice(0, 5)
+                  .map(s => `<li>ID: ${s.id}, Username: ${s.username}, Grade: ${s.grade_level}, Class: ${s.class_name}</li>`)
+                  .join('')
+                }
+              </ul>
+            </div>
+          </div>
+        `;
+      } else {
+        debugOutput.innerHTML = `
+          <div class="debug-error">
+            <h4>❌ Error fetching user data</h4>
+            <p>Response: ${JSON.stringify(result, null, 2)}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      debugOutput.innerHTML = `
+        <div class="debug-error">
+          <h4>❌ Error debugging user data</h4>
+          <p>Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  };
 });

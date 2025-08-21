@@ -1441,3 +1441,111 @@ textarea:focus {
   padding: 8px;
   border: 1px solid #dee2e6;
 }
+
+/* ======== Debug Section Styles ======== */
+.debug-section {
+  background: #f8f9fa;
+  border: 2px solid #6c757d;
+  border-radius: var(--border-radius);
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.debug-section h3 {
+  color: #495057;
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  border-bottom: 2px solid #6c757d;
+  padding-bottom: 8px;
+}
+
+.debug-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.debug-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.debug-btn:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.debug-output {
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 15px;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.debug-info h4 {
+  color: #495057;
+  margin: 15px 0 10px 0;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
+}
+
+.debug-info h5 {
+  color: #6c757d;
+  margin: 10px 0 8px 0;
+  font-size: 1rem;
+}
+
+.debug-section .debug-section {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.debug-section pre {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  margin: 8px 0;
+}
+
+.debug-error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.debug-error h4 {
+  color: #721c24;
+  margin: 0 0 8px 0;
+}
+
+.no-data {
+  color: #6c757d;
+  font-style: italic;
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px dashed #dee2e6;
+}
