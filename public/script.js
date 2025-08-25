@@ -796,12 +796,12 @@ async function displayStudentActiveTests(tests, studentId) {
                         <stop offset="100%" stop-color="#3b82f6"/>
                     </linearGradient>
                 </defs>
-                <!-- Purple→Blue gradient fill inside circle -->
-                <circle cx="70" cy="70" r="${r - 7}" fill="url(#avgFillPB)" class="avg-fill"></circle>
+                <!-- Purple→Blue gradient halo outside the ring -->
+                <circle cx="70" cy="70" r="${r + 8}" stroke="url(#avgFillPB)" stroke-width="6" fill="none" opacity="0.35"></circle>
                  <!-- Light blue track -->
                  <circle class="avg-bg" cx="70" cy="70" r="${r}" stroke-width="12" fill="none"></circle>
                  <!-- Violet gradient progress on track -->
-                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgViolet)" stroke-width="12" fill="none"
+                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgViolet)" stroke-width="12" fill="none" stroke-linecap="round"
                      stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${dash.toFixed(2)}"></circle>
                 <text x="70" y="76" text-anchor="middle" class="avg-text">${pct == null ? '--' : pct + '%'}</text>
             </svg>
