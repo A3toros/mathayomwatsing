@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathayomwatsing Testing System</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="matching-test-bundle.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Section -->
+    <section id="login-section" class="section active">
+      <h1>Mathayomwatsing Testing System</h1>
+      <div class="login-form">
+        <h2>Login</h2>
+        <form id="unifiedLoginForm">
+          <div class="form-group">
+            <label for="username">Username/Student ID:</label>
+            <input type="text" id="username" name="username" placeholder="Enter username or student ID" required>
+          </div>
+          <div class="form-group">
+                          <label for="password">Password:</label>
+                            <input type="password" id="password" name="password" placeholder="Enter password" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- Teacher's Cabinet Section -->
+    <section id="teacher-cabinet" class="section">
+      <div class="header">
+        <h1>Welcome to Teacher's Cabinet - teacher<span id="teacherUsername"></span></h1>
+        <div class="menu">
+          <button class="menu-btn" id="menuBtn">
+            <i class="fas fa-bars"></i>
+          </button>
+          <div class="dropdown-menu" id="dropdownMenu">
+            <a href="#" id="archiveBtn">Archive</a>
+            <a href="#" id="logoutBtn" onclick="logout()">Log Out</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject Selection Container (First Visit) -->
+      <div id="subject-selection-container" class="content-section">
+        <div id="welcomeMessage">
+          <h2>Welcome to Teacher's Cabinet, <span id="welcomeTeacherUsername"></span></h2>
+          <p>Please choose your subjects</p>
+        </div>
+        
+        <div class="subject-selection">
+          <button class="btn btn-secondary" id="chooseSubjectBtn">Choose Subject</button>
+          <div class="subject-dropdown" id="subjectDropdown" style="display: none;">
+            <select id="subjectSelect">
+              <option value="">Select a subject</option>
+            </select>
+          </div>
+          
+          <div id="classSelection" style="display: none;">
+            <h3>Select Classes for <span id="selectedSubjectName"></span></h3>
+            <div class="grades-container">
+              <!-- Grades and classes will be populated here -->
+            </div>
+            <button class="btn btn-primary" id="saveClassesBtn">Save Classes for Subject</button>
+          </div>
+        </div>
+
+        <div id="selectedSubjects" style="display: none;">
+          <h3>Your Selected Subjects and Classes:</h3>
+          <div id="subjectsList"></div>
+          <div class="subject-actions">
+            <button class="btn btn-success" id="saveSubjectsBtn">Save Subjects</button>
+            <button class="btn btn-warning" id="cancelSubjectEditBtn">Cancel</button>
+          </div>
+        </div>
+
+        <div id="confirmationModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>Are you sure?</h3>
+            <div class="modal-buttons">
+              <button class="btn btn-primary" id="confirmYes">Yes</button>
+              <button class="btn btn-secondary" id="confirmNo">No</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="subjectsSaved" style="display: none;">
+          <h3>Subjects saved successfully!</h3>
+          <p>You can always edit your subjects by pressing button "Edit subjects" at the bottom of the page.</p>
+        </div>
+        
+        <!-- Additional containers for JavaScript -->
+        <div id="subjectsContainer"></div>
+        <div id="gradesContainer"></div>
+      </div>
+
+      <!-- Main Teacher Cabinet Container -->
+      <div id="main-cabinet-container" class="content-section" style="display: none;">
+        <!-- Subjects Info Container -->
+        <div id="subjectsInfo" class="content-section" style="display: none;"></div>
+        
+        <div class="grade-buttons">
+          <button class="grade-btn" data-grade="1">Grade 1</button>
+          <button class="grade-btn" data-grade="2">Grade 2</button>
+          <button class="grade-btn" data-grade="3">Grade 3</button>
+          <button class="grade-btn" data-grade="4">Grade 4</button>
+          <button class="grade-btn" data-grade="5">Grade 5</button>
+          <button class="grade-btn" data-grade="6">Grade 6</button>
+        </div>
+
+        <div id="classButtons" class="class-buttons" style="display: none;"></div>
+        <div id="semesterButtons" class="semester-buttons" style="display: none;"></div>
+        
+                        <div id="resultsTables" class="results-tables"></div>
+                <div id="classResultsContainer"></div>
+                
+                <!-- Test Creation Section -->
+                <div id="testCreationSection" class="test-creation-section" style="display: none;">
+                  <h3>Test Management</h3>
+                  <div class="test-management-buttons">
+                    <button class="btn btn-primary" id="createTestBtn">Create Test</button>
+                    <button class="btn btn-secondary" id="activeTestsBtn">Active Tests</button>
+                  </div>
+                  
+                  <div id="testTypeSelection" style="display: none;">
+                    <h4>Choose Test Type</h4>
+                    <div class="test-type-buttons">
+                      <button class="btn btn-secondary" id="multipleChoiceBtn">Multiple Choice Test</button>
+                      <button class="btn btn-secondary" id="trueFalseBtn">True/False Test</button>
+                      <button class="btn btn-secondary" id="inputTestBtn">Free Answer Test</button>
+                      <button class="btn btn-secondary" id="matchingTestBtn">Matching Type Test</button>
+                    </div>
+                    <button class="btn btn-warning" id="cancelTestCreation">Cancel Test Creation</button>
+                  </div>
+                  
+                  <!-- Multiple Choice Test Form -->
+                  <div id="multipleChoiceForm" class="test-form" style="display: none;">
+                    <h4>Create Multiple Choice Test</h4>
+                    <div class="form-group">
+                      <label for="mcTestName">Test Name:</label>
+                      <input type="text" id="mcTestName" placeholder="Enter test name" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="mcNumQuestions">Number of Questions (1-100):</label>
+                      <input type="number" id="mcNumQuestions" min="1" max="100" value="5" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="mcNumOptions">Number of Options:</label>
+                      <select id="mcNumOptions">
+                        <option value="2">2 (A/B)</option>
+                        <option value="3">3 (A/B/C)</option>
+                        <option value="4">4 (A/B/C/D)</option>
+                        <option value="5">5 (A/B/C/D/E)</option>
+                        <option value="6">6 (A/B/C/D/E/F)</option>
+                      </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="handleMultipleChoiceSubmit()">Create Questions</button>
+                    <button class="btn btn-warning" id="cancelTestCreationMC">Cancel Test Creation</button>
+                    
+                    <div id="mcQuestionsContainer"></div>
+                  </div>
+                  
+                  <!-- True/False Test Form -->
+                  <div id="trueFalseForm" class="test-form" style="display: none;">
+                    <h4>True/False Test</h4>
+                    <div class="form-group">
+                      <label>Test Name:</label>
+                      <input type="text" id="tfTestName" placeholder="Enter test name">
+                    </div>
+                    <div class="form-group">
+                      <label>Number of Questions (1-100):</label>
+                      <input type="text" id="tfNumQuestions" min="1" max="100">
+                    </div>
+                    <button class="btn btn-primary" id="tfSubmitBtn">Submit</button>
+                    <button class="btn btn-warning" id="cancelTestCreationTF">Cancel Test Creation</button>
+                    <div id="tfQuestionsContainer"></div>
+                  </div>
+                  
+                  <!-- Input Test Form -->
+                  <div id="inputTestForm" class="test-form" style="display: none;">
+                    <h4>Free Answer Test</h4>
+                    <div class="form-group">
+                      <label>Test Name:</label>
+                      <input type="text" id="inputTestName" placeholder="Enter test name">
+                    </div>
+                    <div class="form-group">
+                      <label>Number of Questions (1-100):</label>
+                      <input type="number" id="inputNumQuestions" min="1" max="100">
+                    </div>
+                    <button class="btn btn-primary" id="inputSubmitBtn">Submit</button>
+                    <button class="btn btn-warning" id="cancelTestCreationInput">Cancel Test Creation</button>
+                    <div id="inputQuestionsContainer"></div>
+                  </div>
+                  
+                  <!-- Matching Type Test Form -->
+                  <div id="matchingTestForm" class="test-form" style="display: none;">
+                    <h4>Matching Type Test</h4>
+                    <div class="form-group">
+                      <label>Test Name:</label>
+                      <input type="text" id="matchingTestName" placeholder="Enter test name">
+                    </div>
+                    <div class="form-group">
+                      <label>Number of Blocks (1-20):</label>
+                      <input type="number" id="matchingNumBlocks" min="1" max="20" value="5">
+                    </div>
+                                            <div class="form-group">
+                          <label>Image will be uploaded in the editor below</label>
+                          <div id="imageUploadStatus"></div>
+                        </div>
+                    <button class="btn btn-primary" id="matchingSubmitBtn">Create Test</button>
+                    <button class="btn btn-warning" id="cancelTestCreationMatching">Cancel Test Creation</button>
+                    <div id="matchingTestContainer">
+                      <div id="imageEditorContainer"></div>
+                      <div id="wordsEditorContainer"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- Test Assignment Section -->
+                  <div id="testAssignmentSection" style="display: none;">
+                    <h4>Assign Test to Classes</h4>
+                    <div id="assignmentGradesContainer"></div>
+                  </div>
+                  
+                  <!-- Active Tests Section -->
+                  <div id="activeTestsSection" class="active-tests-section" style="display: none;">
+                    <h4>Your Active Tests</h4>
+                    <div id="activeTestsContainer"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Persistent Edit Subjects Button -->
+              <div class="edit-subjects-container">
+                <button class="btn btn-secondary edit-subjects-btn" id="editSubjectsBtn">Edit Subjects</button>
+              </div>
+    </section>
+
+    <!-- Student's Cabinet Section -->
+    <section id="student-cabinet" class="section">
+      <div class="header">
+        <h1>Student's Cabinet</h1>
+        <div class="student-menu">
+          <button class="btn btn-secondary dropdown-toggle" id="studentMenuBtn" onclick="toggleStudentMenu()">
+            Menu ▼
+          </button>
+          <div class="dropdown-menu" id="studentDropdownMenu">
+            <button class="dropdown-item" onclick="showChangePasswordTab()">Change Password</button>
+            <button class="dropdown-item" onclick="logout()">Log Out</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="student-info">
+        <h2>Welcome, <span id="studentName"></span>!</h2>
+        <p>Grade: <span id="studentGrade"></span> | Class: <span id="studentClass"></span></p>
+      </div>
+
+      <div class="subjects-tabs">
+        <div id="subjectsTabs"></div>
+        <div id="subjectsContent"></div>
+        <div id="studentSubjects"></div>
+      </div>
+      
+      <!-- Active Tests Section -->
+      <div class="active-tests-section">
+        <h3>Active Tests</h3>
+        <div id="studentActiveTests"></div>
+      </div>
+      
+      <!-- Test Results Section -->
+      <div class="test-results-section">
+        <h3>Test Results</h3>
+        <div id="studentTestResults"></div>
+      </div>
+      
+
+      
+      <!-- Test View Section -->
+      <div id="testViewSection" class="test-view-section" style="display: none;">
+        <div class="test-view-header">
+          <button class="btn btn-secondary" id="backToTestsBtn">← Back to Tests</button>
+          <h3 id="testViewTitle"></h3>
+        </div>
+        <div id="testViewContent"></div>
+      </div>
+    </section>
+
+    <!-- Password Change Section -->
+    <section id="passwordChangeSection" class="section password-change-section" style="display: none;">
+      <div class="header">
+        <h1>Change Password</h1>
+        <button class="btn btn-secondary" id="backToCabinetBtn" onclick="hideChangePasswordTab()">← Back to Cabinet</button>
+      </div>
+      
+      <div class="password-change-content">
+        <div class="password-change-form">
+          <form id="changePasswordForm">
+            <div class="form-group">
+              <label for="currentPassword">Current Password:</label>
+              <input type="password" id="currentPassword" required>
+            </div>
+            <div class="form-group">
+              <label for="newPassword">New Password:</label>
+              <input type="password" id="newPassword" required>
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">Confirm New Password:</label>
+              <input type="password" id="confirmPassword" required>
+            </div>
+            <div class="form-buttons">
+              <button type="submit" class="btn btn-primary">Save Password</button>
+              <button type="button" class="btn btn-secondary" onclick="hideChangePasswordTab()">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Panel Section -->
+    <section id="admin-panel" class="section">
+      <div class="header">
+        <h1>Admin Panel</h1>
+        <button class="btn btn-secondary" id="adminLogoutBtn" onclick="logout()">Log Out</button>
+      </div>
+
+      <div class="admin-content">
+        <!-- Database Connection & Schema Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Database & Schema Management
+          </h2>
+          <div id="database-section" class="section-content">
+            <div class="debug-buttons">
+              <button class="btn btn-debug" onclick="debugFunction('testDbConnection')">Test DB Connection</button>
+              <button class="btn btn-warning" onclick="runDatabaseSchema()">Run Database Schema</button>
+            </div>
+            <div id="debugFunctionsContainer"></div>
+          </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            User Management
+          </h2>
+          <div id="users-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-primary" onclick="toggleUsersContent()">Get All Users</button>
+              <button class="btn btn-success" onclick="showAddUserForm()">Add New User</button>
+            </div>
+            <div id="allUsersContainer"></div>
+            <div id="addUserForm" class="form-section" style="display: none;">
+              <h3>Add New User</h3>
+              <form id="newUserForm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newUserGrade">Grade:</label>
+                    <select id="newUserGrade" required>
+                      <option value="M1">M1</option>
+                      <option value="M2">M2</option>
+                      <option value="M3">M3</option>
+                      <option value="M4">M4</option>
+                      <option value="M5">M5</option>
+                      <option value="M6">M6</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="newUserClass">Class:</label>
+                    <input type="text" id="newUserClass" placeholder="e.g., 1/15" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newUserNumber">Number:</label>
+                    <input type="number" id="newUserNumber" min="1" max="50" required>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newUserStudentId">Student ID:</label>
+                    <input type="text" id="newUserStudentId" placeholder="e.g., 51716" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newUserName">Name:</label>
+                    <input type="text" id="newUserName" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newUserSurname">Surname:</label>
+                    <input type="text" id="newUserSurname" required>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newUserNickname">Nickname:</label>
+                    <input type="text" id="newUserNickname" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newUserPassword">Password:</label>
+                    <input type="text" id="newUserPassword" required>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-success">Add User</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideAddUserForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Teacher Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Teacher Management
+          </h2>
+          <div id="teachers-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-primary" onclick="toggleTeachersContent()">Get All Teachers</button>
+              <button class="btn btn-success" onclick="showAddTeacherForm()">Add New Teacher</button>
+            </div>
+            <div id="allTeachersContainer"></div>
+            <div id="addTeacherForm" class="form-section" style="display: none;">
+              <h3>Add New Teacher</h3>
+              <form id="newTeacherForm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newTeacherId">Teacher ID:</label>
+                    <input type="text" id="newTeacherId" placeholder="e.g., John_Doe" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newTeacherUsername">Username:</label>
+                    <input type="text" id="newTeacherUsername" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newTeacherPassword">Password:</label>
+                    <input type="text" id="newTeacherPassword" required>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-success">Add Teacher</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideAddTeacherForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subject Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Subject Management
+          </h2>
+          <div id="subjects-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-primary" onclick="toggleSubjectsContent()">Get All Subjects</button>
+              <button class="btn btn-success" onclick="showAddSubjectForm()">Add New Subject</button>
+            </div>
+            <div id="allSubjectsContainer"></div>
+            <div id="addSubjectForm" class="form-section" style="display: none;">
+              <h3>Add New Subject</h3>
+              <form id="newSubjectForm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newSubjectName">Subject Name:</label>
+                    <input type="text" id="newSubjectName" placeholder="e.g., Mathematics" required>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-success">Add Subject</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideAddSubjectForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Year Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Academic Year Management
+          </h2>
+          <div id="academic-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-primary" id="checkAcademicYearBtn">Check Academic Year</button>
+            </div>
+            <div id="academicYearTable"></div>
+            <div id="academicYearContainer"></div>
+          </div>
+        </div>
+
+        <!-- Test Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Test Management
+          </h2>
+          <div id="tests-section" class="section-content">
+                          <div class="section-controls">
+                <button class="btn btn-debug" onclick="toggleTestsContent()">Get All Tests</button>
+                <button class="btn btn-debug" onclick="toggleAssignmentsContent()">Get Test Assignments</button>
+                <button class="btn btn-debug" onclick="toggleResultsContent()">Get Test Results</button>
+              </div>
+            <div id="testsContainer" style="display: none;"></div>
+            <div id="assignmentsContainer" style="display: none;"></div>
+            <div id="resultsContainer" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Local Storage & Debug -->
+        <div class="admin-section">
+          <h2 class="section-header" onclick="toggleSection('debug-section')">
+            Debug & Local Storage
+            <span class="toggle-icon">▼</span>
+          </h2>
+          <div id="debug-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-debug" onclick="testLocalStorage()">Test Local Storage</button>
+              <button class="btn btn-debug" onclick="clearAllLocalStorage()">Clear All Local Storage</button>
+              <button class="btn btn-debug" onclick="exportLocalStorage()">Export Local Storage</button>
+            </div>
+            <div id="localStorageContainer"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

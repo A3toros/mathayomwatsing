@@ -1,0 +1,101 @@
+const { neon } = require('@neondatabase/serverless');
+
+exports.handler = async function(event, context) {
+  // Enable CORS
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ success: false, message: 'Method not allowed' })
+    };
+  }
+
+  try {
+    const { teacher_id, subjects } = JSON.parse(event.body);
+
+    if (!teacher_id || !subjects || !Array.isArray(subjects)) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Teacher ID and subjects array are required'
+        })
+      };
+    }
+
+            const sql = neon(process.env.NEON_DATABASE_URL);
+    
+    // Begin transaction
+    await sql`BEGIN`;
+    
+    try {
+      // Delete existing teacher subjects
+      await sql`
+        DELETE FROM teacher_subjects 
+        WHERE teacher_id = ${teacher_id}
+      `;
+      
+      // Insert new teacher subjects
+      for (const subject of subjects) {
+        for (const classInfo of subject.classes) {
+          await sql`
+            INSERT INTO teacher_subjects (teacher_id, subject_id, grade, class)
+            VALUES (${teacher_id}, ${subject.subject_id}, ${classInfo.grade}, ${classInfo.class})
+          `;
+        }
+      }
+      
+      // Commit transaction
+      await sql`COMMIT`;
+      
+      return {
+        statusCode: 200,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: true,
+          message: 'Teacher subjects saved successfully'
+        })
+      };
+    } catch (error) {
+      // Rollback transaction on error
+      await sql`ROLLBACK`;
+      throw error;
+    }
+  } catch (error) {
+    console.error('Save teacher subjects error:', error);
+    
+    return {
+      statusCode: 500,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        success: false,
+        message: 'Failed to save teacher subjects',
+        error: error.message
+      })
+    };
+  }
+};

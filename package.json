@@ -1,15 +1,28 @@
 {
-  "name": "form-submission-website",
+  "name": "mathayomwatsing-testing-system",
   "version": "1.0.0",
-  "description": "A website with registration and questionnaire forms using Neon and Netlify",
-  "main": "index.html",
+  "description": "School Testing Website with Neon DB and Netlify",
+  "main": "index.js",
   "scripts": {
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "build": "echo 'Build complete'",
+    "test": "echo 'No tests specified'"
   },
   "dependencies": {
-    "pg": "^8.11.3"
+    "@neondatabase/serverless": "^0.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "netlify-cli": "^17.10.1"
-  }
+    "netlify-cli": "^17.0.0"
+  },
+  "keywords": [
+    "school",
+    "testing",
+    "education",
+    "neon",
+    "netlify"
+  ],
+  "author": "Mathayomwatsing",
+  "license": "MIT"
 }

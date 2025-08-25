@@ -1,0 +1,2710 @@
+// Matching Test Konva.js Widget
+// Professional graphics and interactions using Konva.js
+
+(function() {
+  'use strict';
+
+  // Load Konva.js if not already available
+  function ensureKonvaLoaded() {
+    return new Promise((resolve, reject) => {
+      if (typeof Konva !== 'undefined') {
+        resolve();
+        return;
+      }
+
+      // Check if script is already loading
+      if (document.querySelector('script[src*="konva"]')) {
+        // Wait for existing script to load
+        const checkKonva = setInterval(() => {
+          if (typeof Konva !== 'undefined') {
+            clearInterval(checkKonva);
+            resolve();
+          }
+        }, 100);
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkKonva);
+          reject(new Error('Timeout waiting for Konva.js to load'));
+        }, 10000);
+        return;
+      }
+
+      // Try multiple CDN sources
+      const cdnSources = [
+        'https://unpkg.com/konva@9/konva.min.js',
+        'https://cdn.jsdelivr.net/npm/konva@9/konva.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/konva/9.2.3/konva.min.js'
+      ];
+
+      let currentSourceIndex = 0;
+
+      function tryNextSource() {
+        if (currentSourceIndex >= cdnSources.length) {
+          reject(new Error('All CDN sources failed to load Konva.js'));
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = cdnSources[currentSourceIndex];
+        script.onload = () => {
+          console.log(`Konva.js loaded successfully from: ${cdnSources[currentSourceIndex]}`);
+          resolve();
+        };
+        script.onerror = () => {
+          console.warn(`Failed to load Konva.js from: ${cdnSources[currentSourceIndex]}`);
+          currentSourceIndex++;
+          tryNextSource();
+        };
+        
+        // Set timeout for each source
+        setTimeout(() => {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+            currentSourceIndex++;
+            tryNextSource();
+          }
+        }, 5000);
+        
+        document.head.appendChild(script);
+      }
+
+      tryNextSource();
+    });
+  }
+
+  class MatchingTestWidget {
+         constructor(container) {
+       this.container = container;
+       this.image = null;
+       this.blocks = [];
+       this.words = [];
+       this.arrows = [];
+       this.isUploading = false;
+       this.currentBlockId = 0;
+       this.currentArrowId = 0;
+       this.isDrawingArrow = false;
+       this.arrowStart = null;
+       this.selectedShape = null;
+       this.stage = null;
+       this.layer = null;
+       this.imageLayer = null;
+       this.blocksLayer = null;
+       this.arrowsLayer = null;
+       this.backgroundLayer = null;
+       
+       // Edge resizing variables
+       this.resizing = false;
+       this.resizeDir = null;
+       this.startPos = null;
+       this.startRect = null;
+       
+       // Arrow drawing variables
+       this.currentArrow = null;
+       
+       this.init();
+     }
+
+    snapToGrid(value, gridSize) {
+      return Math.round(value / gridSize) * gridSize;
+    }
+
+    async init() {
+      console.log('🚀 Initializing MatchingTestWidget...');
+      console.log('📋 Container element:', this.container);
+      this.render();
+      console.log('🎨 HTML rendered');
+      this.bindEvents();
+      console.log('🔗 Events bound');
+      
+      // Ensure Konva is loaded before initializing
+      try {
+        console.log('📦 Loading Konva.js library...');
+        await ensureKonvaLoaded();
+        console.log('✅ Konva.js loaded successfully');
+        this.initKonva();
+        this.hideLoadingIndicator();
+        console.log('🎨 Konva.js initialization complete');
+      } catch (error) {
+        console.error('❌ Failed to load Konva.js:', error);
+        this.showError('Failed to load graphics library. Please check your internet connection and try again.');
+      }
+    }
+
+    render() {
+      console.log('🎨 Starting render method...');
+      this.container.innerHTML = `
+        <div class="matching-test-widget">
+          <style>
+            .matching-test-widget {
+              font-family: Arial, sans-serif;
+              max-width: 1000px;
+              margin: 0 auto;
+              padding: 20px;
+              position: relative;
+            }
+            .loading-indicator {
+              text-align: center;
+              padding: 40px;
+              background: #f8f9fa;
+              border-radius: 8px;
+              border: 2px dashed #dee2e6;
+            }
+            .loading-spinner {
+              display: inline-block;
+              width: 40px;
+              height: 40px;
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #007bff;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin-bottom: 20px;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            .loading-text {
+              color: #6c757d;
+              font-size: 16px;
+              font-weight: 500;
+            }
+            .image-uploader {
+              margin-bottom: 20px;
+              padding: 20px;
+              border: 2px dashed #ccc;
+              border-radius: 8px;
+              text-align: center;
+              transition: all 0.3s ease;
+            }
+            .image-uploader.dragover {
+              border-color: #007bff;
+              background-color: #f8f9fa;
+              transform: scale(1.02);
+            }
+            .editor-controls {
+              margin-bottom: 15px;
+              text-align: center;
+              padding: 15px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              border-radius: 8px;
+            }
+            .editor-controls h4 {
+              color: white;
+              margin: 0 0 15px 0;
+              font-size: 18px;
+            }
+            .control-buttons {
+              display: flex;
+              gap: 10px;
+              justify-content: center;
+              flex-wrap: wrap;
+            }
+            .btn {
+              padding: 10px 20px;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .btn:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+            .btn-primary {
+              background: linear-gradient(135deg, #007bff, #0056b3);
+              color: white;
+            }
+            .btn-secondary {
+              background: linear-gradient(135deg, #6c757d, #545b62);
+              color: white;
+            }
+            .btn-success {
+              background: linear-gradient(135deg, #28a745, #1e7e34);
+              color: white;
+            }
+            .btn-warning {
+              background: linear-gradient(135deg, #ffc107, #e0a800);
+              color: #212529;
+            }
+            .btn.active {
+              background: linear-gradient(135deg, #28a745, #1e7e34);
+              transform: scale(1.05);
+            }
+            .image-editor {
+              position: relative;
+              margin: 20px 0;
+              border: 2px solid #ddd;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            .konva-container {
+              width: 100%;
+              height: 500px;
+              border: 2px solid #e9ecef;
+              border-radius: 8px;
+              background: #f8f9fa;
+              position: relative;
+              overflow: hidden;
+            }
+            #konvaContainer {
+              width: 100%;
+              height: 100%;
+              position: relative;
+            }
+            
+
+            .words-editor {
+              margin-top: 20px;
+              padding: 20px;
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .word-item {
+              display: flex;
+              align-items: center;
+              margin: 15px 0;
+              padding: 15px;
+              border: 2px solid #e9ecef;
+              border-radius: 8px;
+              background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+              transition: all 0.3s ease;
+            }
+            .word-item:hover {
+              border-color: #007bff;
+              transform: translateX(5px);
+              box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }
+            .word-number {
+              background: linear-gradient(135deg, #007bff, #0056b3);
+              color: white;
+              width: 32px;
+              height: 32px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-right: 15px;
+              font-size: 14px;
+              font-weight: bold;
+              box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+            }
+            .word-input {
+              flex: 1;
+              padding: 12px;
+              border: 2px solid #e9ecef;
+              border-radius: 6px;
+              margin-right: 15px;
+              font-size: 16px;
+              transition: all 0.3s ease;
+            }
+            .word-input:focus {
+              outline: none;
+              border-color: #007bff;
+              box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            }
+            .upload-status {
+              margin-top: 15px;
+              padding: 15px;
+              border-radius: 8px;
+              font-weight: 500;
+              text-align: center;
+              transition: all 0.3s ease;
+            }
+            .upload-status.uploading {
+              background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+              border: 2px solid #ffc107;
+              color: #856404;
+            }
+            .upload-status.success {
+              background: linear-gradient(135deg, #d4edda, #c3e6cb);
+              border: 2px solid #28a745;
+              color: #155724;
+            }
+            .upload-status.error {
+              background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+              border: 2px solid #dc3545;
+              color: #721c24;
+            }
+            .action-buttons {
+              display: flex;
+              gap: 15px;
+              justify-content: center;
+              flex-wrap: wrap;
+              margin-top: 25px;
+              padding-top: 20px;
+              border-top: 2px solid #e9ecef;
+            }
+            .action-buttons .btn {
+              min-width: 140px;
+              font-size: 16px;
+              padding: 12px 24px;
+            }
+
+            
+            .editor-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+              padding: 10px;
+              background-color: #f8f9fa;
+              border-radius: 5px;
+            }
+            
+            .editor-controls {
+              margin-bottom: 20px;
+              padding: 15px;
+              background-color: #e9ecef;
+              border-radius: 5px;
+            }
+            
+            .control-buttons {
+              display: flex;
+              gap: 10px;
+              flex-wrap: wrap;
+            }
+            
+            .editor-content {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 20px;
+              margin-top: 20px;
+            }
+            
+            .image-container {
+              text-align: center;
+            }
+            
+            .image-container img {
+              max-width: 100%;
+              max-height: 300px;
+              border: 2px solid #dee2e6;
+              border-radius: 5px;
+            }
+          </style>
+          
+          <div class="loading-indicator" id="loadingIndicator">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading graphics library...</div>
+          </div>
+          
+
+
+          <!-- Photo upload section -->
+          <div class="image-uploader" id="imageUploader" style="display: block;">
+            <div class="upload-area" id="uploadArea">
+              <div class="upload-icon">📷</div>
+              <div class="upload-text">Click to upload an image or drag and drop</div>
+              <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+            </div>
+            <!-- Upload status display -->
+            <div id="uploadStatus" class="upload-status" style="display: none;"></div>
+          </div>
+
+          <!-- Image editor (initially hidden) -->
+          <div id="imageEditor" class="image-editor" style="display: none;">
+            <div class="editor-header">
+              <h4>🖼️ Image Editor</h4>
+              <button class="btn btn-sm btn-secondary" id="resetImageBtn">Reset</button>
+            </div>
+            <div class="editor-controls">
+              <h4>🎨 Editor Tools</h4>
+              <div class="control-buttons">
+                <button class="btn btn-primary" id="addBlockBtn">Add Block</button>
+                <button class="btn btn-secondary" id="addArrowBtn">Add Arrow</button>
+                <button class="btn btn-warning" id="clearAllBtn">Clear All</button>
+                <button class="btn btn-danger" id="deleteBlockBtn" style="display: none;">Delete Block</button>
+              </div>
+            </div>
+            <div class="editor-content">
+              <div class="konva-container">
+                <div id="konvaContainer"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Words editor -->
+          <div id="wordsEditor" class="words-editor" style="display: none;">
+            <h4>Words to Match</h4>
+            <div id="wordsList">
+              <!-- Word inputs will be generated here -->
+            </div>
+          </div>
+
+          <!-- Action buttons positioned below words editor -->
+          <div id="actionButtonsContainer" class="action-buttons" style="display: none;">
+            <button class="btn btn-danger" id="deleteArrowBtn" style="display: none;">Delete Arrow</button>
+            <button class="btn btn-success" id="createTestBtn">Create Test</button>
+          </div>
+        </div>
+      `;
+      console.log('🎨 HTML rendered successfully');
+      console.log('🔍 Elements found:');
+      console.log('  - Loading indicator:', this.container.querySelector('#loadingIndicator'));
+      console.log('  - Image uploader:', this.container.querySelector('#imageUploader'));
+      console.log('  - Image editor:', this.container.querySelector('#imageEditor'));
+      console.log('  - Words editor:', this.container.querySelector('#wordsEditor'));
+      console.log('  - Action buttons container:', this.container.querySelector('#actionButtonsContainer'));
+      console.log('  - Create test button:', this.container.querySelector('#createTestBtn'));
+      console.log('  - Cancel test creation button:', this.container.querySelector('#cancelTestCreationMatching'));
+    }
+
+    bindEvents() {
+      console.log('🔗 Starting bindEvents method...');
+      
+      const imageUploader = this.container.querySelector('#imageUploader');
+      const imageFileInput = this.container.querySelector('#imageFileInput');
+      // Bind events to buttons (scoped to container)
+      const addBlockBtn = this.container.querySelector('#addBlockBtn');
+      const addArrowBtn = this.container.querySelector('#addArrowBtn');
+      const clearAllBtn = this.container.querySelector('#clearAllBtn');
+      const createTestBtn = this.container.querySelector('#createTestBtn');
+      const cancelTestCreationMatching = this.container.querySelector('#cancelTestCreationMatching');
+      const deleteBlockBtn = this.container.querySelector('#deleteBlockBtn');
+      const deleteArrowBtn = this.container.querySelector('#deleteArrowBtn');
+
+      if (addBlockBtn) {
+        addBlockBtn.addEventListener('click', () => {
+          console.log('🖱️ Add block button clicked');
+          this.enableBlockMode();
+        });
+        console.log('✅ Add block button event bound');
+      }
+
+      if (addArrowBtn) {
+        addArrowBtn.addEventListener('click', () => {
+          console.log('🖱️ Add arrow button clicked');
+          this.enableArrowMode();
+        });
+        console.log('✅ Add arrow button event bound');
+      }
+
+      if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', () => {
+          console.log('🖱️ Clear all button clicked');
+          this.clearAll();
+        });
+        console.log('✅ Clear all button event bound');
+      }
+
+      if (createTestBtn) {
+        createTestBtn.addEventListener('click', () => {
+          console.log('🖱️ Create test button clicked');
+          this.createTest();
+        });
+        console.log('✅ Create test button event bound');
+      }
+
+      if (cancelTestCreationMatching) {
+        cancelTestCreationMatching.addEventListener('click', () => {
+          console.log('🖱️ Cancel test creation button clicked');
+          this.cancelTestCreation();
+        });
+        console.log('✅ Cancel test creation button event bound');
+      }
+
+      if (deleteBlockBtn) {
+        deleteBlockBtn.addEventListener('click', () => {
+          console.log('🖱️ Delete block button clicked');
+          this.deleteSelectedBlock();
+        });
+        console.log('✅ Delete block button event bound');
+      }
+
+      if (deleteArrowBtn) {
+        deleteArrowBtn.addEventListener('click', () => {
+          console.log('🖱️ Delete arrow button clicked');
+          this.deleteSelectedArrow();
+        });
+        console.log('✅ Delete arrow button event bound');
+      }
+
+      // Reset image button
+      const resetImageBtn = this.container.querySelector('#resetImageBtn');
+      if (resetImageBtn) {
+        resetImageBtn.addEventListener('click', () => {
+          console.log('🖱️ Reset image button clicked');
+          this.resetImage();
+        });
+        console.log('✅ Reset image button event bound');
+      }
+
+      // Image upload handling
+      if (imageUploader) {
+        imageUploader.addEventListener('click', () => {
+          console.log('🖱️ Image uploader clicked');
+          imageFileInput.click();
+        });
+      }
+      
+      if (imageFileInput) {
+        imageFileInput.addEventListener('change', (e) => {
+          console.log('📁 Image file selected:', e.target.files[0]);
+          this.handleImageUpload(e);
+        });
+      }
+      
+      // Drag and drop
+      if (imageUploader) {
+        imageUploader.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          imageUploader.classList.add('dragover');
+        });
+        
+        imageUploader.addEventListener('dragleave', () => {
+          imageUploader.classList.remove('dragover');
+        });
+        
+        imageUploader.addEventListener('drop', (e) => {
+          e.preventDefault();
+          imageUploader.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (files.length > 0) {
+            console.log('📁 Image dropped:', files[0]);
+            this.handleImageFile(files[0]);
+          }
+        });
+      }
+
+      // Editor controls - only enable when Konva is ready
+      // These are now handled by the new button event listeners
+      
+      console.log('🔗 All events bound successfully');
+    }
+
+    initKonva() {
+      // Get the container element
+      const container = this.container.querySelector('#konvaContainer');
+      if (!container) {
+        console.error('❌ Konva container not found!');
+        return;
+      }
+      
+      console.log('🔧 Konva container found:', container);
+      console.log('🔧 Container dimensions:', {
+        offsetWidth: container.offsetWidth,
+        offsetHeight: container.offsetHeight,
+        clientWidth: container.clientWidth,
+        clientHeight: container.clientHeight
+      });
+      
+      // Initialize Konva stage with container dimensions
+      // Force layout calculation and wait for proper dimensions
+      const getContainerDimensions = () => {
+        // Force layout recalculation
+        container.style.display = 'block';
+        container.offsetHeight; // Force reflow
+        
+        const width = container.offsetWidth || container.clientWidth || 800;
+        const height = container.offsetHeight || container.clientHeight || 600;
+        
+        console.log('🔧 Calculated container dimensions:', { width, height });
+        return { width, height };
+      };
+      
+      // Get initial dimensions
+      let { width: containerWidth, height: containerHeight } = getContainerDimensions();
+      
+      // If dimensions are still 0, use reasonable defaults and try to resize later
+      if (containerWidth === 0 || containerHeight === 0) {
+        console.log('⚠️ Container dimensions are 0, using defaults and will resize later');
+        containerWidth = 800;
+        containerHeight = 600;
+      }
+      
+      this.stage = new Konva.Stage({
+        container: container,
+        width: containerWidth,
+        height: containerHeight
+      });
+      
+      console.log('🔧 Konva stage created:', this.stage);
+      console.log('🔧 Stage dimensions:', {
+        width: this.stage.width(),
+        height: this.stage.height()
+      });
+      
+      // Store initial dimensions for reference
+      this.stageWidth = this.stage.width();
+      this.stageHeight = this.stage.height();
+
+      // Create layers for different elements
+      this.backgroundLayer = new Konva.Layer();
+      this.imageLayer = new Konva.Layer();
+      this.blocksLayer = new Konva.Layer();
+      this.arrowsLayer = new Konva.Layer();
+
+      // Add layers to stage
+      this.stage.add(this.backgroundLayer);
+      this.stage.add(this.imageLayer);
+      this.stage.add(this.blocksLayer);
+      this.stage.add(this.arrowsLayer);
+
+      // Add background with subtle pattern
+      const background = new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: this.stage.width(),
+        height: this.stage.height(),
+        fill: '#f8f9fa',
+        stroke: '#dee2e6',
+        strokeWidth: 1
+      });
+      this.backgroundLayer.add(background);
+
+      // Set up stage events with better performance
+      this.setupStageEvents();
+      
+      // Handle window resize to update stage dimensions
+      this.handleResize = () => {
+        const newWidth = container.offsetWidth || container.clientWidth || 800;
+        const newHeight = container.offsetHeight || container.clientHeight || 600;
+        
+        if (newWidth !== this.stageWidth || newHeight !== this.stageHeight) {
+          console.log('🔄 Resizing stage from', { width: this.stageWidth, height: this.stageHeight }, 'to', { width: newWidth, height: newHeight });
+          
+          this.stage.width(newWidth);
+          this.stage.height(newHeight);
+          this.stageWidth = newWidth;
+          this.stageHeight = newHeight;
+          
+          // Update background
+          this.backgroundLayer.destroyChildren();
+          const background = new Konva.Rect({
+            x: 0,
+            y: 0,
+            width: newWidth,
+            height: newHeight,
+            fill: '#f8f9fa',
+            stroke: '#dee2e6',
+            strokeWidth: 1
+          });
+          this.backgroundLayer.add(background);
+          
+          // Re-center image if it exists
+          if (this.imageInfo) {
+            this.recenterImage();
+          }
+          
+          this.stage.batchDraw();
+        }
+      };
+      
+      // Bind resize handler
+      window.addEventListener('resize', this.handleResize);
+      
+      // Add method to resize stage to container
+      this.resizeStageToContainer = () => {
+        const container = this.stage.container();
+        if (!container) return;
+        
+        // Force layout recalculation
+        container.style.display = 'block';
+        container.offsetHeight; // Force reflow
+        
+        const newWidth = container.offsetWidth || container.clientWidth || 800;
+        const newHeight = container.offsetHeight || container.clientHeight || 600;
+        
+        console.log('🔄 Resizing stage to container dimensions:', { width: newWidth, height: newHeight });
+        
+        if (newWidth > 0 && newHeight > 0 && (newWidth !== this.stageWidth || newHeight !== this.stageHeight)) {
+          this.stage.width(newWidth);
+          this.stage.height(newHeight);
+          this.stageWidth = newWidth;
+          this.stageHeight = newHeight;
+          
+          // Update background
+          this.backgroundLayer.destroyChildren();
+          const background = new Konva.Rect({
+            x: 0,
+            y: 0,
+            width: newWidth,
+            height: newHeight,
+            fill: '#f8f9fa',
+            stroke: '#dee2e6',
+            strokeWidth: 1
+          });
+          this.backgroundLayer.add(background);
+          
+          // Re-center image if it exists
+          if (this.imageInfo) {
+            this.recenterImage();
+          }
+          
+          this.stage.batchDraw();
+        }
+      };
+      
+      console.log('✅ Konva initialization complete');
+    }
+
+         setupStageEvents() {
+       // Handle stage clicks with better performance
+       this.stage.on('click', (e) => {
+         // Only deselect if we clicked on the stage background, not on shapes
+         if (e.target === this.stage) {
+           console.log('🖱️ Clicked on stage background, deselecting all');
+           this.deselectAll();
+         }
+       });
+
+      // Mousemove is handled per-mode; avoid double handlers here
+
+      // Also bind to document to ensure edge detection always works
+      this.documentMouseMoveHandler = (e) => {
+        if (this.isCreatingBlock || this.isDrawingArrow || this.resizing) return;
+        
+        // Convert document coordinates to stage coordinates
+        const stageContainer = this.stage.container();
+        const rect = stageContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Only process if mouse is within stage bounds
+        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+          this.handleEdgeDetection({ x, y });
+        }
+      };
+      
+      document.addEventListener('mousemove', this.documentMouseMoveHandler);
+
+      // Resize mousedown/mouseup handled in mode handlers to avoid conflicts
+
+       // Optimize stage updates
+       this.stage.on('dragmove', () => {
+         this.stage.batchDraw();
+       });
+     }
+
+      // Handle edge detection for resizing
+      handleEdgeDetection(pos) {
+        console.log('🔍 Edge detection called at position:', pos);
+        
+        // Find any block under the cursor
+        let blockUnderCursor = null;
+        let cursor = 'default';
+        this.resizeDir = null;
+        
+        // Check all blocks to see if cursor is near any of them
+        for (let i = this.blocks.length - 1; i >= 0; i--) {
+          const block = this.blocks[i];
+          const rect = block.rect;
+          
+          // Use getClientRect for accurate positioning
+          const box = rect.getClientRect();
+          
+          // Check if cursor is within block bounds (with some padding)
+          const padding = 20; // Extra area around block for easier detection
+          if (pos.x >= box.x - padding && pos.x <= box.x + box.width + padding &&
+              pos.y >= box.y - padding && pos.y <= box.y + box.height + padding) {
+            
+            blockUnderCursor = block;
+            console.log('🔍 Cursor over block:', block.id, 'box:', box);
+            break;
+          }
+        }
+        
+        if (!blockUnderCursor) {
+          this.stage.container().style.cursor = 'default';
+          this.hoveredBlock = null;
+          return;
+        }
+        
+        // Now check if cursor is near edges of this block
+        const rect = blockUnderCursor.rect;
+        const box = rect.getClientRect();
+        const margin = 8; // how close to edge counts as "resize zone"
+        
+        console.log('🔍 Checking edges for block:', blockUnderCursor.id, 'margin:', margin);
+        
+        // Simple edge detection
+        if (Math.abs(pos.x - box.x) < margin) {
+          cursor = 'ew-resize';
+          this.resizeDir = 'left';
+          console.log('🔍 LEFT edge detected');
+        } else if (Math.abs(pos.x - (box.x + box.width)) < margin) {
+          cursor = 'ew-resize';
+          this.resizeDir = 'right';
+          console.log('🔍 RIGHT edge detected');
+        } else if (Math.abs(pos.y - box.y) < margin) {
+          cursor = 'ns-resize';
+          this.resizeDir = 'top';
+          console.log('🔍 TOP edge detected');
+        } else if (Math.abs(pos.y - (box.y + box.height)) < margin) {
+          cursor = 'ns-resize';
+          this.resizeDir = 'bottom';
+          console.log('🔍 BOTTOM edge detected');
+        } else {
+          cursor = 'default';
+          this.resizeDir = null;
+        }
+
+        if (this.resizeDir) {
+          console.log('🔍 Edge detected:', this.resizeDir, 'on block:', blockUnderCursor.id);
+          this.hoveredBlock = blockUnderCursor;
+        } else {
+          this.hoveredBlock = null;
+        }
+        
+        this.stage.container().style.cursor = cursor;
+      }
+
+      // Handle edge resizing
+      handleEdgeResize(e) {
+        if (!this.resizing || !this.resizeDir || !this.hoveredBlock) {
+          return;
+        }
+
+        const pos = this.stage.getPointerPosition();
+        if (!pos) return;
+
+        const rect = this.hoveredBlock.rect;
+        let newAttrs = rect.getAttrs();
+        
+        // Simple resize logic based on active edge
+        if (this.resizeDir === 'right') {
+          newAttrs.width = pos.x - rect.x();
+        } else if (this.resizeDir === 'bottom') {
+          newAttrs.height = pos.y - rect.y();
+        } else if (this.resizeDir === 'left') {
+          newAttrs.width = rect.width() + (rect.x() - pos.x);
+          newAttrs.x = pos.x;
+        } else if (this.resizeDir === 'top') {
+          newAttrs.height = rect.height() + (rect.y() - pos.y);
+          newAttrs.y = pos.y;
+        }
+        
+        // Prevent flipping and ensure minimum size
+        if (newAttrs.width > 20 && newAttrs.height > 20) {
+          rect.setAttrs(newAttrs);
+          
+          // Update stored block data
+          const blockData = this.blocks.find(b => b.id === this.hoveredBlock.id);
+          if (blockData) {
+            blockData.width = newAttrs.width;
+            blockData.height = newAttrs.height;
+            blockData.x = newAttrs.x;
+            blockData.y = newAttrs.y;
+          }
+          
+          this.stage.batchDraw();
+        }
+      }
+
+    
+
+    async handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.handleImageFile(file);
+      }
+    }
+
+    async handleImageFile(file) {
+      console.log('📁 Handling image file:', file.name, file.size, 'bytes');
+      this.showUploadStatus('Uploading image...', 'uploading');
+      
+      try {
+        // For now, we'll use a local URL. In production, this would upload to Cloudinary
+        const imageUrl = URL.createObjectURL(file);
+        this.image = imageUrl;
+        console.log('✅ Image URL created:', imageUrl);
+        
+        this.showUploadStatus('Image uploaded successfully!', 'success');
+        this.showImageEditor();
+        this.createWordsEditor();
+        
+        // Load image into Konva
+        this.loadImageToKonva(imageUrl);
+        
+      } catch (error) {
+        console.error('❌ Error handling image file:', error);
+        this.showUploadStatus('Failed to upload image: ' + error.message, 'error');
+      }
+    }
+
+    showUploadStatus(message, type) {
+      const statusDiv = this.container.querySelector('#uploadStatus');
+      statusDiv.textContent = message;
+      statusDiv.className = `upload-status ${type}`;
+      statusDiv.style.display = 'block';
+    }
+
+    showImageEditor() {
+      console.log('🎨 Showing image editor...');
+      const imageEditor = this.container.querySelector('#imageEditor');
+      
+      if (imageEditor) {
+        imageEditor.style.display = 'block';
+        console.log('✅ Image editor displayed');
+        
+        // Resize stage to match container dimensions after image editor is shown
+        setTimeout(() => {
+          this.resizeStageToContainer();
+        }, 100);
+      } else {
+        console.error('❌ Image editor not found!');
+      }
+      
+      // Set default mode to block mode
+      this.enableBlockMode();
+    }
+
+    loadImageToKonva(imageUrl) {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Ensure stage has proper dimensions before positioning image
+        if (this.stageWidth === 800 && this.stageHeight === 600) {
+          console.log('🔄 Stage still has default dimensions, attempting to resize...');
+          this.resizeStageToContainer();
+        }
+        
+        // Use stored stage dimensions for consistent positioning
+        const stageWidth = this.stageWidth || this.stage.width();
+        const stageHeight = this.stageHeight || this.stage.height();
+        
+        // Calculate scale to fit canvas with some padding
+        const padding = 40; // Add padding around image
+        const availableWidth = stageWidth - padding;
+        const availableHeight = stageHeight - padding;
+        const scale = Math.min(availableWidth / img.width, availableHeight / img.height);
+        const scaledWidth = img.width * scale;
+        const scaledHeight = img.height * scale;
+        
+        // Center image on canvas
+        const x = (stageWidth - scaledWidth) / 2;
+        const y = (stageHeight - scaledHeight) / 2;
+        
+        console.log('🖼️ Image positioning:', {
+          originalSize: { width: img.width, height: img.height },
+          stageSize: { width: stageWidth, height: stageHeight },
+          scaledSize: { width: scaledWidth, height: scaledHeight },
+          position: { x, y },
+          scale: scale,
+          padding: padding
+        });
+        
+        // Create Konva image
+        const konvaImage = new Konva.Image({
+          x: x,
+          y: y,
+          image: img,
+          width: scaledWidth,
+          height: scaledHeight
+        });
+        
+        // Clear previous image
+        this.imageLayer.destroyChildren();
+        this.imageLayer.add(konvaImage);
+        
+        // Store image info for block positioning
+        this.imageInfo = {
+          x, y, width: scaledWidth, height: scaledHeight,
+          scale: scale
+        };
+        
+        this.stage.batchDraw();
+      };
+      
+      img.src = imageUrl;
+    }
+    
+    // Method to re-center image when stage is resized
+    recenterImage() {
+      if (!this.imageInfo) return;
+      
+      const stageWidth = this.stageWidth;
+      const stageHeight = this.stageHeight;
+      
+      // Recalculate position for new stage dimensions
+      const x = (stageWidth - this.imageInfo.width) / 2;
+      const y = (stageHeight - this.imageInfo.height) / 2;
+      
+      // Update image position
+      const konvaImage = this.imageLayer.getChildren()[0];
+      if (konvaImage) {
+        konvaImage.x(x);
+        konvaImage.y(y);
+        
+        // Update stored image info
+        this.imageInfo.x = x;
+        this.imageInfo.y = y;
+        
+        console.log('🔄 Image re-centered to:', { x, y });
+      }
+    }
+
+         enableBlockMode() {
+       this.isDrawingArrow = false;
+       this.arrowStart = null;
+       this.isCreatingBlock = false;
+       this.blockCreationStart = null;
+       this.previewBlock = null;
+       
+       this.container.querySelector('#addBlockBtn').classList.add('active');
+       this.container.querySelector('#addArrowBtn').classList.remove('active');
+       // Reset cursor to default in block mode
+       this.stage.container().style.cursor = 'default';
+       
+       // Set up stage for block creation with mouse tracking and edge-resize support
+       this.stage.off('click');
+       this.stage.off('mousedown');
+       this.stage.off('mousemove');
+       this.stage.off('mouseup');
+       
+       // Mouse down: start resize if on edge, otherwise begin block creation flow
+       this.stage.on('mousedown', (e) => {
+         const pos = this.stage.getPointerPosition();
+         if (!pos) return;
+         if (this.resizeDir && this.hoveredBlock) {
+           this.selectShape(this.hoveredBlock.group);
+           this.resizing = true;
+           this.startPos = pos;
+           this.hoveredBlock.rect.draggable(false);
+           return;
+         }
+         // If clicked over an existing block, select it and let drag handle movement
+         const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
+         if (clickedBlock) {
+           this.selectShape(clickedBlock.group);
+           return;
+         }
+         this.handleBlockCreationStart(e);
+       });
+       
+       // Mouse move: perform resize, update creation, or run edge detection
+       this.stage.on('mousemove', (e) => {
+         const pos = this.stage.getPointerPosition();
+         if (!pos) return;
+         if (this.resizing) {
+           this.handleEdgeResize(e);
+         } else if (this.isCreatingBlock) {
+           this.handleBlockCreationMove(e);
+         } else {
+           this.handleEdgeDetection(pos);
+         }
+       });
+       
+       // Mouse up: finish resize or block creation
+       this.stage.on('mouseup', (e) => {
+         if (this.resizing) {
+           if (this.hoveredBlock) {
+             this.hoveredBlock.rect.draggable(true);
+           }
+           this.resizing = false;
+           this.resizeDir = null;
+           this.hoveredBlock = null;
+           return;
+         }
+         this.handleBlockCreationEnd(e);
+       });
+       
+       console.log('🎯 Block mode enabled - click and drag to create blocks, or hover near edges to resize');
+     }
+
+           enableArrowMode() {
+    this.isDrawingArrow = true;
+    this.arrowStart = null;
+    this.isCreatingBlock = false;
+    this.blockCreationStart = null;
+    this.previewBlock = null;
+    
+    this.container.querySelector('#addBlockBtn').classList.remove('active');
+    this.container.querySelector('#addArrowBtn').classList.add('active');
+    // Set cursor to crosshair in arrow mode to avoid resize cursor confusion
+    this.stage.container().style.cursor = 'crosshair';
+    
+    // Set up stage for arrow creation with proper drawing behavior
+    this.stage.off('click');
+    this.stage.off('mousedown');
+    this.stage.off('mousemove');
+    this.stage.off('mouseup');
+    
+    // Arrow drawing, but still maintain edge detection cursor for clarity
+    this.stage.on('mousedown', (e) => this.handleArrowMouseDown(e));
+    this.stage.on('mousemove', (e) => {
+      // Do not run edge detection in arrow mode to avoid misleading resize cursor
+      this.handleArrowMouseMove(e);
+    });
+    this.stage.on('mouseup', (e) => this.handleArrowMouseUp(e));
+    
+    console.log('🎯 Arrow mode enabled - click and drag to draw arrows');
+  }
+
+    // Handle single-click stage clicks
+    handleSingleClickStageClick(e) {
+      const pos = this.stage.getPointerPosition();
+      
+      // Check if click is within image bounds
+      if (this.imageInfo && 
+          pos.x >= this.imageInfo.x && pos.x <= this.imageInfo.x + this.imageInfo.width &&
+          pos.y >= this.imageInfo.y && pos.y <= this.imageInfo.y + this.imageInfo.height) {
+        
+        // Check if we clicked on an existing block first
+        const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
+        if (clickedBlock) {
+          console.log('🖱️ Clicked on existing block:', clickedBlock.id);
+          this.selectShape(clickedBlock.group);
+        } else {
+          console.log('🆕 Creating simple block at:', pos.x, pos.y);
+          this.createBlock(pos.x, pos.y, 50, 50);
+        }
+      }
+    }
+
+    handleStageClick(e) {
+      const pos = this.stage.getPointerPosition();
+      
+      // Check if click is within image bounds
+      if (this.imageInfo && 
+          pos.x >= this.imageInfo.x && pos.x <= this.imageInfo.x + this.imageInfo.width &&
+          pos.y >= this.imageInfo.y && pos.y <= this.imageInfo.y + this.imageInfo.height) {
+        
+        if (this.isDrawingArrow) {
+          this.handleArrowClick(pos.x, pos.y);
+        } else {
+          // Check if we clicked on an existing block first
+          const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
+          if (clickedBlock) {
+            console.log('🖱️ Clicked on existing block:', clickedBlock.id);
+            this.selectShape(clickedBlock.group);
+          } else {
+            console.log('🆕 Creating new block at:', pos.x, pos.y);
+            this.createBlock(pos.x, pos.y);
+          }
+        }
+      }
+    }
+
+
+
+         // Handle block creation start
+     handleBlockCreationStart(e) {
+       const pos = this.stage.getPointerPosition();
+       
+       // Check if click is within image bounds
+       if (this.imageInfo && 
+           pos.x >= this.imageInfo.x && pos.x <= this.imageInfo.x + this.imageInfo.width &&
+           pos.y >= this.imageInfo.y && pos.y <= this.imageInfo.y + this.imageInfo.height) {
+         
+         // Check if we clicked on an existing block first
+         const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
+         if (clickedBlock) {
+           console.log('🖱️ Clicked on existing block:', clickedBlock.id);
+           this.selectShape(clickedBlock.group);
+           return;
+         }
+         
+         // Start block creation
+         this.isCreatingBlock = true;
+         this.blockCreationStart = { x: pos.x, y: pos.y };
+         
+         // Create preview block
+         this.previewBlock = new Konva.Rect({
+           x: pos.x,
+           y: pos.y,
+           width: 0,
+           height: 0,
+           fill: 'rgba(0, 123, 255, 0.3)',
+           stroke: '#007bff',
+           strokeWidth: 2,
+           dash: [5, 5],
+           opacity: 0.7
+         });
+         
+         this.blocksLayer.add(this.previewBlock);
+         this.stage.batchDraw();
+         
+         console.log('🎯 Block creation started at:', pos.x, pos.y);
+       }
+     }
+
+         // Handle block creation move
+     handleBlockCreationMove(e) {
+       if (!this.isCreatingBlock || !this.previewBlock) return;
+       
+       const pos = this.stage.getPointerPosition();
+       if (!pos) return;
+       
+       // Calculate block dimensions
+       const width = Math.abs(pos.x - this.blockCreationStart.x);
+       const height = Math.abs(pos.y - this.blockCreationStart.y);
+       
+       // Ensure minimum size
+       const minSize = 20;
+       const finalWidth = Math.max(width, minSize);
+       const finalHeight = Math.max(height, minSize);
+       
+       // Update preview block
+       this.previewBlock.x(Math.min(pos.x, this.blockCreationStart.x));
+       this.previewBlock.y(Math.min(pos.y, this.blockCreationStart.y));
+       this.previewBlock.width(finalWidth);
+       this.previewBlock.height(finalHeight);
+       
+       this.stage.batchDraw();
+     }
+
+         
+
+         // Handle block creation end
+     handleBlockCreationEnd(e) {
+       if (!this.isCreatingBlock || !this.previewBlock) return;
+       
+       const pos = this.stage.getPointerPosition();
+       if (!pos) return;
+       
+       // Calculate final block dimensions
+       const width = Math.abs(pos.x - this.blockCreationStart.x);
+       const height = Math.abs(pos.y - this.blockCreationStart.y);
+       
+       // Ensure minimum size
+       const minSize = 20;
+       const finalWidth = Math.max(width, minSize);
+       const finalHeight = Math.max(height, minSize);
+       
+       // Calculate final position
+       const finalX = Math.min(pos.x, this.blockCreationStart.x);
+       const finalY = Math.min(pos.y, this.blockCreationStart.y);
+       
+       // Remove preview block
+       this.previewBlock.destroy();
+       this.previewBlock = null;
+       
+       // Create the actual block
+       this.createBlock(finalX + finalWidth/2, finalY + finalHeight/2, finalWidth, finalHeight);
+       
+       // Reset creation state
+       this.isCreatingBlock = false;
+       this.blockCreationStart = null;
+       
+       this.stage.batchDraw();
+       console.log('✅ Block created with dimensions:', finalWidth, 'x', finalHeight);
+     }
+
+         
+
+    // Find block at a specific position
+    findBlockAtPosition(x, y) {
+      for (let i = this.blocks.length - 1; i >= 0; i--) {
+        const block = this.blocks[i];
+        if (x >= block.x && x <= block.x + block.width &&
+            y >= block.y && y <= block.y + block.height) {
+          return block;
+        }
+      }
+      return null;
+    }
+
+    // Compute the lowest available positive block id (1..n with gaps)
+    getNextBlockId() {
+      const used = new Set(this.blocks.map(b => b.id));
+      let candidate = 1;
+      while (used.has(candidate)) candidate++;
+      return candidate;
+    }
+
+    createBlock(x, y, width = 50, height = 50) {
+      const blockId = this.getNextBlockId();
+      
+      // Create group as the draggable container
+      const blockGroup = new Konva.Group({
+        x: x - width/2,
+        y: y - height/2,
+        draggable: true,
+        id: `blockGroup-${blockId}`,
+        data: { blockId, type: 'block' }
+      });
+
+      // Rectangle positioned at (0,0) inside group
+      const block = new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: width,
+        height: height,
+        fill: 'rgba(0, 123, 255, 0.15)',
+        stroke: '#007bff',
+        strokeWidth: 2,
+        id: `block-${blockId}`,
+        data: { blockId, type: 'block' },
+        cornerRadius: 6,
+        shadowColor: 'rgba(0, 123, 255, 0.3)',
+        shadowBlur: 10,
+        shadowOffset: { x: 0, y: 2 },
+        shadowOpacity: 0.5
+      });
+
+      // Number badge using Konva.Label for background
+      const numberLabel = new Konva.Label({ x: 0, y: -28 });
+      const numberTag = new Konva.Tag({ fill: '#007bff', cornerRadius: 4, shadowColor: 'rgba(0,0,0,0.3)', shadowBlur: 4, shadowOffset: { x: 0, y: 1 } });
+      const numberText = new Konva.Text({
+        text: blockId.toString(),
+        fontSize: 16,
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'bold',
+        fill: 'white',
+        padding: 6
+      });
+      numberLabel.add(numberTag);
+      numberLabel.add(numberText);
+
+      blockGroup.add(block);
+      blockGroup.add(numberLabel);
+      console.log('🔧 Created block group draggable:', blockGroup.draggable());
+      console.log('🔧 Group position:', { x: blockGroup.x(), y: blockGroup.y() });
+      
+      // numberLabel is the badge; no duplicate adds
+
+      // Add enhanced events
+      this.addBlockEvents(blockGroup, blockId, block);
+
+      // Add to layer
+      this.blocksLayer.add(blockGroup);
+      
+      // Animate block appearance
+      this.animateBlockAppearance(block, numberLabel);
+      
+      this.stage.batchDraw();
+
+      // Store block data with correct coordinates (group position)
+      this.blocks.push({
+        id: blockId,
+        group: blockGroup,
+        rect: block,
+        x: blockGroup.x(),
+        y: blockGroup.y(),
+        width: width,
+        height: height
+      });
+
+      // Ensure a matching word slot exists for this block id
+      if (!this.words.find(w => w.blockId === blockId)) {
+        this.words.push({ blockId, word: '' });
+      }
+
+      this.updateWordsEditor();
+    }
+
+    animateBlockAppearance(block, numberLabel) {
+      // Simple fade-in animation
+      block.opacity(0);
+      numberLabel.opacity(0);
+      
+      const animation = new Konva.Animation((frame) => {
+        const progress = frame.time / 200; // 200ms duration
+        
+        if (progress >= 1) {
+          animation.stop();
+          block.opacity(1);
+          numberLabel.opacity(1);
+        } else {
+          block.opacity(progress);
+          numberLabel.opacity(progress);
+        }
+        
+        this.stage.batchDraw();
+      });
+      
+      animation.start();
+    }
+
+         addResizeHandles(group, rect) {
+       // No more resize handles - we'll use edge detection instead
+       // This method is kept for compatibility but doesn't add anything
+       console.log('🔧 Resize handles disabled - using edge detection instead');
+     }
+
+                   updateHandlePositions(group, width, height) {
+       // Update block number position
+       const blockNumber = group.findOne('Text');
+       if (blockNumber) {
+         blockNumber.x(-8);
+         blockNumber.y(-28);
+       }
+     }
+
+    addBlockEvents(group, blockId, block) {
+      console.log('🔗 Adding events to block:', blockId);
+      console.log('🔗 Block draggable state:', block.draggable());
+      console.log('🔗 Block position:', { x: block.x(), y: block.y() });
+      
+      // Selection with better visual feedback (use group for selection)
+      group.on('click', (e) => {
+        console.log('🖱️ Block clicked:', blockId);
+        console.log('🖱️ Click event target:', e.target);
+        console.log('🖱️ Group draggable state:', group.draggable());
+        this.selectShape(group);
+      });
+
+      // Enhanced drag events on group
+      group.on('dragstart', (e) => {
+        console.log('🔧 Block drag started:', blockId);
+        console.log('🔧 Group draggable state:', group.draggable());
+        console.log('🔧 Drag event target:', e.target);
+        // Add visual feedback during drag
+        block.shadowBlur(20);
+        block.shadowOffset({ x: 0, y: 4 });
+        block.stroke('#28a745');
+        block.strokeWidth(3);
+        
+        this.stage.batchDraw();
+      });
+
+      group.on('dragmove', (e) => {
+        console.log('🔧 Block drag move:', blockId, 'position:', { x: block.x(), y: block.y() });
+        // Update stored data (group position)
+        const blockData = this.blocks.find(b => b.id === blockId);
+        if (blockData) {
+          blockData.x = group.x();
+          blockData.y = group.y();
+          console.log('📊 Block position updated:', { id: blockId, x: blockData.x, y: blockData.y });
+        }
+        
+        this.stage.batchDraw();
+      });
+
+      group.on('dragend', (e) => {
+        console.log('🔧 Block drag ended:', blockId);
+        console.log('🔧 Final position:', { x: group.x(), y: group.y() });
+        // Restore normal appearance
+        block.shadowBlur(10);
+        block.shadowOffset({ x: 0, y: 2 });
+        block.stroke('#007bff');
+        block.strokeWidth(2);
+        
+        this.stage.batchDraw();
+      });
+
+      // Right-click for delete
+      group.on('contextmenu', (e) => {
+        e.evt.preventDefault();
+        if (confirm('Delete this block?')) {
+          this.deleteBlock(blockId);
+        }
+      });
+
+      // Enhanced hover effects for better UX
+      group.on('mouseenter', () => {
+        if (this.selectedShape !== group) {
+          block.stroke('#0056b3');
+          block.strokeWidth(3);
+          this.stage.batchDraw();
+        }
+      });
+
+      group.on('mouseleave', () => {
+        if (this.selectedShape !== group) {
+          block.stroke('#007bff');
+          block.strokeWidth(2);
+          this.stage.batchDraw();
+        }
+      });
+      
+      // Rect-level edge detection (only in block mode)
+      group.on('mousemove', () => {
+        if (this.isDrawingArrow || this.isCreatingBlock || this.resizing) return;
+        const pos = this.stage.getPointerPosition();
+        if (!pos) return;
+        const box = group.getClientRect();
+        const margin = 8;
+        let cursor = 'default';
+        let dir = null;
+        if (Math.abs(pos.x - box.x) < margin) dir = 'left';
+        else if (Math.abs(pos.x - (box.x + box.width)) < margin) dir = 'right';
+        else if (Math.abs(pos.y - box.y) < margin) dir = 'top';
+        else if (Math.abs(pos.y - (box.y + box.height)) < margin) dir = 'bottom';
+        if (dir) {
+          this.resizeDir = dir;
+          this.hoveredBlock = this.blocks.find(b => b.group === group) || null;
+          cursor = (dir === 'left' || dir === 'right') ? 'ew-resize' : 'ns-resize';
+        } else {
+          this.resizeDir = null;
+          this.hoveredBlock = null;
+        }
+        this.stage.container().style.cursor = cursor;
+      });
+
+      // Start resize only when clicking on an edge; otherwise select and let Konva drag
+      group.on('mousedown', (e) => {
+        if (this.isDrawingArrow) return;
+        const pos = this.stage.getPointerPosition();
+        if (!pos) return;
+        const box = group.getClientRect();
+        const margin = 8;
+        let dir = null;
+        if (Math.abs(pos.x - box.x) < margin) dir = 'left';
+        else if (Math.abs(pos.x - (box.x + box.width)) < margin) dir = 'right';
+        else if (Math.abs(pos.y - box.y) < margin) dir = 'top';
+        else if (Math.abs(pos.y - (box.y + box.height)) < margin) dir = 'bottom';
+        if (dir) {
+          this.resizeDir = dir;
+          this.hoveredBlock = this.blocks.find(b => b.group === group) || null;
+          if (this.hoveredBlock) {
+            this.selectShape(group);
+            this.resizing = true;
+            this.startPos = pos;
+            group.draggable(false);
+            e.cancelBubble = true;
+          }
+        } else {
+          // Not on edge: just select; dragging will proceed
+          this.selectShape(group);
+        }
+      });
+
+      group.on('mouseup', () => {
+        if (this.resizing && this.hoveredBlock && this.hoveredBlock.rect === block) {
+          group.draggable(true);
+        }
+      });
+      
+      console.log('✅ Block events added for block:', blockId);
+    }
+
+    
+
+         selectShape(shape) {
+        console.log('🎯 Selecting shape:', shape);
+        this.deselectAll();
+        this.selectedShape = shape;
+        
+        // Highlight selected shape
+        if (shape.findOne('Rect')) {
+          const rect = shape.findOne('Rect');
+          rect.stroke('#28a745');
+          rect.strokeWidth(3);
+          rect.shadowBlur(20);
+          rect.shadowOffset({ x: 0, y: 4 });
+          console.log('✅ Block selected and highlighted - hover near edges to resize');
+          
+          // Show delete block button
+          this.showDeleteBlockButton();
+        } else if (shape.findOne('Line')) {
+          const line = shape.findOne('Line');
+          line.stroke('#28a745');
+          line.strokeWidth(4);
+          line.shadowBlur(15);
+          line.shadowOffset({ x: 0, y: 2 });
+          console.log('✅ Arrow selected and highlighted');
+          
+          // Show delete arrow button
+          this.showDeleteArrowButton();
+        }
+        
+        this.stage.batchDraw();
+      }
+
+      // Deselect all shapes
+      deselectAll() {
+        if (this.selectedShape) {
+          if (this.selectedShape.findOne('Rect')) {
+            const rect = this.selectedShape.findOne('Rect');
+            rect.stroke('#007bff');
+            rect.strokeWidth(2);
+            rect.shadowBlur(10);
+            rect.shadowOffset({ x: 0, y: 2 });
+          } else if (this.selectedShape.findOne('Line')) {
+            const line = this.selectedShape.findOne('Line');
+            line.stroke('#6c757d');
+            line.strokeWidth(2);
+            line.shadowBlur(0);
+            line.shadowOffset({ x: 0, y: 0 });
+          }
+          this.selectedShape = null;
+        }
+        
+        // Hide all delete buttons
+        this.hideDeleteButtons();
+        
+        this.stage.batchDraw();
+      }
+
+      // Show delete block button
+      showDeleteBlockButton() {
+        const deleteBlockBtn = document.getElementById('deleteBlockBtn');
+        const deleteArrowBtn = document.getElementById('deleteArrowBtn');
+        
+        if (deleteBlockBtn) deleteBlockBtn.style.display = 'inline-block';
+        if (deleteArrowBtn) deleteArrowBtn.style.display = 'none';
+      }
+
+      // Show delete arrow button
+      showDeleteArrowButton() {
+        const deleteBlockBtn = document.getElementById('deleteBlockBtn');
+        const deleteArrowBtn = document.getElementById('deleteArrowBtn');
+        
+        if (deleteBlockBtn) deleteBlockBtn.style.display = 'none';
+        if (deleteArrowBtn) deleteArrowBtn.style.display = 'inline-block';
+      }
+
+      // Hide all delete buttons
+      hideDeleteButtons() {
+        const deleteBlockBtn = document.getElementById('deleteBlockBtn');
+        const deleteArrowBtn = document.getElementById('deleteArrowBtn');
+        
+        if (deleteBlockBtn) deleteBlockBtn.style.display = 'none';
+        if (deleteArrowBtn) deleteArrowBtn.style.display = 'none';
+      }
+
+    
+
+    
+
+    deleteBlock(blockId) {
+      // Remove from array
+      const blockIndex = this.blocks.findIndex(b => b.id === blockId);
+      if (blockIndex !== -1) {
+        const block = this.blocks[blockIndex];
+        
+        // Remove from layer
+        block.group.destroy();
+        
+        // Remove from array
+        this.blocks.splice(blockIndex, 1);
+        
+        // Remove associated words
+        this.words = this.words.filter(w => w.blockId !== blockId);
+
+        // Remove arrows that start inside this block bounds
+        const bx = block.x;
+        const by = block.y;
+        const bw = block.width;
+        const bh = block.height;
+        const inside = (ax, ay) => ax >= bx && ax <= bx + bw && ay >= by && ay <= by + bh;
+        for (let i = this.arrows.length - 1; i >= 0; i--) {
+          const a = this.arrows[i];
+          if (inside(a.start_x, a.start_y) || inside(a.end_x, a.end_y)) {
+            if (a.group && typeof a.group.destroy === 'function') a.group.destroy();
+            this.arrows.splice(i, 1);
+          }
+        }
+        
+        // Update words editor
+        this.updateWordsEditor();
+        
+        this.stage.batchDraw();
+      }
+    }
+
+         // Arrow handling methods - implementing proper drawing behavior
+     handleArrowMouseDown(e) {
+       if (this.isDrawingArrow) {
+         const pos = this.stage.getPointerPosition();
+         if (!pos) return;
+         
+         console.log('🎯 Arrow drawing started at:', pos.x, pos.y);
+         
+         // Create arrow with start and end at same position initially
+         this.currentArrow = new Konva.Arrow({
+           points: [pos.x, pos.y, pos.x, pos.y], // start and end same at first
+           pointerLength: 10,
+           pointerWidth: 10,
+           fill: '#dc3545',
+           stroke: '#dc3545',
+           strokeWidth: 3,
+           id: `arrow-${++this.currentArrowId}`,
+           data: { arrowId: this.currentArrowId, type: 'arrow' }
+         });
+         
+         this.arrowsLayer.add(this.currentArrow);
+         this.stage.batchDraw();
+       }
+     }
+     
+     handleArrowMouseMove(e) {
+       if (this.isDrawingArrow && this.currentArrow) {
+         const pos = this.stage.getPointerPosition();
+         if (!pos) return;
+         
+         // Update arrow end point while dragging
+         const points = this.currentArrow.points();
+         this.currentArrow.points([points[0], points[1], pos.x, pos.y]);
+         this.stage.batchDraw();
+       }
+     }
+     
+     handleArrowMouseUp(e) {
+       if (this.isDrawingArrow && this.currentArrow) {
+         const pos = this.stage.getPointerPosition();
+         if (!pos) return;
+         
+         console.log('✅ Arrow drawing completed at:', pos.x, pos.y);
+         
+         // Finalize arrow with end position
+         const points = this.currentArrow.points();
+         this.currentArrow.points([points[0], points[1], pos.x, pos.y]);
+         
+         // Store arrow data for database
+         this.arrows.push({
+           id: this.currentArrowId,
+           group: this.currentArrow,
+           line: this.currentArrow,
+           start_x: points[0],
+           start_y: points[1],
+           end_x: pos.x,
+           end_y: pos.y
+         });
+         
+         console.log('✅ Arrow created and stored:', this.arrows[this.arrows.length - 1]);
+         
+         // Reset for next arrow
+         this.currentArrow = null;
+         this.stage.batchDraw();
+       }
+     }
+     
+     // Legacy method for compatibility (can be removed later)
+     handleArrowClick(x, y) {
+       if (!this.arrowStart) {
+         // First click - start arrow
+         this.arrowStart = { x, y };
+         
+         // Start mouse tracking for preview
+         this.startArrowPreview();
+       } else {
+         // Second click - end arrow
+         this.createArrow(this.arrowStart.x, this.arrowStart.y, x, y);
+         this.arrowStart = null;
+         this.stopArrowPreview();
+         
+         // Reset to block mode after creating arrow
+         this.enableBlockMode();
+       }
+     }
+
+    startArrowPreview() {
+      console.log('🎯 Starting arrow preview');
+      const mouseMoveHandler = (e) => {
+        if (!this.arrowStart) return;
+        
+        const pos = this.stage.getPointerPosition();
+        if (pos) {
+          this.updateArrowPreview(pos.x, pos.y);
+        }
+      };
+      
+      const mouseUpHandler = (e) => {
+        if (!this.arrowStart) return;
+        
+        const pos = this.stage.getPointerPosition();
+        if (pos) {
+          console.log('🎯 Arrow preview ended, creating arrow from', this.arrowStart, 'to', pos);
+          this.createArrow(this.arrowStart.x, this.arrowStart.y, pos.x, pos.y);
+          this.arrowStart = null;
+          this.stopArrowPreview();
+          
+          // Reset to block mode after creating arrow
+          this.enableBlockMode();
+          
+          // Remove event listeners
+          this.stage.off('mousemove', mouseMoveHandler);
+          this.stage.off('mouseup', mouseUpHandler);
+        }
+      };
+      
+      this.stage.on('mousemove', mouseMoveHandler);
+      this.stage.on('mouseup', mouseUpHandler);
+    }
+
+    stopArrowPreview() {
+      this.removeArrowPreview();
+    }
+
+    updateArrowPreview(endX, endY) {
+      this.removeArrowPreview();
+      
+      if (!this.arrowStart) return;
+      
+      // Create preview arrow
+      const previewArrow = new Konva.Line({
+        points: [this.arrowStart.x, this.arrowStart.y, endX, endY],
+        stroke: '#dc3545',
+        strokeWidth: 3,
+        dash: [5, 5],
+        opacity: 0.6
+      });
+      
+      this.arrowsLayer.add(previewArrow);
+      this.stage.batchDraw();
+      
+      // Store reference for removal
+      this.previewArrow = previewArrow;
+    }
+
+    removeArrowPreview() {
+      if (this.previewArrow) {
+        this.previewArrow.destroy();
+        this.previewArrow = null;
+        this.stage.batchDraw();
+      }
+    }
+
+    createArrow(startX, startY, endX, endY) {
+      const arrowId = ++this.currentArrowId;
+      console.log('➡️ Creating arrow:', { startX, startY, endX, endY });
+      
+      // Create arrow line
+      const arrow = new Konva.Line({
+        points: [startX, startY, endX, endY],
+        stroke: '#dc3545',
+        strokeWidth: 3,
+        id: `arrow-${arrowId}`,
+        data: { arrowId, type: 'arrow' }
+      });
+
+      // Create arrow head
+      const arrowHead = new Konva.RegularPolygon({
+        x: endX,
+        y: endY,
+        sides: 3,
+        radius: 8,
+        fill: '#dc3545',
+        rotation: Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90
+      });
+
+      // Create group for arrow
+      const arrowGroup = new Konva.Group({
+        id: `arrowGroup-${arrowId}`,
+        data: { arrowId, type: 'arrow' }
+      });
+      arrowGroup.add(arrow);
+      arrowGroup.add(arrowHead);
+
+      // Add events
+      arrowGroup.on('click', () => {
+        this.selectShape(arrowGroup);
+      });
+
+      arrowGroup.on('contextmenu', (e) => {
+        e.evt.preventDefault();
+        if (confirm('Delete this arrow?')) {
+          this.deleteArrow(arrowId);
+        }
+      });
+
+      // Add to layer
+      this.arrowsLayer.add(arrowGroup);
+      
+      // Add click event to select arrow
+      arrowGroup.on('click', () => {
+        console.log('🖱️ Arrow clicked:', arrowId);
+        this.selectShape(arrowGroup);
+      });
+      
+      this.stage.batchDraw();
+
+      // Store arrow data
+      this.arrows.push({
+        id: arrowId,
+        group: arrowGroup,
+        line: arrow,
+        start_x: startX,
+        start_y: startY,
+        end_x: endX,
+        end_y: endY
+      });
+      
+      console.log('✅ Arrow created and stored:', this.arrows[this.arrows.length - 1]);
+    }
+
+    deleteArrow(arrowId) {
+      // Remove from array
+      const arrowIndex = this.arrows.findIndex(a => a.id === arrowId);
+      if (arrowIndex !== -1) {
+        const arrow = this.arrows[arrowIndex];
+        
+        // Remove from layer
+        arrow.group.destroy();
+        
+        // Remove from array
+        this.arrows.splice(arrowIndex, 1);
+        
+        this.stage.batchDraw();
+      }
+    }
+
+    createWordsEditor() {
+      console.log('📝 Creating words editor...');
+      const wordsEditor = this.container.querySelector('#wordsEditor');
+      const actionButtonsContainer = this.container.querySelector('#actionButtonsContainer');
+      
+      if (wordsEditor) {
+        wordsEditor.style.display = 'block';
+        console.log('✅ Words editor displayed');
+      } else {
+        console.error('❌ Words editor not found!');
+      }
+      
+      if (actionButtonsContainer) {
+        actionButtonsContainer.style.display = 'block';
+        console.log('✅ Action buttons container displayed');
+      } else {
+        console.error('❌ Action buttons container not found!');
+      }
+      
+      this.updateWordsEditor();
+    }
+
+    updateWordsEditor() {
+      console.log('📝 Updating words editor...');
+      const wordsList = this.container.querySelector('#wordsList');
+      
+      if (!wordsList) {
+        console.error('❌ Words list element not found!');
+        return;
+      }
+      
+      console.log('📊 Current blocks for words:', this.blocks.length);
+      // Snapshot any current inputs to preserve values before re-render
+      const existingInputs = wordsList.querySelectorAll('.word-input');
+      if (existingInputs && existingInputs.length) {
+        existingInputs.forEach((input) => {
+          const blockIdAttr = input.getAttribute('data-block-id');
+          const blockId = blockIdAttr ? parseInt(blockIdAttr) : null;
+          if (!blockId) return;
+          const value = input.value || '';
+          const existingIdx = this.words.findIndex(w => w.blockId === blockId);
+          if (existingIdx >= 0) {
+            this.words[existingIdx].word = value;
+          } else if (value && value.trim() !== '') {
+            this.words.push({ blockId, word: value });
+          }
+        });
+      }
+
+      wordsList.innerHTML = '';
+      
+      this.blocks.forEach((block, index) => {
+        console.log(`📝 Creating word input for block ${block.id}`);
+        const wordItem = document.createElement('div');
+        wordItem.className = 'word-item';
+        wordItem.innerHTML = `
+          <div class="word-number">${block.id}</div>
+          <input type="text" class="word-input" placeholder="Enter word for block ${block.id}" 
+                 data-block-id="${block.id}">
+        `;
+        
+        // Auto-save word input
+        const wordInput = wordItem.querySelector('.word-input');
+        // Restore existing value if present
+        const existing = this.words.find(w => w.blockId === block.id);
+        if (existing) {
+          wordInput.value = existing.word || '';
+        }
+        wordInput.addEventListener('input', (e) => {
+          const blockId = parseInt(e.target.dataset.blockId);
+          const word = e.target.value;
+          console.log(`📝 Word updated for block ${blockId}: "${word}"`);
+          this.updateWord(blockId, word);
+        });
+        
+        wordsList.appendChild(wordItem);
+      });
+      
+      console.log('✅ Words editor updated successfully');
+    }
+
+    updateWord(blockId, word) {
+      console.log(`📝 Updating word for block ${blockId}: "${word}"`);
+      const existingWordIndex = this.words.findIndex(w => w.blockId === blockId);
+      if (existingWordIndex >= 0) {
+        this.words[existingWordIndex].word = word;
+        console.log(`✅ Updated existing word at index ${existingWordIndex}`);
+      } else {
+        this.words.push({ blockId, word });
+        console.log(`✅ Added new word for block ${blockId}`);
+      }
+      console.log('📊 Current words array:', this.words);
+    }
+
+         clearAll() {
+       console.log('🗑️ Clear all method called');
+       
+       // Clear all shapes
+       this.blocksLayer.destroyChildren();
+       this.arrowsLayer.destroyChildren();
+       console.log('✅ Konva layers cleared');
+       
+       // Clear arrays
+       this.blocks = [];
+       this.arrows = [];
+       this.words = [];
+       console.log('✅ Arrays cleared');
+       
+       // Reset IDs
+       this.currentBlockId = 0;
+       this.currentArrowId = 0;
+       console.log('✅ IDs reset');
+       
+       // Update words editor
+       this.updateWordsEditor();
+       
+       this.stage.batchDraw();
+       console.log('✅ Stage redrawn');
+       console.log('✅ Clear all completed');
+     }
+
+    async saveTest() {
+      console.log('💾 Save test method called');
+      console.log('📊 Current blocks:', this.blocks.length);
+      console.log('📝 Current words:', this.words.length);
+      
+      // Validate that each block has a word
+      for (const block of this.blocks) {
+        const w = this.words.find(x => x.blockId === block.id);
+        if (!w || !w.word || !w.word.trim()) {
+          console.error('❌ Validation failed: Missing word for block', block.id);
+          alert(`Please enter a word for block ${block.id} before saving.`);
+          return;
+        }
+      }
+      
+      console.log('✅ Validation passed, preparing test data...');
+      
+      // Prepare test data
+      const testData = {
+        image_url: this.image,
+        num_blocks: this.blocks.length,
+        questions: this.blocks.map((block) => {
+          const questionData = {
+            question_id: block.id,
+            word: (this.words.find(w => w.blockId === block.id)?.word) || '',
+            block_coordinates: {
+              x: block.x,
+              y: block.y,
+              width: block.width,
+              height: block.height
+            },
+            has_arrow: false
+          };
+          
+          // Check if this block has an associated arrow
+          const associatedArrow = this.arrows.find(arrow => 
+            arrow.start_x >= block.x && 
+            arrow.start_x <= block.x + block.width &&
+            arrow.start_y >= block.y && 
+            arrow.start_y <= block.y + block.height
+          );
+          
+          if (associatedArrow) {
+            questionData.has_arrow = true;
+            questionData.arrow = {
+              start_x: associatedArrow.start_x,
+              start_y: associatedArrow.start_y,
+              end_x: associatedArrow.end_x,
+              end_y: associatedArrow.end_y,
+              style: { color: '#dc3545', thickness: 3 }
+            };
+          }
+          
+          return questionData;
+        }),
+        arrows: this.arrows.map(arrow => ({
+          start_x: arrow.start_x,
+          start_y: arrow.start_y,
+          end_x: arrow.end_x,
+          end_y: arrow.end_y,
+          arrow_style: { color: '#dc3545', thickness: 3 }
+        }))
+      };
+      
+      console.log('📊 Test data prepared:', testData);
+      
+      // Emit custom event with test data
+      const event = new CustomEvent('matchingTestSaved', {
+        detail: testData
+      });
+      this.container.dispatchEvent(event);
+      console.log('📡 Custom event dispatched: matchingTestSaved');
+      
+      alert('Test data prepared! Check the console for the test data structure.');
+      console.log('Matching test data:', testData);
+    }
+
+    createTest() {
+      console.log('💾 Create test method called');
+      // Use name from main form; fallback to timestamped default
+      const defaultName = `Matching Test — ${new Date().toLocaleString()}`;
+      const nameInput = (typeof document !== 'undefined') ? document.getElementById('matchingTestName') : null;
+      const testName = (nameInput && nameInput.value && nameInput.value.trim()) ? nameInput.value.trim() : defaultName;
+
+      // Resolve teacher_id from session
+      let teacherId = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.teacher_id : null;
+      if (!teacherId && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const sessRaw = window.localStorage.getItem('user_session');
+          if (sessRaw) {
+            const sess = JSON.parse(sessRaw);
+            teacherId = sess && sess.user && sess.user.teacher_id ? sess.user.teacher_id : teacherId;
+          }
+        } catch (_) {}
+      }
+      if (!teacherId) {
+        alert('Missing teacher session. Please sign in again.');
+        return;
+      }
+
+      // Ensure words array mapped by block id
+      const questions = this.blocks.map((block) => {
+        const w = this.words.find(v => v.blockId === block.id)?.word || '';
+        const q = {
+          question_id: block.id,
+          word: w,
+          block_coordinates: {
+            x: block.x,
+            y: block.y,
+            width: block.width,
+            height: block.height
+          },
+          has_arrow: false
+        };
+        const associatedArrow = this.arrows.find(arrow => 
+          arrow.start_x >= block.x && 
+          arrow.start_x <= block.x + block.width &&
+          arrow.start_y >= block.y && 
+          arrow.start_y <= block.y + block.height
+        );
+        if (associatedArrow) {
+          q.has_arrow = true;
+          q.arrow = {
+            start_x: associatedArrow.start_x,
+            start_y: associatedArrow.start_y,
+            end_x: associatedArrow.end_x,
+            end_y: associatedArrow.end_y,
+            style: { color: '#dc3545', thickness: 3 }
+          };
+        }
+        return q;
+      });
+
+      const payload = {
+        teacher_id: teacherId,
+        test_name: testName,
+        image_url: this.image,
+        num_blocks: this.blocks.length,
+        questions
+      };
+
+      console.log('📦 Sending matching test payload:', payload);
+
+      const uploadIfNeeded = async () => {
+        if (this.image && typeof this.image === 'string' && this.image.startsWith('blob:')) {
+          try {
+            const res = await fetch(this.image);
+            const blob = await res.blob();
+            const reader = new FileReader();
+            const dataUrl = await new Promise((resolve, reject) => {
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            const up = await fetch('/.netlify/functions/upload-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dataUrl, folder: 'matching_tests' })
+            });
+            const uj = await up.json().catch(() => ({}));
+            if (up.ok && uj.success && uj.url) {
+              this.image = uj.url;
+              payload.image_url = uj.url;
+            } else {
+              alert('Image upload failed.');
+              return false;
+            }
+          } catch (e) {
+            console.error('Image upload error:', e);
+            alert('Image upload error.');
+            return false;
+          }
+        }
+        return true;
+      };
+
+      uploadIfNeeded().then((ok) => {
+        if (!ok) return;
+        fetch('/.netlify/functions/save-matching-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          console.error('❌ Save matching test failed:', res.status, data);
+          alert('Failed to save matching test.');
+          return;
+        }
+        console.log('✅ Matching test saved, id:', data.test_id);
+        // Clear local draft if any
+        if (typeof window.clearTestLocalStorage === 'function') {
+          window.clearTestLocalStorage();
+        }
+        // Open standard assignment UI like other tests
+        if (typeof window.showTestAssignment === 'function') {
+          window.showTestAssignment('matching_type', data.test_id);
+        } else {
+          alert('Test saved. Assignment UI is not available.');
+        }
+      })
+      .catch((err) => {
+        console.error('❌ Error saving matching test:', err);
+        alert('Error saving matching test.');
+      });
+      });
+    }
+
+    cancelTestCreation() {
+      console.log('❌ Cancel test creation called');
+      
+      // Reset the widget to initial state
+      if (confirm('Are you sure you want to cancel test creation? All progress will be lost.')) {
+        console.log('✅ User confirmed cancellation');
+        
+        // Clear everything
+        this.clearAll();
+        
+        // Hide the editor sections
+        const imageEditor = this.container.querySelector('#imageEditor');
+        const wordsEditor = this.container.querySelector('#wordsEditor');
+        const actionButtonsContainer = this.container.querySelector('#actionButtonsContainer');
+        
+        if (imageEditor) {
+          imageEditor.style.display = 'none';
+          console.log('✅ Image editor hidden');
+        }
+        
+        if (wordsEditor) {
+          wordsEditor.style.display = 'none';
+          console.log('✅ Words editor hidden');
+        }
+        
+        if (actionButtonsContainer) {
+          actionButtonsContainer.style.display = 'none';
+          console.log('✅ Action buttons hidden');
+        }
+        
+        // Show the image uploader again
+        const imageUploader = this.container.querySelector('#imageUploader');
+        if (imageUploader) {
+          imageUploader.style.display = 'block';
+          console.log('✅ Image uploader shown');
+        }
+        
+        // Reset image
+        this.image = null;
+        this.imageInfo = null;
+        
+        // Clear image layer
+        if (this.imageLayer) {
+          this.imageLayer.destroyChildren();
+          this.stage.batchDraw();
+          console.log('✅ Image layer cleared');
+        }
+        
+        // Hide upload status
+        const uploadStatus = this.container.querySelector('#uploadStatus');
+        if (uploadStatus) {
+          uploadStatus.style.display = 'none';
+          console.log('✅ Upload status hidden');
+        }
+        
+        console.log('✅ Test creation cancelled - widget reset to initial state');
+      } else {
+        console.log('❌ User cancelled the cancellation');
+      }
+    }
+
+    hideLoadingIndicator() {
+      const loadingIndicator = this.container.querySelector('#loadingIndicator');
+      const imageUploader = this.container.querySelector('#imageUploader');
+      
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+      if (imageUploader) {
+        imageUploader.style.display = 'block';
+      }
+    }
+
+    showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.cssText = `
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: bold;
+      `;
+      
+      errorDiv.innerHTML = `
+        <div style="margin-bottom: 15px;">
+          <span style="font-size: 24px;">⚠️</span>
+          <h4 style="margin: 10px 0;">Graphics Library Error</h4>
+          <p style="margin: 0; font-weight: normal;">${message}</p>
+        </div>
+        <button onclick="location.reload()" style="
+          background: #dc3545;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        ">🔄 Retry</button>
+      `;
+      
+      // Hide loading indicator
+      const loadingIndicator = this.container.querySelector('#loadingIndicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+      
+      this.container.appendChild(errorDiv);
+    }
+
+    // Debug method to show current widget state
+    debugState() {
+      console.log('🔍 === WIDGET DEBUG STATE ===');
+      console.log('📋 Container:', this.container);
+      console.log('🖼️ Image:', this.image);
+      console.log('📊 Blocks count:', this.blocks.length);
+      console.log('📝 Words count:', this.words.length);
+      console.log('➡️ Arrows count:', this.arrows.length);
+      console.log('🎨 Stage:', this.stage);
+      console.log('🔢 Current block ID:', this.currentBlockId);
+      console.log('🔢 Current arrow ID:', this.currentArrowId);
+      console.log('🎯 Selected shape:', this.selectedShape);
+      console.log('📱 Elements visibility:');
+      console.log('  - Loading indicator:', this.container.querySelector('#loadingIndicator')?.style.display);
+      console.log('  - Image uploader:', this.container.querySelector('#imageUploader')?.style.display);
+      console.log('  - Image editor:', this.container.querySelector('#imageEditor')?.style.display);
+      console.log('  - Words editor:', this.container.querySelector('#wordsEditor')?.style.display);
+      console.log('  - Action buttons:', this.container.querySelector('#actionButtonsContainer')?.style.display);
+      console.log('🔍 === END DEBUG STATE ===');
+    }
+
+    // Test method to verify widget functionality
+    testWidget() {
+      console.log('🧪 === TESTING WIDGET FUNCTIONALITY ===');
+      
+      // Test 1: Check if Konva is loaded
+      if (typeof Konva !== 'undefined') {
+        console.log('✅ Konva.js is loaded');
+      } else {
+        console.error('❌ Konva.js is NOT loaded');
+      }
+      
+      // Test 2: Check if stage exists
+      if (this.stage) {
+        console.log('✅ Konva stage exists');
+      } else {
+        console.error('❌ Konva stage does NOT exist');
+      }
+      
+      // Test 3: Check if layers exist
+      if (this.blocksLayer && this.arrowsLayer) {
+        console.log('✅ Konva layers exist');
+      } else {
+        console.error('❌ Konva layers do NOT exist');
+      }
+      
+      // Test 4: Check button elements
+      const addBlockBtn = this.container.querySelector('#addBlockBtn');
+      const createTestBtn = this.container.querySelector('#createTestBtn');
+              const cancelBtn = this.container.querySelector('#cancelTestCreationMatching');
+      
+      if (addBlockBtn) {
+        console.log('✅ Add block button exists');
+        console.log('  - Display:', addBlockBtn.style.display);
+        console.log('  - Visible:', addBlockBtn.offsetParent !== null);
+      } else {
+        console.error('❌ Add block button does NOT exist');
+      }
+      
+      if (createTestBtn) {
+        console.log('✅ Create test button exists');
+        console.log('  - Display:', createTestBtn.style.display);
+        console.log('  - Visible:', createTestBtn.offsetParent !== null);
+      } else {
+        console.error('❌ Create test button does NOT exist');
+      }
+      
+      if (cancelBtn) {
+        console.log('✅ Cancel button exists');
+        console.log('  - Display:', cancelBtn.style.display);
+        console.log('  - Visible:', cancelBtn.offsetParent !== null);
+      } else {
+        console.error('❌ Cancel button does NOT exist');
+      }
+      
+             // Test 5: Check current state
+       console.log('📊 Current widget state:');
+       console.log('  - Blocks:', this.blocks.length);
+       console.log('  - Arrows:', this.arrows.length);
+       console.log('  - Words:', this.words.length);
+       console.log('  - Image:', this.image ? 'Loaded' : 'Not loaded');
+       
+       // Test 6: Check block dragging
+       if (this.blocks.length > 0) {
+         const firstBlock = this.blocks[0];
+         console.log('🔧 Testing block dragging:');
+         console.log('  - Block group:', firstBlock.group);
+         console.log('  - Group draggable:', firstBlock.group.draggable());
+         console.log('  - Group position:', { x: firstBlock.group.x(), y: firstBlock.group.y() });
+         console.log('  - Rect position:', { x: firstBlock.rect.x(), y: firstBlock.rect.y() });
+         
+         // Test 7: Check resize functionality
+         console.log('🔧 Testing resize functionality:');
+         console.log('  - Selected shape:', this.selectedShape);
+         console.log('  - Resize direction:', this.resizeDir);
+         console.log('  - Resizing flag:', this.resizing);
+         console.log('  - Start position:', this.startPos);
+         console.log('  - Start rect:', this.startRect);
+         
+         // Test 8: Simulate edge detection
+         if (this.selectedShape) {
+           const testPos = { x: firstBlock.x + 5, y: firstBlock.y + 5 }; // Near left edge
+           console.log('🔧 Testing edge detection with position:', testPos);
+           this.handleEdgeDetection(testPos);
+           console.log('🔧 After edge detection - resizeDir:', this.resizeDir);
+         }
+       }
+       
+       console.log('🧪 === END TESTING ===');
+    }
+
+    // Test method to verify basic Konva functionality
+    testKonvaBasics() {
+      console.log('🧪 Testing basic Konva functionality...');
+      
+      if (!this.stage) {
+        console.error('❌ Stage not initialized');
+        return false;
+      }
+      
+      if (!this.blocksLayer) {
+        console.error('❌ Blocks layer not initialized');
+        return false;
+      }
+      
+      // Test 1: Create a simple test rectangle
+      console.log('🔧 Creating test rectangle...');
+      const testRect = new Konva.Rect({
+        x: 50,
+        y: 50,
+        width: 100,
+        height: 80,
+        fill: 'rgba(0, 255, 0, 0.3)',
+        stroke: 'green',
+        strokeWidth: 2,
+        draggable: true
+      });
+      
+      // Add events to test rectangle
+      testRect.on('dragstart', () => console.log('✅ Test rect drag started'));
+      testRect.on('dragmove', () => console.log('✅ Test rect drag move'));
+      testRect.on('dragend', () => console.log('✅ Test rect drag ended'));
+      
+      // Add to layer
+      this.blocksLayer.add(testRect);
+      this.stage.batchDraw();
+      
+      console.log('✅ Test rectangle created and added');
+      console.log('✅ Basic Konva functionality test passed');
+      
+      return true;
+    }
+
+    // Delete selected block
+    deleteSelectedBlock() {
+      if (!this.selectedShape) {
+        console.log('❌ No block selected for deletion');
+        return;
+      }
+
+      // Find the block data for this shape
+      const blockData = this.blocks.find(block => block.group === this.selectedShape);
+      if (!blockData) {
+        console.log('❌ Block data not found for selected shape');
+        return;
+      }
+
+      console.log('🗑️ Deleting block:', blockData.id);
+
+      // Remove from Konva layer
+      this.selectedShape.destroy();
+      
+      // Remove from blocks array
+      const blockIndex = this.blocks.findIndex(block => block.id === blockData.id);
+      if (blockIndex !== -1) {
+        this.blocks.splice(blockIndex, 1);
+      }
+
+      // Clear selection
+      this.selectedShape = null;
+      
+      // Update words editor
+      this.updateWordsEditor();
+      
+      // Redraw stage
+      this.stage.batchDraw();
+      
+      console.log('✅ Block deleted successfully');
+    }
+
+    // Delete selected arrow
+    deleteSelectedArrow() {
+      if (!this.selectedShape) {
+        console.log('❌ No arrow selected for deletion');
+        return;
+      }
+
+      // Find the arrow data for this shape
+      const arrowData = this.arrows.find(arrow => arrow.group === this.selectedShape);
+      if (!arrowData) {
+        console.log('❌ Arrow data not found for selected shape');
+        return;
+      }
+
+      console.log('🗑️ Deleting arrow:', arrowData.id);
+
+      // Remove from Konva layer
+      this.selectedShape.destroy();
+      
+      // Remove from arrows array
+      const arrowIndex = this.arrows.findIndex(arrow => arrow.id === arrowData.id);
+      if (arrowIndex !== -1) {
+        this.arrows.splice(arrowIndex, 1);
+      }
+
+      // Clear selection
+      this.selectedShape = null;
+      
+      // Redraw stage
+      this.stage.batchDraw();
+      
+      console.log('✅ Arrow deleted successfully');
+    }
+
+    // Cleanup method to remove event listeners
+    cleanup() {
+      if (this.documentMouseMoveHandler) {
+        document.removeEventListener('mousemove', this.documentMouseMoveHandler);
+        this.documentMouseMoveHandler = null;
+      }
+      
+      if (this.handleResize) {
+        window.removeEventListener('resize', this.handleResize);
+        this.handleResize = null;
+      }
+      
+      if (this.stage) {
+        this.stage.destroy();
+        this.stage = null;
+      }
+    }
+
+         // Detect if mouse is near a block's border or corner for editing
+
+    // Reset image and clear all content
+    resetImage() {
+      console.log('🔄 Resetting image and clearing all content');
+      
+      // Clear all blocks and arrows
+      this.clearAll();
+      
+      // Hide image editor
+      const imageEditor = document.getElementById('imageEditor');
+      if (imageEditor) {
+        imageEditor.style.display = 'none';
+      }
+      
+      // Show image uploader
+      const imageUploader = document.getElementById('imageUploader');
+      if (imageUploader) {
+        imageUploader.style.display = 'block';
+      }
+      
+      // Hide words editor and action buttons
+      const wordsEditor = document.getElementById('wordsEditor');
+      const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+      if (wordsEditor) wordsEditor.style.display = 'none';
+      if (actionButtonsContainer) actionButtonsContainer.style.display = 'none';
+      
+      // Clear uploaded image
+      const uploadedImage = document.getElementById('uploadedImage');
+      if (uploadedImage) {
+        uploadedImage.src = '';
+        uploadedImage.style.display = 'none';
+      }
+      
+      // Reset image URL
+      this.imageUrl = null;
+      
+      console.log('✅ Image reset complete');
+    }
+
+  }
+
+  // Export the widget class
+  window.MatchingTestWidget = MatchingTestWidget;
+  
+  // Add debug method to window for easy access
+  window.debugMatchingTestWidget = function(containerId) {
+    const container = document.getElementById(containerId);
+    if (container && container._matchingTestWidget) {
+      container._matchingTestWidget.debugState();
+    } else {
+      console.log('🔍 No matching test widget found in container:', containerId);
+    }
+  };
+  
+  // Add test method to window for easy access
+  window.testMatchingTestWidget = function(containerId) {
+    const container = document.getElementById(containerId);
+    if (container && container._matchingTestWidget) {
+      container._matchingTestWidget.testWidget();
+    } else {
+      console.log('🧪 No matching test widget found in container:', containerId);
+    }
+  };
+  
+  // Auto-initialize if container is provided
+  if (typeof window.initMatchingTestWidget === 'undefined') {
+    window.initMatchingTestWidget = async function(containerId) {
+      const container = document.getElementById(containerId);
+      if (container) {
+        try {
+          const widget = new MatchingTestWidget(container);
+          // Store reference for debugging
+          container._matchingTestWidget = widget;
+          console.log('🔗 Widget reference stored in container for debugging');
+          
+          // Wait for initialization to complete
+          await new Promise(resolve => {
+            const checkInit = setInterval(() => {
+              if (widget.stage) {
+                clearInterval(checkInit);
+                resolve();
+              }
+            }, 100);
+          });
+          return widget;
+        } catch (error) {
+          console.error('Failed to initialize widget:', error);
+          return null;
+        }
+      }
+      return null;
+    };
+  }
+})();
