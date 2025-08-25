@@ -796,12 +796,10 @@ async function displayStudentActiveTests(tests, studentId) {
                         <stop offset="100%" stop-color="#3b82f6"/>
                     </linearGradient>
                 </defs>
-                <!-- Purple→Blue gradient halo outside the ring -->
-                <circle cx="70" cy="70" r="${r + 8}" stroke="url(#avgFillPB)" stroke-width="6" fill="none" opacity="0.35"></circle>
                  <!-- Light blue track -->
                  <circle class="avg-bg" cx="70" cy="70" r="${r}" stroke-width="12" fill="none"></circle>
                  <!-- Violet gradient progress on track -->
-                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgViolet)" stroke-width="12" fill="none" stroke-linecap="round"
+                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgFillPB)" stroke-width="12" fill="none" stroke-linecap="round"
                      stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${dash.toFixed(2)}"></circle>
                 <text x="70" y="76" text-anchor="middle" class="avg-text">${pct == null ? '--' : pct + '%'}</text>
             </svg>
@@ -2188,7 +2186,7 @@ function setupFormAutoSave() {
     
     // Auto-save for matching form - ONLY initial fields
     const matchingTestName = document.getElementById('matchingTestName');
-    const matchingNumBlocks = document.getElementById('matchingNumBlocks');
+    const matchingNumBlocks = null;
     
     if (matchingTestName) {
         matchingTestName.addEventListener('input', () => {
@@ -2200,16 +2198,7 @@ function setupFormAutoSave() {
             }
         });
     }
-    if (matchingNumBlocks) {
-        matchingNumBlocks.addEventListener('input', () => {
-            // Only save if we have meaningful data
-            const numBlocks = matchingNumBlocks.value.trim();
-            if (numBlocks && !isNaN(parseInt(numBlocks))) {
-                console.log('🔍 Auto-saving matching num blocks:', numBlocks);
-                saveFormDataForStep('matchingForm');
-            }
-        });
-    }
+    // removed matching num blocks field
     
     console.log('🔍 Auto-save listeners set up for initial form fields only');
 }
@@ -2457,12 +2446,12 @@ function clearAllTestFormFields() {
     
     // Clear matching test form fields
     const matchingTestName = document.getElementById('matchingTestName');
-    const matchingNumBlocks = document.getElementById('matchingNumBlocks');
+    const matchingNumBlocks = null;
     const imageEditorContainer = document.getElementById('imageEditorContainer');
     const wordsEditorContainer = document.getElementById('wordsEditorContainer');
     
     if (matchingTestName) matchingTestName.value = '';
-    if (matchingNumBlocks) matchingNumBlocks.value = '5';
+    // removed: default num blocks
     if (imageEditorContainer) imageEditorContainer.innerHTML = '';
     if (wordsEditorContainer) wordsEditorContainer.innerHTML = '';
     
@@ -2609,7 +2598,7 @@ function saveFormDataForStep(step) {
             
         case 'matchingForm':
             formData.testName = document.getElementById('matchingTestName')?.value || '';
-            formData.numBlocks = document.getElementById('matchingNumBlocks')?.value || '';
+            formData.numBlocks = '';
             
             // Save matching test data if widget exists
             const imageEditorContainer = document.getElementById('imageEditorContainer');
@@ -2946,14 +2935,12 @@ function restoreFormDataForStep(step) {
             case 'matchingForm':
                 console.log('🔍 🟢 Restoring matching form fields...');
                 const matchingTestNameElement = document.getElementById('matchingTestName');
-                const matchingNumBlocksElement = document.getElementById('matchingNumBlocks');
+                const matchingNumBlocksElement = null;
                 
                 if (matchingTestNameElement && formData.testName) {
                     matchingTestNameElement.value = formData.testName;
                 }
-                if (matchingNumBlocksElement && formData.numBlocks) {
-                    matchingNumBlocksElement.value = formData.numBlocks;
-                }
+                // removed matching num blocks restore
                 break;
         }
     } catch (error) {

@@ -465,7 +465,7 @@
       const addArrowBtn = this.container.querySelector('#addArrowBtn');
       const clearAllBtn = this.container.querySelector('#clearAllBtn');
       const createTestBtn = this.container.querySelector('#createTestBtn');
-      const cancelTestCreationMatching = this.container.querySelector('#cancelTestCreationMatching');
+      const cancelTestCreationMatching = document.getElementById('cancelTestCreationMatching');
       const deleteBlockBtn = this.container.querySelector('#deleteBlockBtn');
       const deleteArrowBtn = this.container.querySelector('#deleteArrowBtn');
 
@@ -624,6 +624,8 @@
         height: containerHeight
       });
       
+      try { this.stage.listening(true); } catch (_) {}
+      
       console.log('🔧 Konva stage created:', this.stage);
       console.log('🔧 Stage dimensions:', {
         width: this.stage.width(),
@@ -637,8 +639,13 @@
       // Create layers for different elements
       this.backgroundLayer = new Konva.Layer();
       this.imageLayer = new Konva.Layer();
-      this.blocksLayer = new Konva.Layer();
+      this.blocksLayer = new Konva.Layer({ listening: true });
       this.arrowsLayer = new Konva.Layer();
+
+      try {
+        this.blocksLayer.listening(true);
+        if (this.blocksLayer.hitGraphEnabled) this.blocksLayer.hitGraphEnabled(true);
+      } catch (_) {}
 
       // Add layers to stage
       this.stage.add(this.backgroundLayer);
@@ -654,7 +661,8 @@
         height: this.stage.height(),
         fill: '#f8f9fa',
         stroke: '#dee2e6',
-        strokeWidth: 1
+        strokeWidth: 1,
+        listening: false
       });
       this.backgroundLayer.add(background);
 
@@ -683,7 +691,8 @@
             height: newHeight,
             fill: '#f8f9fa',
             stroke: '#dee2e6',
-            strokeWidth: 1
+            strokeWidth: 1,
+            listening: false
           });
           this.backgroundLayer.add(background);
           
@@ -728,7 +737,8 @@
             height: newHeight,
             fill: '#f8f9fa',
             stroke: '#dee2e6',
-            strokeWidth: 1
+            strokeWidth: 1,
+            listening: false
           });
           this.backgroundLayer.add(background);
           
@@ -756,23 +766,7 @@
 
       // Mousemove is handled per-mode; avoid double handlers here
 
-      // Also bind to document to ensure edge detection always works
-      this.documentMouseMoveHandler = (e) => {
-        if (this.isCreatingBlock || this.isDrawingArrow || this.resizing) return;
-        
-        // Convert document coordinates to stage coordinates
-        const stageContainer = this.stage.container();
-        const rect = stageContainer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        // Only process if mouse is within stage bounds
-        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-          this.handleEdgeDetection({ x, y });
-        }
-      };
-      
-      document.addEventListener('mousemove', this.documentMouseMoveHandler);
+      // Drag-only mode: no global mouse tracking for edge detection
 
       // Resize mousedown/mouseup handled in mode handlers to avoid conflicts
 
@@ -1059,54 +1053,44 @@
        this.stage.off('mousemove');
        this.stage.off('mouseup');
        
-       // Mouse down: start resize if on edge, otherwise begin block creation flow
+       // Click-drag on empty space to size a new block. If press starts on a block, let the block/group handle it
        this.stage.on('mousedown', (e) => {
++        try {
++          console.log('🧪 Stage mousedown:', {
++            targetIsStage: e.target === this.stage,
++            targetClass: e.target && e.target.getClassName && e.target.getClassName(),
++            targetId: e.target && e.target.id && e.target.id()
++          });
++        } catch (_) {}
+         // Only start creation when clicking on stage background (not on shapes)
+         if (e.target !== this.stage) {
+           try {
+             console.log('🧪 Stage mousedown ignored. Target is not stage:', {
+               targetClass: e.target && e.target.getClassName && e.target.getClassName(),
+               targetId: e.target && e.target.id && e.target.id(),
+               isInBlockGroup: !!(e.target && e.target.findAncestor && e.target.findAncestor('.block-group', true))
+             });
+           } catch (_) {}
+           return;
+         }
          const pos = this.stage.getPointerPosition();
          if (!pos) return;
-         if (this.resizeDir && this.hoveredBlock) {
-           this.selectShape(this.hoveredBlock.group);
-           this.resizing = true;
-           this.startPos = pos;
-           this.hoveredBlock.rect.draggable(false);
-           return;
-         }
-         // If clicked over an existing block, select it and let drag handle movement
-         const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
-         if (clickedBlock) {
-           this.selectShape(clickedBlock.group);
-           return;
-         }
          this.handleBlockCreationStart(e);
        });
        
-       // Mouse move: perform resize, update creation, or run edge detection
        this.stage.on('mousemove', (e) => {
-         const pos = this.stage.getPointerPosition();
-         if (!pos) return;
-         if (this.resizing) {
-           this.handleEdgeResize(e);
-         } else if (this.isCreatingBlock) {
+         if (this.isCreatingBlock) {
            this.handleBlockCreationMove(e);
-         } else {
-           this.handleEdgeDetection(pos);
          }
        });
        
-       // Mouse up: finish resize or block creation
        this.stage.on('mouseup', (e) => {
-         if (this.resizing) {
-           if (this.hoveredBlock) {
-             this.hoveredBlock.rect.draggable(true);
-           }
-           this.resizing = false;
-           this.resizeDir = null;
-           this.hoveredBlock = null;
-           return;
+         if (this.isCreatingBlock) {
+           this.handleBlockCreationEnd(e);
          }
-         this.handleBlockCreationEnd(e);
        });
        
-       console.log('🎯 Block mode enabled - click and drag to create blocks, or hover near edges to resize');
+       console.log('🎯 Block mode enabled - click a block to select, click-drag to create sized blocks');
      }
 
            enableArrowMode() {
@@ -1198,7 +1182,18 @@
          const clickedBlock = this.findBlockAtPosition(pos.x, pos.y);
          if (clickedBlock) {
            console.log('🖱️ Clicked on existing block:', clickedBlock.id);
-           this.selectShape(clickedBlock.group);
+           // If stage was the event target, hit graph missed; force drag on the group
+           try {
+             if (e) {
+               e.cancelBubble = true;
+               if (e.evt) e.evt.cancelBubble = true;
+             }
+             this.selectShape(clickedBlock.group);
+             clickedBlock.group.startDrag();
+             console.log('✅ Forced startDrag on existing block via stage handler');
+           } catch (err) {
+             console.warn('⚠️ Unable to force startDrag from stage handler:', err);
+           }
            return;
          }
          
@@ -1319,7 +1314,10 @@
         y: y - height/2,
         draggable: true,
         id: `blockGroup-${blockId}`,
-        data: { blockId, type: 'block' }
+        data: { blockId, type: 'block' },
+        name: 'block-group',
+        listening: true,
+        dragDistance: 0
       });
 
       // Rectangle positioned at (0,0) inside group
@@ -1337,7 +1335,8 @@
         shadowColor: 'rgba(0, 123, 255, 0.3)',
         shadowBlur: 10,
         shadowOffset: { x: 0, y: 2 },
-        shadowOpacity: 0.5
+        shadowOpacity: 0.5,
+        listening: true
       });
 
       // Number badge using Konva.Label for background
@@ -1358,6 +1357,16 @@
       blockGroup.add(numberLabel);
       console.log('🔧 Created block group draggable:', blockGroup.draggable());
       console.log('🔧 Group position:', { x: blockGroup.x(), y: blockGroup.y() });
+      console.log('🧭 Block created debug:', {
+        blockId,
+        groupId: blockGroup.id(),
+        rectId: block.id(),
+        groupDraggable: blockGroup.draggable(),
+        rectDraggable: block.draggable(),
+        groupListening: blockGroup.listening(),
+        rectListening: block.listening(),
+        absPos: blockGroup.getAbsolutePosition()
+      });
       
       // numberLabel is the badge; no duplicate adds
 
@@ -1431,14 +1440,17 @@
 
     addBlockEvents(group, blockId, block) {
       console.log('🔗 Adding events to block:', blockId);
-      console.log('🔗 Block draggable state:', block.draggable());
-      console.log('🔗 Block position:', { x: block.x(), y: block.y() });
+      console.log('🔗 Block draggable states:', { group: group.draggable(), rect: block.draggable() });
+      console.log('🔗 Initial positions:', { group: { x: group.x(), y: group.y() }, rect: { x: block.x(), y: block.y() } });
       
       // Selection with better visual feedback (use group for selection)
       group.on('click', (e) => {
         console.log('🖱️ Block clicked:', blockId);
         console.log('🖱️ Click event target:', e.target);
         console.log('🖱️ Group draggable state:', group.draggable());
+        // prevent bubbling to stage
+        e.cancelBubble = true;
+        if (e.evt) e.evt.cancelBubble = true;
         this.selectShape(group);
       });
 
@@ -1447,6 +1459,14 @@
         console.log('🔧 Block drag started:', blockId);
         console.log('🔧 Group draggable state:', group.draggable());
         console.log('🔧 Drag event target:', e.target);
+        try {
+          console.log('🧭 dragstart debug:', {
+            pointer: this.stage.getPointerPosition(),
+            groupPos: { x: group.x(), y: group.y() },
+            absPos: group.getAbsolutePosition(),
+            isDragging: group.isDragging()
+          });
+        } catch (_) {}
         // Add visual feedback during drag
         block.shadowBlur(20);
         block.shadowOffset({ x: 0, y: 4 });
@@ -1456,8 +1476,49 @@
         this.stage.batchDraw();
       });
 
+      // Ensure drag begins when pressing on the group (desktop & touch)
+      group.on('mousedown touchstart', (e) => {
+        try {
+          console.log('🧪 group mousedown/touchstart:', {
+            blockId,
+            targetClass: e.target && e.target.getClassName && e.target.getClassName(),
+            pointer: this.stage.getPointerPosition(),
+            groupDraggable: group.draggable(),
+            isDraggingBefore: group.isDragging(),
+            buttons: e.evt && e.evt.buttons
+          });
+        } catch (_) {}
+        e.cancelBubble = true;
+        if (e.evt) e.evt.cancelBubble = true;
+        try { group.startDrag(); console.log('✅ group.startDrag() called'); } catch (err) { console.warn('⚠️ group.startDrag error:', err); }
+      });
+
+      // Also start drag when pressing directly on the rect
+      block.on('mousedown touchstart', (e) => {
+        try {
+          console.log('🧪 rect mousedown/touchstart:', {
+            blockId,
+            targetClass: e.target && e.target.getClassName && e.target.getClassName(),
+            pointer: this.stage.getPointerPosition(),
+            groupDraggable: group.draggable(),
+            isDraggingBefore: group.isDragging(),
+            buttons: e.evt && e.evt.buttons
+          });
+        } catch (_) {}
+        e.cancelBubble = true;
+        if (e.evt) e.evt.cancelBubble = true;
+        try { group.startDrag(); console.log('✅ group.startDrag() called from rect'); } catch (err) { console.warn('⚠️ group.startDrag error (rect):', err); }
+      });
+
       group.on('dragmove', (e) => {
-        console.log('🔧 Block drag move:', blockId, 'position:', { x: block.x(), y: block.y() });
+        try {
+          console.log('🔧 Block drag move:', blockId, {
+            groupPos: { x: group.x(), y: group.y() },
+            rectLocalPos: { x: block.x(), y: block.y() },
+            absPos: group.getAbsolutePosition(),
+            pointer: this.stage.getPointerPosition()
+          });
+        } catch (_) {}
         // Update stored data (group position)
         const blockData = this.blocks.find(b => b.id === blockId);
         if (blockData) {
@@ -1472,6 +1533,13 @@
       group.on('dragend', (e) => {
         console.log('🔧 Block drag ended:', blockId);
         console.log('🔧 Final position:', { x: group.x(), y: group.y() });
+        try {
+          console.log('🧭 dragend debug:', {
+            absPos: group.getAbsolutePosition(),
+            pointer: this.stage.getPointerPosition(),
+            isDraggingAfter: group.isDragging()
+          });
+        } catch (_) {}
         // Restore normal appearance
         block.shadowBlur(10);
         block.shadowOffset({ x: 0, y: 2 });
@@ -1506,64 +1574,6 @@
         }
       });
       
-      // Rect-level edge detection (only in block mode)
-      group.on('mousemove', () => {
-        if (this.isDrawingArrow || this.isCreatingBlock || this.resizing) return;
-        const pos = this.stage.getPointerPosition();
-        if (!pos) return;
-        const box = group.getClientRect();
-        const margin = 8;
-        let cursor = 'default';
-        let dir = null;
-        if (Math.abs(pos.x - box.x) < margin) dir = 'left';
-        else if (Math.abs(pos.x - (box.x + box.width)) < margin) dir = 'right';
-        else if (Math.abs(pos.y - box.y) < margin) dir = 'top';
-        else if (Math.abs(pos.y - (box.y + box.height)) < margin) dir = 'bottom';
-        if (dir) {
-          this.resizeDir = dir;
-          this.hoveredBlock = this.blocks.find(b => b.group === group) || null;
-          cursor = (dir === 'left' || dir === 'right') ? 'ew-resize' : 'ns-resize';
-        } else {
-          this.resizeDir = null;
-          this.hoveredBlock = null;
-        }
-        this.stage.container().style.cursor = cursor;
-      });
-
-      // Start resize only when clicking on an edge; otherwise select and let Konva drag
-      group.on('mousedown', (e) => {
-        if (this.isDrawingArrow) return;
-        const pos = this.stage.getPointerPosition();
-        if (!pos) return;
-        const box = group.getClientRect();
-        const margin = 8;
-        let dir = null;
-        if (Math.abs(pos.x - box.x) < margin) dir = 'left';
-        else if (Math.abs(pos.x - (box.x + box.width)) < margin) dir = 'right';
-        else if (Math.abs(pos.y - box.y) < margin) dir = 'top';
-        else if (Math.abs(pos.y - (box.y + box.height)) < margin) dir = 'bottom';
-        if (dir) {
-          this.resizeDir = dir;
-          this.hoveredBlock = this.blocks.find(b => b.group === group) || null;
-          if (this.hoveredBlock) {
-            this.selectShape(group);
-            this.resizing = true;
-            this.startPos = pos;
-            group.draggable(false);
-            e.cancelBubble = true;
-          }
-        } else {
-          // Not on edge: just select; dragging will proceed
-          this.selectShape(group);
-        }
-      });
-
-      group.on('mouseup', () => {
-        if (this.resizing && this.hoveredBlock && this.hoveredBlock.rect === block) {
-          group.draggable(true);
-        }
-      });
-      
       console.log('✅ Block events added for block:', blockId);
     }
 
@@ -1581,7 +1591,7 @@
           rect.strokeWidth(3);
           rect.shadowBlur(20);
           rect.shadowOffset({ x: 0, y: 4 });
-          console.log('✅ Block selected and highlighted - hover near edges to resize');
+          console.log('✅ Block selected and highlighted');
           
           // Show delete block button
           this.showDeleteBlockButton();
@@ -2196,14 +2206,30 @@
       const uploadIfNeeded = async () => {
         if (this.image && typeof this.image === 'string' && this.image.startsWith('blob:')) {
           try {
-            const res = await fetch(this.image);
-            const blob = await res.blob();
-            const reader = new FileReader();
-            const dataUrl = await new Promise((resolve, reject) => {
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
+            let dataUrl = null;
+            // Prefer converting the current Konva image to Data URL if available
+            const konvaImgNode = this.imageLayer && this.imageLayer.getChildren()[0];
+            if (konvaImgNode && typeof konvaImgNode.toDataURL === 'function') {
+              dataUrl = konvaImgNode.toDataURL({ pixelRatio: 1 });
+              console.log('🖼️ Generated dataUrl from Konva image, length:', dataUrl ? dataUrl.length : 'null');
+            }
+            if (!dataUrl) {
+              // Fallback: fetch blob and use FileReader
+              const res = await fetch(this.image);
+              const blob = await res.blob();
+              const reader = new FileReader();
+              dataUrl = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              console.log('🖼️ Generated dataUrl from blob, length:', dataUrl ? dataUrl.length : 'null');
+            }
+            if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+              console.error('❌ Invalid dataUrl before upload');
+              alert('Image upload failed: invalid data URL.');
+              return false;
+            }
             const up = await fetch('/.netlify/functions/upload-image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -2214,6 +2240,7 @@
               this.image = uj.url;
               payload.image_url = uj.url;
             } else {
+              console.error('❌ Upload failed:', uj);
               alert('Image upload failed.');
               return false;
             }
