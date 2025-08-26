@@ -78,6 +78,11 @@ exports.handler = async function(event, context) {
           'input_tests' as table_name,
           COUNT(*) as count
         FROM input_tests
+        UNION ALL
+        SELECT 
+          'matching_type_tests' as table_name,
+          COUNT(*) as count
+        FROM matching_type_tests
       `;
       console.log('🔍 All test tables count:', allTestsCheck);
       
@@ -103,6 +108,11 @@ exports.handler = async function(event, context) {
           'input_test_results' as table_name,
           COUNT(*) as count
         FROM input_test_results
+        UNION ALL
+        SELECT 
+          'matching_type_test_results' as table_name,
+          COUNT(*) as count
+        FROM matching_type_test_results
       `;
       console.log('🔍 All test results count:', resultsCheck);
       
@@ -132,6 +142,11 @@ exports.handler = async function(event, context) {
           'input_tests' as table_name,
           COUNT(*) as count
         FROM input_tests
+        UNION ALL
+        SELECT 
+          'matching_type_tests' as table_name,
+          COUNT(*) as count
+        FROM matching_type_tests
       `;
       console.log('🔍 Simple test counts (no joins):', simpleCounts);
       
@@ -155,6 +170,12 @@ exports.handler = async function(event, context) {
         if (simpleCounts.find(row => row.table_name === 'input_tests')?.count > 0) {
           const sample = await sql`SELECT id, test_name, num_questions, created_at FROM input_tests LIMIT 2`;
           console.log('🔍 Sample input tests:', sample);
+        }
+        
+        // Check matching type tests
+        if (simpleCounts.find(row => row.table_name === 'matching_type_tests')?.count > 0) {
+          const sample = await sql`SELECT id, test_name, num_blocks, created_at FROM matching_type_tests LIMIT 2`;
+          console.log('🔍 Sample matching type tests:', sample);
         }
       }
     } catch (error) {
@@ -313,11 +334,65 @@ exports.handler = async function(event, context) {
       inputTests = [];
     }
 
+    // Add matching type tests
+    let matchingTypeTests = [];
+    try {
+      // First, let's check if the table has any data at all
+      const tableCheck = await sql`SELECT COUNT(*) as count FROM matching_type_tests`;
+      console.log('🔍 Matching type tests table count:', tableCheck[0]?.count);
+      
+      // Try the complex query first (with assignments and subjects)
+      try {
+        matchingTypeTests = await sql`
+          SELECT 
+            'matching_type' as test_type,
+            mtt.id as test_id,
+            mtt.test_name,
+            mtt.num_blocks as num_questions,
+            mtt.created_at,
+            COALESCE(s.subject, 'Not Assigned') as subject_name,
+            COALESCE(ta.grade::text, 'Not Assigned') as grade,
+            COALESCE(ta.class::text, 'Not Assigned') as class
+          FROM matching_type_tests mtt
+          LEFT JOIN test_assignments ta ON ta.test_id = mtt.id AND ta.test_type = 'matching_type'
+          LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          ORDER BY mtt.created_at DESC
+        `;
+        console.log('🔍 Complex query successful, found:', matchingTypeTests.length);
+      } catch (error) {
+        console.log('⚠️ Complex query failed, trying simple query...');
+        // Fallback to simple query without joins
+        matchingTypeTests = await sql`
+          SELECT 
+            'matching_type' as test_type,
+            id as test_id,
+            test_name,
+            num_blocks as num_questions,
+            created_at,
+            'Not Assigned' as subject_name,
+            'Not Assigned' as grade,
+            'Not Assigned' as class
+          FROM matching_type_tests
+          ORDER BY created_at DESC
+        `;
+        console.log('🔍 Simple query successful, found:', matchingTypeTests.length);
+      }
+      console.log('🔍 Matching type tests found:', matchingTypeTests.length);
+      if (matchingTypeTests.length > 0) {
+        console.log('🔍 Sample test:', matchingTypeTests[0]);
+      }
+    } catch (error) {
+      console.log('⚠️ Matching type tests query failed:', error.message);
+      console.log('⚠️ Error details:', error);
+      matchingTypeTests = [];
+    }
+
     // Combine all tests
     const allTests = [
       ...multipleChoiceTests,
       ...trueFalseTests,
-      ...inputTests
+      ...inputTests,
+      ...matchingTypeTests
     ];
 
     // Sort by creation date (newest first)
@@ -336,7 +411,8 @@ exports.handler = async function(event, context) {
         breakdown: {
           multiple_choice: multipleChoiceTests.length,
           true_false: trueFalseTests.length,
-          input: inputTests.length
+          input: inputTests.length,
+          matching_type: matchingTypeTests.length
         }
       })
     };

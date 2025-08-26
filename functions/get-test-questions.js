@@ -137,32 +137,27 @@ exports.handler = async function(event, context) {
         const rows = await sql`
           SELECT question_id, word, block_coordinates, has_arrow FROM matching_type_test_questions WHERE test_id = ${test_id} ORDER BY question_id
         `;
-        // For each question, attach arrow if exists
-        questions = [];
-        for (const r of rows) {
-          const q = {
-            question_id: r.question_id,
+        
+        // Restructure data for frontend - create one question object with all the data
+        if (rows.length > 0 && testInfo.image_url) {
+          // Extract words and blocks from the questions
+          const words = rows.map(r => r.word);
+          const blocks = rows.map((r, index) => ({
+            block_id: r.question_id,
             word: r.word,
-            block_coordinates: r.block_coordinates,
-            has_arrow: r.has_arrow,
-          };
-          if (r.has_arrow) {
-            const arr = await sql`
-              SELECT start_x, start_y, end_x, end_y, arrow_style FROM matching_type_test_arrows
-              WHERE question_id = (SELECT id FROM matching_type_test_questions WHERE test_id = ${test_id} AND question_id = ${r.question_id} LIMIT 1)
-              LIMIT 1
-            `;
-            if (arr.length > 0) {
-              q.arrow = {
-                start_x: arr[0].start_x,
-                start_y: arr[0].start_y,
-                end_x: arr[0].end_x,
-                end_y: arr[0].end_y,
-                style: arr[0].arrow_style || {}
-              };
-            }
-          }
-          questions.push(q);
+            x: r.block_coordinates.x,
+            y: r.block_coordinates.y
+          }));
+          
+          // Create a single question object with all the data
+          questions = [{
+            question_id: 1,
+            image_url: testInfo.image_url,
+            words: words,
+            blocks: blocks
+          }];
+        } else {
+          questions = [];
         }
         break;
 

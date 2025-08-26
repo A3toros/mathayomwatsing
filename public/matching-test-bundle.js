@@ -2255,7 +2255,7 @@
 
       uploadIfNeeded().then((ok) => {
         if (!ok) return;
-        fetch('/.netlify/functions/save-matching-test', {
+        fetch('/.netlify/functions/save-matching-type-test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

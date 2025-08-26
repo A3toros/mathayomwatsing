@@ -74,6 +74,14 @@ exports.handler = async function(event, context) {
         testOwnership = inputTest.length > 0;
         break;
 
+      case 'matching_type':
+        const matchingTest = await sql`
+          SELECT id FROM matching_type_tests 
+          WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+        `;
+        testOwnership = matchingTest.length > 0;
+        break;
+
       default:
         return {
           statusCode: 400,

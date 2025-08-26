@@ -162,17 +162,48 @@ exports.handler = async function(event, context) {
       inputResults = [];
     }
 
+    // Add matching type test results
+    let matchingTypeResults = [];
+    try {
+      matchingTypeResults = await sql`
+        SELECT 
+          'matching_type' as test_type,
+          tr.id,
+          tr.test_id,
+          tr.student_id,
+          tr.score,
+          tr.max_score,
+          tr.created_at as submitted_at,
+          u.name as student_name,
+          u.surname as student_surname,
+          u.grade as student_grade,
+          u.class as student_class,
+          u.number as student_number,
+          mtt.test_name
+        FROM matching_type_test_results tr
+        LEFT JOIN users u ON tr.student_id = u.student_id
+        LEFT JOIN matching_type_tests mtt ON tr.test_id = mtt.id
+        ORDER BY tr.created_at DESC
+      `;
+      console.log('🔍 Matching type results found:', matchingTypeResults.length);
+    } catch (error) {
+      console.log('⚠️ Matching type results query failed:', error.message);
+      matchingTypeResults = [];
+    }
+
     // Combine all results
     const results = [
       ...multipleChoiceResults,
       ...trueFalseResults,
-      ...inputResults
+      ...inputResults,
+      ...matchingTypeResults
     ];
     
     // Debug: Log sample results to see what we're getting
     console.log('🔍 Sample multiple choice result:', multipleChoiceResults[0]);
     console.log('🔍 Sample true/false result:', trueFalseResults[0]);
     console.log('🔍 Sample input result:', inputResults[0]);
+    console.log('🔍 Sample matching type result:', matchingTypeResults[0]);
     console.log('🔍 Combined results sample:', results[0]);
 
     // Sort by submission date (newest first)

@@ -145,6 +145,16 @@ exports.handler = async function(event, context) {
           if (inputTest.length > 0) {
             testInfo = inputTest[0];
           }
+        } else if (assignment.test_type === 'matching_type') {
+          const matchingTest = await sql`
+            SELECT test_name, num_blocks as num_questions, teacher_id 
+            FROM matching_type_tests 
+            WHERE id = ${assignment.test_id}
+          `;
+          console.log('Matching type test query result:', matchingTest);
+          if (matchingTest.length > 0) {
+            testInfo = matchingTest[0];
+          }
         }
         
         console.log('Test info:', testInfo);
@@ -253,7 +263,8 @@ exports.handler = async function(event, context) {
         test_type_breakdown: {
           multiple_choice: activeTests.filter(t => t.test_type === 'multiple_choice').length,
           true_false: activeTests.filter(t => t.test_type === 'true_false').length,
-          input: activeTests.filter(t => t.test_type === 'input').length
+          input: activeTests.filter(t => t.test_type === 'input').length,
+          matching_type: activeTests.filter(t => t.test_type === 'matching_type').length
         }
       },
       final_output: {
