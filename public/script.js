@@ -1316,6 +1316,406 @@ function lockTestInputs(locked = true) {
     }
 }
 // Display test questions and answers
+function displayTestQuestions(testInfo, questions, testType, testId) {
+    console.log('displayTestQuestions called with:', { testInfo, questions, testType, testId });
+    
+    // Get current user's student ID
+    const currentUser = JSON.parse(localStorage.getItem('user_session'));
+    if (!currentUser || !currentUser.user) {
+        alert('User session not found. Please log in again.');
+        return;
+    }
+    
+    const studentId = currentUser.user.student_id;
+    
+    // Set test title
+    const testViewTitle = document.getElementById('testViewTitle');
+    if (testViewTitle) {
+        testViewTitle.textContent = testInfo.test_name || 'Test';
+    }
+    
+    // Get test view content container
+    const testViewContent = document.getElementById('testViewContent');
+    if (!testViewContent) {
+        console.error('testViewContent container not found');
+        return;
+    }
+    
+    // Create test info bar
+    let html = `
+        <div class="test-info-bar">
+            <span>Test: ${testInfo.test_name || 'Unknown Test'}</span>
+            <span>Questions: ${questions.length}</span>
+            <span>Type: ${testType.replace('_', ' ').toUpperCase()}</span>
+        </div>
+        <div class="test-progress-container">
+            <div class="test-progress-bar" style="width: 0%">0/${questions.length} questions answered</div>
+            <div class="test-progress-text">0/${questions.length} questions answered (0%)</div>
+        </div>
+        <form id="testForm" class="test-form">
+    `;
+    
+    // Render questions based on test type
+    switch (testType) {
+        case 'true_false':
+            html += renderTrueFalseQuestions(questions, testId);
+            break;
+        case 'multiple_choice':
+            html += renderMultipleChoiceQuestions(questions, testId);
+            break;
+        case 'input':
+            html += renderInputQuestions(questions, testId);
+            break;
+        case 'matching_type':
+            html += renderMatchingTypeQuestions(questions, testId);
+            break;
+        default:
+            html += '<p>Unsupported test type</p>';
+    }
+    
+    // Add submit button
+    html += `
+        <div class="test-submit-container">
+            <button type="submit" class="btn btn-primary submit-test-btn" disabled>
+                <i class="submit-icon">📝</i> Submit Test
+            </button>
+        </div>
+        </form>
+    `;
+    
+    testViewContent.innerHTML = html;
+    
+    // Set up back button functionality
+    const backToTestsBtn = document.getElementById('backToTestsBtn');
+    if (backToTestsBtn) {
+        backToTestsBtn.addEventListener('click', () => {
+            document.getElementById('studentActiveTests').style.display = 'block';
+            document.getElementById('testViewSection').style.display = 'none';
+            document.getElementById('testViewSection').classList.remove('test-view-fullscreen');
+        });
+    }
+    
+    // Set up form submission
+    const testForm = document.getElementById('testForm');
+    if (testForm) {
+        testForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitTest(testType, testId, studentId);
+        });
+    }
+    
+    // Set up progress tracking
+    addTestProgressListeners(testType, testId);
+    
+    // Load any saved progress
+    loadSavedProgress(testType, testId);
+    
+    // Initial state check
+    updateSubmitButtonState();
+}
+
+// Render true/false questions
+function renderTrueFalseQuestions(questions, testId) {
+    let html = '<div class="questions-container">';
+    
+    questions.forEach((question, index) => {
+        const questionId = question.question_id || index;
+        const savedAnswer = getTestProgress('true_false', testId, questionId);
+        
+        html += `
+            <div class="question-container ${savedAnswer ? '' : 'unanswered'}" data-question-id="${questionId}">
+                <h4>Question ${index + 1}</h4>
+                <p class="question-text">${question.question}</p>
+                <div class="answer-options">
+                    <label class="radio-option">
+                        <input type="radio" name="question_${questionId}" value="true" 
+                               ${savedAnswer === 'true' ? 'checked' : ''} data-question-id="${questionId}">
+                        <span class="radio-custom"></span>
+                        True
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="question_${questionId}" value="false" 
+                               ${savedAnswer === 'false' ? 'checked' : ''} data-question-id="${questionId}">
+                        <span class="radio-custom"></span>
+                        False
+                    </label>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+// Render multiple choice questions
+function renderMultipleChoiceQuestions(questions, testId) {
+    let html = '<div class="questions-container">';
+    
+    questions.forEach((question, index) => {
+        const questionId = question.question_id || index;
+        const savedAnswer = getTestProgress('multiple_choice', testId, questionId);
+        
+        html += `
+            <div class="question-container ${savedAnswer ? '' : 'unanswered'}" data-question-id="${questionId}">
+                <h4>Question ${index + 1}</h4>
+                <p class="question-text">${question.question}</p>
+                <div class="answer-options">
+        `;
+        
+        // Add options A, B, C, D, E, F if they exist
+        const options = ['option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f'];
+        options.forEach((optionKey, optionIndex) => {
+            if (question[optionKey]) {
+                const optionValue = String.fromCharCode(65 + optionIndex); // A, B, C, D, E, F
+                html += `
+                    <label class="radio-option">
+                        <input type="radio" name="question_${questionId}" value="${optionValue}" 
+                               ${savedAnswer === optionValue ? 'checked' : ''} data-question-id="${questionId}">
+                        <span class="radio-custom"></span>
+                        ${optionValue}) ${question[optionKey]}
+                    </label>
+                `;
+            }
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+// Render input questions
+function renderInputQuestions(questions, testId) {
+    let html = '<div class="questions-container">';
+    
+    questions.forEach((question, index) => {
+        const questionId = question.question_id || index;
+        const savedAnswer = getTestProgress('input', testId, questionId);
+        
+        html += `
+            <div class="question-container ${savedAnswer ? '' : 'unanswered'}" data-question-id="${questionId}">
+                <h4>Question ${index + 1}</h4>
+                <p class="question-text">${question.question}</p>
+                <div class="answer-input">
+                    <input type="text" 
+                           data-question-id="${questionId}"
+                           placeholder="Enter your answer"
+                           value="${savedAnswer || ''}"
+                           class="answer-text-input">
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+// Render matching type questions
+function renderMatchingTypeQuestions(questions, testId) {
+    let html = '<div class="questions-container">';
+    
+    if (questions.length > 0 && questions[0].image_url) {
+        const question = questions[0];
+        html += `
+            <div class="matching-test-interface">
+                <div class="matching-image-container">
+                    <img src="${question.image_url}" alt="Matching test image" class="matching-test-image">
+                    <div class="drop-zones-overlay">
+                        ${question.blocks ? question.blocks.map((block, index) => `
+                            <div class="drop-zone" 
+                                 data-block-id="${block.block_id || index}"
+                                 style="left: ${block.x}px; top: ${block.y}px;">
+                                ${block.word || 'Drop here'}
+                            </div>
+                        `).join('') : ''}
+                    </div>
+                </div>
+                <div class="word-bank">
+                    ${question.words ? question.words.map((word, index) => `
+                        <div class="draggable-word" 
+                             draggable="true" 
+                             data-word="${word}"
+                             data-word-index="${index}">
+                            ${word}
+                        </div>
+                    `).join('') : ''}
+                </div>
+            </div>
+        `;
+    } else {
+        html += '<p>No matching test data available</p>';
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Load saved progress for a test
+function loadSavedProgress(testType, testId) {
+    const key = `test_progress_${testType}_${testId}`;
+    const progress = JSON.parse(localStorage.getItem(key) || '{}');
+    
+    console.log('Loading saved progress:', progress);
+    
+    // Update form fields with saved values
+    Object.keys(progress).forEach(questionId => {
+        const answer = progress[questionId];
+        
+        // Handle radio buttons
+        const radio = document.querySelector(`input[name="question_${questionId}"][value="${answer}"]`);
+        if (radio) {
+            radio.checked = true;
+        }
+        
+        // Handle text inputs
+        const textInput = document.querySelector(`input[data-question-id="${questionId}"]`);
+        if (textInput && answer) {
+            textInput.value = answer;
+        }
+    });
+    
+    // Update progress indicator
+    updateSubmitButtonState();
+}
+
+// Submit test function
+async function submitTest(testType, testId, studentId) {
+    console.log('Submitting test:', { testType, testId, studentId });
+    
+    // Lock inputs during submission
+    lockTestInputs(true);
+    
+    try {
+        // Collect answers
+        const answers = collectTestAnswers(testType, testId);
+        
+        if (Object.keys(answers).length === 0) {
+            alert('Please answer at least one question before submitting.');
+            lockTestInputs(false);
+            return;
+        }
+        
+        // Submit based on test type
+        let response;
+        switch (testType) {
+            case 'true_false':
+                response = await fetch('/.netlify/functions/submit-true-false-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        test_id: testId,
+                        student_id: studentId,
+                        answers: answers
+                    })
+                });
+                break;
+            case 'multiple_choice':
+                response = await fetch('/.netlify/functions/submit-multiple-choice-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        test_id: testId,
+                        student_id: studentId,
+                        answers: answers
+                    })
+                });
+                break;
+            case 'input':
+                response = await fetch('/.netlify/functions/submit-input-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        test_id: testId,
+                        student_id: studentId,
+                        answers: answers
+                    })
+                });
+                break;
+            case 'matching_type':
+                response = await fetch('/.netlify/functions/submit-matching-type-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        test_id: testId,
+                        student_id: studentId,
+                        answers: answers
+                    })
+                });
+                break;
+            default:
+                throw new Error('Unsupported test type');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Mark test as completed
+            markTestCompleted(testType, testId, studentId);
+            
+            // Clear progress
+            clearTestProgress(testType, testId);
+            
+            // Show success message
+            alert('Test submitted successfully!');
+            
+            // Return to active tests
+            document.getElementById('studentActiveTests').style.display = 'block';
+            document.getElementById('testViewSection').style.display = 'none';
+            document.getElementById('testViewSection').classList.remove('test-view-fullscreen');
+            
+            // Refresh active tests to show completion status
+            loadStudentActiveTests(studentId);
+        } else {
+            throw new Error(data.error || 'Failed to submit test');
+        }
+    } catch (error) {
+        console.error('Error submitting test:', error);
+        alert('Error submitting test: ' + error.message);
+        lockTestInputs(false);
+    }
+}
+
+// Collect answers from the test form
+function collectTestAnswers(testType, testId) {
+    const answers = {};
+    
+    if (testType === 'matching_type') {
+        // For matching tests, collect word placements
+        const dropZones = document.querySelectorAll('.drop-zone');
+        dropZones.forEach(zone => {
+            const word = zone.querySelector('.draggable-word');
+            if (word) {
+                const blockId = zone.dataset.blockId;
+                const wordText = word.dataset.word;
+                answers[blockId] = wordText;
+            }
+        });
+    } else {
+        // For other test types, collect form inputs
+        const radioButtons = document.querySelectorAll('input[type="radio"]:checked');
+        radioButtons.forEach(radio => {
+            const questionId = radio.name.replace('question_', '');
+            answers[questionId] = radio.value;
+        });
+        
+        const textInputs = document.querySelectorAll('input[data-question-id]');
+        textInputs.forEach(input => {
+            if (input.value.trim()) {
+                const questionId = input.dataset.questionId;
+                answers[questionId] = input.value.trim();
+            }
+        });
+    }
+    
+    console.log('Collected answers:', answers);
+    return answers;
+}
 
 // Check if all questions are answered
 function checkAllQuestionsAnswered() {

@@ -5170,6 +5170,34 @@ textarea:focus {
   }
 }
 
+/* Login button loading state */
+.btn:disabled .loading-spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  margin: 0 8px 0 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Disabled form inputs during loading */
+input:disabled, 
+input[readonly] {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+input:disabled::placeholder {
+  color: #adb5bd;
+}
+
 /* Matching Type Test Interface for Students */
 .matching-test-interface {
   display: flex;
@@ -5329,3 +5357,60 @@ textarea:focus {
   }
 }
 
+/* Mobile responsive login section */
+@media (max-width: 768px) {
+  #login-section {
+    padding: 40px 20px;
+    margin: 0;
+    width: 100%;
+    min-height: 100vh;
+  }
+  
+  .login-form {
+    padding: 30px 20px;
+    margin-top: 20px;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  #login-section {
+    padding: 30px 15px;
+  }
+  
+  .login-form {
+    padding: 25px 15px;
+    margin-top: 15px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 375px) {
+  #login-section {
+    padding: 25px 10px;
+  }
+  
+  .login-form {
+    padding: 20px 10px;
+    margin-top: 10px;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+  }
+  
+  h2 {
+    font-size: 1.3rem;
+  }
+}
