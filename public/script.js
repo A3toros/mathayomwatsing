@@ -745,7 +745,7 @@ async function displayStudentActiveTests(tests, studentId) {
                 <div class="student-active-actions">
                     ${test.isCompleted ?
                         '<span class="student-completed-text">Completed</span>' :
-                        `<a class="btn btn-primary btn-sm" href="?openTest=1&test_type=${test.test_type}&test_id=${test.test_id}" target="_blank" rel="noopener">Start</a>`
+                        `<button class="btn btn-primary btn-sm start-test-btn" type="button" onclick="startTest('${test.test_type}', ${test.test_id})">Start</button>`
                     }
                 </div>
             </div>

@@ -1055,13 +1055,13 @@
        
        // Click-drag on empty space to size a new block. If press starts on a block, let the block/group handle it
        this.stage.on('mousedown', (e) => {
-+        try {
-+          console.log('🧪 Stage mousedown:', {
-+            targetIsStage: e.target === this.stage,
-+            targetClass: e.target && e.target.getClassName && e.target.getClassName(),
-+            targetId: e.target && e.target.id && e.target.id()
-+          });
-+        } catch (_) {}
+        try {
+          console.log('🧪 Stage mousedown:', {
+            targetIsStage: e.target === this.stage,
+            targetClass: e.target && e.target.getClassName && e.target.getClassName(),
+            targetId: e.target && e.target.id && e.target.id()
+          });
+        } catch (_) {}
          // Only start creation when clicking on stage background (not on shapes)
          if (e.target !== this.stage) {
            try {
