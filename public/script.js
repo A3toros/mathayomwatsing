@@ -589,6 +589,18 @@ function populateStudentInfo(student) {
 // Load active tests for student
 async function loadStudentActiveTests(studentId) {
     console.log('loadStudentActiveTests called with studentId:', studentId);
+    
+    // Show loading state
+    const container = document.getElementById('studentActiveTests');
+    if (container) {
+        container.innerHTML = `
+            <div class="loading-tests">
+                <div class="loading-spinner"></div>
+                <p>Loading tests...</p>
+            </div>
+        `;
+    }
+    
     try {
         const url = `/.netlify/functions/get-student-active-tests?student_id=${studentId}`;
         console.log('Fetching from URL:', url);
@@ -606,9 +618,3063 @@ async function loadStudentActiveTests(studentId) {
             displayStudentActiveTests(data.tests, studentId);
         } else {
             console.error('Error loading student active tests:', data.error);
+            // Show error state
+            if (container) {
+                container.innerHTML = '<p class="error-message">Error loading tests. Please try again.</p>';
+            }
         }
     } catch (error) {
         console.error('Error loading student active tests:', error);
+        // Show error state
+        if (container) {
+            container.innerHTML = '<p class="error-message">Error loading tests. Please try again.</p>';
+        }
+    }
+}
+
+// Check if a test has been completed by the current student
+async function isTestCompleted(testType, testId, studentId) {
+    console.log(`🔍 Checking completion for test ${testType}_${testId} for student ${studentId}`);
+    
+    // Check local storage first (for immediate feedback)
+    const localKey = `test_completed_${testType}_${testId}_${studentId}`;
+    const localStatus = localStorage.getItem(localKey);
+    if (localStatus === 'true') {
+        console.log(`✅ Found completion status in local storage: ${localStatus}`);
+        return true;
+    }
+    
+    // Check database for existing results
+    try {
+        console.log(`🌐 Checking database for completion status...`);
+        const response = await fetch(`/.netlify/functions/check-test-completion?test_type=${testType}&test_id=${testId}&student_id=${studentId}`);
+        const data = await response.json();
+        
+        console.log(`📊 Database response:`, data);
+        
+        if (data.success && data.isCompleted) {
+            // Mark as completed in local storage for future checks
+            localStorage.setItem(localKey, 'true');
+            console.log(`✅ Test marked as completed in local storage`);
+            return true;
+        }
+        
+        console.log(`❌ Test not completed according to database`);
+        return false;
+    } catch (error) {
+        console.error('❌ Error checking test completion:', error);
+        return false; // Allow test if we can't check
+    }
+}
+
+// Mark a test as completed
+function markTestCompleted(testType, testId, studentId) {
+    const key = `test_completed_${testType}_${testId}_${studentId}`;
+    localStorage.setItem(key, 'true');
+    console.log(`✅ Marked test ${testType}_${testId} as completed for student ${studentId}`);
+    console.log(`💾 Saved to local storage with key: ${key}`);
+}
+// Display active tests for student
+async function displayStudentActiveTests(tests, studentId) {
+    console.log('displayStudentActiveTests called with tests:', tests);
+    
+    const container = document.getElementById('studentActiveTests');
+    if (!container) {
+        console.error('studentActiveTests container not found');
+        return;
+    }
+    
+    console.log('Container found, tests length:', tests.length);
+    
+    if (tests.length === 0) {
+        console.log('No tests found, showing "no tests" message');
+        container.innerHTML = '<p>No active tests available for your class.</p>';
+        return;
+    }
+    
+            // Check completion status for all tests
+        const completionChecks = tests.map(async test => {
+            const isCompleted = await isTestCompleted(test.test_type, test.test_id, studentId);
+            console.log(`Test ${test.test_name} (${test.test_type}_${test.test_id}) completion status:`, isCompleted);
+            return { ...test, isCompleted };
+        });
+        
+        const testsWithCompletion = await Promise.all(completionChecks);
+    
+    // Sort by assigned_at desc (fallback: test_id desc)
+    const sorted = [...testsWithCompletion].sort((a, b) => {
+        const atA = a.assigned_at ? new Date(a.assigned_at).getTime() : 0;
+        const atB = b.assigned_at ? new Date(b.assigned_at).getTime() : 0;
+        if (atA !== atB) return atB - atA;
+        return (b.test_id || 0) - (a.test_id || 0);
+    });
+
+    const top = sorted.slice(0, 3);
+    const rest = sorted.slice(3);
+
+    // Compute average score from student's historical results
+    let averagePct = null;
+    try {
+        const sessionRaw = localStorage.getItem('user_session');
+        const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+        const studentId = session && session.user ? session.user.student_id : null;
+        if (studentId) {
+            const res = await fetch(`/.netlify/functions/get-student-test-results?student_id=${studentId}`);
+            const data = await res.json();
+            if (data && data.success && Array.isArray(data.results)) {
+                const results = data.results;
+                if (results.length > 0) {
+                    const sum = results.reduce((acc, r) => {
+                        if (typeof r.score_percentage === 'number') return acc + r.score_percentage;
+                        if (typeof r.score === 'number' && typeof r.max_score === 'number' && r.max_score > 0) {
+                            return acc + Math.round((r.score / r.max_score) * 100);
+                        }
+                        return acc;
+                    }, 0);
+                    averagePct = Math.round(sum / results.length);
+                }
+            }
+        }
+    } catch (_) {}
+
+    const getAvgMessage = (pct) => {
+        if (pct == null) return 'Good speed';
+        if (pct >= 95) return 'Impeccable';
+        if (pct >= 90) return 'Super-duper Awesome';
+        if (pct >= 85) return 'Brilliant';
+        if (pct >= 80) return 'Spectacular';
+        if (pct >= 75) return 'Wonderful';
+        if (pct >= 70) return 'Amazing';
+        if (pct >= 65) return 'Good one';
+        if (pct >= 60) return 'Nice';
+        if (pct >= 55) return 'Cool';
+        if (pct >= 50) return 'Could be better';
+        return 'Try harder';
+    };
+
+    const renderItem = (test) => {
+        return `
+            <div class="student-active-item ${test.isCompleted ? 'completed' : ''}" data-test-id="${test.test_id}" data-test-type="${test.test_type}">
+                <div class="student-active-info">
+                    <span class="student-test-name">${test.test_name}</span>
+                    <span class="dot">·</span>
+                    <span class="student-subject">${test.subject_name}</span>
+                    <span class="dot">·</span>
+                    <span class="student-teacher">${test.teacher_name}</span>
+                </div>
+                <div class="student-active-actions">
+                    ${test.isCompleted ?
+                        '<span class="student-completed-text">Completed</span>' :
+                        `<button class="btn btn-primary btn-sm start-test-btn" type="button" onclick="startTest('${test.test_type}', ${test.test_id})">Start</button>`
+                    }
+                </div>
+            </div>
+        `;
+    };
+
+    let html = '<div class="student-active-list">';
+    html += top.map(renderItem).join('');
+    html += '</div>';
+
+    // If more tests exist, show Expand above the graph
+    if (rest.length > 0) {
+        html += `
+            <div id="studentActiveExpandRow" class="student-active-expand-row">
+                <button id="studentActiveExpand" class="link-minimal" type="button">Expand</button>
+            </div>
+        `;
+    }
+
+    if (rest.length > 0) {
+        html += `
+            <div id="studentActiveHidden" class="student-active-list" style="display:none;">
+                ${rest.map(renderItem).join('')}
+            </div>
+            <div id="studentActiveCollapseRow" class="student-active-expand-row" style="display:none;">
+                <button id="studentActiveCollapse" class="link-minimal" type="button">Collapse</button>
+            </div>
+        `;
+    }
+
+    // Average widget should be below all tests (after expanded list)
+    const pct = averagePct != null ? Math.min(100, Math.max(0, averagePct)) : null;
+    const r = 50; // outer radius
+    const c = 2 * Math.PI * r; // circumference for outer ring
+    const dash = pct == null ? 0 : c * (1 - pct / 100);
+    const msgClass = pct == null ? 'neutral' : (pct <= 50 ? 'low' : (pct <= 70 ? 'mid' : 'high'));
+    html += `
+        <div class="avg-score-widget">
+            <div class="avg-title">Average score</div>
+            <svg class="avg-circle" width="140" height="140" viewBox="0 0 140 140" aria-label="Average score">
+                <defs>
+                    <linearGradient id="avgViolet" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#8a2be2"/>
+                        <stop offset="100%" stop-color="#a855f7"/>
+                    </linearGradient>
+                    <linearGradient id="avgFillPB" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#8a2be2"/>
+                        <stop offset="100%" stop-color="#3b82f6"/>
+                    </linearGradient>
+                </defs>
+                 <!-- Light blue track -->
+                 <circle class="avg-bg" cx="70" cy="70" r="${r}" stroke-width="12" fill="none"></circle>
+                 <!-- Violet gradient progress on track -->
+                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgFillPB)" stroke-width="12" fill="none" stroke-linecap="round"
+                     stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${dash.toFixed(2)}"></circle>
+                <text x="70" y="76" text-anchor="middle" class="avg-text">${pct == null ? '--' : pct + '%'}</text>
+            </svg>
+            <div class="avg-message ${msgClass}">${getAvgMessage(pct)}</div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Bind expand/collapse
+    const expandBtn = document.getElementById('studentActiveExpand');
+    const collapseBtn = document.getElementById('studentActiveCollapse');
+    const expandRow = document.getElementById('studentActiveExpandRow');
+    const collapseRow = document.getElementById('studentActiveCollapseRow');
+    const hiddenList = document.getElementById('studentActiveHidden');
+    if (expandBtn && collapseBtn && hiddenList && expandRow && collapseRow) {
+        expandBtn.addEventListener('click', () => {
+            hiddenList.style.display = 'block';
+            expandRow.style.display = 'none';
+            collapseRow.style.display = 'block';
+        });
+        collapseBtn.addEventListener('click', () => {
+            hiddenList.style.display = 'none';
+            collapseRow.style.display = 'none';
+            expandRow.style.display = 'block';
+        });
+    }
+}
+
+// View test details (questions and correct answers)
+async function viewTestDetails(testType, testId, testName) {
+    console.log('Viewing test details:', { testType, testId, testName });
+    
+    try {
+        // Load test questions
+        const questions = await loadTestQuestions(testType, testId);
+        
+        if (questions && questions.length > 0) {
+            // Show test details in a modal or overlay
+            showTestDetailsModal(testType, testId, testName, questions);
+        } else {
+            alert('Could not load test questions. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error loading test details:', error);
+        alert('Error loading test details. Please try again.');
+    }
+}
+// Show test details modal
+function showTestDetailsModal(testType, testId, testName, questions) {
+    // Create modal HTML
+    const modalHTML = `
+        <div id="testDetailsModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>${testName}</h3>
+                    <button class="modal-close" onclick="closeTestDetailsModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="test-questions">
+                        ${questions.map((question, index) => `
+                            <div class="question-item">
+                                <h4>Question ${index + 1}</h4>
+                                <p class="question-text">${question.question}</p>
+                                ${getQuestionAnswerDisplay(question, testType)}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    const modal = document.getElementById('testDetailsModal');
+    modal.style.display = 'flex';
+    
+    // Add click outside to close functionality
+    modal.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeTestDetailsModal();
+        }
+    });
+}
+
+// Get question answer display based on test type
+function getQuestionAnswerDisplay(question, testType) {
+    console.log('getQuestionAnswerDisplay called with:', { question, testType });
+    
+    switch (testType) {
+        case 'multiple_choice':
+            console.log('Multiple choice question data:', {
+                option_a: question.option_a,
+                option_b: question.option_b,
+                option_c: question.option_c,
+                option_d: question.option_d,
+                option_e: question.option_e,
+                option_f: question.option_f,
+                correct_answer: question.correct_answer
+            });
+            return `
+                <div class="answer-options">
+                    <p><strong>Options:</strong></p>
+                    <p>A) ${question.option_a || 'No text'}</p>
+                    <p>B) ${question.option_b || 'No text'}</p>
+                    ${question.option_c ? `<p>C) ${question.option_c}</p>` : ''}
+                    ${question.option_d ? `<p>D) ${question.option_d}</p>` : ''}
+                    ${question.option_e ? `<p>E) ${question.option_e}</p>` : ''}
+                    ${question.option_f ? `<p>F) ${question.option_f}</p>` : ''}
+                    <p class="correct-answer"><strong>Correct Answer: ${question.correct_answer || 'Not specified'}</strong></p>
+                </div>
+            `;
+        case 'true_false':
+            console.log('True/false question data:', { correct_answer: question.correct_answer });
+            return `
+                <div class="answer-options">
+                    <p class="correct-answer"><strong>Correct Answer: ${question.correct_answer ? 'True' : 'False'}</strong></p>
+                </div>
+            `;
+        case 'input':
+            console.log('Input question data:', { correct_answer: question.correct_answer });
+            return `
+                <div class="answer-options">
+                    <p class="correct-answer"><strong>Correct Answer: ${question.correct_answer || 'Not specified'}</strong></p>
+                </div>
+            `;
+        default:
+            console.log('Unknown test type:', testType);
+            return '<p>Unknown question type</p>';
+    }
+}
+
+// Close test details modal
+function closeTestDetailsModal() {
+    const modal = document.getElementById('testDetailsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Global loading state to prevent multiple simultaneous calls
+let isLoadingTestResults = false;
+
+// Load test results for student
+async function loadStudentTestResults(studentId) {
+    // Prevent multiple simultaneous calls
+    if (isLoadingTestResults) {
+        console.log('loadStudentTestResults already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isLoadingTestResults = true;
+    console.log('loadStudentTestResults called with studentId:', studentId);
+    
+    try {
+        const url = `/.netlify/functions/get-student-test-results?student_id=${studentId}`;
+        console.log('Fetching test results from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('Test results response received:', response);
+        console.log('Test results response status:', response.status);
+        
+        const data = await response.json();
+        console.log('Test results data:', data);
+        
+        if (data.success) {
+            console.log('Successfully loaded test results, calling displayStudentTestResults');
+            console.log('Raw results array length:', data.results.length);
+            
+            // Log each result for debugging
+            data.results.forEach((result, index) => {
+                console.log(`Result ${index + 1}:`, {
+                    test_type: result.test_type,
+                    test_id: result.test_id,
+                    id: result.id,
+                    student_id: result.student_id,
+                    test_name: result.test_name,
+                    subject: result.subject,
+                    score: result.score,
+                    max_score: result.max_score,
+                    // Log all available fields
+                    all_fields: Object.keys(result),
+                    full_result: result
+                });
+            });
+            
+            displayStudentTestResults(data.results);
+        } else {
+            console.error('Error loading student test results:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading student test results:', error);
+    } finally {
+        isLoadingTestResults = false;
+    }
+}
+
+// Display test results for student
+function displayStudentTestResults(results) {
+    console.log('displayStudentTestResults called with results:', results);
+    console.log('Results array type:', Array.isArray(results));
+    console.log('Results array length:', results.length);
+    
+    const container = document.getElementById('studentTestResults');
+    if (!container) {
+        console.error('studentTestResults container not found');
+        return;
+    }
+    
+    console.log('Test results container found, results length:', results.length);
+    console.log('Container current content length:', container.innerHTML.length);
+    
+    // Clear the container first to prevent duplication
+    container.innerHTML = '';
+    console.log('Container cleared, new content length:', container.innerHTML.length);
+    
+    if (results.length === 0) {
+        console.log('No test results found, showing "no results" message');
+        container.innerHTML = '<p>No test results available yet.</p>';
+        return;
+    }
+    
+    // Deduplicate results based on unique combination of test_type, test_id, and student_id
+    const uniqueResults = [];
+    const seenKeys = new Set();
+    
+    console.log('Starting deduplication process...');
+    results.forEach((result, index) => {
+        // Create a unique key for each test result
+        // Use test_id if available, otherwise fall back to id or test_name
+        const testId = result.test_id || result.id || result.test_name;
+        const studentId = result.student_id || 'unknown';
+        
+        const uniqueKey = `${result.test_type}_${testId}_${studentId}`;
+        
+        console.log(`Processing result ${index + 1}:`, {
+            uniqueKey,
+            test_type: result.test_type,
+            test_id: result.test_id,
+            id: result.id,
+            student_id: result.student_id,
+            test_name: result.test_name,
+            score: result.score,
+            max_score: result.max_score
+        });
+        
+        if (!seenKeys.has(uniqueKey)) {
+            seenKeys.add(uniqueKey);
+            uniqueResults.push(result);
+            console.log(`✅ Added unique result: ${uniqueKey}`);
+        } else {
+            console.log(`❌ Duplicate result found and removed: ${uniqueKey}`, result);
+        }
+    });
+    
+    console.log('After deduplication, unique results count:', uniqueResults.length);
+    console.log('Unique keys found:', Array.from(seenKeys));
+    
+    // Group results by subject, semester, and term
+    const groupedResults = {};
+    
+    uniqueResults.forEach(result => {
+        const subject = result.subject || 'Unknown Subject';
+        const semester = result.semester || 'Unknown';
+        const term = result.term || 'Unknown';
+        
+        const key = `${subject}_${semester}_${term}`;
+        
+        if (!groupedResults[key]) {
+            groupedResults[key] = {
+                subject: subject,
+                semester: semester,
+                term: term,
+                results: []
+            };
+        }
+        
+        groupedResults[key].results.push(result);
+    });
+    
+    // Convert to array and sort
+    const sortedGroups = Object.values(groupedResults).sort((a, b) => {
+        if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
+        if (a.semester !== b.semester) return a.semester - b.semester;
+        return a.term - b.term;
+    });
+    
+    let html = '<div class="test-results-tables">';
+    
+    sortedGroups.forEach(group => {
+        html += `
+            <div class="results-group">
+                <div class="table-container">
+                    <table class="test-results-table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Teacher</th>
+                                <th>Test Name</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        group.results.forEach(result => {
+            const teacherName = result.teacher_name || 'Unknown';
+            const scoreClass = result.score_percentage >= 80 ? 'success' : 
+                              result.score_percentage >= 60 ? 'warning' : 'danger';
+            
+            html += `
+                <tr class="result-row ${scoreClass}">
+                    <td data-label="Subject">${group.subject}</td>
+                    <td data-label="Teacher">${teacherName}</td>
+                    <td data-label="Test Name">${result.test_name}</td>
+                    <td class="score-cell" data-label="Score">${result.score}/${result.max_score}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    console.log('Final HTML content length:', container.innerHTML.length);
+    console.log('Display function completed successfully');
+}
+
+// Start test function - show test questions and answers
+async function startTest(testType, testId) {
+    console.log('startTest called with:', { testType, testId });
+    
+    // Get current user's student ID
+    const currentUser = JSON.parse(localStorage.getItem('user_session'));
+    if (!currentUser || !currentUser.user) {
+        alert('User session not found. Please log in again.');
+        return;
+    }
+    
+    // Check if test is already completed
+    const isCompleted = await isTestCompleted(testType, testId, currentUser.user.student_id);
+    if (isCompleted) {
+        alert('This test has already been completed. You cannot retake it.');
+        return;
+    }
+    
+    // Hide active tests section
+    document.getElementById('studentActiveTests').style.display = 'none';
+    
+    // Show test view section with full-screen overlay effect
+    const testViewSection = document.getElementById('testViewSection');
+    testViewSection.style.display = 'block';
+    
+    // Add full-screen overlay class
+    testViewSection.classList.add('test-view-fullscreen');
+    
+    // Load and display test questions
+    loadTestQuestions(testType, testId);
+}
+
+// Load test questions and answers
+async function loadTestQuestions(testType, testId) {
+    try {
+        console.log('loadTestQuestions called with:', { testType, testId });
+        
+        const url = `/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`;
+        console.log('Fetching from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('Response received:', response);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.success) {
+            // Get current user's student ID
+            const currentUser = JSON.parse(localStorage.getItem('user_session'));
+            if (!currentUser || !currentUser.user) {
+                alert('User session not found. Please log in again.');
+                return;
+            }
+            
+            // Double-check completion before displaying test
+            const isCompleted = await isTestCompleted(testType, testId, currentUser.user.student_id);
+            if (isCompleted) {
+                alert('This test has already been completed. You cannot retake it.');
+                // Return to active tests view
+                document.getElementById('studentActiveTests').style.display = 'block';
+                document.getElementById('testViewSection').style.display = 'none';
+                document.getElementById('testViewSection').classList.remove('test-view-fullscreen');
+                return;
+            }
+            
+            console.log('Success! Calling displayTestQuestions with:', {
+                test_info: data.test_info,
+                questions_count: data.questions ? data.questions.length : 0,
+                test_type: data.test_type
+            });
+            displayTestQuestions(data.test_info, data.questions, data.test_type, testId);
+        } else {
+            console.error('API returned error:', data.error);
+            alert('Error loading test: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error loading test questions:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            testType,
+            testId
+        });
+        alert('Error loading test. Please try again. Error: ' + error.message);
+    }
+}
+
+// Local storage functions for test progress
+function saveTestProgress(testType, testId, questionId, answer) {
+    const key = `test_progress_${testType}_${testId}`;
+    let progress = JSON.parse(localStorage.getItem(key) || '{}');
+    progress[questionId] = answer;
+    localStorage.setItem(key, JSON.stringify(progress));
+    console.log(`Saved progress for question ${questionId}:`, answer);
+}
+
+function getTestProgress(testType, testId, questionId) {
+    const key = `test_progress_${testType}_${testId}`;
+    const progress = JSON.parse(localStorage.getItem(key) || '{}');
+    return progress[questionId] || null;
+}
+
+function clearTestProgress(testType, testId) {
+    const key = `test_progress_${testType}_${testId}`;
+    localStorage.removeItem(key);
+    console.log(`Cleared progress for test ${testType}_${testId}`);
+}
+
+function lockTestInputs(locked = true) {
+    // Only lock inputs in the test view section, not in test creation forms
+    const testViewSection = document.querySelector('.test-view-section');
+    if (!testViewSection) {
+        console.log('🔍 No test view section found, skipping input locking');
+        return;
+    }
+    
+    const inputs = testViewSection.querySelectorAll('input[type="radio"], input[type="text"], .submit-test-btn');
+    inputs.forEach(input => {
+        if (locked) {
+            input.disabled = true;
+            input.style.opacity = '0.6';
+            input.style.cursor = 'not-allowed';
+        } else {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.style.cursor = 'auto';
+        }
+    });
+    
+    const submitBtn = document.querySelector('.submit-test-btn');
+    if (submitBtn) {
+        if (locked) {
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.style.cursor = 'not-allowed';
+        } else {
+            submitBtn.innerHTML = '<i class="submit-icon">📝</i> Submit Test';
+            submitBtn.style.cursor = 'pointer';
+        }
+    }
+}
+// Display test questions and answers
+function displayTestQuestions(testInfo, questions, testType, testId) {
+    // Set test title
+    document.getElementById('testViewTitle').textContent = testInfo.test_name;
+    
+    // Create test info bar with progress
+    let infoBar = `
+        <div class="test-info-bar">
+            <span>Type: ${testType.replace('_', ' ').toUpperCase()}</span>
+            <span>Questions: ${testInfo.num_questions}</span>
+            ${testInfo.num_options ? `<span>Options: ${testInfo.num_options}</span>` : ''}
+            <span>Created: ${new Date(testInfo.created_at).toLocaleDateString()}</span>
+        </div>
+        <div class="test-progress-section">
+            <div class="test-progress-text">0/${testInfo.num_questions} questions answered (0%)</div>
+            <div class="test-progress-container">
+                <div class="test-progress-bar" style="width: 0%">0/${testInfo.num_questions} questions answered</div>
+            </div>
+        </div>
+    `;
+    
+    // Create questions content
+    let questionsContent = '';
+    
+    // For input tests with multiple answers, group questions by question_id
+    let uniqueQuestions = questions;
+    if (testType === 'input') {
+        // Group questions by question_id and keep only unique questions
+        const questionMap = new Map();
+        questions.forEach(question => {
+            if (!questionMap.has(question.question_id)) {
+                questionMap.set(question.question_id, question);
+            }
+        });
+        uniqueQuestions = Array.from(questionMap.values());
+    }
+    
+    uniqueQuestions.forEach((question, index) => {
+        // Get saved answer from local storage using question_id
+        const savedAnswer = getTestProgress(testType, testId, question.question_id);
+        
+        questionsContent += `
+            <div class="question-container">
+                <h4>
+                    <span class="question-number">${index + 1}</span>
+                    Question ${index + 1}
+                </h4>
+                <div class="question-text">${question.question}</div>
+                <div class="answer-section">
+                    <h5>Your Answer</h5>
+        `;
+        
+        if (testType === 'multiple_choice') {
+            // Show interactive options for students to select
+            // Limit options based on test creation (num_options)
+            const allOptions = ['A', 'B', 'C', 'D', 'E', 'F'];
+            const numOptions = testInfo.num_options || allOptions.length;
+            const options = allOptions.slice(0, numOptions);
+            
+            console.log(`🔍 Multiple Choice Test Setup:`);
+            console.log(`  - Test has ${numOptions} options, showing: ${options.join(', ')}`);
+            console.log(`  - Question ${question.question_id}: "${question.question}"`);
+            console.log(`  - Question options data:`, question);
+            
+            questionsContent += '<ul class="options-list interactive">';
+            
+            options.forEach(option => {
+                const optionValue = question[`option_${option.toLowerCase()}`];
+                console.log(`  - Option ${option}: "${optionValue}" (type: ${typeof optionValue})`);
+                
+                // Always show the option since we're always sending the letter
+                const isChecked = savedAnswer === option ? 'checked' : '';
+                const displayText = optionValue || option; // Show letter if no text
+                
+                console.log(`  - Creating radio button: name="question_${question.question_id}", value="${option}", checked: ${isChecked}`);
+                questionsContent += `
+                    <li class="option-item" data-question="${question.question_id}" data-option="${option}">
+                        <input type="radio" name="question_${question.question_id}" value="${option}" id="q${question.question_id}_${option}" data-question-id="${question.question_id}" ${isChecked}>
+                        <label for="q${question.question_id}_${option}" class="${isChecked ? 'checked' : ''}">
+                            <span class="option-letter">${option}</span>
+                            <span class="option-text">${displayText}</span>
+                        </label>
+                    </li>
+                `;
+            });
+            
+            questionsContent += '</ul>';
+            console.log(`🔍 Finished creating ${options.length} options for question ${question.question_id}`);
+            
+        } else if (testType === 'true_false') {
+            // Show interactive true/false options
+            const trueChecked = savedAnswer === 'true' ? 'checked' : '';
+            const falseChecked = savedAnswer === 'false' ? 'checked' : '';
+            questionsContent += `
+                <div class="true-false-options">
+                    <label class="tf-option ${trueChecked ? 'checked' : ''}">
+                        <input type="radio" name="question_${question.question_id}" value="true" id="q${question.question_id}_true" data-question-id="${question.question_id}" ${trueChecked}>
+                        <span class="tf-text">TRUE</span>
+                    </label>
+                    <label class="tf-option ${falseChecked ? 'checked' : ''}">
+                        <input type="radio" name="question_${question.question_id}" value="false" id="q${question.question_id}_false" data-question-id="${question.question_id}" ${falseChecked}>
+                        <span class="tf-text">FALSE</span>
+                    </label>
+                </div>
+            `;
+            
+        } else if (testType === 'input') {
+            // Show text input field with saved value
+            questionsContent += `
+                <div class="input-answer-field">
+                    <input type="text" 
+                           class="answer-input" 
+                           placeholder="Type your answer here..."
+                           data-question-id="${question.question_id}"
+                           value="${savedAnswer || ''}"
+                           maxlength="200">
+                </div>
+            `;
+        }
+        
+        questionsContent += `
+                </div>
+            </div>
+        `;
+    });
+    
+    // Add submit button at the end
+    questionsContent += `
+        <div class="test-submit-section">
+            <button class="btn btn-success submit-test-btn" onclick="submitTest('${testType}', ${testId})" disabled>
+                <i class="submit-icon">📝</i>
+                Submit Test
+            </button>
+        </div>
+    `;
+    
+    // Update content
+    document.getElementById('testViewContent').innerHTML = infoBar + questionsContent;
+    
+    // Add event listeners for saving progress
+    addTestProgressListeners(testType, testId);
+    
+    // Add visual feedback for radio button selection
+    if (testType === 'multiple_choice' || testType === 'true_false') {
+        const radioButtons = document.querySelectorAll('input[type="radio"]');
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Remove checked class from all labels in this question group
+                const questionName = this.name;
+                const allLabels = document.querySelectorAll(`input[name="${questionName}"]`);
+                allLabels.forEach(rb => {
+                    const label = rb.nextElementSibling;
+                    if (label) {
+                        label.classList.remove('checked');
+                    }
+                });
+                
+                // Add checked class to the selected label
+                const selectedLabel = this.nextElementSibling;
+                if (selectedLabel) {
+                    selectedLabel.classList.add('checked');
+                }
+                
+                console.log(`🔍 Radio button ${this.value} selected for question ${questionName}`);
+            });
+            
+            // Set initial state for pre-checked radios
+            if (radio.checked) {
+                const label = radio.nextElementSibling;
+                if (label) {
+                    label.classList.add('checked');
+                }
+            }
+        });
+    }
+    
+    // Add event listener for back button
+    const backBtn = document.getElementById('backToTestsBtn');
+    if (backBtn) {
+        backBtn.onclick = () => {
+            const testViewSection = document.getElementById('testViewSection');
+            testViewSection.style.display = 'none';
+            testViewSection.classList.remove('test-view-fullscreen');
+            document.getElementById('studentActiveTests').style.display = 'block';
+        };
+    }
+}
+// Check if all questions are answered
+function checkAllQuestionsAnswered() {
+    const totalQuestions = document.querySelectorAll('.question-container').length;
+    let answeredQuestions = 0;
+    
+    // Count answered questions
+    const radioButtons = document.querySelectorAll('input[type="radio"]:checked');
+    const textInputs = document.querySelectorAll('input[type="text"]');
+    
+    // Count radio button answers
+    answeredQuestions += radioButtons.length;
+    
+    // Count text input answers (non-empty)
+    textInputs.forEach(input => {
+        if (input.value.trim() !== '') {
+            answeredQuestions++;
+        }
+    });
+    
+    return answeredQuestions === totalQuestions;
+}
+
+// Update submit button state based on completion
+function updateSubmitButtonState() {
+    const submitBtn = document.querySelector('.submit-test-btn');
+    if (!submitBtn) return;
+    
+    // Get the actual total questions from the test info (not DOM elements)
+    const testInfoElement = document.querySelector('.test-info-bar span:nth-child(2)');
+    let totalQuestions = 0;
+    
+    if (testInfoElement) {
+        const questionsText = testInfoElement.textContent;
+        const match = questionsText.match(/Questions: (\d+)/);
+        if (match) {
+            totalQuestions = parseInt(match[1]);
+        }
+        console.log('🔍 Test info element found, questions text:', questionsText, 'extracted count:', totalQuestions);
+    }
+    
+    // Fallback to DOM count if test info not found
+    if (totalQuestions === 0) {
+        totalQuestions = document.querySelectorAll('.question-container').length;
+        console.log('🔍 Using DOM count fallback, total questions:', totalQuestions);
+    }
+    
+    console.log('🔍 Final total questions count:', totalQuestions);
+    
+    const answeredQuestions = getAnsweredQuestionsCount();
+    const allAnswered = answeredQuestions === totalQuestions;
+    
+    console.log(`🔍 Progress Update: ${answeredQuestions}/${totalQuestions} questions answered`);
+    console.log(`🔍 All questions answered: ${allAnswered}`);
+    
+    // Update progress indicator
+    updateProgressIndicator(answeredQuestions, totalQuestions);
+    
+    if (allAnswered) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.title = 'Submit Test';
+        
+        // Remove warning styling from all questions
+        document.querySelectorAll('.question-container').forEach(container => {
+            container.classList.remove('unanswered');
+        });
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.title = `Please answer all questions before submitting (${answeredQuestions}/${totalQuestions} answered)`;
+        
+        // Highlight unanswered questions
+        highlightUnansweredQuestions();
+    }
+}
+
+// Get count of answered questions
+function getAnsweredQuestionsCount() {
+    console.log('🔍 getAnsweredQuestionsCount called');
+    
+    let answeredCount = 0;
+    
+    // Count radio button answers - but only count unique questions, not individual options
+    const radioButtons = document.querySelectorAll('input[type="radio"]:checked');
+    console.log('🔍 Found checked radio buttons:', radioButtons.length);
+    
+    // Group radio buttons by question name to count unique questions
+    const answeredQuestions = new Set();
+    radioButtons.forEach(radio => {
+        const questionName = radio.name;
+        answeredQuestions.add(questionName);
+        console.log(`🔍 Radio button for question: ${questionName}, value: ${radio.value}`);
+    });
+    
+    console.log('🔍 Unique questions with radio answers:', answeredQuestions.size);
+    answeredCount += answeredQuestions.size;
+    
+    // Count text input answers (non-empty) - only count unique questions
+    const textInputs = document.querySelectorAll('input[type="text"][data-question-id]');
+    const answeredTextQuestions = new Set();
+    
+    textInputs.forEach(input => {
+        if (input.value.trim() !== '') {
+            const questionId = input.dataset.questionId;
+            answeredTextQuestions.add(questionId);
+            console.log(`🔍 Text input answered for question: ${questionId}, value: ${input.value}`);
+        }
+    });
+    
+    console.log('🔍 Unique questions with text answers:', answeredTextQuestions.size);
+    answeredCount += answeredTextQuestions.size;
+    
+    // Count select answers (for true/false tests) - only count unique questions with selected values
+    const selectElements = document.querySelectorAll('select[data-question-id]');
+    const answeredSelectQuestions = new Set();
+    
+    selectElements.forEach(select => {
+        if (select.value && select.value !== '') {
+            const questionId = select.dataset.questionId;
+            answeredSelectQuestions.add(questionId);
+            console.log(`🔍 Select answered for question: ${questionId}, value: ${select.value}`);
+        }
+    });
+    
+    console.log('🔍 Unique questions with select answers:', answeredSelectQuestions.size);
+    answeredCount += answeredSelectQuestions.size;
+    
+    console.log('🔍 Total answered questions count:', answeredCount);
+    return answeredCount;
+}
+
+// Update progress indicator
+function updateProgressIndicator(answered, total) {
+    const progressBar = document.querySelector('.test-progress-bar');
+    if (!progressBar) return;
+    
+    const percentage = Math.round((answered / total) * 100);
+    progressBar.style.width = `${percentage}%`;
+    progressBar.textContent = `${answered}/${total} questions answered`;
+    
+    // Update progress text
+    const progressText = document.querySelector('.test-progress-text');
+    if (progressText) {
+        progressText.textContent = `${answered}/${total} questions answered (${percentage}%)`;
+    }
+}
+// Highlight unanswered questions
+function highlightUnansweredQuestions() {
+    const questionContainers = document.querySelectorAll('.question-container');
+    
+    questionContainers.forEach((container, index) => {
+        // For input tests, we need to get the question_id from the input field
+        const textInput = container.querySelector('input[data-question-id]');
+        let questionId;
+        
+        if (textInput) {
+            questionId = textInput.dataset.questionId;
+        } else {
+            // For multiple choice/true-false, get the question_id from the radio button name
+            const radioButton = container.querySelector('input[type="radio"]');
+            if (radioButton) {
+                questionId = radioButton.name.replace('question_', '');
+            } else {
+                questionId = index;
+            }
+        }
+        
+        const isAnswered = isQuestionAnswered(questionId);
+        
+        if (isAnswered) {
+            container.classList.remove('unanswered');
+        } else {
+            container.classList.add('unanswered');
+        }
+    });
+}
+
+// Check if a specific question is answered
+function isQuestionAnswered(questionIndex) {
+    // Check radio buttons for this question
+    const radioName = `question_${questionIndex}`;
+    const radioChecked = document.querySelector(`input[name="${radioName}"]:checked`);
+    if (radioChecked) return true;
+    
+    // Check text input for this question - use question_id for input tests
+    const textInput = document.querySelector(`input[data-question-id="${questionIndex}"]`);
+    if (textInput && textInput.value.trim() !== '') return true;
+    
+    // Check select element for this question (for true/false tests)
+    const selectElement = document.querySelector(`select[data-question-id="${questionIndex}"]`);
+    if (selectElement && selectElement.value && selectElement.value !== '') return true;
+    
+    return false;
+}
+
+// Add event listeners for saving test progress
+function addTestProgressListeners(testType, testId) {
+    // Radio button listeners for multiple choice and true/false
+    const radioButtons = document.querySelectorAll('input[type="radio"]');
+    console.log(`🔍 Setting up ${radioButtons.length} radio button listeners`);
+    
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            console.log(`🔍 Radio button changed:`, {
+                name: this.name,
+                value: this.value,
+                questionIndex: this.name.replace('question_', ''),
+                parsedIndex: parseInt(this.name.replace('question_', ''))
+            });
+            
+            const questionIndex = parseInt(this.name.replace('question_', ''));
+            saveTestProgress(testType, testId, questionIndex, this.value);
+            updateSubmitButtonState(); // Check completion after each answer
+        });
+    });
+    
+    // Text input listeners for input tests
+    const textInputs = document.querySelectorAll('input[type="text"]');
+    textInputs.forEach(input => {
+        let debounceTimer;
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const questionId = parseInt(this.dataset.questionId);
+                saveTestProgress(testType, testId, questionId, this.value);
+                updateSubmitButtonState(); // Check completion after each answer
+            }, 500); // Save after 500ms of no typing
+        });
+    });
+    
+    // Select listeners for true/false tests
+    const selectElements = document.querySelectorAll('select[data-question-id]');
+    selectElements.forEach(select => {
+        select.addEventListener('change', function() {
+            const questionId = parseInt(this.dataset.questionId);
+            saveTestProgress(testType, testId, questionId, this.value);
+            updateSubmitButtonState(); // Check completion after each answer
+        });
+    });
+    
+    // Initial state check
+    updateSubmitButtonState();
+}
+
+
+
+
+
+// Teacher cabinet functionality
+function initializeTeacherCabinet() {
+    // Populate teacher username
+    populateTeacherInfo();
+    
+    // Set up choose subject button
+    const chooseSubjectBtn = document.getElementById('chooseSubjectBtn');
+    if (chooseSubjectBtn) {
+        chooseSubjectBtn.addEventListener('click', toggleSubjectDropdown);
+    }
+
+    // Set up save classes button
+    const saveClassesBtn = document.getElementById('saveClassesBtn');
+    if (saveClassesBtn) {
+        saveClassesBtn.addEventListener('click', saveClassesForSubject);
+    }
+
+    // Set up save subjects button
+    const saveSubjectsBtn = document.getElementById('saveSubjectsBtn');
+    if (saveSubjectsBtn) {
+        console.log('Setting up saveSubjectsBtn event listener to showConfirmationModal');
+        saveSubjectsBtn.addEventListener('click', showConfirmationModal);
+    } else {
+        console.error('saveSubjectsBtn not found!');
+    }
+
+    // Set up confirmation modal buttons
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmNo = document.getElementById('confirmNo');
+    if (confirmYes) {
+        console.log('Setting up confirmYes button event listener');
+        confirmYes.addEventListener('click', confirmSaveSubjects);
+    } else {
+        console.error('confirmYes button not found!');
+    }
+    if (confirmNo) {
+        console.log('Setting up confirmNo button event listener');
+        confirmNo.addEventListener('click', cancelSaveSubjects);
+    } else {
+        console.error('confirmNo button not found!');
+    }
+    
+    // Set up edit subjects button
+    const editSubjectsBtn = document.getElementById('editSubjectsBtn');
+    if (editSubjectsBtn) {
+        editSubjectsBtn.addEventListener('click', () => {
+            // Check if we're in test creation mode
+            if (window.isInTestCreation) {
+                console.log('🔍 Edit subjects button click blocked - currently in test creation mode');
+                return;
+            }
+            showSubjectSelectionPrompt();
+        });
+    }
+
+    // Load subjects for dropdown
+    loadSubjectsForDropdown();
+    
+                    // Check if teacher already has subjects in database
+                checkTeacherSubjects();
+    
+    // Initialize test creation functionality
+    initializeTestCreation();
+    
+    // Initialize active tests functionality
+    initializeActiveTests();
+}
+
+// Teacher info population function
+function populateTeacherInfo() {
+    console.log('Populating teacher info:', currentUser);
+    
+    if (currentUser && currentUser.username) {
+        // Populate teacher username in header
+        const teacherUsernameElement = document.getElementById('teacherUsername');
+        if (teacherUsernameElement) {
+            teacherUsernameElement.textContent = currentUser.username;
+        }
+        
+        // Populate teacher username in welcome message
+        const welcomeTeacherUsernameElement = document.getElementById('welcomeTeacherUsername');
+        if (welcomeTeacherUsernameElement) {
+            welcomeTeacherUsernameElement.textContent = currentUser.username;
+        }
+        
+        console.log('Teacher info populated successfully');
+    } else {
+        console.error('No teacher user data available');
+    }
+}
+
+
+
+// Check if teacher already has subjects in database
+async function checkTeacherSubjects() {
+    console.log('checkTeacherSubjects called with teacher_id:', currentUser.teacher_id);
+    try {
+        const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
+        const data = await response.json();
+        console.log('Teacher subjects response:', data);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (data.success && data.subjects && data.subjects.length > 0) {
+            console.log('Teacher has subjects, showing main cabinet');
+            console.log('Subjects data:', data.subjects);
+            // Teacher has subjects, show main cabinet
+            showMainCabinetWithSubjects(data.subjects);
+        } else {
+            console.log('No subjects found, showing subject selection');
+            console.log('Data structure:', data);
+            // No subjects found, show subject selection
+            showSubjectSelectionPrompt();
+        }
+    } catch (error) {
+        console.error('Error checking teacher subjects:', error);
+        // On error, show subject selection as fallback
+        showSubjectSelectionPrompt();
+    }
+}
+
+// Show main cabinet when teacher already has subjects
+function showMainCabinetWithSubjects(subjects) {
+    console.log('showMainCabinetWithSubjects called with subjects:', subjects);
+    
+    // Hide subject selection
+    const subjectSelection = document.getElementById('subject-selection-container');
+    if (subjectSelection) {
+        subjectSelection.style.display = 'none';
+        console.log('Hidden subject selection container');
+    }
+    
+    // Show main cabinet
+    const mainCabinet = document.getElementById('main-cabinet-container');
+    if (mainCabinet) {
+        mainCabinet.style.display = 'block';
+        console.log('Showed main cabinet container');
+    } else {
+        console.error('Main cabinet container not found!');
+    }
+    
+    // Show test creation
+    const testCreation = document.getElementById('testCreationSection');
+    if (testCreation) {
+        testCreation.style.display = 'block';
+        console.log('Showed test creation section');
+    }
+    
+    // Initialize grade buttons
+    console.log('Initializing grade buttons...');
+    initializeGradeButtons();
+    
+    // Display existing subjects info
+    displayExistingSubjects(subjects);
+    
+    // Show edit subjects button
+    showEditSubjectsButton();
+    
+    // Check if we need to restore test creation state
+    console.log('🔍 Checking for test creation state to restore...');
+    const stateRestored = restoreTestCreationState();
+    if (!stateRestored) {
+        console.log('🔍 No test creation state to restore, enabling navigation buttons');
+        enableNavigationButtons();
+    }
+}
+
+// Display existing subjects information
+function displayExistingSubjects(subjects) {
+    console.log('displayExistingSubjects called with subjects:', subjects);
+    const subjectsInfo = document.getElementById('subjectsInfo');
+    if (subjectsInfo) {
+        // Create detailed display of subjects and their classes
+        let subjectsHtml = '<div class="existing-subjects-info"><h3>Your Assigned Subjects</h3>';
+        
+        subjects.forEach(subject => {
+            subjectsHtml += `<div class="subject-item">`;
+            subjectsHtml += `<h4>${subject.subject}</h4>`;
+            
+            if (subject.classes && Array.isArray(subject.classes)) {
+                const classList = subject.classes.map(classData => 
+                    `${classData.grade}/${classData.class}`
+                ).join(', ');
+                subjectsHtml += `<p><strong>Classes:</strong> ${classList}</p>`;
+            }
+            
+            subjectsHtml += `</div>`;
+        });
+        
+        subjectsHtml += '</div>';
+        
+        subjectsInfo.innerHTML = subjectsHtml;
+        subjectsInfo.style.display = 'block';
+        
+        console.log('Updated subjects info display');
+    }
+}
+
+// Show prompt to add subjects
+async function showSubjectSelectionPrompt() {
+    // Check if we're in test creation mode
+    if (window.isInTestCreation) {
+        console.log('🔍 showSubjectSelectionPrompt blocked - currently in test creation mode');
+        return;
+    }
+    
+    console.log('=== showSubjectSelectionPrompt called ===');
+    
+    // Hide main cabinet
+    const mainCabinet = document.getElementById('main-cabinet-container');
+    if (mainCabinet) {
+        mainCabinet.style.display = 'none';
+    }
+    
+    // Hide test creation
+    const testCreation = document.getElementById('testCreationSection');
+    if (testCreation) {
+        testCreation.style.display = 'none';
+    }
+    
+    // Show subject selection
+    const subjectSelection = document.getElementById('subject-selection-container');
+    if (subjectSelection) {
+        subjectSelection.style.display = 'block';
+    }
+    
+    // Show welcome message
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    if (welcomeMessage) {
+        welcomeMessage.style.display = 'block';
+    }
+    
+    // Hide edit subjects button when in subject selection mode
+    hideEditSubjectsButton();
+    
+    // Load and display existing subjects
+    await loadAndDisplayExistingSubjects();
+}
+
+// Load and display existing subjects in the subject selection interface
+async function loadAndDisplayExistingSubjects() {
+    try {
+        console.log('Loading existing subjects for display...');
+        
+        const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
+        const data = await response.json();
+        
+        if (data.success && data.subjects && data.subjects.length > 0) {
+            console.log('Existing subjects found:', data.subjects);
+            displayExistingSubjectsInSelection(data.subjects);
+        } else {
+            console.log('No existing subjects found');
+            // Clear any existing display
+            const subjectsList = document.getElementById('subjectsList');
+            if (subjectsList) {
+                subjectsList.innerHTML = '';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading existing subjects:', error);
+    }
+}
+
+// Display existing subjects in the subject selection interface
+function displayExistingSubjectsInSelection(subjects) {
+    console.log('Displaying existing subjects in selection interface:', subjects);
+    
+    const subjectsList = document.getElementById('subjectsList');
+    if (!subjectsList) {
+        console.error('subjectsList element not found');
+        return;
+    }
+    
+    // Clear existing content
+    subjectsList.innerHTML = '';
+    
+    // Process each subject and its classes
+    subjects.forEach(subject => {
+        console.log('Processing existing subject:', subject);
+        
+        if (subject.classes && Array.isArray(subject.classes)) {
+            subject.classes.forEach(classData => {
+                console.log('Processing class data:', classData);
+                
+                const subjectDiv = document.createElement('div');
+                subjectDiv.className = 'selected-subject';
+                subjectDiv.dataset.subjectId = subject.subject_id;
+                subjectDiv.dataset.subjectName = subject.subject;
+                
+                subjectDiv.innerHTML = `
+                    <h4>${subject.subject}</h4>
+                    <p>Classes: ${classData.grade}/${classData.class}</p>
+                    <button class="remove-subject-btn" onclick="removeSubject(this)">Remove</button>
+                `;
+                
+                subjectsList.appendChild(subjectDiv);
+            });
+        }
+    });
+    
+    // Show the selected subjects section
+    const selectedSubjects = document.getElementById('selectedSubjects');
+    if (selectedSubjects) {
+        selectedSubjects.style.display = 'block';
+    }
+    
+    console.log('Finished displaying existing subjects');
+}
+// Initialize test creation functionality
+function initializeTestCreation() {
+    const createTestBtn = document.getElementById('createTestBtn');
+    if (createTestBtn) {
+        createTestBtn.addEventListener('click', showTestTypeSelection);
+    }
+    
+    // Cancel buttons for test creation
+    const cancelTestCreation = document.getElementById('cancelTestCreation');
+    const cancelTestCreationMC = document.getElementById('cancelTestCreationMC');
+    const cancelTestCreationTF = document.getElementById('cancelTestCreationTF');
+    const cancelTestCreationInput = document.getElementById('cancelTestCreationInput');
+    
+    if (cancelTestCreation) {
+        cancelTestCreation.addEventListener('click', resetTestCreation);
+    }
+    if (cancelTestCreationMC) {
+        cancelTestCreationMC.addEventListener('click', resetTestCreation);
+    }
+    if (cancelTestCreationTF) {
+        cancelTestCreationTF.addEventListener('click', resetTestCreation);
+    }
+    if (cancelTestCreationInput) {
+        cancelTestCreationInput.addEventListener('click', resetTestCreation);
+    }
+    
+    // Test type selection buttons
+    const multipleChoiceBtn = document.getElementById('multipleChoiceBtn');
+    const trueFalseBtn = document.getElementById('trueFalseBtn');
+    const inputTestBtn = document.getElementById('inputTestBtn');
+    
+    if (multipleChoiceBtn) {
+        multipleChoiceBtn.addEventListener('click', () => showTestForm('multipleChoice'));
+    }
+    if (trueFalseBtn) {
+        trueFalseBtn.addEventListener('click', () => showTestForm('trueFalse'));
+    }
+    if (inputTestBtn) {
+        inputTestBtn.addEventListener('click', () => showTestForm('input'));
+    }
+    
+    // Matching test button
+    const matchingTestBtn = document.getElementById('matchingTestBtn');
+    if (matchingTestBtn) {
+        matchingTestBtn.addEventListener('click', () => showTestForm('matching'));
+    }
+    
+    // Form submit buttons
+    const mcSubmitBtn = document.getElementById('mcSubmitBtn');
+    const tfSubmitBtn = document.getElementById('tfSubmitBtn');
+    const inputSubmitBtn = document.getElementById('inputSubmitBtn');
+    
+    if (mcSubmitBtn) {
+        mcSubmitBtn.addEventListener('click', handleMultipleChoiceSubmit);
+    }
+    if (tfSubmitBtn) {
+        tfSubmitBtn.addEventListener('click', handleTrueFalseSubmit);
+    }
+    if (inputSubmitBtn) {
+        inputSubmitBtn.addEventListener('click', handleInputTestSubmit);
+    }
+    
+    // Set up auto-save for form fields
+    setupFormAutoSave();
+}
+
+// Set up auto-save for form fields to save data as user types
+function setupFormAutoSave() {
+    console.log('🔍 Setting up auto-save listeners for initial form fields...');
+    
+    // Auto-save for multiple choice form - ONLY initial fields
+    const mcTestName = document.getElementById('mcTestName');
+    const mcNumQuestions = document.getElementById('mcNumQuestions');
+    const mcNumOptions = document.getElementById('mcNumOptions');
+    
+    if (mcTestName) {
+        mcTestName.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const testName = mcTestName.value.trim();
+            if (testName) {
+                console.log('🔍 Auto-saving multiple choice test name:', testName);
+                saveFormDataForStep('multipleChoiceForm');
+            }
+        });
+    }
+    if (mcNumQuestions) {
+        mcNumQuestions.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const numQuestions = mcNumQuestions.value.trim();
+            if (numQuestions && !isNaN(parseInt(numQuestions))) {
+                console.log('🔍 Auto-saving multiple choice num questions:', numQuestions);
+                saveFormDataForStep('multipleChoiceForm');
+            }
+        });
+    }
+    if (mcNumOptions) {
+        mcNumOptions.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const numOptions = mcNumOptions.value.trim();
+            if (numOptions && !isNaN(parseInt(numOptions))) {
+                console.log('🔍 Auto-saving multiple choice num options:', numOptions);
+                saveFormDataForStep('multipleChoiceForm');
+            }
+        });
+    }
+    
+    // Auto-save for true/false form - ONLY initial fields
+    const tfTestName = document.getElementById('tfTestName');
+    const tfNumQuestions = document.getElementById('tfNumQuestions');
+    
+    if (tfTestName) {
+        tfTestName.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const testName = tfTestName.value.trim();
+            if (testName) {
+                console.log('🔍 Auto-saving true/false test name:', testName);
+                saveFormDataForStep('trueFalseForm');
+            }
+        });
+    }
+    if (tfNumQuestions) {
+        tfNumQuestions.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const numQuestions = tfNumQuestions.value.trim();
+            if (numQuestions && !isNaN(parseInt(numQuestions))) {
+                console.log('🔍 Auto-saving true/false num questions:', numQuestions);
+                saveFormDataForStep('trueFalseForm');
+            }
+        });
+    }
+    
+    // Auto-save for input form - ONLY initial fields
+    const inputTestName = document.getElementById('inputTestName');
+    const inputNumQuestions = document.getElementById('inputNumQuestions');
+    
+    if (inputTestName) {
+        inputTestName.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const testName = inputTestName.value.trim();
+            if (testName) {
+                console.log('🔍 Auto-saving input test name:', testName);
+                saveFormDataForStep('inputForm');
+            }
+        });
+    }
+    if (inputNumQuestions) {
+        inputNumQuestions.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const numQuestions = inputNumQuestions.value.trim();
+            if (numQuestions && !isNaN(parseInt(numQuestions))) {
+                console.log('🔍 Auto-saving input num questions:', numQuestions);
+                saveFormDataForStep('inputForm');
+            }
+        });
+    }
+    
+    // Auto-save for matching form - ONLY initial fields
+    const matchingTestName = document.getElementById('matchingTestName');
+    const matchingNumBlocks = null;
+    
+    if (matchingTestName) {
+        matchingTestName.addEventListener('input', () => {
+            // Only save if we have meaningful data
+            const testName = matchingTestName.value.trim();
+            if (testName) {
+                console.log('🔍 Auto-saving matching test name:', testName);
+                saveFormDataForStep('matchingForm');
+            }
+        });
+    }
+    // removed matching num blocks field
+    
+    console.log('🔍 Auto-save listeners set up for initial form fields only');
+}
+
+// Show test type selection
+function showTestTypeSelection() {
+    console.log('🔍 showTestTypeSelection called - starting new test creation');
+    
+    // Reset the test assignment completed flag
+    window.testAssignmentCompleted = false;
+    console.log('🔍 Reset testAssignmentCompleted flag to false');
+    
+    // Set test creation state
+    window.isInTestCreation = true;
+    console.log('🔍 Set isInTestCreation flag to true');
+    
+    // Disable grade buttons and active tests button
+    disableNavigationButtons();
+    
+    // Hide other sections
+    document.getElementById('multipleChoiceForm').style.display = 'none';
+    document.getElementById('trueFalseForm').style.display = 'none';
+    document.getElementById('inputTestForm').style.display = 'none';
+    document.getElementById('testAssignmentSection').style.display = 'none';
+    document.getElementById('activeTestsSection').style.display = 'none';
+    
+    // Remove active class from active tests button
+    const activeTestsBtn = document.getElementById('activeTestsBtn');
+    if (activeTestsBtn) {
+        activeTestsBtn.classList.remove('active');
+    }
+    
+    // Show test type selection
+    document.getElementById('testTypeSelection').style.display = 'block';
+    // Note: Create Test button is now disabled instead of hidden (handled by disableNavigationButtons)
+    
+    // Save current state to localStorage
+    saveTestCreationState('testTypeSelection');
+}
+// Reset test creation
+function resetTestCreation() {
+    console.log('🔍 resetTestCreation called - resetting test creation state');
+    
+    // Reset the test assignment completed flag
+    window.testAssignmentCompleted = false;
+    console.log('🔍 Reset testAssignmentCompleted flag to false');
+    
+    // Reset test creation state
+    window.isInTestCreation = false;
+    console.log('🔍 Reset isInTestCreation flag to false');
+    
+    // Re-enable navigation buttons
+    enableNavigationButtons();
+    
+    document.getElementById('testTypeSelection').style.display = 'none';
+    // Note: Create Test button is now enabled by enableNavigationButtons instead of here
+    document.getElementById('multipleChoiceForm').style.display = 'none';
+    document.getElementById('trueFalseForm').style.display = 'none';
+    document.getElementById('inputTestForm').style.display = 'none';
+    document.getElementById('matchingTestForm').style.display = 'none';
+    document.getElementById('testAssignmentSection').style.display = 'none';
+    document.getElementById('activeTestsSection').style.display = 'none';
+    
+    // Remove active class from active tests button
+    const activeTestsBtn = document.getElementById('activeTestsBtn');
+    if (activeTestsBtn) {
+        activeTestsBtn.classList.remove('active');
+    }
+    
+    // Clear test creation state from localStorage
+    clearTestCreationState();
+    
+    // Clear all form fields to give teacher a clean slate
+    clearAllTestFormFields();
+}
+
+// Disable navigation buttons during test creation
+function disableNavigationButtons() {
+    console.log('🔍 Disabling navigation buttons...');
+    
+    // Disable all grade buttons
+    const gradeButtons = document.querySelectorAll('.grade-btn');
+    gradeButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        console.log(`🔍 Disabled grade button: ${btn.textContent}`);
+    });
+    
+    // Disable active tests button
+    const activeTestsBtn = document.getElementById('activeTestsBtn');
+    if (activeTestsBtn) {
+        activeTestsBtn.disabled = true;
+        activeTestsBtn.style.opacity = '0.5';
+        activeTestsBtn.style.cursor = 'not-allowed';
+        console.log('🔍 Disabled active tests button');
+    }
+    
+    // Disable Create Test button (make it inactive, not hidden)
+    const createTestBtn = document.getElementById('createTestBtn');
+    if (createTestBtn) {
+        createTestBtn.disabled = true;
+        createTestBtn.style.opacity = '0.5';
+        createTestBtn.style.cursor = 'not-allowed';
+        console.log('🔍 Disabled Create Test button');
+    }
+    
+    // Disable class and semester buttons if they exist
+    const classButtons = document.querySelectorAll('.class-btn');
+    classButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    });
+    
+    const semesterButtons = document.querySelectorAll('.semester-btn');
+    semesterButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    });
+}
+
+// Enable navigation buttons after test creation
+function enableNavigationButtons() {
+    console.log('🔍 Enabling navigation buttons...');
+    
+    // Enable all grade buttons
+    const gradeButtons = document.querySelectorAll('.grade-btn');
+    gradeButtons.forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        console.log(`🔍 Enabled grade button: ${btn.textContent}`);
+    });
+    
+    // Enable active tests button
+    const activeTestsBtn = document.getElementById('activeTestsBtn');
+    if (activeTestsBtn) {
+        activeTestsBtn.disabled = false;
+        activeTestsBtn.style.opacity = '1';
+        activeTestsBtn.style.cursor = 'pointer';
+        console.log('🔍 Enabled active tests button');
+    }
+    
+    // Enable Create Test button
+    const createTestBtn = document.getElementById('createTestBtn');
+    if (createTestBtn) {
+        createTestBtn.disabled = false;
+        createTestBtn.style.opacity = '1';
+        createTestBtn.style.cursor = 'pointer';
+        console.log('🔍 Enabled Create Test button');
+    }
+    
+    // Enable class and semester buttons if they exist
+    const classButtons = document.querySelectorAll('.class-btn');
+    classButtons.forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    });
+    
+    const semesterButtons = document.querySelectorAll('.semester-btn');
+    semesterButtons.forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    });
+}
+
+// Save test creation state to localStorage
+function saveTestCreationState(currentStep) {
+    console.log('🔍 🔴 saveTestCreationState called with step:', currentStep);
+    console.log('🔍 🔴 Call stack:', new Error().stack);
+    
+    const state = {
+        isInTestCreation: true,
+        currentStep: currentStep,
+        timestamp: Date.now()
+    };
+    localStorage.setItem('test_creation_state', JSON.stringify(state));
+    console.log('🔍 Saved test creation state:', state);
+    
+    // Also save form data for the current step
+    console.log('🔍 🔴 About to call saveFormDataForStep with step:', currentStep);
+    saveFormDataForStep(currentStep);
+}
+// Clear test creation state from localStorage
+function clearTestCreationState() {
+    // Clear test creation state
+    localStorage.removeItem('test_creation_state');
+    localStorage.removeItem('test_creation_form_data');
+    
+    // Clear any other test-related data that might exist
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('test') || key.includes('form') || key.includes('question'))) {
+            keysToRemove.push(key);
+        }
+    }
+    
+    // Remove the identified keys
+    keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('🔍 Cleared additional test data:', key);
+    });
+    
+    console.log('🔍 Cleared test creation state and form data from localStorage');
+    console.log('🔍 Total keys cleared:', keysToRemove.length + 2); // +2 for test_creation_state and test_creation_form_data
+}
+
+// Clear all test form fields to give teacher a clean slate
+function clearAllTestFormFields() {
+    console.log('🔍 Clearing all test form fields...');
+    
+    // Clear multiple choice form fields
+    const mcTestName = document.getElementById('mcTestName');
+    const mcNumQuestions = document.getElementById('mcNumQuestions');
+    const mcNumOptions = document.getElementById('mcNumOptions');
+    const mcQuestionsContainer = document.getElementById('mcQuestionsContainer');
+    
+    if (mcTestName) mcTestName.value = '';
+    if (mcNumQuestions) mcNumQuestions.value = '';
+    if (mcNumOptions) mcNumOptions.value = '';
+    if (mcQuestionsContainer) mcQuestionsContainer.innerHTML = '';
+    
+    // Clear true/false form fields
+    const tfTestName = document.getElementById('tfTestName');
+    const tfNumQuestions = document.getElementById('tfNumQuestions');
+    const tfQuestionsContainer = document.getElementById('tfQuestionsContainer');
+    
+    if (tfTestName) tfTestName.value = '';
+    if (tfNumQuestions) tfNumQuestions.value = '';
+    if (tfQuestionsContainer) tfQuestionsContainer.innerHTML = '';
+    
+    // Clear input form fields
+    const inputTestName = document.getElementById('inputTestName');
+    const inputNumQuestions = document.getElementById('inputNumQuestions');
+    const inputQuestionsContainer = document.getElementById('inputQuestionsContainer');
+    
+    if (inputTestName) inputTestName.value = '';
+    if (inputNumQuestions) inputNumQuestions.value = '';
+    if (inputQuestionsContainer) inputQuestionsContainer.innerHTML = '';
+    
+    // Clear matching test form fields
+    const matchingTestName = document.getElementById('matchingTestName');
+    const matchingNumBlocks = null;
+    const imageEditorContainer = document.getElementById('imageEditorContainer');
+    const wordsEditorContainer = document.getElementById('wordsEditorContainer');
+    
+    if (matchingTestName) matchingTestName.value = '';
+    // removed: default num blocks
+    if (imageEditorContainer) imageEditorContainer.innerHTML = '';
+    if (wordsEditorContainer) wordsEditorContainer.innerHTML = '';
+    
+    console.log('🔍 All test form fields cleared');
+}
+
+// Save form data for the current test creation step
+function saveFormDataForStep(step) {
+    console.log('🔍 🔴 saveFormDataForStep called with step:', step);
+    console.log('🔍 🔴 Call stack:', new Error().stack);
+    
+    const formData = {};
+    
+    switch (step) {
+        case 'testTypeSelection':
+            // No form data to save for this step
+            break;
+            
+        case 'multipleChoiceForm':
+            formData.testName = document.getElementById('mcTestName')?.value || '';
+            formData.numQuestions = document.getElementById('mcNumQuestions')?.value || '';
+            formData.numOptions = document.getElementById('mcNumOptions')?.value || '';
+            
+            // Only save questions data if the questions form actually exists
+            const questionsContainer = document.getElementById('mcQuestionsContainer');
+            if (questionsContainer && questionsContainer.children.length > 0) {
+                console.log('🔍 Questions form exists, saving questions data...');
+                const mcQuestions = {};
+                const mcNumQuestions = parseInt(formData.numQuestions) || 0;
+                const mcNumOptions = parseInt(formData.numOptions) || 0;
+                
+                if (mcNumQuestions > 0) {
+                    const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, mcNumOptions);
+                    
+                    for (let i = 1; i <= mcNumQuestions; i++) {
+                        const question = document.getElementById(`mc_question_${i}`)?.value || '';
+                        const correctAnswer = document.getElementById(`mc_correct_${i}`)?.value || '';
+                        const options = {};
+                        
+                        optionLetters.forEach(optionLetter => {
+                            const optionValue = document.getElementById(`mc_option_${i}_${optionLetter}`)?.value || '';
+                            options[optionLetter] = optionValue;
+                        });
+                        
+                        mcQuestions[i] = { 
+                            question, 
+                            options, 
+                            correctAnswer 
+                        };
+                    }
+                }
+                formData.questions = mcQuestions;
+            } else {
+                console.log('🔍 Questions form does not exist yet, not saving questions data');
+                formData.questions = {}; // Empty questions object
+            }
+            break;
+            
+        case 'trueFalseForm':
+            const tfTestNameElement = document.getElementById('tfTestName');
+            const tfNumQuestionsElement = document.getElementById('tfNumQuestions');
+            
+            formData.testName = tfTestNameElement?.value || '';
+            formData.numQuestions = tfNumQuestionsElement?.value || '';
+            
+            console.log('🔍 🔴 Reading true/false form values:');
+            console.log('🔍 🔴 tfTestName element:', tfTestNameElement);
+            console.log('🔍 🔴 tfTestName value:', tfTestNameElement?.value);
+            console.log('🔍 🔴 tfNumQuestions element:', tfNumQuestionsElement);
+            console.log('🔍 🔴 tfNumQuestions value:', tfNumQuestionsElement?.value);
+            console.log('🔍 🔴 Form data before questions:', formData);
+            
+            // Only save questions data if the questions form actually exists
+            const tfQuestionsContainer = document.getElementById('tfQuestionsContainer');
+            if (tfQuestionsContainer && tfQuestionsContainer.children.length > 0) {
+                console.log('🔍 True/false questions form exists, saving questions data...');
+                const tfQuestions = {};
+                const tfNumQuestions = parseInt(formData.numQuestions) || 0;
+                
+                if (tfNumQuestions > 0) {
+                    for (let i = 1; i <= tfNumQuestions; i++) {
+                        const question = document.getElementById(`tf_question_${i}`)?.value || '';
+                        const correctAnswer = document.getElementById(`tf_correct_${i}`)?.value || '';
+                        tfQuestions[i] = { question, correctAnswer };
+                    }
+                }
+                formData.questions = tfQuestions;
+            } else {
+                console.log('🔍 True/false questions form does not exist yet, not saving questions data');
+                formData.questions = {}; // Empty questions object
+            }
+            break;
+            
+        case 'inputForm':
+            formData.testName = document.getElementById('inputTestName')?.value || '';
+            formData.numQuestions = document.getElementById('inputNumQuestions')?.value || '';
+            console.log(`🔍 Saving input form data - testName: "${formData.testName}", numQuestions: ${formData.numQuestions}`);
+            
+            // Only save questions data if the questions form actually exists
+            const inputQuestionsContainer = document.getElementById('inputQuestionsContainer');
+            if (inputQuestionsContainer && inputQuestionsContainer.children.length > 0) {
+                console.log('🔍 Input questions form exists, saving questions data...');
+                const inputQuestions = {};
+                const inputNumQuestions = parseInt(formData.numQuestions) || 0;
+                
+                if (inputNumQuestions > 0) {
+                    console.log(`🔍 Processing ${inputNumQuestions} questions for auto-save`);
+                    for (let i = 1; i <= inputNumQuestions; i++) {
+                        const questionElement = document.getElementById(`input_question_${i}`);
+                        const question = questionElement?.value || '';
+                        console.log(`🔍 Question ${i} element found:`, !!questionElement, `value: "${question}"`);
+                        
+                        const answers = [];
+                        const answerContainer = document.getElementById(`answers_container_${i}`);
+                        if (answerContainer) {
+                            const answerInputs = answerContainer.querySelectorAll('.answer-input');
+                            console.log(`🔍 Found ${answerInputs.length} answer inputs for question ${i}`);
+                            answerInputs.forEach((input, index) => {
+                                const answerValue = input.value.trim();
+                                if (answerValue) {
+                                    answers.push(answerValue);
+                                    console.log(`🔍 Answer ${index + 1} for question ${i}: "${answerValue}"`);
+                                }
+                            });
+                        } else {
+                            console.log(`🔍 Answer container for question ${i} not found`);
+                        }
+                        inputQuestions[i] = { question, answers };
+                        console.log(`🔍 Saved question ${i}: "${question}" with ${answers.length} answers:`, answers);
+                    }
+                } else {
+                    console.log(`🔍 No questions to process (inputNumQuestions: ${inputNumQuestions})`);
+                }
+                formData.questions = inputQuestions;
+            } else {
+                console.log('🔍 Input questions form does not exist yet, not saving questions data');
+                formData.questions = {}; // Empty questions object
+            }
+            break;
+            
+        case 'testAssignment':
+            // No form data to save for this step
+            break;
+            
+        case 'matchingForm':
+            formData.testName = document.getElementById('matchingTestName')?.value || '';
+            formData.numBlocks = '';
+            
+            // Save matching test data if widget exists
+            const imageEditorContainer = document.getElementById('imageEditorContainer');
+            if (imageEditorContainer && imageEditorContainer.querySelector('.matching-test-widget')) {
+                // The widget handles its own data storage
+                console.log('🔍 Matching test widget exists, data will be handled by widget');
+            }
+            break;
+    }
+    
+    localStorage.setItem('test_creation_form_data', JSON.stringify(formData));
+    console.log('🔍 Saved form data for step:', step, formData);
+}
+// Restore form data for the current test creation step
+function restoreFormDataForStep(step) {
+    console.log('🔍 🟢 restoreFormDataForStep called with step:', step);
+    console.log('🔍 🟢 Call stack:', new Error().stack);
+    
+    const formDataStr = localStorage.getItem('test_creation_form_data');
+    if (!formDataStr) {
+        console.log('🔍 🟢 No form data found in localStorage');
+        return;
+    }
+    
+    try {
+        const formData = JSON.parse(formDataStr);
+        console.log('🔍 🟢 Restoring form data for step:', step, formData);
+        
+        switch (step) {
+            case 'multipleChoiceForm':
+                console.log('🔍 🟢 Restoring multiple choice form fields...');
+                console.log('🔍 🟢 Setting mcTestName to:', formData.testName);
+                console.log('🔍 🟢 Setting mcNumQuestions to:', formData.numQuestions);
+                console.log('🔍 🟢 Setting mcNumOptions to:', formData.numOptions);
+                
+                // Check if the form is visible
+                const multipleChoiceForm = document.getElementById('multipleChoiceForm');
+                console.log('🔍 🟢 multipleChoiceForm element found:', !!multipleChoiceForm);
+                if (multipleChoiceForm) {
+                    console.log('🔍 🟢 multipleChoiceForm display style:', multipleChoiceForm.style.display);
+                    console.log('🔍 🟢 multipleChoiceForm visibility:', multipleChoiceForm.style.visibility);
+                }
+                
+                if (formData.testName) {
+                    const mcTestNameElement = document.getElementById('mcTestName');
+                    console.log('🔍 🟢 mcTestName element found:', !!mcTestNameElement);
+                    if (mcTestNameElement) {
+                        mcTestNameElement.value = formData.testName;
+                        console.log('🔍 🟢 mcTestName value set to:', mcTestNameElement.value);
+                        // Verify the value was actually set
+                        setTimeout(() => {
+                            console.log('🔍 🟢 mcTestName value after setting:', mcTestNameElement.value);
+                        }, 100);
+                    } else {
+                        console.log('🔍 ❌ mcTestName element NOT found!');
+                    }
+                }
+                if (formData.numQuestions) {
+                    const mcNumQuestionsElement = document.getElementById('mcNumQuestions');
+                    console.log('🔍 🟢 mcNumQuestions element found:', !!mcNumQuestionsElement);
+                    if (mcNumQuestionsElement) {
+                        mcNumQuestionsElement.value = formData.numQuestions;
+                        console.log('🔍 🟢 mcNumQuestions value set to:', mcNumQuestionsElement.value);
+                        // Verify the value was actually set
+                        setTimeout(() => {
+                            console.log('🔍 🟢 mcNumQuestions value after setting:', mcNumQuestionsElement.value);
+                        }, 100);
+                    } else {
+                        console.log('🔍 ❌ mcNumQuestions element NOT found!');
+                    }
+                }
+                if (formData.numOptions) {
+                    const mcNumOptionsElement = document.getElementById('mcNumOptions');
+                    console.log('🔍 🟢 mcNumOptions element found:', !!mcNumOptionsElement);
+                    if (mcNumOptionsElement) {
+                        mcNumOptionsElement.value = formData.numOptions;
+                        console.log('🔍 🟢 mcNumOptions value set to:', mcNumOptionsElement.value);
+                        // Verify the value was actually set
+                        setTimeout(() => {
+                            console.log('🔍 🟢 mcNumOptions value after setting:', mcNumOptionsElement.value);
+                        }, 100);
+                    } else {
+                        console.log('🔍 ❌ mcNumOptions element NOT found!');
+                    }
+                }
+                
+                // Check if we have basic form data to restore (test name, num questions, num options)
+                if (formData.testName && formData.numQuestions && formData.numOptions) {
+                    console.log('🔍 Found basic form data, creating questions section...');
+                    
+                    // Show the questions container
+                    document.getElementById('mcQuestionsContainer').style.display = 'block';
+                    console.log('🔍 🟢 Set mcQuestionsContainer display to block');
+                    
+                    // Create the questions form structure
+                    const numQuestions = parseInt(formData.numQuestions);
+                    const numOptions = parseInt(formData.numOptions);
+                    
+                    console.log('🔍 🟢 Creating questions form for', numQuestions, 'questions with', numOptions, 'options');
+                    
+                    // Create the questions container
+                    const questionsContainer = document.getElementById('mcQuestionsContainer');
+                    questionsContainer.innerHTML = '';
+                    
+                    for (let i = 1; i <= numQuestions; i++) {
+                        const questionDiv = document.createElement('div');
+                        questionDiv.className = 'question-container';
+                        questionDiv.innerHTML = `
+                            <h5>Question ${i}</h5>
+                            <input type="text" placeholder="Enter question ${i}" id="mc_question_${i}" data-question-id="${i}">
+                            <div class="options-container">
+                                ${Array.from({length: numOptions}, (_, j) => {
+                                    const optionLetter = String.fromCharCode(65 + j); // A, B, C, etc.
+                                    return `
+                                        <div class="option-group">
+                                            <label>${optionLetter}:</label>
+                                            <input type="text" placeholder="Option ${optionLetter}" id="mc_option_${i}_${optionLetter}" data-question-id="${i}">
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <select id="mc_correct_${i}" data-question-id="${i}">
+                                <option value="">Select correct answer</option>
+                                ${Array.from({length: numOptions}, (_, j) => {
+                                    const optionLetter = String.fromCharCode(65 + j);
+                                    return `<option value="${optionLetter}">${optionLetter}</option>`;
+                                }).join('')}
+                            </select>
+                        `;
+                        questionsContainer.appendChild(questionDiv);
+                    }
+                    
+                    console.log('🔍 🟢 Questions form structure created');
+                    
+                    // If we have existing question data, restore it
+                    if (formData.questions && Object.keys(formData.questions).length > 0) {
+                        console.log('🔍 Found existing questions data, restoring...');
+                        console.log('🔍 Questions data structure:', formData.questions);
+                        console.log('🔍 Questions keys:', Object.keys(formData.questions));
+                        
+                        // Now restore the question data directly since elements were just created
+                        console.log('🔍 Elements created, restoring data directly...');
+                        restoreMultipleChoiceData(formData);
+                    } else {
+                        console.log('🔍 No existing questions data, showing empty questions form');
+                    }
+                    
+                    // Add the Save Test button after creating the form structure
+                    const saveBtn = document.createElement('button');
+                    saveBtn.className = 'btn btn-success';
+                    saveBtn.textContent = 'Save Test';
+                    saveBtn.onclick = () => saveMultipleChoiceTest(formData.testName, formData.numQuestions, formData.numOptions);
+                    questionsContainer.appendChild(saveBtn);
+                } else {
+                    // No basic form data - questions form stays hidden until "Create Questions" is clicked
+                    console.log('🔍 No basic form data found, questions form will appear when Create Questions is clicked');
+                }
+                
+                // Final verification - check if the form fields were actually populated
+                console.log('🔍 🟢 Final verification of multiple choice form fields:');
+                const finalMcTestName = document.getElementById('mcTestName');
+                const finalMcNumQuestions = document.getElementById('mcNumQuestions');
+                const finalMcNumOptions = document.getElementById('mcNumOptions');
+                
+                console.log('🔍 🟢 Final mcTestName value:', finalMcTestName?.value);
+                console.log('🔍 🟢 Final mcNumQuestions value:', finalMcNumQuestions?.value);
+                console.log('🔍 🟢 Final mcNumOptions value:', finalMcNumOptions?.value);
+                
+                break;
+                
+            case 'trueFalseForm':
+                console.log('🔍 🟢 Restoring true/false form fields...');
+                console.log('🔍 🟢 Setting tfTestName to:', formData.testName);
+                console.log('🔍 🟢 Setting tfNumQuestions to:', formData.numQuestions);
+                
+                if (formData.testName) {
+                    const tfTestNameElement = document.getElementById('tfTestName');
+                    console.log('🔍 🟢 tfTestName element found:', !!tfTestNameElement);
+                    if (tfTestNameElement) {
+                        tfTestNameElement.value = formData.testName;
+                        console.log('🔍 🟢 tfTestName value set to:', tfTestNameElement.value);
+                    }
+                }
+                if (formData.numQuestions) {
+                    const tfNumQuestionsElement = document.getElementById('tfNumQuestions');
+                    console.log('🔍 🟢 tfNumQuestions element found:', !!tfNumQuestionsElement);
+                    if (tfNumQuestionsElement) {
+                        tfNumQuestionsElement.value = formData.numQuestions;
+                        console.log('🔍 🟢 tfNumQuestions value set to:', tfNumQuestionsElement.value);
+                    }
+                }
+                
+                // Check if we have basic form data to restore (test name, num questions)
+                if (formData.testName && formData.numQuestions) {
+                    console.log('🔍 Found basic form data, creating questions section...');
+                    
+                    // Show the questions container
+                    document.getElementById('tfQuestionsContainer').style.display = 'block';
+                    console.log('🔍 🟢 Set tfQuestionsContainer display to block');
+                    
+                    // Create the questions form structure
+                    const numQuestions = parseInt(formData.numQuestions);
+                    
+                    console.log('🔍 🟢 Creating questions form for', numQuestions, 'questions');
+                    
+                    // Create the questions container
+                    const questionsContainer = document.getElementById('tfQuestionsContainer');
+                    questionsContainer.innerHTML = '';
+                    
+                    for (let i = 1; i <= numQuestions; i++) {
+                        const questionDiv = document.createElement('div');
+                        questionDiv.className = 'question-container';
+                        questionDiv.innerHTML = `
+                            <h5>Question ${i}</h5>
+                            <input type="text" placeholder="Enter question ${i}" id="tf_question_${i}" data-question-id="${i}">
+                            <select id="tf_correct_${i}" data-question-id="${i}">
+                                <option value="">Select correct answer</option>
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                            </select>
+                        `;
+                        questionsContainer.appendChild(questionDiv);
+                    }
+                    
+                    console.log('🔍 🟢 Questions form structure created');
+                    
+                    // If we have existing question data, restore it
+                    if (formData.questions && Object.keys(formData.questions).length > 0) {
+                        console.log('🔍 Found existing questions data, restoring...');
+                        console.log('🔍 Questions data structure:', formData.questions);
+                        console.log('🔍 Questions keys:', Object.keys(formData.questions));
+                        
+                        // Now restore the question data directly since elements were just created
+                        console.log('🔍 Elements created, restoring data directly...');
+                        restoreTrueFalseData(formData);
+                    } else {
+                        console.log('🔍 No existing questions data, showing empty questions form');
+                    }
+                    
+                    // Add the Save Test button after creating the form structure
+                    const saveBtn = document.createElement('button');
+                    saveBtn.className = 'btn btn-success';
+                    saveBtn.textContent = 'Save Test';
+                    saveBtn.onclick = () => saveTrueFalseTest(formData.testName, formData.numQuestions);
+                    questionsContainer.appendChild(saveBtn);
+                } else {
+                    // No basic form data - questions form stays hidden until "Create Questions" is clicked
+                    console.log('🔍 No basic form data found, questions form will appear when Create Questions is clicked');
+                }
+                break;
+                
+            case 'inputForm':
+                console.log('🔍 🟢 Restoring input form fields...');
+                console.log('🔍 🟢 Setting inputTestName to:', formData.testName);
+                console.log('🔍 🟢 Setting inputNumQuestions to:', formData.numQuestions);
+                
+                if (formData.testName) {
+                    const inputTestNameElement = document.getElementById('inputTestName');
+                    console.log('🔍 🟢 inputTestName element found:', !!inputTestNameElement);
+                    if (inputTestNameElement) {
+                        inputTestNameElement.value = formData.testName;
+                        console.log('🔍 🟢 inputTestName value set to:', inputTestNameElement.value);
+                    }
+                }
+                if (formData.numQuestions) {
+                    const inputNumQuestionsElement = document.getElementById('inputNumQuestions');
+                    console.log('🔍 🟢 inputNumQuestions element found:', !!inputNumQuestionsElement);
+                    if (inputNumQuestionsElement) {
+                        inputNumQuestionsElement.value = formData.numQuestions;
+                        console.log('🔍 🟢 inputNumQuestions value set to:', inputNumQuestionsElement.value);
+                    }
+                }
+                
+                // Check if we have basic form data to restore (test name, num questions)
+                if (formData.testName && formData.numQuestions) {
+                    console.log('🔍 Found basic form data, creating questions section...');
+                    
+                    // Show the questions container
+                    document.getElementById('inputQuestionsContainer').style.display = 'block';
+                    console.log('🔍 🟢 Set inputQuestionsContainer display to block');
+                    
+                    // Create the questions form structure
+                    const numQuestions = parseInt(formData.numQuestions);
+                    
+                    console.log('🔍 🟢 Creating questions form for', numQuestions, 'questions');
+                    
+                    // Create the questions container
+                    const questionsContainer = document.getElementById('inputQuestionsContainer');
+                    questionsContainer.innerHTML = '';
+                    
+                    for (let i = 1; i <= numQuestions; i++) {
+                        const questionDiv = document.createElement('div');
+                        questionDiv.className = 'question-container';
+                        questionDiv.innerHTML = `
+                            <h5>Question ${i}</h5>
+                            <input type="text" placeholder="Enter question ${i}" id="input_question_${i}">
+                            <div class="answers-container" id="answers_container_${i}">
+                                <div class="answer-input-group">
+                                    <input type="text" placeholder="Correct answer for question ${i}" class="answer-input" data-question-id="${i}" data-answer-index="0">
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-answer-btn">+ Add Answer</button>
+                                </div>
+                            </div>
+                        `;
+                        questionsContainer.appendChild(questionDiv);
+                    }
+                    
+                    console.log('🔍 🟢 Questions form structure created');
+                    
+                    // If we have existing question data, restore it
+                    if (formData.questions && Object.keys(formData.questions).length > 0) {
+                        console.log('🔍 Found existing questions data, restoring...');
+                        console.log('🔍 Questions data structure:', formData.questions);
+                        console.log('🔍 Questions keys:', Object.keys(formData.questions));
+                        
+                        // Now restore the question data directly since elements were just created
+                        console.log('🔍 Elements created, restoring data directly...');
+                        restoreInputData(formData);
+                    } else {
+                        console.log('🔍 No existing questions data, showing empty questions form');
+                    }
+                    
+                    // Add the Save Test button after creating the form structure
+                    const saveBtn = document.createElement('button');
+                    saveBtn.className = 'btn btn-success';
+                    saveBtn.textContent = 'Save Test';
+                    saveBtn.onclick = () => saveInputTest(formData.testName, formData.numQuestions);
+                    questionsContainer.appendChild(saveBtn);
+                } else {
+                    // No basic form data - questions form stays hidden until "Create Questions" is clicked
+                    console.log('🔍 No basic form data found, questions form will appear when Create Questions is clicked');
+                }
+                break;
+                
+            case 'matchingForm':
+                console.log('🔍 🟢 Restoring matching form fields...');
+                const matchingTestNameElement = document.getElementById('matchingTestName');
+                const matchingNumBlocksElement = null;
+                
+                if (matchingTestNameElement && formData.testName) {
+                    matchingTestNameElement.value = formData.testName;
+                }
+                // removed matching num blocks restore
+                break;
+        }
+    } catch (error) {
+        console.error('🔍 Error restoring form data:', error);
+    }
+}
+
+// Restore test creation state from localStorage
+function restoreTestCreationState() {
+    const stateData = localStorage.getItem('test_creation_state');
+    if (!stateData) {
+        console.log('🔍 No test creation state found in localStorage');
+        return false;
+    }
+    
+    try {
+        const state = JSON.parse(stateData);
+        console.log('🔍 Found test creation state:', state);
+        
+        // Check if state is recent (within last 30 minutes)
+        const stateAge = Date.now() - state.timestamp;
+        const maxAge = 30 * 60 * 1000; // 30 minutes
+        
+        if (stateAge > maxAge) {
+            console.log('🔍 Test creation state is too old, clearing it');
+            clearTestCreationState();
+            return false;
+        }
+        
+        // Restore the state
+        window.isInTestCreation = true;
+        console.log('🔍 Restored isInTestCreation flag to true');
+        
+        // Disable navigation buttons
+        disableNavigationButtons();
+        
+        // Ensure the test creation section is visible before restoring
+        const testCreationSection = document.getElementById('testCreationSection');
+        if (testCreationSection) {
+            testCreationSection.style.display = 'block';
+            console.log('🔍 Made test creation section visible for restoration');
+        }
+        
+        // Show the appropriate step
+        switch (state.currentStep) {
+            case 'testTypeSelection':
+                console.log('🔍 Restoring test type selection step');
+                showTestTypeSelection();
+                break;
+            case 'multipleChoiceForm':
+                console.log('🔍 Restoring multiple choice form step');
+                showTestForm('multipleChoice');
+                break;
+            case 'trueFalseForm':
+                console.log('🔍 Restoring true/false form step');
+                showTestForm('trueFalse');
+                break;
+            case 'inputForm':
+                console.log('🔍 Restoring input form step');
+                showTestForm('input');
+                break;
+            case 'matchingForm':
+                console.log('🔍 Restoring matching form step');
+                showTestForm('matching');
+                break;
+            case 'testAssignment':
+                console.log('🔍 Restoring test assignment step');
+                // Note: We can't restore assignment step without test data, so go back to type selection
+                showTestTypeSelection();
+                break;
+            default:
+                console.log('🔍 Unknown step, defaulting to test type selection');
+                showTestTypeSelection();
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('🔍 Error restoring test creation state:', error);
+        clearTestCreationState();
+        return false;
+    }
+}
+// School Testing System - Main JavaScript File
+
+// Global function availability check
+console.log('🔧 Script loading - checking global functions...');
+console.log('🔧 editUserRow available:', typeof editUserRow);
+console.log('🔧 editTeacherRow available:', typeof editTeacherRow);
+console.log('🔧 editSubjectRow available:', typeof editSubjectRow);
+console.log('🔧 deleteUser available:', typeof deleteUser);
+console.log('🔧 deleteTeacher available:', typeof deleteTeacher);
+console.log('🔧 deleteSubject available:', typeof deleteSubject);
+
+// Global variables
+let currentUser = null;
+let currentUserType = null;
+let teacherSubjects = [];
+let currentTestType = null;
+
+// Local storage keys
+const STORAGE_KEYS = {
+    USER_SESSION: 'user_session',
+    TEACHER_SUBJECTS: 'teacher_subjects',
+    STUDENT_SUBJECTS: 'student_subjects',
+    ADMIN_DATA: 'admin_data',
+    FORM_DATA: 'form_data'
+};
+
+// DOM elements
+const loginSection = document.getElementById('login-section');
+const studentCabinet = document.getElementById('student-cabinet');
+const teacherCabinet = document.getElementById('teacher-cabinet');
+const adminPanel = document.getElementById('admin-panel');
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing application...');
+    
+    // Check function availability
+    console.log('🔧 Checking function availability...');
+    console.log('🔧 editUserRow available:', typeof editUserRow);
+    console.log('🔧 editTeacherRow available:', typeof editTeacherRow);
+    console.log('🔧 editSubjectRow available:', typeof editSubjectRow);
+    console.log('🔧 deleteUser available:', typeof deleteUser);
+    console.log('🔧 deleteTeacher available:', typeof deleteTeacher);
+    console.log('🔧 deleteSubject available:', typeof deleteSubject);
+    
+    // Check and clear expired local storage
+    checkAndClearExpiredStorage();
+    
+    initializeEventListeners();
+    
+    // Check if user has an existing session
+    console.log('Checking for existing session...');
+    if (restoreUserSession()) {
+        console.log('Session restored:', currentUserType, currentUser);
+        // User has valid session, show appropriate section
+        if (currentUserType === 'teacher') {
+            showSection('teacher-cabinet');
+            initializeTeacherCabinet();
+        } else if (currentUserType === 'student') {
+            showSection('student-cabinet');
+            // Populate student information from restored session
+            populateStudentInfo(currentUser);
+        } else if (currentUserType === 'admin') {
+            showSection('admin-panel');
+            // Initialize admin panel if needed
+        }
+    } else {
+        console.log('No valid session found, showing login');
+        // No valid session, show login
+        showSection('login-section');
+    }
+});
+
+// Utility functions from working template
+function showStatus(element, message, type) {
+    if (!element) return;
+    element.textContent = message;
+    element.className = `status ${type || ''}`;
+    
+    // Ensure the status message is visible (scroll to it if needed)
+    if (type === 'error') {
+        setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+    }
+}
+
+function disableForm(form, disable = true) {
+    if (!form) return;
+    Array.from(form.elements).forEach(element => {
+        element.disabled = disable;
+    });
+}
+
+async function sendRequest(url, data) {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        // Parse response as JSON
+        const result = await response.json();
+        
+        // Handle non-2xx responses
+        if (!response.ok) {
+            const errorMessage = result.error || result.details || `Server responded with status ${response.status}`;
+            throw new Error(errorMessage);
+        }
+        
+        return result;
+    } catch (error) {
+        // Re-throw network or parsing errors
+        throw error;
+    }
+}
+
+function isAnswerCorrect(questionId, userAnswer, correctAnswers) {
+    const possibleAnswers = correctAnswers[questionId] || [];
+    
+    // If no correct answers are defined, consider it incorrect
+    if (possibleAnswers.length === 0) return false;
+    
+    // Normalize the user answer (trim and lowercase)
+    const normalizedUserAnswer = userAnswer.trim().toLowerCase();
+    
+    // Check if the normalized user answer matches any of the possible correct answers
+    return possibleAnswers.some(correctAnswer => 
+        normalizedUserAnswer === correctAnswer.trim().toLowerCase()
+    );
+}
+
+function calculateScore(answers, correctAnswers) {
+    let score = 0;
+    
+    for (const questionId in answers) {
+        if (isAnswerCorrect(questionId, answers[questionId], correctAnswers)) {
+            score++;
+        }
+    }
+    
+    return score;
+}
+
+// Local Storage Functions
+function saveToLocalStorage(key, data) {
+    try {
+        console.log('Saving to localStorage:', key, data);
+        localStorage.setItem(key, JSON.stringify(data));
+        console.log('Successfully saved to localStorage');
+    } catch (error) {
+        console.error('Error saving to localStorage:', error);
+    }
+}
+
+function saveFormData(formId, formData) {
+    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
+    saveToLocalStorage(key, formData);
+}
+
+function restoreFormData(formId) {
+    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
+    return getFromLocalStorage(key);
+}
+
+function clearFormData(formId) {
+    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
+    try {
+        localStorage.removeItem(key);
+    } catch (error) {
+        console.error('Error clearing form data:', error);
+    }
+}
+
+function checkAndClearExpiredStorage() {
+    try {
+        // Check for expired sessions
+        const sessionData = getFromLocalStorage(STORAGE_KEYS.USER_SESSION);
+        if (sessionData && sessionData.timestamp) {
+            const sessionAge = Date.now() - sessionData.timestamp;
+            const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+            
+            if (sessionAge >= maxSessionAge) {
+                // Session expired, clear all storage
+                clearLocalStorage();
+                console.log('Expired session cleared from local storage');
+            }
+        }
+        
+        // Check for old form data (older than 1 hour)
+        const formDataKeys = Object.keys(localStorage).filter(key => key.startsWith(STORAGE_KEYS.FORM_DATA));
+        formDataKeys.forEach(key => {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                if (data && data.timestamp) {
+                    const dataAge = Date.now() - data.timestamp;
+                    const maxFormDataAge = 60 * 60 * 1000; // 1 hour
+                    
+                    if (dataAge >= maxFormDataAge) {
+                        localStorage.removeItem(key);
+                        console.log('Expired form data cleared:', key);
+                    }
+                }
+            } catch (error) {
+                // If data is corrupted, remove it
+                localStorage.removeItem(key);
+                console.log('Corrupted form data removed:', key);
+            }
+        });
+    } catch (error) {
+        console.error('Error checking expired storage:', error);
+    }
+}
+
+function getFromLocalStorage(key) {
+    try {
+        console.log('Reading from localStorage:', key);
+        const data = localStorage.getItem(key);
+        console.log('Raw data from localStorage:', data);
+        const parsed = data ? JSON.parse(data) : null;
+        console.log('Parsed data:', parsed);
+        return parsed;
+    } catch (error) {
+        console.error('Error reading from localStorage:', error);
+        return null;
+    }
+}
+
+function clearLocalStorage() {
+    try {
+        localStorage.clear();
+    } catch (error) {
+        console.error('Error clearing localStorage:', error);
+    }
+}
+
+function saveUserSession(userData, userType) {
+    const sessionData = {
+        user: userData,
+        type: userType,
+        timestamp: Date.now()
+    };
+    console.log('Saving user session:', sessionData);
+    saveToLocalStorage(STORAGE_KEYS.USER_SESSION, sessionData);
+}
+
+function restoreUserSession() {
+    console.log('Attempting to restore user session...');
+    const sessionData = getFromLocalStorage(STORAGE_KEYS.USER_SESSION);
+    console.log('Retrieved session data:', sessionData);
+    
+    if (sessionData && sessionData.user && sessionData.type) {
+        // Check if session is not expired (24 hours)
+        const sessionAge = Date.now() - sessionData.timestamp;
+        const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+        
+        console.log('Session age:', sessionAge, 'ms, max age:', maxSessionAge, 'ms');
+        
+        if (sessionAge < maxSessionAge) {
+            currentUser = sessionData.user;
+            currentUserType = sessionData.type;
+            console.log('Session restored successfully');
+            return true;
+        } else {
+            console.log('Session expired, clearing storage');
+            // Session expired, clear it
+            clearLocalStorage();
+        }
+    } else {
+        console.log('No valid session data found');
+    }
+    return false;
+}
+
+// Reset login form to working state
+function resetLoginForm() {
+    const loginForm = document.getElementById('unifiedLoginForm');
+    if (loginForm) {
+        // Re-enable all form inputs
+        const inputs = loginForm.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.style.cursor = 'text';
+            input.removeAttribute('readonly');
+            input.style.pointerEvents = 'auto';
+        });
+        
+        // Clear any disabled states
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.style.pointerEvents = 'auto';
+        }
+        
+        // Remove any test-related classes or states
+        loginForm.classList.remove('test-submitting', 'disabled');
+        
+        // Ensure the form is visible and interactive
+        loginForm.style.pointerEvents = 'auto';
+        
+        console.log('Login form reset successfully - all inputs re-enabled');
+    }
+}
+
+// Event listeners initialization
+function initializeEventListeners() {
+    // Unified login form submission
+    const loginForm = document.getElementById('unifiedLoginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleUnifiedLogin);
+        
+        // Add auto-save for login form
+        const usernameInput = loginForm.querySelector('input[name="username"]');
+        const passwordInput = loginForm.querySelector('input[name="password"]');
+        
+        if (usernameInput && passwordInput) {
+            // Restore saved form data
+            const savedFormData = restoreFormData('login');
+            if (savedFormData) {
+                usernameInput.value = savedFormData.username || '';
+                passwordInput.value = savedFormData.password || '';
+            }
+            
+            // Save form data as user types
+            usernameInput.addEventListener('input', () => {
+                saveFormData('login', {
+                    username: usernameInput.value,
+                    password: passwordInput.value
+                });
+            });
+            
+            passwordInput.addEventListener('input', () => {
+                saveFormData('login', {
+                    username: usernameInput.value,
+                    password: passwordInput.value
+                });
+            });
+        }
+    }
+
+    // Menu button functionality
+    const menuBtn = document.getElementById('menuBtn');
+    if (menuBtn) {
+        console.log('Menu button found, adding click listener');
+        menuBtn.addEventListener('click', toggleMenu);
+    } else {
+        console.error('Menu button not found!');
+    }
+
+    // Teacher cabinet navigation - only add if elements exist
+    const backToLogin = document.getElementById('backToLogin');
+    if (backToLogin) {
+        backToLogin.addEventListener('click', () => showSection('login-section'));
+    }
+
+    const backToLoginTeacher = document.getElementById('backToLoginTeacher');
+    if (backToLoginTeacher) {
+        backToLoginTeacher.addEventListener('click', () => showSection('login-section'));
+    }
+
+    const backToLoginAdmin = document.getElementById('backToLoginAdmin');
+    if (backToLoginAdmin) {
+        backToLoginAdmin.addEventListener('click', () => showSection('login-section'));
+    }
+
+    // Student cabinet navigation
+    const studentBackToLogin = document.getElementById('studentBackToLogin');
+    if (studentBackToLogin) {
+        studentBackToLogin.addEventListener('click', () => showSection('login-section'));
+    }
+
+    // Teacher cabinet functionality - only add if elements exist
+    // Note: saveSubjectsBtn event listener is set up in initializeTeacherCabinet()
+
+    const editSubjectsBtn = document.getElementById('editSubjectsBtn');
+    if (editSubjectsBtn) {
+        editSubjectsBtn.addEventListener('click', showSubjectSelection);
+    }
+
+    // Admin panel functionality - only add if elements exist
+    const adminBackToLogin = document.getElementById('adminBackToLogin');
+    if (adminBackToLogin) {
+        adminBackToLogin.addEventListener('click', () => showSection('login-section'));
+    }
+
+    const debugFunctionsBtn = document.getElementById('debugFunctionsBtn');
+    if (debugFunctionsBtn) {
+        debugFunctionsBtn.addEventListener('click', showDebugFunctions);
+    }
+
+    const editSubjectsAdminBtn = document.getElementById('editSubjectsAdminBtn');
+    if (editSubjectsAdminBtn) {
+        editSubjectsAdminBtn.addEventListener('click', showAdminSubjectEditor);
+    }
+
+    const checkAcademicYearBtn = document.getElementById('checkAcademicYearBtn');
+    if (checkAcademicYearBtn) {
+        checkAcademicYearBtn.addEventListener('click', showAcademicYearEditor);
+    }
+}
+
+// Section management
+function showSection(sectionId) {
+    console.log('Showing section:', sectionId);
+    const sections = ['login-section', 'student-cabinet', 'teacher-cabinet', 'admin-panel', 'passwordChangeSection'];
+    sections.forEach(section => {
+        const element = document.getElementById(section);
+        if (element) {
+            element.classList.remove('active');
+            console.log('Removed active from:', section);
+        }
+    });
+    
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        console.log('Added active to:', sectionId);
+        console.log('Target section element:', targetSection);
+        console.log('Target section classes:', targetSection.className);
+        
+        // Debug: Check if sections are actually hidden/shown
+        const allSections = document.querySelectorAll('.section');
+        allSections.forEach(section => {
+            console.log(`Section ${section.id}:`, {
+                display: window.getComputedStyle(section).display,
+                classes: section.className,
+                visible: section.classList.contains('active')
+            });
+        });
+        
+        // Re-initialize form elements when showing login section
+        if (sectionId === 'login-section') {
+            console.log('Re-initializing login form...');
+            resetLoginForm();
+        }
+    } else {
+        console.error('Target section not found:', sectionId);
+    }
+}
+
+// Unified login handler
+async function handleUnifiedLogin(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const username = formData.get('username');
+    const password = formData.get('password');
+
+    console.log('Attempting login with:', username, password);
+
+    let loginSuccess = false;
+
+    // First, try admin login (admin usernames are typically short)
+    if (username === 'admin') {
+        try {
+            console.log('Trying admin login...');
+            const response = await fetch('/.netlify/functions/admin-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            console.log('Admin login response:', data);
+            
+            if (data.success) {
+                currentUser = { username };
+                currentUserType = 'admin';
+                saveUserSession(currentUser, 'admin');
+                clearFormData('login'); // Clear saved form data
+                showSection('admin-panel');
+                loginSuccess = true;
+                return;
+            }
+        } catch (error) {
+            console.error('Admin login error:', error);
+        }
+    }
+
+    // Try teacher login (check if it's a known teacher username)
+    if (!loginSuccess && (username === 'Alex' || username === 'Charlie')) {
+        try {
+            console.log('Trying teacher login...');
+            const response = await fetch('/.netlify/functions/teacher-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            console.log('Teacher login response:', data);
+            
+            if (data.success) {
+                currentUser = data.teacher;
+                currentUserType = 'teacher';
+                console.log('Teacher login successful, currentUser:', currentUser);
+                console.log('Teacher ID type:', typeof currentUser.teacher_id);
+                console.log('Teacher ID value:', currentUser.teacher_id);
+                saveUserSession(currentUser, 'teacher');
+                clearFormData('login'); // Clear saved form data
+                showSection('teacher-cabinet');
+                // Initialize teacher cabinet functionality
+                setTimeout(() => {
+                    initializeTeacherCabinet();
+                    // Check if teacher already has subjects
+                    checkTeacherSubjects();
+                }, 100);
+                loginSuccess = true;
+                return;
+            }
+        } catch (error) {
+            console.error('Teacher login error:', error);
+        }
+    }
+
+    // Finally, try student login (student IDs are numeric)
+    if (!loginSuccess && /^\d+$/.test(username)) {
+        try {
+            console.log('Trying student login...');
+            const response = await fetch('/.netlify/functions/student-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId: username, password })
+            });
+
+            const data = await response.json();
+            console.log('Student login response:', data);
+            
+            if (data.success) {
+                currentUser = data.student;
+                currentUserType = 'student';
+                saveUserSession(currentUser, 'student');
+                clearFormData('login'); // Clear saved form data
+                showSection('student-cabinet');
+                // Populate student information
+                populateStudentInfo(data.student);
+                loginSuccess = true;
+                return;
+            }
+        } catch (error) {
+            console.error('Student login error:', error);
+        }
+    }
+
+    // If no login succeeded, show error
+    if (!loginSuccess) {
+        alert('Login failed. Please check your credentials and try again.');
+    }
+}
+
+// Student cabinet functionality
+function populateStudentInfo(student) {
+    console.log('Populating student info:', student);
+    
+    // Populate student name
+    const studentNameElement = document.getElementById('studentName');
+    if (studentNameElement) {
+        studentNameElement.textContent = `${student.name} ${student.surname}`;
+    }
+    
+    // Populate student grade
+    const studentGradeElement = document.getElementById('studentGrade');
+    if (studentGradeElement) {
+        studentGradeElement.textContent = student.grade;
+    }
+    
+    // Populate student class
+    const studentClassElement = document.getElementById('studentClass');
+    if (studentClassElement) {
+        studentClassElement.textContent = student.class;
+    }
+    
+    console.log('Student info populated successfully');
+    
+    // Load active tests for this student
+    console.log('About to call loadStudentActiveTests with student_id:', student.student_id);
+    loadStudentActiveTests(student.student_id);
+    
+    // Load test results for this student
+    console.log('About to call loadStudentTestResults with student_id:', student.student_id);
+    loadStudentTestResults(student.student_id);
+}
+
+// Load active tests for student
+async function loadStudentActiveTests(studentId) {
+    console.log('loadStudentActiveTests called with studentId:', studentId);
+    
+    // Show loading state
+    const container = document.getElementById('studentActiveTests');
+    if (container) {
+        container.innerHTML = `
+            <div class="loading-tests">
+                <div class="loading-spinner"></div>
+                <p>Loading tests...</p>
+            </div>
+        `;
+    }
+    
+    try {
+        const url = `/.netlify/functions/get-student-active-tests?student_id=${studentId}`;
+        console.log('Fetching from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('Response received:', response);
+        console.log('Response status:', response.status);
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        console.log('Full response data:', JSON.stringify(data, null, 2));
+        
+        if (data.success) {
+            console.log('Successfully loaded tests, calling displayStudentActiveTests');
+            displayStudentActiveTests(data.tests, studentId);
+        } else {
+            console.error('Error loading student active tests:', data.error);
+            // Show error state
+            if (container) {
+                container.innerHTML = '<p class="error-message">Error loading tests. Please try again.</p>';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading student active tests:', error);
+        // Show error state
+        if (container) {
+            container.innerHTML = '<p class="error-message">Error loading tests. Please try again.</p>';
+        }
     }
 }
 

@@ -1807,18 +1807,18 @@ textarea:focus {
 
 /* Unanswered questions styling */
 .question-container.unanswered {
-  border-left: 4px solid #dc3545;
-  background-color: #fff5f5;
-  animation: pulse-warning 2s infinite;
+  border-left: 4px solid var(--primary-color);
+  background-color: #f3f8ff;
+  animation: none;
 }
 
 .question-container.unanswered .question-text {
-  color: #dc3545;
+  color: var(--text-main);
   font-weight: 600;
 }
 
 .question-container.unanswered h4 {
-  color: #dc3545;
+  color: var(--text-main);
 }
 
 @keyframes pulse-warning {
@@ -2196,7 +2196,7 @@ textarea:focus {
 .test-view-section .test-view-content {
   background: white;
   margin: 2% auto;
-  max-width: 90%;
+  max-width: min(1100px, 96vw);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -2249,7 +2249,7 @@ textarea:focus {
 }
 
 .test-view-content {
-  padding: 2%;
+  padding: clamp(16px, 2vw, 32px);
   background: white !important;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -3411,7 +3411,7 @@ textarea:focus {
   }
   
   .question-text {
-    font-size: 0.9rem;
+    font-size: clamp(0.95rem, 2.5vw, 1.05rem);
     margin-bottom: 2%;
   }
   
@@ -3459,7 +3459,7 @@ textarea:focus {
   }
   
   .question-text {
-    font-size: 0.9rem;
+    font-size: clamp(0.95rem, 2.5vw, 1.05rem);
     margin-bottom: 2%;
   }
   
@@ -5058,6 +5058,115 @@ textarea:focus {
   
   .form-buttons {
     flex-direction: column;
+  }
+}
+
+/* Accessibility and motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Large screen optimizations */
+@media (min-width: 1400px) {
+  body {
+    padding: 40px;
+    line-height: 1.7;
+  }
+  .container {
+    max-width: 1400px;
+  }
+  h1 { font-size: 3rem; }
+  h2 { font-size: 2.1rem; }
+  h3 { font-size: 1.5rem; }
+  .login-form { max-width: 560px; }
+  .grade-buttons { grid-template-columns: repeat(6, minmax(150px, 1fr)); }
+  .class-buttons, .semester-buttons { grid-template-columns: repeat(6, minmax(120px, 1fr)); }
+  .results-table th, .results-table td { font-size: 0.95rem; }
+  .test-view-section .test-view-content { max-width: 1100px; }
+}
+
+/* Ultra-wide monitors */
+@media (min-width: 1800px) {
+  .container { max-width: 1600px; }
+  .test-view-section .test-view-content { max-width: 1200px; }
+}
+
+/* Extra-small devices tweaks */
+@media (max-width: 375px) {
+  h1 { font-size: 1.2rem; }
+  h2 { font-size: 1rem; }
+  .btn { min-width: 96px; }
+}
+
+/* Touch/No-hover devices: soften hover effects */
+@media (hover: none) {
+  .btn:hover,
+  .grade-btn:hover,
+  .class-btn:hover,
+  .semester-btn:hover,
+  .test-item:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Loading states for tests */
+.loading-tests {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-tests p {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.error-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #dc3545;
+  font-weight: 500;
+  background-color: #fff5f5;
+  border-radius: 8px;
+  border: 1px solid #fed7d7;
+}
+
+/* Mobile responsive loading states */
+@media (max-width: 768px) {
+  .loading-tests {
+    padding: 30px 15px;
+  }
+  
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border-width: 3px;
+    margin-bottom: 15px;
+  }
+  
+  .loading-tests p {
+    font-size: 1rem;
   }
 }
 

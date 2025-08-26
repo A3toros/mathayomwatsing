@@ -2289,7 +2289,18 @@
     cancelTestCreation() {
       console.log('❌ Cancel test creation called');
       
-      // Reset the widget to initial state
+      // If no image was uploaded yet, exit test creation entirely (return to main page)
+      if (!this.image) {
+        try {
+          if (typeof window.resetTestCreation === 'function') {
+            window.resetTestCreation();
+            console.log('✅ No image uploaded — exited test creation and returned to main page');
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Otherwise, reset the widget to initial state
       if (confirm('Are you sure you want to cancel test creation? All progress will be lost.')) {
         console.log('✅ User confirmed cancellation');
         
