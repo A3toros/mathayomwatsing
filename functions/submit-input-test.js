@@ -1,6 +1,21 @@
-const { Pool } = require('pg');
+const { neon } = require('@neondatabase/serverless');
 
 exports.handler = async function(event, context) {
+  // Enable CORS
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -9,37 +24,40 @@ exports.handler = async function(event, context) {
     };
   }
 
-  let client;
   try {
     // Parse request body
-    const { studentId, grade, class: className, number, nickname, score, maxScore, answers } = JSON.parse(event.body);
+    const { test_id, test_name, studentId, grade, class: className, number, name, surname, nickname, score, maxScore, answers } = JSON.parse(event.body);
 
     // Validate required fields
-    if (!studentId || !nickname || !score || !maxScore || !answers) {
+    if (!test_id || !test_name || !studentId || !grade || !className || !number || !name || !surname || !nickname || !score || !maxScore || !answers) {
       return {
         statusCode: 400,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Missing required fields' })
+        body: JSON.stringify({ 
+          error: 'Missing required fields: test_id, test_name, studentId, grade, class, number, name, surname, nickname, score, maxScore, answers' 
+        })
       };
     }
 
-    // Connect to database
-    const pool = new Pool({
-      connectionString: process.env.NEON_DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
+    // Connect to database using @neondatabase/serverless
+    const sql = neon(process.env.NEON_DATABASE_URL);
 
-    client = await pool.connect();
+    // Get current academic period
+    const currentPeriod = await sql`
+      SELECT id FROM academic_year 
+      WHERE CURRENT_DATE BETWEEN start_date AND end_date 
+      ORDER BY start_date DESC LIMIT 1
+    `;
+    
+    const academicPeriodId = currentPeriod.length > 0 ? currentPeriod[0].id : null;
 
-    // Insert test result
-    const result = await client.query(`
-      INSERT INTO vocabulary_test_results 
-      (student_id, grade, class, number, nickname, score, max_score, answers)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    // Insert test result - FIXED: Use correct table name for input tests
+    const result = await sql`
+      INSERT INTO input_test_results 
+      (test_id, test_name, student_id, grade, class, number, name, surname, nickname, score, max_score, answers, academic_period_id)
+      VALUES (${test_id}, ${test_name}, ${studentId}, ${grade}, ${className}, ${number}, ${name}, ${surname}, ${nickname}, ${score}, ${maxScore}, ${JSON.stringify(answers)}, ${academicPeriodId})
       RETURNING id
-    `, [studentId, grade, className, number, nickname, score, maxScore, JSON.stringify(answers)]);
-
-    client.release();
+    `;
 
     return {
       statusCode: 200,
@@ -50,14 +68,13 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({ 
         success: true, 
-        id: result.rows[0].id,
+        id: result[0].id,
         message: 'Input test result saved successfully' 
       })
     };
 
   } catch (error) {
     console.error('Database error:', error);
-    if (client) client.release();
     
     return {
       statusCode: 500,

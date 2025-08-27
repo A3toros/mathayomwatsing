@@ -1,4 +1,4 @@
-const { Pool } = require('pg');
+const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
 
 exports.handler = async function(event, context) {
@@ -22,24 +22,14 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Create database connection pool
-    const pool = new Pool({
-      connectionString: process.env.NEON_DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
+    // Create database connection using @neondatabase/serverless
+    const sql = neon(process.env.NEON_DATABASE_URL);
 
-    console.log('Pool created, attempting connection...');
-
-    // Test connection
-    const client = await pool.connect();
-    console.log('Database connection successful!');
+    console.log('Connection created, attempting query...');
 
     // Test simple query
-    const result = await client.query('SELECT NOW() as current_time');
-    console.log('Test query result:', result.rows);
-
-    // Release the client
-    client.release();
+    const result = await sql`SELECT NOW() as current_time`;
+    console.log('Test query result:', result);
 
     return {
       statusCode: 200,
@@ -50,7 +40,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ 
         success: true,
         message: 'Database connection successful',
-        currentTime: result.rows[0].current_time,
+        currentTime: result[0].current_time,
         databaseUrl: process.env.NEON_DATABASE_URL ? 'Set (hidden for security)' : 'Not set'
       })
     };

@@ -275,14 +275,7 @@
       
 
       
-      <!-- Test View Section -->
-      <div id="testViewSection" class="test-view-section" style="display: none;">
-        <div class="test-view-header">
-          <button class="btn btn-secondary" id="backToTestsBtn">← Back to Tests</button>
-          <h3 id="testViewTitle"></h3>
-        </div>
-        <div id="testViewContent"></div>
-      </div>
+
     </section>
 
     <!-- Password Change Section -->
@@ -517,6 +510,49 @@
             </div>
             <div id="localStorageContainer"></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Test Page Section -->
+    <section id="test-page" class="section test-page-section" style="display: none;">
+      <div class="test-page-header">
+        <button class="btn btn-secondary" id="backToCabinetBtn">← Back to Cabinet</button>
+        <h2 id="testPageTitle">Test</h2>
+        <div class="test-meta">
+          <span id="testTypeDisplay"></span>
+          <span id="questionCountDisplay"></span>
+        </div>
+      </div>
+      
+      <div class="test-page-content">
+        <div class="test-progress-container">
+          <div class="test-progress-bar" id="testProgressBar" style="width: 0%"></div>
+          <div class="test-progress-text" id="testProgressText">0/0 questions answered (0%)</div>
+        </div>
+        
+        <div id="testQuestionsContainer"></div>
+        
+        <div class="test-actions">
+          <button class="btn btn-primary" id="submitTestBtn" disabled>
+            <i class="fas fa-paper-plane"></i> Submit Test
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Test Results Page Section -->
+    <section id="test-results-page" class="section test-results-page" style="display: none;">
+      <div class="test-results-header">
+        <button class="btn btn-secondary" id="backToCabinetFromResultsBtn">← Back to Cabinet</button>
+        <h2 id="testResultsTitle">Test Results</h2>
+      </div>
+      
+      <div class="test-results-content">
+        <div id="testResultsContainer"></div>
+        
+        <div class="test-results-actions">
+          <button class="btn btn-primary" id="backToCabinetBtn2">← Back to Cabinet</button>
         </div>
       </div>
     </section>

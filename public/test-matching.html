@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matching Type Test Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+        }
+        .canvas-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        #matchingCanvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .words-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .words-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .word-item {
+            background: white;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.3s ease;
+            user-select: none;
+            font-weight: 500;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+        }
+        .word-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            border-color: #0056b3;
+        }
+        .word-item:active {
+            cursor: grabbing;
+            transform: translateY(0);
+        }
+        .word-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+        .word-item.matched {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+            cursor: default;
+        }
+        .word-item.matched:hover {
+            transform: none;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .progress {
+            font-weight: 500;
+            color: #333;
+        }
+        .submit-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+        .submit-btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+        .submit-btn:disabled {
+            background: #6c757d;
+            color: #fff;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-header">
+            <h1>Matching Type Test Demo</h1>
+            <p>Drag the words below to match them with the blocks on the image above.</p>
+        </div>
+        
+        <div class="canvas-container">
+            <div id="matchingCanvas"></div>
+        </div>
+        
+        <div class="words-container">
+            <h3>Words to Match:</h3>
+            <div class="words-grid" id="wordsGrid">
+                <!-- Words will be populated here -->
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="progress">
+                <span class="progress-text">0 / 4 words matched</span>
+            </div>
+            <button class="submit-btn" disabled>Submit Test</button>
+        </div>
+    </div>
+
+    <!-- Load Konva.js -->
+    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    
+    <script>
+        // Demo data for testing
+        const demoTestData = {
+            testId: 'demo-123',
+            imageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNDAwIiB5PSIzMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCIgZmlsbD0iIzMzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RGVtbyBJbWFnZTwvdGV4dD4KICA8dGV4dCB4PSI0MDAiIHk9IjM1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0IiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWpkbGUiPkRyYWcgd29yZHMgdG8gdGhlIGJsb2NrczwvdGV4dD4KPC9zdmc+',
+            questions: [
+                {
+                    question_id: 1,
+                    word: 'Apple',
+                    block_coordinates: { x: 100, y: 100, width: 150, height: 100 },
+                    has_arrow: false
+                },
+                {
+                    question_id: 2,
+                    word: 'Banana',
+                    block_coordinates: { x: 300, y: 100, width: 150, height: 100 },
+                    has_arrow: false
+                },
+                {
+                    question_id: 3,
+                    word: 'Orange',
+                    block_coordinates: { x: 100, y: 250, width: 150, height: 100 },
+                    has_arrow: false
+                },
+                {
+                    question_id: 4,
+                    word: 'Grape',
+                    block_coordinates: { x: 300, y: 250, width: 150, height: 100 },
+                    has_arrow: false
+                }
+            ]
+        };
+
+        // Initialize the demo
+        let stage, blocksLayer, arrowsLayer;
+        let matchedCount = 0;
+
+        function initializeDemo() {
+            // Create Konva stage
+            stage = new Konva.Stage({
+                container: 'matchingCanvas',
+                width: 800,
+                height: 600
+            });
+
+            // Create layers
+            const backgroundLayer = new Konva.Layer();
+            blocksLayer = new Konva.Layer();
+            arrowsLayer = new Konva.Layer();
+
+            stage.add(backgroundLayer);
+            stage.add(blocksLayer);
+            stage.add(arrowsLayer);
+
+            // Add background
+            const background = new Konva.Rect({
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+                fill: '#f8f9fa',
+                stroke: '#ddd',
+                strokeWidth: 1
+            });
+            backgroundLayer.add(background);
+
+            // Render blocks
+            renderBlocks();
+            
+            // Render words
+            renderWords();
+            
+            stage.batchDraw();
+        }
+
+        function renderBlocks() {
+            demoTestData.questions.forEach((question, index) => {
+                const coords = question.block_coordinates;
+                
+                // Create block
+                const block = new Konva.Rect({
+                    x: coords.x,
+                    y: coords.y,
+                    width: coords.width,
+                    height: coords.height,
+                    fill: 'rgba(0, 123, 255, 0.1)',
+                    stroke: '#007bff',
+                    strokeWidth: 2,
+                    cornerRadius: 4,
+                    id: `block_${question.question_id}`,
+                    data: { questionId: question.question_id, type: 'block' }
+                });
+
+                // Add block number
+                const blockNumber = new Konva.Text({
+                    x: coords.x + 5,
+                    y: coords.y + 5,
+                    text: (index + 1).toString(),
+                    fontSize: 16,
+                    fontFamily: 'Arial',
+                    fill: '#007bff',
+                    fontWeight: 'bold'
+                });
+
+                // Create invisible drop zone
+                const dropZone = new Konva.Rect({
+                    x: coords.x,
+                    y: coords.y,
+                    width: coords.width,
+                    height: coords.height,
+                    fill: 'transparent',
+                    listening: true,
+                    data: { questionId: question.question_id, type: 'dropZone' }
+                });
+
+                // Add drop zone events
+                dropZone.on('dragenter', () => {
+                    block.stroke('#28a745');
+                    block.strokeWidth(3);
+                    stage.batchDraw();
+                });
+
+                dropZone.on('dragleave', () => {
+                    block.stroke('#007bff');
+                    block.strokeWidth(2);
+                    stage.batchDraw();
+                });
+
+                dropZone.on('drop', (e) => {
+                    const dropData = JSON.parse(e.evt.dataTransfer.getData('text/plain'));
+                    handleWordDrop(dropData, question.question_id);
+                });
+
+                blocksLayer.add(block);
+                blocksLayer.add(blockNumber);
+                blocksLayer.add(dropZone);
+            });
+        }
+
+        function renderWords() {
+            const wordsGrid = document.getElementById('wordsGrid');
+            wordsGrid.innerHTML = '';
+
+            demoTestData.questions.forEach((question, index) => {
+                const wordItem = document.createElement('div');
+                wordItem.className = 'word-item';
+                wordItem.draggable = true;
+                wordItem.dataset.questionId = question.question_id;
+                wordItem.dataset.word = question.word;
+                wordItem.textContent = question.word;
+
+                // Add drag events
+                wordItem.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        questionId: question.question_id,
+                        word: question.word
+                    }));
+                    wordItem.classList.add('dragging');
+                });
+
+                wordItem.addEventListener('dragend', () => {
+                    wordItem.classList.remove('dragging');
+                });
+
+                wordsGrid.appendChild(wordItem);
+            });
+        }
+
+        function handleWordDrop(dropData, blockQuestionId) {
+            if (dropData.questionId === blockQuestionId) {
+                // Correct match
+                const wordItem = document.querySelector(`[data-question-id="${dropData.questionId}"]`);
+                if (wordItem) {
+                    wordItem.classList.add('matched');
+                    wordItem.draggable = false;
+                    wordItem.style.cursor = 'default';
+                }
+
+                matchedCount++;
+                updateProgress();
+                checkCompletion();
+                
+                console.log('Word matched successfully:', dropData.word);
+            } else {
+                console.log('Incorrect match, word returned');
+            }
+        }
+
+        function updateProgress() {
+            const progressText = document.querySelector('.progress-text');
+            if (progressText) {
+                progressText.textContent = `${matchedCount} / ${demoTestData.questions.length} words matched`;
+            }
+        }
+
+        function checkCompletion() {
+            if (matchedCount === demoTestData.questions.length) {
+                console.log('All words matched!');
+                const submitBtn = document.querySelector('.submit-btn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.addEventListener('click', () => {
+                        alert('Test completed successfully! All words matched correctly.');
+                    });
+                }
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeDemo);
+    </script>
+</body>
+</html>

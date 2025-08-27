@@ -53,9 +53,9 @@ exports.handler = async function(event, context) {
 
     // Insert test result
     const result = await sql`
-      INSERT INTO true_false_test_results 
+      INSERT INTO multiple_choice_test_results 
       (test_id, test_name, grade, class, number, student_id, name, surname, nickname, score, max_score, answers, academic_period_id)
-      VALUES (${test_id}, ${test_name}, ${studentId}, ${grade}, ${className}, ${number}, ${name}, ${surname}, ${nickname}, ${score}, ${maxScore}, ${JSON.stringify(answers)}, ${academicPeriodId})
+      VALUES (${test_id}, ${test_name}, ${grade}, ${className}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${score}, ${maxScore}, ${JSON.stringify(answers)}, ${academicPeriodId})
       RETURNING id
     `;
 
@@ -69,7 +69,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ 
         success: true, 
         id: result[0].id,
-        message: 'True/False test result saved successfully' 
+        message: 'Multiple choice test result saved successfully' 
       })
     };
 
