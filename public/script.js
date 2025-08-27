@@ -8994,6 +8994,14 @@ async function loadTestForPage(testType, testId) {
                 isVisible: testPage.style.display !== 'none' && testPage.style.visibility !== 'hidden' && testPage.style.opacity !== '0'
             });
         }
+        
+        // Debug: Check the questions data structure
+        console.log('[DEBUG] Questions data structure:', {
+            rawQuestionsLength: questions.length,
+            processedQuestionsLength: processedQuestions ? processedQuestions.length : 'undefined',
+            questionsType: testType,
+            testId: testId
+        });
     } catch (error) {
         console.error('[ERROR] Failed to load test for page:', error);
         alert('Failed to load test: ' + error.message);
@@ -9021,7 +9029,7 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         <h2>${testInfo.test_name || testInfo.title || 'Test'}</h2>
         <p><strong>Subject:</strong> ${testInfo.subject_name || testInfo.subject || 'Listening and Speaking'}</p>
         <p><strong>Type:</strong> ${testInfo.test_type || testInfo.type || 'Input Test'}</p>
-        <p><strong>Questions:</strong> ${testInfo.num_questions || questions.length || 'Unknown'}</p>
+        <p><strong>Questions:</strong> ${testInfo.num_questions || (testType === 'input' && processedQuestions ? processedQuestions.length : questions.length) || 'Unknown'}</p>
         <button class="btn btn-secondary" onclick="navigateBackToCabinet()">Back to Cabinet</button>
     `;
     testPageSection.appendChild(testHeader);
@@ -9034,7 +9042,7 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         <div class="progress-bar">
             <div class="progress-fill" style="width: 0%"></div>
         </div>
-        <span class="progress-text">0 / ${questions.length} questions answered</span>
+        <span class="progress-text">0 / ${testType === 'input' && processedQuestions ? processedQuestions.length : questions.length} questions answered</span>
     `;
     testPageSection.appendChild(progressIndicator);
     console.log('[DEBUG] Progress indicator created and added');
@@ -9398,10 +9406,20 @@ function updateProgressDisplayForPage(testType, testId) {
     }
     
     // Count only the outer question containers (not nested ones)
-    const totalQuestions = document.querySelectorAll('.question-container[data-question-index]').length;
+    const questionContainers = document.querySelectorAll('.question-container[data-question-index]');
+    const totalQuestions = questionContainers.length;
     const answeredQuestions = getAnsweredQuestionsCountForPage(testType);
     
     console.log(`[DEBUG] Progress: ${answeredQuestions}/${totalQuestions} questions answered`);
+    console.log(`[DEBUG] Question containers found:`, {
+        count: questionContainers.length,
+        selectors: Array.from(questionContainers).map((container, index) => ({
+            index,
+            questionIndex: container.getAttribute('data-question-index'),
+            className: container.className,
+            innerHTML: container.innerHTML.substring(0, 100) + '...'
+        }))
+    });
     
     const percentage = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
     progressBar.style.width = percentage + '%';
@@ -9421,10 +9439,19 @@ function updateSubmitButtonStateForPage() {
     }
     
     // Count only the outer question containers (not nested ones)
-    const totalQuestions = document.querySelectorAll('.question-container[data-question-index]').length;
+    const questionContainers = document.querySelectorAll('.question-container[data-question-index]');
+    const totalQuestions = questionContainers.length;
     const answeredQuestions = getAnsweredQuestionsCountForPage(getCurrentTestType());
     
     console.log(`[DEBUG] Submit button state check: ${answeredQuestions}/${totalQuestions} questions answered`);
+    console.log(`[DEBUG] Submit button check - Question containers found:`, {
+        count: questionContainers.length,
+        selectors: Array.from(questionContainers).map((container, index) => ({
+            index,
+            questionIndex: container.getAttribute('data-question-index'),
+            className: container.className
+        }))
+    });
     
     if (answeredQuestions === totalQuestions && totalQuestions > 0) {
         submitButton.disabled = false;
@@ -9487,10 +9514,19 @@ async function submitTestFromPage(testType, testId, studentId) {
     try {
         // Check if all questions are answered
         // Count only the outer question containers (not nested ones)
-        const totalQuestions = document.querySelectorAll('.question-container[data-question-index]').length;
+        const questionContainers = document.querySelectorAll('.question-container[data-question-index]');
+        const totalQuestions = questionContainers.length;
         const answeredQuestions = getAnsweredQuestionsCountForPage(testType);
         
         console.log(`[DEBUG] Submission check: ${answeredQuestions}/${totalQuestions} questions answered`);
+        console.log(`[DEBUG] Submit check - Question containers found:`, {
+            count: questionContainers.length,
+            selectors: Array.from(questionContainers).map((container, index) => ({
+                index,
+                questionIndex: container.getAttribute('data-question-index'),
+                className: container.className
+            }))
+        });
         
         if (answeredQuestions < totalQuestions) {
             console.warn('[WARN] Not all questions answered, submission blocked');
