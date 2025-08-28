@@ -115,7 +115,7 @@ exports.handler = async function(event, context) {
         arrow: null
       };
       
-      // Find associated arrow
+      // Find associated arrow - use q.id (database primary key) to match with arrow.question_id
       if (q.has_arrow) {
         const arrow = arrowsResult.find(a => a.question_id === q.id);
         if (arrow) {
@@ -126,6 +126,10 @@ exports.handler = async function(event, context) {
             end_y: arrow.end_y,
             style: arrow.arrow_style || {}
           };
+          console.log(`🎯 Associated arrow for question ${q.question_id}:`, question.arrow);
+        } else {
+          console.log(`⚠️ Question ${q.question_id} has_arrow=true but no arrow found in arrowsResult`);
+          console.log(`🔍 Available arrows:`, arrowsResult.map(a => ({ question_id: a.question_id, block_id: a.block_id })));
         }
       }
       

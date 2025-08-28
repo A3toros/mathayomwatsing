@@ -209,16 +209,23 @@ exports.handler = async function(event, context) {
        WHERE grade = ${grade} AND class = ${className}
      `;
      
+     const matchingResultsCount = await sql`
+       SELECT COUNT(*) as count FROM matching_type_test_results 
+       WHERE grade = ${grade} AND class = ${className}
+     `;
+     
      console.log('Total test results found:', {
        multiple_choice: mcResultsCount[0].count,
        true_false: tfResultsCount[0].count,
-       input: inputResultsCount[0].count
+       input: inputResultsCount[0].count,
+       matching_type: matchingResultsCount[0].count
      });
 
      // Initialize variables for both code paths
      let allMcResults = [];
      let allTfResults = [];
      let allInputResults = [];
+     let allMatchingResults = [];
      let allResults = [];
 
     // Get results for ALL subjects combined into one table
@@ -263,11 +270,15 @@ exports.handler = async function(event, context) {
       const inputTestIds = subjectTestAssignments
         .filter(ta => ta.test_type === 'input')
         .map(ta => ta.test_id);
+      const matchingTestIds = subjectTestAssignments
+        .filter(ta => ta.test_type === 'matching_type')
+        .map(ta => ta.test_id);
       
       console.log(`Test IDs for subject ${singleSubject.subject}:`, {
         multiple_choice: mcTestIds,
         true_false: tfTestIds,
-        input: inputTestIds
+        input: inputTestIds,
+        matching_type: matchingTestIds
       });
       
       // Get test results for tests assigned to this subject
@@ -307,10 +318,23 @@ exports.handler = async function(event, context) {
         `;
       }
 
+      if (matchingTestIds.length > 0) {
+        allMatchingResults = await sql`
+          SELECT mttr.student_id, mttr.name, mttr.surname, mttr.nickname, mttr.score, mttr.max_score, mttr.test_name, mttr.created_at, mttr.number, 'matching_type' as test_type
+          FROM matching_type_test_results mttr
+          WHERE mttr.grade = ${grade} 
+          AND mttr.class = ${className}
+          AND mttr.academic_period_id = ${academicPeriodId}
+          AND mttr.test_id = ANY(${matchingTestIds})
+          ORDER BY mttr.number
+        `;
+      }
+
       console.log(`Total results for all subjects:`, {
         mcResults: allMcResults.length,
         tfResults: allTfResults.length,
-        inputResults: allInputResults.length
+        inputResults: allInputResults.length,
+        matchingResults: allMatchingResults ? allMatchingResults.length : 0
       });
       
       // Debug: Log individual test results
@@ -320,6 +344,9 @@ exports.handler = async function(event, context) {
       
       // Combine all results from all subjects
       allResults = [...allMcResults, ...allTfResults, ...allInputResults];
+      if (allMatchingResults) {
+        allResults = [...allResults, ...allMatchingResults];
+      }
       console.log('Total combined results count:', allResults.length);
       
       // Get unique tests for column headers
@@ -403,6 +430,7 @@ exports.handler = async function(event, context) {
         let subjectMcResults = [];
         let subjectTfResults = [];
         let subjectInputResults = [];
+        let subjectMatchingResults = [];
         
         // Get all test assignments for this class to see what tests exist
         const allTestAssignments = await sql`
@@ -428,11 +456,15 @@ exports.handler = async function(event, context) {
         const inputTestIds = subjectTestAssignments
           .filter(ta => ta.test_type === 'input')
           .map(ta => ta.test_id);
+        const matchingTestIds = subjectTestAssignments
+          .filter(ta => ta.test_type === 'matching_type')
+          .map(ta => ta.test_id);
         
         console.log(`Test IDs for subject ${subject.subject}:`, {
           multiple_choice: mcTestIds,
           true_false: tfTestIds,
-          input: inputTestIds
+          input: inputTestIds,
+          matching_type: matchingTestIds
         });
         
         // Get test results for tests assigned to this subject
@@ -472,10 +504,25 @@ exports.handler = async function(event, context) {
           `;
         }
 
+        if (matchingTestIds.length > 0) {
+          subjectMatchingResults = await sql`
+            SELECT mttr.student_id, mttr.name, mttr.surname, mttr.nickname, mttr.score, mttr.max_score, mttr.test_name, mttr.created_at, mttr.number, 'matching_type' as test_type
+            FROM matching_type_test_results mttr
+            WHERE mttr.grade = ${grade} 
+            AND mttr.class = ${className}
+            AND mttr.academic_period_id = ${academicPeriodId}
+            AND mttr.test_id = ANY(${matchingTestIds})
+            ORDER BY mttr.number
+          `;
+        }
+
         // Combine results for this subject
         const subjectResults = [...subjectMcResults, ...subjectTfResults, ...subjectInputResults];
+        if (subjectMatchingResults) {
+          subjectResults.push(...subjectMatchingResults);
+        }
         console.log(`Subject ${subject.subject}: found ${subjectResults.length} test results`);
-        console.log(`Subject ${subject.subject} - MC: ${subjectMcResults.length}, TF: ${subjectTfResults.length}, Input: ${subjectInputResults.length}`);
+        console.log(`Subject ${subject.subject} - MC: ${subjectMcResults.length}, TF: ${subjectTfResults.length}, Input: ${subjectInputResults.length}, Matching: ${subjectMatchingResults ? subjectMatchingResults.length : 0}`);
         if (subjectResults.length > 0) {
           console.log(`Sample result for ${subject.subject}:`, subjectResults[0]);
         }
@@ -641,7 +688,8 @@ exports.handler = async function(event, context) {
       query_details: {
         multiple_choice: 'INNER JOIN with multiple_choice_tests, filtered by teacher_id',
         true_false: 'INNER JOIN with true_false_tests, filtered by teacher_id',
-        input: 'INNER JOIN with input_tests, filtered by teacher_id'
+        input: 'INNER JOIN with input_tests, filtered by teacher_id',
+        matching_type: 'INNER JOIN with matching_type_tests, filtered by teacher_id'
       }
     };
     

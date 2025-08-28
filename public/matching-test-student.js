@@ -149,15 +149,35 @@ class MatchingTestStudent {
       };
     });
     
-    // Process arrows
-    this.arrows = this.testData.arrows.map(a => ({
-      id: a.id,
-      questionId: a.question_id,
-      blockId: a.block_id,
-      start: { x: a.start_x, y: a.start_y },
-      end: { x: a.end_x, y: a.end_y },
-      style: a.style || {}
-    }));
+    // Process arrows - handle different possible data structures
+    this.arrows = [];
+    
+    // Check if arrows are in the main test data
+    if (this.testData.arrows && Array.isArray(this.testData.arrows)) {
+      this.arrows = this.testData.arrows.map(a => ({
+        id: a.id,
+        questionId: a.question_id,
+        blockId: a.block_id,
+        start: { x: a.start_x, y: a.start_y },
+        end: { x: a.end_x, y: a.end_y },
+        style: a.style || {}
+      }));
+    }
+    
+    // Also check if arrows are embedded in questions
+    this.testData.questions.forEach(q => {
+      if (q.has_arrow && q.arrow) {
+        const arrowData = q.arrow;
+        this.arrows.push({
+          id: `embedded_${q.question_id}`,
+          questionId: q.question_id,
+          blockId: q.question_id, // Associate with the question/block
+          start: { x: arrowData.start_x, y: arrowData.start_y },
+          end: { x: arrowData.end_x, y: arrowData.end_y },
+          style: arrowData.style || { color: '#dc3545', thickness: 3 }
+        });
+      }
+    });
     
     // Create words array
     this.words = this.blocks.map(block => ({
@@ -180,6 +200,14 @@ class MatchingTestStudent {
     // Debug: Log first block coordinates
     if (this.blocks.length > 0) {
       console.log('🔍 First block coordinates:', this.blocks[0].coordinates);
+    }
+    
+    // Debug: Log arrow data
+    if (this.arrows.length > 0) {
+      console.log('🎯 First arrow data:', this.arrows[0]);
+    } else {
+      console.log('ℹ️ No arrows found in test data');
+      console.log('🔍 Test data structure:', this.testData);
     }
   }
 
@@ -449,168 +477,75 @@ class MatchingTestStudent {
         }
       });
       
-      // Verify block fits within image bounds
-      if (blockX < this.imageInfo.x || 
-          blockY < this.imageInfo.y || 
-          blockX + blockWidth > this.imageInfo.x + this.imageInfo.width ||
-          blockY + blockHeight > this.imageInfo.y + this.imageInfo.height) {
-        console.warn(`⚠️ Block ${block.id} extends beyond image bounds!`);
-        console.warn(`⚠️ Block bounds:`, {
-          left: blockX,
-          top: blockY,
-          right: blockX + blockWidth,
-          bottom: blockY + blockHeight
-        });
-        console.warn(`⚠️ Image bounds:`, {
-          left: this.imageInfo.x,
-          top: this.imageInfo.y,
-          right: this.imageInfo.x + this.imageInfo.width,
-          bottom: this.imageInfo.y + this.imageInfo.height
-        });
-        
-        // Adjust block position to fit within image bounds
-        let adjustedX = blockX;
-        let adjustedY = blockY;
-        let adjustedWidth = blockWidth;
-        let adjustedHeight = blockHeight;
-        
-        // Ensure block doesn't extend beyond right edge
-        if (blockX + blockWidth > this.imageInfo.x + this.imageInfo.width) {
-          adjustedX = this.imageInfo.x + this.imageInfo.width - blockWidth;
-          if (adjustedX < this.imageInfo.x) {
-            adjustedX = this.imageInfo.x;
-            adjustedWidth = this.imageInfo.width;
-          }
-        }
-        
-        // Ensure block doesn't extend beyond bottom edge
-        if (blockY + blockHeight > this.imageInfo.y + this.imageInfo.height) {
-          adjustedY = this.imageInfo.y + this.imageInfo.height - blockHeight;
-          if (adjustedY < this.imageInfo.y) {
-            adjustedY = this.imageInfo.y;
-            adjustedHeight = this.imageInfo.height;
-          }
-        }
-        
-        // Ensure block doesn't extend beyond left edge
-        if (blockX < this.imageInfo.x) {
-          adjustedX = this.imageInfo.x;
-        }
-        
-        // Ensure block doesn't extend beyond top edge
-        if (blockY < this.imageInfo.y) {
-          adjustedY = this.imageInfo.y;
-        }
-        
+      // Check if block extends beyond image bounds and adjust if necessary
+      const imageBounds = {
+        left: this.imageInfo.x,
+        top: this.imageInfo.y,
+        right: this.imageInfo.x + this.imageInfo.width,
+        bottom: this.imageInfo.y + this.imageInfo.height
+      };
+      
+      const blockBounds = {
+        left: blockX,
+        top: blockY,
+        right: blockX + blockWidth,
+        bottom: blockY + blockHeight
+      };
+      
+      let adjustedX = blockX;
+      let adjustedY = blockY;
+      let adjustedWidth = blockWidth;
+      let adjustedHeight = blockHeight;
+      
+      // Adjust if block extends beyond image bounds
+      if (blockBounds.right > imageBounds.right) {
+        adjustedWidth = imageBounds.right - blockX;
+        console.log(`⚠️ Block ${block.id} extends beyond image bounds!`);
+        console.log(`⚠️ Block bounds:`, blockBounds);
+        console.log(`⚠️ Image bounds:`, imageBounds);
         console.log(`🔧 Block ${block.id} adjusted position:`, {
           x: adjustedX,
           y: adjustedY,
           width: adjustedWidth,
           height: adjustedHeight
         });
-        
-        // Use adjusted coordinates
-        const finalBlockX = adjustedX;
-        const finalBlockY = adjustedY;
-        const finalBlockWidth = adjustedWidth;
-        const finalBlockHeight = adjustedHeight;
-        
-        // Create block rectangle with adjusted coordinates
-        const blockRect = new Konva.Rect({
-          x: finalBlockX,
-          y: finalBlockY,
-          width: finalBlockWidth,
-          height: finalBlockHeight,
-          fill: 'rgba(0, 123, 255, 0.1)',
-          stroke: '#007bff',
-          strokeWidth: 2,
-          cornerRadius: 6,
-          id: `block_${block.id}`,
-          data: { blockId: block.id, type: 'block' }
-        });
-        
-        // Create block number with adjusted coordinates
-        const blockNumber = new Konva.Text({
-          x: finalBlockX + 5,
-          y: finalBlockY + 5,
-          text: block.id.toString(),
-          fontSize: 16,
-          fontFamily: 'Arial, sans-serif',
-          fill: '#007bff',
-          fontWeight: 'bold'
-        });
-        
-        // Add expected word label below the block number
-        const expectedWord = this.words.find(w => w.id === block.id);
-        if (expectedWord) {
-          const expectedWordLabel = new Konva.Text({
-            x: finalBlockX + 5,
-            y: finalBlockY + 25,
-            text: `(${expectedWord.word})`,
-            fontSize: 12,
-            fontFamily: 'Arial, sans-serif',
-            fill: '#6c757d',
-            fontStyle: 'italic'
-          });
-          this.layers.content.add(expectedWordLabel);
-        }
-        
-        // Add to layers
-        this.layers.content.add(blockRect);
-        this.layers.content.add(blockNumber);
-        
-        // Create HTML drop zone with adjusted coordinates
-        this.createHtmlDropZone(block, finalBlockX, finalBlockY, finalBlockWidth, finalBlockHeight);
-        
-      } else {
-        // Block fits within bounds, use original calculated coordinates
-        // Create block rectangle
-        const blockRect = new Konva.Rect({
-          x: blockX,
-          y: blockY,
-          width: blockWidth,
-          height: blockHeight,
-          fill: 'rgba(0, 123, 255, 0.1)',
-          stroke: '#007bff',
-          strokeWidth: 2,
-          cornerRadius: 6,
-          id: `block_${block.id}`,
-          data: { blockId: block.id, type: 'block' }
-        });
-        
-        // Create block number
-        const blockNumber = new Konva.Text({
-          x: blockX + 5,
-          y: blockY + 5,
-          text: block.id.toString(),
-          fontSize: 16,
-          fontFamily: 'Arial, sans-serif',
-          fill: '#007bff',
-          fontWeight: 'bold'
-        });
-        
-        // Add expected word label below the block number
-        const expectedWord = this.words.find(w => w.id === block.id);
-        if (expectedWord) {
-          const expectedWordLabel = new Konva.Text({
-            x: blockX + 5,
-            y: blockY + 25,
-            text: `(${expectedWord.word})`,
-            fontSize: 12,
-            fontFamily: 'Arial, sans-serif',
-            fill: '#6c757d',
-            fontStyle: 'italic'
-          });
-          this.layers.content.add(expectedWordLabel);
-        }
-        
-        // Add to layers
-        this.layers.content.add(blockRect);
-        this.layers.content.add(blockNumber);
-        
-        // Create HTML drop zone positioned over the Konva block
-        this.createHtmlDropZone(block, blockX, blockY, blockWidth, blockHeight);
       }
+      
+      if (blockBounds.bottom > imageBounds.bottom) {
+        adjustedHeight = imageBounds.bottom - blockY;
+      }
+      
+      // Create Konva block (visual representation only - no correct answer text)
+      const konvaBlock = new Konva.Rect({
+        x: adjustedX,
+        y: adjustedY,
+        width: adjustedWidth,
+        height: adjustedHeight,
+        stroke: '#2c3e50',
+        strokeWidth: 2,
+        fill: 'rgba(52, 152, 219, 0.1)',
+        dash: [5, 5],
+        id: `block_${block.id}`,
+        data: { blockId: block.id, type: 'block' }
+      });
+      
+      // Add block number label (not the correct answer)
+      const blockLabel = new Konva.Text({
+        x: adjustedX + 5,
+        y: adjustedY + 5,
+        text: `Block ${block.id}`,
+        fontSize: 14,
+        fontFamily: 'Arial, sans-serif',
+        fill: '#2c3e50',
+        fontWeight: 'bold'
+      });
+      
+      // Add to content layer
+      this.layers.content.add(konvaBlock);
+      this.layers.content.add(blockLabel);
+      
+      // Create HTML drop zone for drag and drop
+      this.createHtmlDropZone(block, adjustedX, adjustedY, adjustedWidth, adjustedHeight);
     });
     
     console.log(`✅ Rendered ${this.blocks.length} blocks`);
@@ -625,6 +560,14 @@ class MatchingTestStudent {
     console.log('➡️ Rendering arrows...');
     
     this.arrows.forEach(arrow => {
+      // Validate arrow data structure
+      if (!arrow.start || !arrow.end || 
+          typeof arrow.start.x !== 'number' || typeof arrow.start.y !== 'number' ||
+          typeof arrow.end.x !== 'number' || typeof arrow.end.y !== 'number') {
+        console.warn(`⚠️ Invalid arrow data for arrow ${arrow.id}:`, arrow);
+        return;
+      }
+      
       // Scale arrow coordinates relative to the displayed image
       const startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
       const startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
@@ -633,7 +576,12 @@ class MatchingTestStudent {
       
       console.log(`➡️ Arrow ${arrow.id} coordinates:`, {
         original: { start: arrow.start, end: arrow.end },
-        scaled: { start: { x: startX, y: startY }, end: { x: endX, y: endY } }
+        scaled: { start: { x: startX, y: startY }, end: { x: endX, y: endY } },
+        imageInfo: this.imageInfo,
+        scaleFactors: {
+          scaleX: this.imageInfo.scaleX,
+          scaleY: this.imageInfo.scaleY
+        }
       });
       
       // Create arrow line

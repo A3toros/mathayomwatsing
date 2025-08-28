@@ -2372,18 +2372,329 @@
         if (typeof window.clearTestLocalStorage === 'function') {
           window.clearTestLocalStorage();
         }
-        // Open standard assignment UI like other tests
-        if (typeof window.showTestAssignment === 'function') {
-          window.showTestAssignment('matching_type', data.test_id);
-        } else {
-          alert('Test saved. Assignment UI is not available.');
-        }
+        
+        // Hide the test creation UI and show assignment interface
+        this.hideTestCreationUI();
+        this.showAssignmentInterface('matching_type', data.test_id);
       })
-      .catch((err) => {
-        console.error('❌ Error saving matching test:', err);
-        alert('Error saving matching test.');
+      .catch((error) => {
+        console.error('❌ Error saving matching test:', error);
+        alert('Error saving matching test. Please try again.');
       });
       });
+    }
+
+    // Hide the test creation interface
+    hideTestCreationUI() {
+      console.log('🔒 Hiding test creation UI...');
+      
+      // Hide the main test creation container
+      const testCreationContainer = this.container.querySelector('.matching-test-creation');
+      if (testCreationContainer) {
+        testCreationContainer.style.display = 'none';
+      }
+      
+      // Hide the canvas and controls
+      const canvasContainer = this.container.querySelector('.matching-test-canvas-container');
+      if (canvasContainer) {
+        canvasContainer.style.display = 'none';
+      }
+      
+      // Hide the words panel
+      const wordsPanel = this.container.querySelector('.matching-test-words-panel');
+      if (wordsPanel) {
+        wordsPanel.style.display = 'none';
+      }
+      
+      // Hide the create test button
+      const createTestBtn = this.container.querySelector('#createTestBtn');
+      if (createTestBtn) {
+        createTestBtn.style.display = 'none';
+      }
+      
+      console.log('✅ Test creation UI hidden');
+    }
+
+    // Show the assignment interface
+    showAssignmentInterface(testType, testId) {
+      console.log('🎯 Showing assignment interface for:', { testType, testId });
+      
+      // Create assignment interface HTML
+      const assignmentHTML = `
+        <div class="matching-test-assignment-interface" style="padding: 20px; text-align: center;">
+          <h3>Test Created Successfully!</h3>
+          <p>Your matching test "${this.getTestName()}" has been created.</p>
+          <p>Now you can assign it to specific grades and classes.</p>
+          
+          <div class="assignment-options" style="margin: 20px 0;">
+            <h4>Select Grades and Classes to Assign This Test:</h4>
+            <div id="assignmentGradesContainer" style="margin: 20px 0;">
+              <p>Loading available grades and classes...</p>
+            </div>
+          </div>
+          
+          <div class="assignment-actions" style="margin: 20px 0;">
+            <button class="btn btn-primary" id="assignTestBtn">
+              Assign Test to Selected Classes
+            </button>
+            <button class="btn btn-secondary" id="returnToMainBtn" style="margin-left: 10px;">
+              Return to Main Menu
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Insert the assignment interface
+      this.container.innerHTML = assignmentHTML;
+      
+      // Add event listeners for the buttons
+      const assignTestBtn = this.container.querySelector('#assignTestBtn');
+      if (assignTestBtn) {
+        assignTestBtn.addEventListener('click', () => this.assignTestToSelectedClasses());
+      }
+      
+      const returnToMainBtn = this.container.querySelector('#returnToMainBtn');
+      if (returnToMainBtn) {
+        returnToMainBtn.addEventListener('click', () => this.returnToMainMenu());
+      }
+      
+      // Load available grades and classes
+      this.loadTeacherGradesAndClasses(testType, testId);
+      
+      console.log('✅ Assignment interface shown');
+    }
+
+    // Get test name from input or use default
+    getTestName() {
+      const nameInput = (typeof document !== 'undefined') ? document.getElementById('matchingTestName') : null;
+      if (nameInput && nameInput.value && nameInput.value.trim()) {
+        return nameInput.value.trim();
+      }
+      return `Matching Test — ${new Date().toLocaleString()}`;
+    }
+
+    // Load teacher's available grades and classes
+    async loadTeacherGradesAndClasses(testType, testId) {
+      try {
+        console.log('Loading teacher grades and classes for test assignment');
+        
+        // Get teacher ID from session
+        let teacherId = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.teacher_id : null;
+        if (!teacherId && typeof window !== 'undefined' && window.localStorage) {
+          try {
+            const sessRaw = window.localStorage.getItem('user_session');
+            if (sessRaw) {
+              const sess = JSON.parse(sessRaw);
+              teacherId = sess && sess.user && sess.user.teacher_id ? sess.user.teacher_id : teacherId;
+            }
+          } catch (_) {}
+        }
+        
+        if (!teacherId) {
+          console.error('Missing teacher session');
+          document.getElementById('assignmentGradesContainer').innerHTML = 
+            '<p style="color: red;">Error: Missing teacher session. Please sign in again.</p>';
+          return;
+        }
+        
+        console.log('Teacher ID:', teacherId);
+        
+        const url = `/.netlify/functions/get-teacher-subjects?teacher_id=${teacherId}`;
+        console.log('Fetching from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('Response received:', response);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.success && data.subjects && data.subjects.length > 0) {
+          console.log('Teacher subjects loaded:', data.subjects);
+          this.displayTestAssignmentOptions(data.subjects, testType, testId);
+        } else {
+          console.log('No teacher subjects found');
+          console.log('Data structure:', data);
+          document.getElementById('assignmentGradesContainer').innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+              <h5>No Subjects Assigned</h5>
+              <p>You need to assign subjects to grades and classes before you can create tests.</p>
+              <button class="btn btn-primary" onclick="this.showSubjectSelectionPrompt()">Assign Subjects Now</button>
+              <button class="btn btn-secondary" onclick="this.returnToMainMenu()" style="margin-left: 10px;">Return to Main Menu</button>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading teacher grades and classes:', error);
+        document.getElementById('assignmentGradesContainer').innerHTML = 
+          '<p style="color: red;">Error loading available grades and classes.</p>';
+      }
+    }
+
+    // Display test assignment options
+    displayTestAssignmentOptions(subjects, testType, testId) {
+      console.log('displayTestAssignmentOptions called with:', { subjects, testType, testId });
+      
+      const container = document.getElementById('assignmentGradesContainer');
+      container.innerHTML = '';
+      
+      const title = document.createElement('h5');
+      title.textContent = 'Select Grades and Classes to Assign This Test:';
+      container.appendChild(title);
+      
+      console.log('Processing subjects:', subjects);
+      
+      // Group subjects by grade and class
+      const gradeClassMap = {};
+      subjects.forEach(subject => {
+        const key = `${subject.grade}/${subject.class}`;
+        if (!gradeClassMap[key]) {
+          gradeClassMap[key] = [];
+        }
+        gradeClassMap[key].push(subject.subject);
+      });
+      
+      console.log('Grade/Class map:', gradeClassMap);
+      
+      // Create checkboxes for each grade/class combination
+      Object.keys(gradeClassMap).forEach(key => {
+        const [grade, className] = key.split('/');
+        const subjects = gradeClassMap[key];
+        
+        const div = document.createElement('div');
+        div.style.cssText = 'margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `assign_${grade}_${className}`;
+        checkbox.dataset.grade = grade;
+        checkbox.dataset.class = className;
+        checkbox.style.marginRight = '10px';
+        
+        const label = document.createElement('label');
+        label.htmlFor = `assign_${grade}_${className}`;
+        label.textContent = `Grade ${grade}, Class ${className} (${subjects.join(', ')})`;
+        
+        div.appendChild(checkbox);
+        div.appendChild(label);
+        container.appendChild(div);
+      });
+      
+      // Store test info for assignment
+      this.currentTestInfo = { testType, testId };
+      
+      console.log('Assignment options displayed');
+    }
+
+    // Assign test to selected classes
+    assignTestToSelectedClasses() {
+      console.log('🎯 Assigning test to selected classes...');
+      
+      if (!this.currentTestInfo) {
+        console.error('No test info available for assignment');
+        return;
+      }
+      
+      const selectedAssignments = [];
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+      
+      checkboxes.forEach(checkbox => {
+        selectedAssignments.push({
+          grade: checkbox.dataset.grade,
+          class: checkbox.dataset.class
+        });
+      });
+      
+      if (selectedAssignments.length === 0) {
+        alert('Please select at least one grade and class to assign the test to.');
+        return;
+      }
+      
+      console.log('Selected assignments:', selectedAssignments);
+      
+      // Get teacher ID
+      let teacherId = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.teacher_id : null;
+      if (!teacherId && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const sessRaw = window.localStorage.getItem('user_session');
+          if (sessRaw) {
+            const sess = JSON.parse(sessRaw);
+            teacherId = sess && sess.user && sess.user.teacher_id ? sess.user.teacher_id : teacherId;
+          }
+        } catch (_) {}
+      }
+      
+      if (!teacherId) {
+        alert('Missing teacher session. Please sign in again.');
+        return;
+      }
+      
+      // Create assignments
+      this.createTestAssignments(teacherId, selectedAssignments);
+    }
+
+    // Create test assignments
+    async createTestAssignments(teacherId, assignments) {
+      try {
+        console.log('Creating test assignments:', { teacherId, assignments });
+        
+        const promises = assignments.map(assignment => {
+          const payload = {
+            teacher_id: teacherId,
+            test_id: this.currentTestInfo.testId,
+            test_type: this.currentTestInfo.testType,
+            grade: assignment.grade,
+            class: assignment.class
+          };
+          
+          return fetch('/.netlify/functions/assign-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        });
+        
+        const responses = await Promise.all(promises);
+        const results = await Promise.all(responses.map(r => r.json()));
+        
+        console.log('Assignment results:', results);
+        
+        // Check if all assignments were successful
+        const allSuccessful = results.every(r => r.success);
+        
+        if (allSuccessful) {
+          alert(`Test successfully assigned to ${assignments.length} class(es)!`);
+          // Return to main menu
+          this.returnToMainMenu();
+        } else {
+          alert('Some assignments failed. Please check the console for details.');
+          console.error('Assignment failures:', results.filter(r => !r.success));
+        }
+        
+      } catch (error) {
+        console.error('Error creating test assignments:', error);
+        alert('Error assigning tests. Please try again.');
+      }
+    }
+
+    // Return to main menu
+    returnToMainMenu() {
+      console.log('🏠 Returning to main menu...');
+      
+      // Reset the widget container
+      this.container.innerHTML = '';
+      
+      // Try to call the main script's reset function
+      if (typeof window.resetTestCreation === 'function') {
+        window.resetTestCreation();
+      } else if (typeof window.showTeacherCabinet === 'function') {
+        // Alternative: show teacher cabinet directly
+        window.showTeacherCabinet();
+      } else {
+        // Fallback: reload the page to return to main menu
+        window.location.reload();
+      }
     }
 
     cancelTestCreation() {
