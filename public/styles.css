@@ -83,11 +83,12 @@ body {
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
 }
 
 /* Container */
 .container {
-  width: 100%;
+  width: calc(100% - 2 * var(--space-lg));
   max-width: 1200px;
   margin: 0 auto;
   background: white;
@@ -98,6 +99,7 @@ body {
   position: relative;
   backdrop-filter: blur(20px);
   border: 1px solid var(--neutral-200);
+  box-sizing: border-box;
 }
 
 /* Section Management */
@@ -6046,6 +6048,7 @@ tr:hover td {
   }
   
   .container {
+    width: calc(100% - 2 * var(--space-sm));
     margin: var(--space-sm);
     padding: var(--space-sm);
   }
@@ -6083,6 +6086,7 @@ tr:hover td {
   }
   
   .container {
+    width: calc(100% - 2 * var(--space-xs));
     margin: var(--space-xs);
     padding: var(--space-xs);
   }
