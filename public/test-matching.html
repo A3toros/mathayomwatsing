@@ -26,6 +26,7 @@
             border-radius: 8px;
             color: white;
         }
+
         .canvas-container {
             text-align: center;
             margin: 20px 0;
@@ -130,6 +131,8 @@
             <h1>Matching Type Test Demo</h1>
             <p>Drag the words below to match them with the blocks on the image above.</p>
         </div>
+        
+
         
         <div class="canvas-container">
             <div id="matchingCanvas"></div>
@@ -362,7 +365,9 @@
         }
 
         // Initialize when page loads
-        window.addEventListener('load', initializeDemo);
+        window.addEventListener('load', () => {
+            initializeDemo();
+        });
     </script>
 </body>
 </html>

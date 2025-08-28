@@ -270,10 +270,11 @@ exports.handler = async function(event, context) {
           ay.semester,
           ay.term,
           COALESCE(s.subject, 'Unknown Subject') as subject,
-          'System' as teacher_name
+          COALESCE(t.username, 'Unknown Teacher') as teacher_name
         FROM matching_type_test_results mttr
         LEFT JOIN academic_year ay ON mttr.academic_period_id = ay.id
         LEFT JOIN matching_type_tests mtt ON mttr.test_id = mtt.id
+        LEFT JOIN teachers t ON mtt.teacher_id = t.teacher_id
         LEFT JOIN test_assignments ta ON ta.test_type = 'matching_type' AND ta.test_id = mttr.test_id
         LEFT JOIN subjects s ON ta.subject_id = s.subject_id
         WHERE mttr.student_id = ${student_id}
@@ -293,10 +294,11 @@ exports.handler = async function(event, context) {
           ay.semester,
           ay.term,
           COALESCE(s.subject, 'Unknown Subject') as subject,
-          'System' as teacher_name
+          COALESCE(t.username, 'Unknown Teacher') as teacher_name
         FROM matching_type_test_results mttr
         LEFT JOIN academic_year ay ON mttr.academic_period_id = ay.id
         LEFT JOIN matching_type_tests mtt ON mttr.test_id = mtt.id
+        LEFT JOIN teachers t ON mtt.teacher_id = t.teacher_id
         LEFT JOIN test_assignments ta ON ta.test_type = 'matching_type' AND ta.test_id = mttr.test_id
         LEFT JOIN subjects s ON ta.subject_id = s.subject_id
         WHERE mttr.student_id = ${student_id}

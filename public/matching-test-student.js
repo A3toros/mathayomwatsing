@@ -53,6 +53,8 @@ class MatchingTestStudent {
     // Bind events
     this.bindEvents();
     
+
+    
     console.log('✅ Matching Test Student Interface initialized successfully');
   }
 
@@ -264,9 +266,21 @@ class MatchingTestStudent {
     
     try {
       console.log('🖼️ Loading test image...');
+      console.log('🔍 Image URL:', this.testData.image_url);
       
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      
+      // Add error handling for blob URLs
+      img.onerror = (error) => {
+        console.error('❌ Failed to load image:', error);
+        console.warn('⚠️ This might be due to blob URL restrictions when testing locally');
+        
+        // Show user-friendly error message
+        this.showError('Image failed to load. This may be due to testing locally with a blob URL from the live site. Please test on the live site or use a different image.');
+        
+
+      };
       
       img.onload = () => {
         console.log('✅ Image loaded successfully');
@@ -374,17 +388,18 @@ class MatchingTestStudent {
           scaleY: imgHeight / img.height
         };
         
-        console.log('🖼️ Image rendered on canvas');
-        console.log('🔍 Final image info:', this.imageInfo);
-        console.log('🔍 Scale factors:', {
-          scaleX: this.imageInfo.scaleX,
-          scaleY: this.imageInfo.scaleY
-        });
+        console.log('🔍 Image info stored:', this.imageInfo);
         
         // Now render blocks and arrows with correct coordinates
         this.renderBlocks();
         this.renderArrows();
       };
+      
+      // Set a timeout to handle cases where image loading hangs
+      const imageLoadTimeout = setTimeout(() => {
+        console.warn('⚠️ Image loading timeout - this might be a blob URL issue');
+        img.onerror(new Error('Image loading timeout'));
+      }, 10000); // 10 second timeout
       
       img.src = this.testData.image_url;
       
@@ -393,6 +408,8 @@ class MatchingTestStudent {
       this.showError('Failed to load test image');
     }
   }
+
+
 
   renderBlocks() {
     console.log('🔲 Rendering blocks...');
@@ -1695,6 +1712,8 @@ class MatchingTestStudent {
       window.location.href = 'index.html';
     }
   }
+
+
 }
 
 // Initialize when DOM is loaded

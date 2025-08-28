@@ -6512,7 +6512,7 @@ function displayAllUsers(users) {
                     <th>Name</th>
                     <th>Surname</th>
                     <th>Nickname</th>
-                    </tr>
+                </tr>
             </thead>
             <tbody>
                 ${users.map(user => `

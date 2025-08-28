@@ -903,23 +903,37 @@
 
     async handleImageFile(file) {
       console.log('📁 Handling image file:', file.name, file.size, 'bytes');
-      this.showUploadStatus('Uploading image...', 'uploading');
+      this.showUploadStatus('Uploading image to Cloudinary...', 'uploading');
       
       try {
-        // For now, we'll use a local URL. In production, this would upload to Cloudinary
-        const imageUrl = URL.createObjectURL(file);
-        this.image = imageUrl;
-        console.log('✅ Image URL created:', imageUrl);
+        // Upload image to Cloudinary immediately
+        const formData = new FormData();
+        formData.append('image', file);
         
-        this.showUploadStatus('Image uploaded successfully!', 'success');
-        this.showImageEditor();
-        this.createWordsEditor();
+        const response = await fetch('/.netlify/functions/upload-image', {
+          method: 'POST',
+          body: formData
+        });
         
-        // Load image into Konva
-        this.loadImageToKonva(imageUrl);
+        const result = await response.json();
+        
+        if (response.ok && result.success && result.url) {
+          // Use the real Cloudinary URL
+          this.image = result.url;
+          console.log('✅ Image uploaded to Cloudinary:', result.url);
+          
+          this.showUploadStatus('Image uploaded successfully!', 'success');
+          this.showImageEditor();
+          this.createWordsEditor();
+          
+          // Load image into Konva using the real URL
+          this.loadImageToKonva(result.url);
+        } else {
+          throw new Error(result.message || 'Upload failed');
+        }
         
       } catch (error) {
-        console.error('❌ Error handling image file:', error);
+        console.error('❌ Error uploading image:', error);
         this.showUploadStatus('Failed to upload image: ' + error.message, 'error');
       }
     }
@@ -2307,31 +2321,10 @@
       console.log('📦 Sending matching test payload:', payload);
 
       const uploadIfNeeded = async () => {
-        if (this.image && typeof this.image === 'string' &&
-            this.image.startsWith('data:')) {
-          try {
-            console.log('📤 Uploading image to Cloudinary...');
-            const formData = new FormData();
-            formData.append('image', this.image);
-            
-            const up = await fetch('/.netlify/functions/upload-image', {
-              method: 'POST',
-              body: formData
-            });
-            const uj = await up.json().catch(() => ({}));
-            if (up.ok && uj.success && uj.url) {
-              this.image = uj.url;
-              payload.image_url = uj.url;
-            } else {
-              console.error('❌ Upload failed:', uj);
-              alert('Image upload failed.');
-              return false;
-            }
-          } catch (e) {
-            console.error('Image upload error:', e);
-            alert('Image upload error.');
-            return false;
-          }
+        // Image is already uploaded to Cloudinary, just use the URL
+        if (this.image && typeof this.image === 'string') {
+          payload.image_url = this.image;
+          console.log('✅ Using Cloudinary URL for test:', this.image);
         }
         return true;
       };

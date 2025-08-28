@@ -3078,9 +3078,30 @@ textarea:focus {
   
   /* Responsive table for very small screens */
   @media (max-width: 480px) {
+    .test-results-tables {
+      gap: 0;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .results-group {
+      margin: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    
     .results-table,
     .test-results-table {
-      font-size: 0.75rem;
+      font-size: 0.65rem;
+      transform: scale(1);
+      transform-origin: center top;
+      width: 100%;
+      margin: 0;
+      max-width: 100%;
+      overflow: hidden;
+      min-width: 100%;
+      box-sizing: border-box;
+      table-layout: auto;
     }
     
     .results-table th,
@@ -3089,54 +3110,142 @@ textarea:focus {
     .test-results-table td {
       padding: 6px 4px;
       font-size: 0.75rem;
+      line-height: 1.2;
     }
     
-    /* Stack table cells for very small screens */
-    .results-table,
-    .test-results-table {
-      display: block;
-    }
-    
-    .results-table thead,
-    .test-results-table thead {
-      display: none;
-    }
-    
-    .results-table tbody,
-    .test-results-table tbody {
-      display: block;
-    }
-    
-    .results-table tr,
-    .test-results-table tr {
-      display: block;
-      margin-bottom: 15px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 10px;
-      background: white;
-    }
-    
-    .results-table td,
-    .test-results-table td {
-      display: block;
-      text-align: left;
-      padding: 5px 0;
-      border: none;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    
-    .results-table td:last-child,
-    .test-results-table td:last-child {
-      border-bottom: none;
-    }
-    
-    .results-table td::before,
-    .test-results-table td::before {
-      content: attr(data-label) ": ";
+    .results-table th,
+    .test-results-table th {
+      font-size: 0.8rem;
       font-weight: 600;
-      color: var(--primary-color);
-      margin-right: 8px;
+    }
+    
+    /* Optimize column widths for mobile */
+    .test-results-table th:nth-child(1), /* Subject */
+    .test-results-table td:nth-child(1) {
+      width: 25%;
+      min-width: 0;
+      font-size: 0.75rem;
+    }
+    
+    .test-results-table th:nth-child(2), /* Teacher */
+    .test-results-table td:nth-child(2) {
+      width: 25%;
+      min-width: 0;
+      font-size: 0.75rem;
+    }
+    
+    .test-results-table th:nth-child(3), /* Test Name */
+    .test-results-table td:nth-child(3) {
+      width: 35%;
+      min-width: 0;
+      font-size: 0.75rem;
+    }
+    
+    .test-results-table th:nth-child(4), /* Score */
+    .test-results-table td:nth-child(4) {
+      width: 15%;
+      min-width: 0;
+      font-size: 0.8rem;
+    }
+    
+    /* Score cell mobile optimization */
+    .score-cell {
+      font-size: 0.8rem;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    
+    /* Table container mobile optimization */
+    .table-container {
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      max-width: 100%;
+      width: 100%;
+    }
+    
+    /* Results group mobile optimization */
+    .results-group {
+      margin: 0 0 15px 0;
+      padding: 0;
+      overflow: hidden;
+      max-width: 100%;
+      width: 100%;
+    }
+    
+    /* Alternative mobile layout for very small screens */
+    @media (max-width: 400px) {
+      .results-table,
+      .test-results-table {
+        transform: scale(0.8);
+        width: 125%; /* Compensate for scale */
+      }
+      
+      .results-table th,
+      .results-table td,
+      .test-results-table th,
+      .test-results-table td {
+        font-size: 0.65rem;
+        padding: 4px 2px;
+      }
+      
+      .score-cell {
+        font-size: 0.7rem;
+        padding: 3px 4px;
+      }
+    }
+    
+    /* Stack table cells for very small screens as fallback */
+    @media (max-width: 350px) {
+      .results-table,
+      .test-results-table {
+        display: block;
+        transform: none;
+        width: 100%;
+      }
+      
+      .results-table thead,
+      .test-results-table thead {
+        display: none;
+      }
+      
+      .results-table tbody,
+      .test-results-table tbody {
+        display: block;
+      }
+      
+      .results-table tr,
+      .test-results-table tr {
+        display: block;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 8px;
+        background: white;
+      }
+      
+      .results-table td,
+      .test-results-table td {
+        display: block;
+        text-align: left;
+        padding: 4px 0;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.7rem;
+      }
+      
+      .results-table td:last-child,
+      .test-results-table td:last-child {
+        border-bottom: none;
+      }
+      
+      .results-table td::before,
+      .test-results-table td::before {
+        content: attr(data-label) ": ";
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-right: 6px;
+      }
     }
   }
   
