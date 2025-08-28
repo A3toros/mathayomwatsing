@@ -6047,13 +6047,23 @@ tr:hover td {
 
 /* Modern Responsive Design */
 @media (max-width: 768px) {
+  body {
+    padding: var(--space-sm);
+  }
+  
   .container {
     margin: var(--space-sm);
-    padding: var(--space-md);
+    padding: var(--space-sm);
   }
   
   .section {
     padding: var(--space-lg);
+  }
+  
+  .login-form {
+    max-width: 100%;
+    margin: var(--space-lg) auto;
+    padding: var(--space-xl);
   }
   
   .grid-2,
@@ -6070,6 +6080,26 @@ tr:hover td {
   .modal-content {
     margin: var(--space-md);
     padding: var(--space-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: var(--space-xs);
+  }
+  
+  .container {
+    margin: var(--space-xs);
+    padding: var(--space-xs);
+  }
+  
+  .section {
+    padding: var(--space-md);
+  }
+  
+  .login-form {
+    padding: var(--space-lg);
+    margin: var(--space-md) auto;
   }
 }
 
