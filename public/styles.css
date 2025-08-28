@@ -451,6 +451,7 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 15px;
   position: relative;
+  border-radius: var(--border-radius-lg);
 }
 
 .header h1 {

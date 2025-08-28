@@ -59,6 +59,7 @@
 
 
 
+
 // School Testing System - Main JavaScript File
 
 // Global function availability check
@@ -1829,6 +1830,16 @@ function populateTeacherInfo() {
 
 // Check if teacher already has subjects in database
 async function checkTeacherSubjects() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in checkTeacherSubjects, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('checkTeacherSubjects called with teacher_id:', currentUser.teacher_id);
     try {
         const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
@@ -1934,6 +1945,16 @@ function displayExistingSubjects(subjects) {
 
 // Show prompt to add subjects
 async function showSubjectSelectionPrompt() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showSubjectSelectionPrompt, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     // Check if we're in test creation mode
     if (window.isInTestCreation) {
         console.log('🔍 showSubjectSelectionPrompt blocked - currently in test creation mode');
@@ -1976,6 +1997,16 @@ async function showSubjectSelectionPrompt() {
 // Load and display existing subjects in the subject selection interface
 async function loadAndDisplayExistingSubjects() {
     try {
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found in loadAndDisplayExistingSubjects, redirecting to login');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
+        
         console.log('Loading existing subjects for display...');
         
         const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
@@ -1999,6 +2030,16 @@ async function loadAndDisplayExistingSubjects() {
 
 // Display existing subjects in the subject selection interface
 function displayExistingSubjectsInSelection(subjects) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayExistingSubjectsInSelection, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('Displaying existing subjects in selection interface:', subjects);
     
     const subjectsList = document.getElementById('subjectsList');
@@ -2044,6 +2085,16 @@ function displayExistingSubjectsInSelection(subjects) {
 }
 // Initialize test creation functionality
 function initializeTestCreation() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in initializeTestCreation, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const createTestBtn = document.getElementById('createTestBtn');
     if (createTestBtn) {
         createTestBtn.addEventListener('click', showTestTypeSelection);
@@ -2219,6 +2270,17 @@ function setupFormAutoSave() {
 
 // Show test type selection
 function showTestTypeSelection() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showTestTypeSelection, redirecting to login');
+        alert('Missing teacher session. Please sign in again.');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 showTestTypeSelection called - starting new test creation');
     
     // Reset the test assignment completed flag
@@ -2236,6 +2298,7 @@ function showTestTypeSelection() {
     document.getElementById('multipleChoiceForm').style.display = 'none';
     document.getElementById('trueFalseForm').style.display = 'none';
     document.getElementById('inputTestForm').style.display = 'none';
+    document.getElementById('matchingTestForm').style.display = 'none';
     document.getElementById('testAssignmentSection').style.display = 'none';
     document.getElementById('activeTestsSection').style.display = 'none';
     
@@ -2254,6 +2317,16 @@ function showTestTypeSelection() {
 }
 // Reset test creation
 function resetTestCreation() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in resetTestCreation, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 resetTestCreation called - resetting test creation state');
     
     // Reset the test assignment completed flag
@@ -2291,6 +2364,16 @@ function resetTestCreation() {
 
 // Disable navigation buttons during test creation
 function disableNavigationButtons() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in disableNavigationButtons, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 Disabling navigation buttons...');
     
     // Disable all grade buttons
@@ -2338,6 +2421,16 @@ function disableNavigationButtons() {
 
 // Enable navigation buttons after test creation
 function enableNavigationButtons() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in enableNavigationButtons, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 Enabling navigation buttons...');
     
     // Enable all grade buttons
@@ -2385,6 +2478,16 @@ function enableNavigationButtons() {
 
 // Save test creation state to localStorage
 function saveTestCreationState(currentStep) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in saveTestCreationState, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 🔴 saveTestCreationState called with step:', currentStep);
     console.log('🔍 🔴 Call stack:', new Error().stack);
     
@@ -2402,6 +2505,16 @@ function saveTestCreationState(currentStep) {
 }
 // Clear test creation state from localStorage
 function clearTestCreationState() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in clearTestCreationState, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     // Clear test creation state
     localStorage.removeItem('test_creation_state');
     localStorage.removeItem('test_creation_form_data');
@@ -2427,6 +2540,16 @@ function clearTestCreationState() {
 
 // Clear all test form fields to give teacher a clean slate
 function clearAllTestFormFields() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in clearAllTestFormFields, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 Clearing all test form fields...');
     
     // Clear multiple choice form fields
@@ -2474,6 +2597,16 @@ function clearAllTestFormFields() {
 
 // Save form data for the current test creation step
 function saveFormDataForStep(step) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in saveFormDataForStep, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 🔴 saveFormDataForStep called with step:', step);
     console.log('🔍 🔴 Call stack:', new Error().stack);
     
@@ -2628,6 +2761,16 @@ function saveFormDataForStep(step) {
 }
 // Restore form data for the current test creation step
 function restoreFormDataForStep(step) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in restoreFormDataForStep, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 🟢 restoreFormDataForStep called with step:', step);
     console.log('🔍 🟢 Call stack:', new Error().stack);
     
@@ -3040,6 +3183,17 @@ function restoreTestCreationState() {
 }
 // Show test form based on type
 function showTestForm(testType) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showTestForm, redirecting to login');
+        alert('Missing teacher session. Please sign in again.');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔍 showTestForm called with testType:', testType);
     
     // Ensure navigation buttons are disabled
@@ -3351,6 +3505,18 @@ function createMultipleChoiceQuestions(testName, numQuestions, numOptions, exist
 async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
     try {
         console.log('=== saveMultipleChoiceTest called ===');
+        
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found in saveMultipleChoiceTest, redirecting to login');
+            alert('Missing teacher session. Please sign in again.');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
+        
         console.log('Teacher ID:', currentUser.teacher_id);
         console.log('Test Name:', testName);
         console.log('Number of Questions:', numQuestions);
@@ -3448,14 +3614,8 @@ async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
             alert('Multiple choice test saved successfully!');
             console.log('Test saved with ID:', result.test_id);
             
-            // Clear local storage after successful test creation
+            // Clear ONLY test form data, NOT user session data
             clearTestLocalStorage();
-            
-            // Clear user session data to prevent interface confusion
-            clearUserSessionData();
-            
-            // Reset interface to prevent confusion
-            resetInterfaceAfterSessionClear();
             
             // Show test assignment interface with test type and ID
             showTestAssignment('multipleChoice', result.test_id);
@@ -3479,6 +3639,17 @@ async function saveTrueFalseTest(testName, numQuestions) {
         console.log('Number of Questions (original):', numQuestions, 'type:', typeof numQuestions);
         console.log('Number of Questions (converted):', numQuestionsInt, 'type:', typeof numQuestionsInt);
         console.log('Current User:', currentUser);
+        
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found in saveTrueFalseTest, redirecting to login');
+            alert('Missing teacher session. Please sign in again.');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
         
         const testData = {
             teacher_id: currentUser.teacher_id,
@@ -3525,13 +3696,7 @@ async function saveTrueFalseTest(testName, numQuestions) {
         if (result.success) {
             alert('True/False test saved successfully!');
             
-            // Clear local storage after successful test creation
-            clearTestLocalStorage();
-            
-            // Clear user session data to prevent interface confusion
-            clearUserSessionData();
-            
-            // Show test assignment interface with test type and ID
+            // Clear ONLY test form data, NOT user session data
             showTestAssignment('trueFalse', result.test_id);
         } else {
             alert('Error saving test: ' + result.message);
@@ -3550,6 +3715,17 @@ async function saveInputTest(testName, numQuestions) {
     saveFormDataForStep('inputForm');
     
     try {
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found in saveInputTest, redirecting to login');
+            alert('Missing teacher session. Please sign in again.');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
+        
         const testData = {
             teacher_id: currentUser.teacher_id,
             test_name: testName,
@@ -3640,16 +3816,7 @@ async function saveInputTest(testName, numQuestions) {
             console.log('🔍 Test saved successfully with ID:', result.test_id);
             alert('Input test saved successfully!');
             
-            // Clear local storage after successful test creation
-            clearTestLocalStorage();
-            
-            // Clear user session data to prevent interface confusion
-            clearUserSessionData();
-            
-            // Reset interface to prevent confusion
-            resetInterfaceAfterSessionClear();
-            
-            // Show test assignment interface with test type and ID
+            // Clear ONLY test form data, NOT user session data
             showTestAssignment('input', result.test_id);
         } else {
             console.error('🔍 Error from backend:', result.message);
@@ -4002,16 +4169,21 @@ function removeAnswerField(answerDiv) {
 
 // Show test assignment interface after test creation
 function showTestAssignment(testType, testId) {
-    console.log('🔍 showTestAssignment called for:', { testType, testId });
-    
     // Check if we're returning from a successful assignment
     if (window.testAssignmentCompleted) {
-        console.log('🔍 Test assignment already completed, not showing assignment interface again');
         window.testAssignmentCompleted = false; // Reset flag
         return;
     }
     
-    console.log('🔍 Proceeding with test assignment interface...');
+    // Check if user session is still valid before proceeding
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showTestAssignment, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
     
     // Ensure navigation buttons are disabled
     disableNavigationButtons();
@@ -4023,6 +4195,7 @@ function showTestAssignment(testType, testId) {
     document.getElementById('multipleChoiceForm').style.display = 'none';
     document.getElementById('trueFalseForm').style.display = 'none';
     document.getElementById('inputTestForm').style.display = 'none';
+    document.getElementById('matchingTestForm').style.display = 'none';
     
     // Hide active tests section
     document.getElementById('activeTestsSection').style.display = 'none';
@@ -4045,6 +4218,17 @@ function showTestAssignment(testType, testId) {
 async function loadTeacherGradesAndClasses(testType, testId) {
     try {
         console.log('Loading teacher grades and classes for test assignment');
+        
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found, redirecting to login');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
+        
         console.log('Teacher ID:', currentUser.teacher_id);
         
         const url = `/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`;
@@ -4082,6 +4266,16 @@ async function loadTeacherGradesAndClasses(testType, testId) {
 
 // Display test assignment options
 function displayTestAssignmentOptions(subjects, testType, testId) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayTestAssignmentOptions, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('displayTestAssignmentOptions called with:', { subjects, testType, testId });
     
     const container = document.getElementById('assignmentGradesContainer');
@@ -4192,6 +4386,18 @@ async function assignTestToClasses(testType, testId) {
     console.log('=== assignTestToClasses called ===');
     console.log('Test Type:', testType);
     console.log('Test ID:', testId);
+    
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in assignTestToClasses, redirecting to login');
+        alert('Missing teacher session. Please sign in again.');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('Teacher ID:', currentUser.teacher_id);
     
     const selectedGradesClasses = [];
@@ -4405,6 +4611,12 @@ function showTestCreationSuccessMessage() {
 // Refresh active tests data in background without displaying
 async function refreshActiveTestsData() {
     console.log('refreshActiveTestsData called - updating active tests data');
+    
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in refreshActiveTestsData, skipping refresh');
+        return;
+    }
     
     try {
         const url = `/.netlify/functions/get-teacher-active-tests?teacher_id=${currentUser.teacher_id}`;
@@ -4681,6 +4893,16 @@ function removeSubject(button) {
 
 // Show edit subjects button
 function showEditSubjectsButton() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showEditSubjectsButton, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const editSubjectsBtn = document.getElementById('editSubjectsBtn');
     if (editSubjectsBtn) {
         editSubjectsBtn.style.display = 'block';
@@ -4689,6 +4911,16 @@ function showEditSubjectsButton() {
 
 // Hide edit subjects button
 function hideEditSubjectsButton() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in hideEditSubjectsButton, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const editSubjectsBtn = document.getElementById('editSubjectsBtn');
     if (editSubjectsBtn) {
         editSubjectsBtn.style.display = 'none';
@@ -4696,6 +4928,16 @@ function hideEditSubjectsButton() {
 }
 // Initialize grade buttons functionality - only show grades where teacher has subjects
 async function initializeGradeButtons() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in initializeGradeButtons, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('Initializing grade buttons...');
     const gradeButtons = document.querySelectorAll('.grade-btn');
     console.log('Found grade buttons:', gradeButtons.length);
@@ -4762,6 +5004,16 @@ async function initializeGradeButtons() {
 
 // Show classes for selected grade - only show classes where teacher has subjects
 function showClassesForGrade(grade, assignments = null) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showClassesForGrade, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     // Check if we're in test creation mode
     if (window.isInTestCreation) {
         console.log('🔍 showClassesForGrade blocked - currently in test creation mode');
@@ -4870,6 +5122,16 @@ function showClassesForGrade(grade, assignments = null) {
 
 // Show semesters for selected class
 function showSemestersForClass(grade, classNum) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showSemestersForClass, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('showSemestersForClass called with:', { grade, classNum });
     
     const semesterButtons = document.getElementById('semesterButtons');
@@ -4924,6 +5186,16 @@ function showSemestersForClass(grade, classNum) {
 }
 // Determine and automatically open the current semester based on academic year
 async function determineAndOpenCurrentSemester(grade, classNum) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in determineAndOpenCurrentSemester, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('determineAndOpenCurrentSemester called with:', { grade, classNum });
     
     try {
@@ -5027,6 +5299,16 @@ async function determineAndOpenCurrentSemester(grade, classNum) {
 
 // Load class results for selected semester
 async function loadClassResults(grade, classNum, semester) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadClassResults, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('loadClassResults called with:', { grade, classNum, semester, teacher_id: currentUser.teacher_id });
     
     try {
@@ -5171,6 +5453,12 @@ function displayClassResults(results, grade, classNum, semester) {
 
 // Helper function to get current teacher ID from session
 function getCurrentTeacherId() {
+    // Use global currentUser variable first (more reliable)
+    if (currentUser && currentUser.teacher_id) {
+        return currentUser.teacher_id;
+    }
+    
+    // Fallback to localStorage if global variable is not available
     const session = localStorage.getItem('user_session');
     if (session) {
         try {
@@ -5582,6 +5870,16 @@ function displayStudentSubjects(subjects) {
 
 // Teacher cabinet functionality
 async function loadTeacherData() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadTeacherData, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
         const data = await response.json();
@@ -5600,6 +5898,16 @@ async function loadTeacherData() {
 }
 
 function showSubjectSelection() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showSubjectSelection, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const subjectSelection = document.getElementById('subject-selection-container');
     const mainCabinet = document.getElementById('main-cabinet-container');
     
@@ -5715,6 +6023,17 @@ async function saveTeacherSubjects() {
     }
     
     try {
+        // Check if user session is still valid
+        if (!currentUser || !currentUser.teacher_id) {
+            console.error('No valid teacher session found in saveTeacherSubjects, redirecting to login');
+            alert('Missing teacher session. Please sign in again.');
+            // Clear any invalid session data
+            clearLocalStorage();
+            // Redirect to login
+            showSection('login-section');
+            return;
+        }
+        
         console.log('Sending subjects to save:', selectedSubjects);
         const response = await fetch('/.netlify/functions/save-teacher-subjects', {
             method: 'POST',
@@ -5758,6 +6077,16 @@ async function saveTeacherSubjects() {
 }
 
 function showMainCabinet() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showMainCabinet, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const subjectSelection = document.getElementById('subject-selection-container');
     const mainCabinet = document.getElementById('main-cabinet-container');
     
@@ -5768,6 +6097,16 @@ function showMainCabinet() {
 }
 
 function displayGradeButtons() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayGradeButtons, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const gradesContainer = document.getElementById('gradesContainer');
     if (!gradesContainer) return;
     
@@ -5789,6 +6128,16 @@ function displayGradeButtons() {
 }
 
 function generateClassButtons(grade) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in generateClassButtons, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return '';
+    }
+    
     let classes;
     if (grade === 'M1' || grade === 'M2') {
         classes = ['1/15', '1/16'];
@@ -5814,6 +6163,16 @@ async function showClassResults(grade, className) {
         return;
     }
     
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showClassResults, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch(`/.netlify/functions/get-class-results?grade=${grade}&class=${className}&semester=1&teacher_id=${currentUser.teacher_id}`);
         const data = await response.json();
@@ -5827,6 +6186,16 @@ async function showClassResults(grade, className) {
 }
 
 function displayClassResultsAdmin(results, grade, className) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayClassResultsAdmin, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('displayClassResultsAdmin called with:', { results, grade, className });
     
     const resultsContainer = document.getElementById('resultsTables');
@@ -5890,6 +6259,16 @@ function displayClassResultsAdmin(results, grade, className) {
 
 // Admin panel functionality
 async function loadAdminData() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadAdminData, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     // Load initial admin data
     await loadAllTeachers();
     await loadAllSubjects();
@@ -5898,6 +6277,16 @@ async function loadAdminData() {
 }
 
 async function loadAllTeachers() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadAllTeachers, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch('/.netlify/functions/get-all-teachers');
         const data = await response.json();
@@ -5911,6 +6300,16 @@ async function loadAllTeachers() {
 }
 
 function displayAllTeachers(teachers) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayAllTeachers, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const container = document.getElementById('allTeachersContainer');
     if (!container) return;
     
@@ -5940,6 +6339,16 @@ function displayAllTeachers(teachers) {
 }
 
 async function loadAllSubjects() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadAllSubjects, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch('/.netlify/functions/get-all-subjects');
         const data = await response.json();
@@ -5953,6 +6362,16 @@ async function loadAllSubjects() {
 }
 
 function displayAllSubjects(subjects) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayAllSubjects, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const container = document.getElementById('allSubjectsContainer');
     if (!container) return;
     
@@ -5978,6 +6397,16 @@ function displayAllSubjects(subjects) {
 }
 
 async function loadAcademicYear() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadAcademicYear, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch('/.netlify/functions/get-academic-year');
         const data = await response.json();
@@ -5991,6 +6420,16 @@ async function loadAcademicYear() {
 }
 
 function displayAcademicYear(academicYears) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayAcademicYear, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const container = document.getElementById('academicYearContainer');
     if (!container) return;
     
@@ -6024,6 +6463,16 @@ function displayAcademicYear(academicYears) {
 }
 
 async function loadAllUsers() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadAllUsers, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         const response = await fetch('/.netlify/functions/get-all-users');
         const data = await response.json();
@@ -6037,6 +6486,16 @@ async function loadAllUsers() {
 }
 
 function displayAllUsers(users) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayAllUsers, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const container = document.getElementById('allUsersContainer');
     if (!container) return;
     
@@ -6053,7 +6512,7 @@ function displayAllUsers(users) {
                     <th>Name</th>
                     <th>Surname</th>
                     <th>Nickname</th>
-                </tr>
+                    </tr>
             </thead>
             <tbody>
                 ${users.map(user => `
@@ -6361,6 +6820,16 @@ function initializeActiveTests() {
 
 // Show active tests for teacher
 async function showActiveTests() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showActiveTests, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     try {
         // Check if we're in test creation mode
         if (window.isInTestCreation) {
@@ -6385,6 +6854,7 @@ async function showActiveTests() {
         document.getElementById('multipleChoiceForm').style.display = 'none';
         document.getElementById('trueFalseForm').style.display = 'none';
         document.getElementById('inputTestForm').style.display = 'none';
+        document.getElementById('matchingTestForm').style.display = 'none';
         document.getElementById('testAssignmentSection').style.display = 'none';
         
         // Show active tests section
@@ -6412,6 +6882,17 @@ async function showActiveTests() {
 // Load teacher's active tests
 async function loadTeacherActiveTests() {
     console.log('🔧 DEBUG: loadTeacherActiveTests called');
+    
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadTeacherActiveTests, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('🔧 DEBUG: Current user teacher_id:', currentUser.teacher_id);
     
     try {
@@ -6450,6 +6931,16 @@ async function loadTeacherActiveTests() {
 }
 // Display teacher's active tests
 function displayTeacherActiveTests(tests) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in displayTeacherActiveTests, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     const container = document.getElementById('activeTestsContainer');
     if (!container) return;
     
@@ -6512,6 +7003,16 @@ function displayTeacherActiveTests(tests) {
 
 // View teacher test details (questions and correct answers)
 async function viewTeacherTestDetails(testType, testId, testName) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in viewTeacherTestDetails, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('Viewing teacher test details:', { testType, testId, testName });
     
     try {
@@ -6532,6 +7033,16 @@ async function viewTeacherTestDetails(testType, testId, testName) {
 
 // Show teacher test details modal
 function showTeacherTestDetailsModal(testType, testId, testName, questions) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in showTeacherTestDetailsModal, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('showTeacherTestDetailsModal called with:', { testType, testId, testName, questions });
     
     // Create modal HTML
@@ -6599,6 +7110,16 @@ function showTeacherTestDetailsModal(testType, testId, testName, questions) {
 
 // Load test questions for teacher (without completion check)
 async function loadTeacherTestQuestions(testType, testId) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in loadTeacherTestQuestions, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('loadTeacherTestQuestions called with:', { testType, testId });
     
     try {
@@ -6632,6 +7153,16 @@ async function loadTeacherTestQuestions(testType, testId) {
 
 // Close teacher test details modal
 function closeTeacherTestDetailsModal() {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in closeTeacherTestDetailsModal, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('closeTeacherTestDetailsModal called');
     const modal = document.getElementById('teacherTestDetailsModal');
     if (modal) {
@@ -6647,6 +7178,16 @@ function closeTeacherTestDetailsModal() {
 
 // Remove individual class assignment
 async function removeClassAssignment(testType, testId, assignmentId, testName, grade, className) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in removeClassAssignment, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log('Remove class assignment called with:', { testType, testId, assignmentId, testName, grade, className });
     
     try {
@@ -6703,6 +7244,16 @@ Students in this class can no longer access this test.`);
 
 // Edit teacher function
 function editTeacher(teacherId) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in editTeacher, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     // Placeholder for editing teacher
     console.log('Edit teacher:', teacherId);
     alert('Edit teacher functionality - to be implemented');
@@ -6725,6 +7276,16 @@ function editTeacher(teacherId) {
 
 // Mark test as completed in the UI without page reload
 function markTestCompletedInUI(testType, testId) {
+    // Check if user session is still valid
+    if (!currentUser || !currentUser.teacher_id) {
+        console.error('No valid teacher session found in markTestCompletedInUI, redirecting to login');
+        // Clear any invalid session data
+        clearLocalStorage();
+        // Redirect to login
+        showSection('login-section');
+        return;
+    }
+    
     console.log(`🎯 Marking test ${testType}_${testId} as completed in UI...`);
     
     // Find the test item in the active tests section
