@@ -10,11 +10,23 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeGSAPAnimations() {
     console.log('🎨 Initializing GSAP animations...');
     
-    // Set default GSAP settings
-    gsap.set('.section', { 
-        opacity: 0, 
-        y: 30,
-        scale: 0.95
+    // Set default GSAP settings for non-active sections only
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => {
+        if (!section.classList.contains('active')) {
+            gsap.set(section, { 
+                opacity: 0, 
+                y: 30,
+                scale: 0.95
+            });
+        } else {
+            // Ensure active sections are visible
+            gsap.set(section, { 
+                opacity: 1, 
+                y: 0,
+                scale: 1
+            });
+        }
     });
     
     // Animate sections when they become active
@@ -31,6 +43,21 @@ function initializeGSAPAnimations() {
     
     // Initialize card animations
     initializeCardAnimations();
+    
+    // Ensure login section is properly visible if it's active
+    const loginSection = document.querySelector('#login-section.active');
+    if (loginSection) {
+        gsap.set(loginSection, { 
+            opacity: 1, 
+            y: 0, 
+            scale: 1 
+        });
+        // Ensure all buttons in login section are visible
+        const buttons = loginSection.querySelectorAll('.btn');
+        buttons.forEach(button => {
+            gsap.set(button, { opacity: 1 });
+        });
+    }
     
     console.log('✅ GSAP animations initialized');
 }
@@ -66,7 +93,14 @@ function animateSectionIn(section) {
             y: 0,
             scale: 1,
             duration: 0.6,
-            ease: "power2.out"
+            ease: "power2.out",
+            onComplete: () => {
+                // Ensure all buttons in the section are visible
+                const buttons = section.querySelectorAll('.btn');
+                buttons.forEach(button => {
+                    gsap.set(button, { opacity: 1 });
+                });
+            }
         });
 }
 

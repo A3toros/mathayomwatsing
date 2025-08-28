@@ -126,6 +126,12 @@ body {
   display: flex !important;
 }
 
+/* Ensure login button is always visible when login section is active */
+#login-section.active .btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 /* Hide login section completely when not active */
 #login-section:not(.active) {
   display: none !important;

@@ -39,6 +39,20 @@ exports.handler = async function(event, context) {
       questions_count: questions ? questions.length : 0
     });
 
+    // Debug: Log questions structure for arrows
+    if (questions && questions.length > 0) {
+      console.log('🔍 Questions structure for arrow debugging:');
+      questions.forEach((q, index) => {
+        console.log(`  Question ${index + 1}:`, {
+          question_id: q.question_id,
+          word: q.word,
+          has_arrow: q.has_arrow,
+          arrow: q.arrow,
+          block_coordinates: q.block_coordinates
+        });
+      });
+    }
+
     if (!teacher_id || !test_name || !image_url || !num_blocks || !questions || !Array.isArray(questions)) {
       return {
         statusCode: 400,
@@ -115,21 +129,38 @@ exports.handler = async function(event, context) {
         
         // Insert arrow if it exists
         if (question.arrow && question.has_arrow) {
-          console.log(`Inserting arrow for question ${i + 1}:`, question.arrow);
-          await sql`
-            INSERT INTO matching_type_test_arrows (
-              question_id, start_x, start_y, end_x, end_y, arrow_style
-            )
-            VALUES (
-              ${questionId}, 
-              ${question.arrow.start_x}, 
-              ${question.arrow.start_y}, 
-              ${question.arrow.end_x}, 
-              ${question.arrow.end_y}, 
-              ${JSON.stringify(question.arrow.style || {})}
-            )
-          `;
-          console.log(`Arrow for question ${i + 1} inserted successfully`);
+          console.log(`➡️ Inserting arrow for question ${i + 1}:`, question.arrow);
+          console.log(`➡️ Arrow data:`, {
+            questionId,
+            start_x: question.arrow.start_x,
+            start_y: question.arrow.start_y,
+            end_x: question.arrow.end_x,
+            end_y: question.arrow.end_y,
+            style: question.arrow.style
+          });
+          
+          try {
+            await sql`
+              INSERT INTO matching_type_test_arrows (
+                question_id, start_x, start_y, end_x, end_y, arrow_style
+              )
+              VALUES (
+                ${questionId}, 
+                ${question.arrow.start_x}, 
+                ${question.arrow.start_y}, 
+                ${question.arrow.end_x}, 
+                ${question.arrow.end_y}, 
+                ${JSON.stringify(question.arrow.style || {})}
+              )
+            `;
+            console.log(`✅ Arrow for question ${i + 1} inserted successfully`);
+          } catch (arrowError) {
+            console.error(`❌ Failed to insert arrow for question ${i + 1}:`, arrowError);
+            console.error(`❌ Arrow data that failed:`, question.arrow);
+            // Continue with other questions instead of failing the entire test
+          }
+        } else {
+          console.log(`ℹ️ No arrow for question ${i + 1} (has_arrow: ${question.has_arrow})`);
         }
       }
       console.log('All questions and arrows inserted successfully');

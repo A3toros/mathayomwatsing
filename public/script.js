@@ -57,6 +57,8 @@
 
 
 
+
+
 // School Testing System - Main JavaScript File
 
 // Global function availability check
@@ -1682,26 +1684,11 @@ function collectTestAnswers(testType, testId) {
     const answers = {};
     
     if (testType === 'matching_type') {
-        console.log('[DEBUG] Collecting answers for matching type test');
-        // For matching tests, collect word placements from the current state
-        if (window.matchingTestData && window.matchingTestData.questions) {
-            window.matchingTestData.questions.forEach(question => {
-                const questionId = question.question_id;
-                const wordItem = document.querySelector(`[data-question-id="${questionId}"]`);
-                if (wordItem && wordItem.classList.contains('matched')) {
-                    answers[questionId] = question.word;
-                    console.log(`[DEBUG] Collected matching: question ${questionId} = ${question.word}`);
-                }
-            });
-        } else {
-            // Fallback to localStorage counting
-            const matchings = Object.keys(localStorage).filter(key => key.startsWith('matching_'));
-            matchings.forEach(key => {
-                const questionId = key.replace('matching_', '');
-                answers[questionId] = 'matched';
-                console.log(`[DEBUG] Fallback: Collected matching from localStorage: question ${questionId}`);
-            });
-        }
+        console.log('[DEBUG] Collecting answers for matching type test - REDIRECTED TO DEDICATED PAGE');
+        // Matching type tests now redirect to matching-test-student.html
+        // This function should not be called for matching type tests in the main app
+        console.warn('[WARN] collectTestAnswers called for matching_type - this should not happen');
+        return {};
     } else {
         console.log('[DEBUG] Collecting answers for standard test types');
         // For other test types, collect form inputs
@@ -8803,79 +8790,19 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Initialize drag and drop functionality for matching tests
-function initializeMatchingTestDragAndDrop() {
-    const wordItems = document.querySelectorAll('.word-item');
-    const dropZones = document.querySelectorAll('.drop-zone');
-    
-    wordItems.forEach(wordItem => {
-        wordItem.addEventListener('dragstart', handleDragStart);
-        wordItem.addEventListener('dragend', handleDragEnd);
-    });
-    
-    dropZones.forEach(dropZone => {
-        dropZone.addEventListener('dragover', handleDragOver);
-        dropZone.addEventListener('drop', handleDrop);
-        dropZone.addEventListener('dragenter', handleDragEnter);
-        dropZone.addEventListener('dragleave', handleDragLeave);
-    });
-}
 
-function handleDragStart(e) {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', e.target.dataset.word);
-    e.dataTransfer.setData('question-id', e.target.dataset.questionId);
-}
 
-function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-}
 
-function handleDragOver(e) {
-    e.preventDefault();
-}
 
-function handleDragEnter(e) {
-    e.preventDefault();
-    e.target.classList.add('drag-over');
-}
 
-function handleDragLeave(e) {
-    e.target.classList.remove('drag-over');
-}
 
-function handleDrop(e) {
-    e.preventDefault();
-    e.target.classList.remove('drag-over');
-    
-    const word = e.dataTransfer.getData('text/plain');
-    const questionId = e.dataTransfer.getData('question-id');
-    
-    // Check if this drop zone belongs to the same question
-    if (e.target.dataset.questionId === questionId) {
-        // Place the word in the drop zone
-        e.target.innerHTML = word;
-        e.target.classList.add('filled');
-        
-        // Mark the word as placed
-        const wordItem = document.querySelector(`[data-word="${word}"][data-question-id="${questionId}"]`);
-        if (wordItem) {
-            wordItem.classList.add('placed');
-            wordItem.draggable = false;
-        }
-        
-        // Save progress
-        saveTestProgress('matching_type', getCurrentTestId(), questionId, {
-            word: word,
-            position: {
-                x: e.target.offsetLeft,
-                y: e.target.offsetTop
-            }
-        });
-        
 
-    }
-}
+
+
+
+
+
+
 
 // Helper function to get current test ID
 function getCurrentTestId() {
@@ -9056,6 +8983,12 @@ async function loadTestForPage(testType, testId) {
             testId: testId
         });
     } catch (error) {
+        // Check if this is an intentional redirection error
+        if (error.message === 'Redirection initiated - should not continue') {
+            console.log('[DEBUG] Redirection completed successfully - this is expected behavior');
+            return; // Exit gracefully without showing error
+        }
+        
         console.error('[ERROR] Failed to load test for page:', error);
         alert('Failed to load test: ' + error.message);
     }
@@ -9064,6 +8997,40 @@ async function loadTestForPage(testType, testId) {
 // Display test on the test page
 function displayTestOnPage(testInfo, questions, testType, testId) {
     console.log(`[DEBUG] displayTestOnPage called with:`, { testInfo, questions, testType, testId });
+    
+    // Special handling for matching type tests - redirect to dedicated page
+    if (testType === 'matching_type') {
+        console.log('[DEBUG] Matching type test detected, redirecting to dedicated page');
+        const studentId = getCurrentStudentId();
+        console.log('[DEBUG] Student ID for redirection:', studentId);
+        
+        if (!studentId) {
+            console.error('[ERROR] No student ID found, cannot redirect');
+            alert('Error: Student ID not found. Please log in again.');
+            return;
+        }
+        
+        const redirectUrl = `matching-test-student.html?test_id=${testId}&student_id=${studentId}`;
+        console.log('[DEBUG] Redirect URL:', redirectUrl);
+        console.log('[DEBUG] About to redirect...');
+        
+        // Force immediate redirection
+        try {
+            console.log('[DEBUG] Attempting redirection with replace()...');
+            window.location.replace(redirectUrl);
+            console.log('[DEBUG] Redirection initiated with replace()');
+        } catch (error) {
+            console.error('[ERROR] Redirection failed:', error);
+            // Fallback to href
+            console.log('[DEBUG] Fallback to href redirection...');
+            window.location.href = redirectUrl;
+            console.log('[DEBUG] Fallback redirection with href');
+        }
+        
+        // Prevent any further execution
+        console.log('[DEBUG] Redirection complete, preventing further execution');
+        throw new Error('Redirection initiated - should not continue');
+    }
     
     const testPageSection = document.getElementById('test-page');
     if (!testPageSection) {
@@ -9206,10 +9173,7 @@ function renderQuestionsForPage(questions, testType, testId) {
                 renderedHtml = renderInputQuestionsForPage([question], testId);
                 console.log(`[DEBUG] Input HTML for question ${index + 1}:`, renderedHtml);
                 break;
-            case 'matching-type':
-                renderedHtml = renderMatchingTypeQuestionsForPage([question], testId);
-                console.log(`[DEBUG] Matching type HTML for question ${index + 1}:`, renderedHtml);
-                break;
+
             default:
                 console.warn(`[WARN] Unknown test type: ${testType}`);
                 renderedHtml = `<p>Unknown question type: ${testType}</p>`;
@@ -9359,32 +9323,7 @@ function renderInputQuestionsForPage(questions, testId) {
 }
 
 // Render matching type questions for page
-function renderMatchingTypeQuestionsForPage(questions, testId) {
-    console.log(`[DEBUG] renderMatchingTypeQuestionsForPage called with ${questions.length} questions, testId: ${testId}`);
-    let html = '';
-    
-    questions.forEach((question, index) => {
-        console.log(`[DEBUG] Rendering matching type question ${index + 1}:`, question);
-        const questionId = question.question_id || index;
-        const savedAnswer = getTestProgress('matching_type', testId, questionId);
-        
-        html += `
-            <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-                <h4>Question ${index + 1}</h4>
-                <p class="question-text">${question.question}</p>
-                <div class="input-question">
-                    <input type="text" 
-                           id="input_${questionId}" 
-                           placeholder="Enter your answer" 
-                           value="${savedAnswer || ''}"
-                           data-question-id="${questionId}">
-                </div>
-            </div>
-        `;
-    });
-    
-    return html;
-}
+
 
 // Set up event listeners for the test page
 function setupTestPageEventListeners(testType, testId, studentId) {
@@ -9413,11 +9352,9 @@ function setupTestPageEventListeners(testType, testId, studentId) {
                 updateSubmitButtonStateForPage();
             });
         });
-    } else if (testType === 'matching-type') {
-        // Setup drag and drop for matching questions
-        // Set up drag and drop for matching questions
-        setupMatchingDragAndDrop(testId);
-        console.log('[DEBUG] Matching drag and drop setup completed');
+    } else if (testType === 'matching_type') {
+        // Matching type tests now redirect to dedicated page
+        console.log('[DEBUG] Matching type test - redirected to dedicated page');
     }
     
     console.log('[DEBUG] Test page event listeners setup completed');
@@ -9853,18 +9790,10 @@ function getAnsweredQuestionsCountForPage(testType) {
         });
         answeredCount = answeredQuestionIds.size;
         console.log(`[DEBUG] Found ${answeredCount} answered input questions (unique question IDs: ${Array.from(answeredQuestionIds)})`);
-    } else if (testType === 'matching-type') {
-        // Count completed matchings for matching type tests
-        if (window.matchingTestData && window.matchingTestData.questions) {
-            const matchedCount = document.querySelectorAll('.word-item.matched').length;
-            answeredCount = matchedCount;
-            console.log(`[DEBUG] Found ${answeredCount} completed matchings for matching type test`);
-        } else {
-            // Fallback to localStorage counting
-            const matchings = Object.keys(localStorage).filter(key => key.startsWith('matching_'));
-            answeredCount = matchings.length;
-            console.log(`[DEBUG] Fallback: Found ${answeredCount} completed matchings from localStorage`);
-        }
+    } else if (testType === 'matching_type') {
+        // This should never be reached - matching type tests redirect to dedicated page
+        console.error('[ERROR] getAnsweredQuestionsCountForPage called for matching_type - this should not happen!');
+        throw new Error('Matching type tests are handled by dedicated page, not main application');
     }
     
     console.log(`[DEBUG] Total answered questions: ${answeredCount}`);
@@ -9885,8 +9814,9 @@ function getCurrentTestType() {
             console.log('[DEBUG] Detected test type: input');
             return 'input';
         } else if (document.querySelector('.matching-container')) {
-            console.log('[DEBUG] Detected test type: matching-type');
-            return 'matching-type';
+            // This should never be reached - matching type tests redirect to dedicated page
+            console.error('[ERROR] getCurrentTestType detected matching_type - this should not happen!');
+            throw new Error('Matching type tests are handled by dedicated page, not main application');
         }
     }
     
@@ -9928,404 +9858,21 @@ function saveProgressForPage(testType, testId) {
     }
 }
 
-// Initialize matching test with Konva.js
-async function initializeMatchingTest(testId) {
-    console.log(`[DEBUG] initializeMatchingTest called for testId: ${testId}`);
-    
-    try {
-        // Load Konva.js if not already available
-        await ensureKonvaLoaded();
-        
-        // Get test data
-        const testResponse = await fetch(`/.netlify/functions/get-test-questions?test_type=matching_type&test_id=${testId}`);
-        const testData = await testResponse.json();
-        
-        if (!testData.success) {
-            throw new Error('Failed to load test data');
-        }
-        
-        const testInfo = testData.test_info;
-        const questions = testData.questions;
-        
-        console.log('[DEBUG] Test data loaded:', { testInfo, questions });
-        
-        // Initialize Konva canvas
-        const canvasContainer = document.getElementById(`matchingCanvas_${testId}`);
-        if (!canvasContainer) {
-            throw new Error('Canvas container not found');
-        }
-        
-        // Create Konva stage
-        const stage = new Konva.Stage({
-            container: canvasContainer,
-            width: 800,
-            height: 600
-        });
-        
-        // Create layers
-        const backgroundLayer = new Konva.Layer();
-        const imageLayer = new Konva.Layer();
-        const blocksLayer = new Konva.Layer();
-        const arrowsLayer = new Konva.Layer();
-        const wordsLayer = new Konva.Layer();
-        
-        stage.add(backgroundLayer);
-        stage.add(imageLayer);
-        stage.add(blocksLayer);
-        stage.add(arrowsLayer);
-        stage.add(wordsLayer);
-        
-        // Load and display the test image
-        if (testInfo.image_url) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            
-            img.onload = () => {
-                // Calculate scale to fit canvas
-                const scale = Math.min(700 / img.width, 500 / img.height);
-                const scaledWidth = img.width * scale;
-                const scaledHeight = img.height * scale;
-                
-                // Center image
-                const x = (800 - scaledWidth) / 2;
-                const y = (600 - scaledHeight) / 2;
-                
-                const konvaImage = new Konva.Image({
-                    x: x,
-                    y: y,
-                    image: img,
-                    width: scaledWidth,
-                    height: scaledHeight
-                });
-                
-                imageLayer.add(konvaImage);
-                
-                // Store image info for block positioning
-                window.matchingTestData = {
-                    testId,
-                    imageInfo: { x, y, width: scaledWidth, height: scaledHeight, scale },
-                    questions,
-                    stage,
-                    blocksLayer,
-                    arrowsLayer,
-                    wordsLayer
-                };
-                
-                // Render blocks and arrows
-                renderMatchingBlocksAndArrows(questions, x, y, scale);
-                
-                // Render draggable words
-                renderDraggableWords(questions, testId);
-                
-                stage.batchDraw();
-            };
-            
-            img.src = testInfo.image_url;
-        }
-        
-        // Store stage reference
-        window.matchingTestStage = stage;
-        
-    } catch (error) {
-        console.error('[ERROR] Failed to initialize matching test:', error);
-        alert('Failed to load matching test: ' + error.message);
-    }
-}
 
-// Render blocks and arrows on the canvas
-function renderMatchingBlocksAndArrows(questions, imageX, imageY, imageScale) {
-    console.log('[DEBUG] renderMatchingBlocksAndArrows called');
-    
-    const { stage, blocksLayer, arrowsLayer } = window.matchingTestData;
-    
-    questions.forEach((question, index) => {
-        // Render block
-        const blockCoords = question.block_coordinates;
-        const blockX = imageX + (blockCoords.x * imageScale);
-        const blockY = imageY + (blockCoords.y * imageScale);
-        const blockWidth = blockCoords.width * imageScale;
-        const blockHeight = blockCoords.height * imageScale;
-        
-        const block = new Konva.Rect({
-            x: blockX,
-            y: blockY,
-            width: blockWidth,
-            height: blockHeight,
-            fill: 'rgba(0, 123, 255, 0.1)',
-            stroke: '#007bff',
-            strokeWidth: 2,
-            cornerRadius: 4,
-            id: `block_${question.question_id}`,
-            data: { questionId: question.question_id, type: 'block' }
-        });
-        
-        // Add block number
-        const blockNumber = new Konva.Text({
-            x: blockX + 5,
-            y: blockY + 5,
-            text: (index + 1).toString(),
-            fontSize: 16,
-            fontFamily: 'Arial',
-            fill: '#007bff',
-            fontWeight: 'bold'
-        });
-        
-        blocksLayer.add(block);
-        blocksLayer.add(blockNumber);
-        
-        // Render arrow if exists
-        if (question.has_arrow && question.arrow) {
-            const arrowStartX = imageX + (question.arrow.start_x * imageScale);
-            const arrowStartY = imageY + (question.arrow.start_y * imageScale);
-            const arrowEndX = imageX + (question.arrow.end_x * imageScale);
-            const arrowEndY = imageY + (question.arrow.end_y * imageScale);
-            
-            const arrow = new Konva.Arrow({
-                points: [arrowStartX, arrowStartY, arrowEndX, arrowEndY],
-                pointerLength: 10,
-                pointerWidth: 10,
-                fill: '#dc3545',
-                stroke: '#dc3545',
-                strokeWidth: 3,
-                id: `arrow_${question.question_id}`,
-                data: { questionId: question.question_id, type: 'arrow' }
-            });
-            
-            arrowsLayer.add(arrow);
-        }
-    });
-    
-    stage.batchDraw();
-}
 
-// Render draggable words below the canvas
-function renderDraggableWords(questions, testId) {
-    console.log('[DEBUG] renderDraggableWords called');
-    
-    const wordsGrid = document.getElementById(`wordsGrid_${testId}`);
-    if (!wordsGrid) {
-        console.error('[ERROR] Words grid not found');
-        return;
-    }
-    
-    wordsGrid.innerHTML = '';
-    
-    questions.forEach((question, index) => {
-        const wordItem = document.createElement('div');
-        wordItem.className = 'word-item';
-        wordItem.draggable = true;
-        wordItem.dataset.questionId = question.question_id;
-        wordItem.dataset.word = question.word;
-        wordItem.textContent = question.word;
-        
-        // Add drag events
-        wordItem.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', JSON.stringify({
-                questionId: question.question_id,
-                word: question.word
-            }));
-            wordItem.classList.add('dragging');
-        });
-        
-        wordItem.addEventListener('dragend', () => {
-            wordItem.classList.remove('dragging');
-        });
-        
-        wordsGrid.appendChild(wordItem);
-    });
-    
-    // Add drop zones on blocks
-    const { stage, blocksLayer } = window.matchingTestData;
-    
-    blocksLayer.getChildren().forEach(shape => {
-        if (shape.data && shape.data.type === 'block') {
-            // Create invisible drop zone
-            const dropZone = new Konva.Rect({
-                x: shape.x(),
-                y: shape.y(),
-                width: shape.width(),
-                height: shape.height(),
-                fill: 'transparent',
-                listening: true,
-                data: { questionId: shape.data.questionId, type: 'dropZone' }
-            });
-            
-            dropZone.on('dragenter', () => {
-                shape.stroke('#28a745');
-                shape.strokeWidth(3);
-                stage.batchDraw();
-            });
-            
-            dropZone.on('dragleave', () => {
-                shape.stroke('#007bff');
-                shape.strokeWidth(2);
-                stage.batchDraw();
-            });
-            
-            dropZone.on('drop', (e) => {
-                const dropData = JSON.parse(e.evt.dataTransfer.getData('text/plain'));
-                handleWordDrop(dropData, shape.data.questionId);
-            });
-            
-            blocksLayer.add(dropZone);
-        }
-    });
-    
-    stage.batchDraw();
-}
 
-// Handle word drop on block
-function handleWordDrop(dropData, blockQuestionId) {
-    console.log('[DEBUG] handleWordDrop called:', { dropData, blockQuestionId });
-    
-    if (dropData.questionId === blockQuestionId) {
-        // Correct match
-        const wordItem = document.querySelector(`[data-question-id="${dropData.questionId}"]`);
-        if (wordItem) {
-            wordItem.classList.add('matched');
-            wordItem.draggable = false;
-            wordItem.style.cursor = 'default';
-        }
-        
-        // Store match in localStorage
-        localStorage.setItem(`matching_${dropData.questionId}`, 'true');
-        
-        // Update progress
-        updateMatchingProgress();
-        
-        // Check if all words are matched
-        checkMatchingCompletion();
-        
-        console.log('[DEBUG] Word matched successfully');
-    } else {
-        // Incorrect match - return word to original position
-        console.log('[DEBUG] Incorrect match, word returned');
-    }
-}
 
-// Update matching progress display
-function updateMatchingProgress() {
-    const progressText = document.querySelector('.progress-text');
-    if (!progressText) return;
-    
-    const totalQuestions = window.matchingTestData.questions.length;
-    const matchedCount = document.querySelectorAll('.word-item.matched').length;
-    
-    progressText.textContent = `${matchedCount} / ${totalQuestions} words matched`;
-    
-    // Update submit button state
-    const submitBtn = document.querySelector('.submit-matching-btn');
-    if (submitBtn) {
-        submitBtn.disabled = matchedCount < totalQuestions;
-    }
-}
 
-// Check if all words are matched
-function checkMatchingCompletion() {
-    const totalQuestions = window.matchingTestData.questions.length;
-    const matchedCount = document.querySelectorAll('.word-item.matched').length;
-    
-    if (matchedCount === totalQuestions) {
-        console.log('[DEBUG] All words matched!');
-        
-        // Enable submit button
-        const submitBtn = document.querySelector('.submit-matching-btn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.addEventListener('click', () => {
-                submitMatchingTest();
-            });
-        }
-    }
-}
 
-// Submit matching test
-async function submitMatchingTest() {
-    console.log('[DEBUG] submitMatchingTest called');
-    
-    try {
-        const { testId, questions } = window.matchingTestData;
-        
-        // Collect answers (all matched words)
-        const answers = {};
-        questions.forEach(question => {
-            answers[question.question_id] = question.word;
-        });
-        
-        // Get student info
-        const sessionData = JSON.parse(localStorage.getItem('user_session'));
-        if (!sessionData || !sessionData.user) {
-            throw new Error('User session not found');
-        }
-        
-        const student = sessionData.user;
-        
-        // Calculate score (all correct for matching tests)
-        const score = questions.length;
-        const maxScore = questions.length;
-        
-        // Prepare submission data
-        const submissionData = {
-            test_id: testId,
-            test_name: `Matching Test ${testId}`,
-            studentId: student.student_id,
-            grade: student.grade,
-            class: student.class,
-            number: student.number,
-            name: student.name,
-            surname: student.surname,
-            nickname: student.nickname,
-            score: score,
-            maxScore: maxScore,
-            answers: answers
-        };
-        
-        // Submit to backend
-        const response = await fetch('/.netlify/functions/submit-matching-type-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submissionData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('Test submitted successfully!');
-            // Navigate to results or back to cabinet
-            window.location.reload();
-        } else {
-            throw new Error(result.message || 'Failed to submit test');
-        }
-        
-    } catch (error) {
-        console.error('[ERROR] Failed to submit matching test:', error);
-        alert('Failed to submit test: ' + error.message);
-    }
-}
 
-// Ensure Konva.js is loaded
-function ensureKonvaLoaded() {
-    return new Promise((resolve, reject) => {
-        if (typeof Konva !== 'undefined') {
-            resolve();
-            return;
-        }
-        
-        // Load Konva.js from CDN
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/konva@9/konva.min.js';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Konva.js'));
-        document.head.appendChild(script);
-    });
-}
 
-function setupMatchingDragAndDrop(testId) {
-    console.log(`[DEBUG] setupMatchingDragAndDrop called for testId: ${testId}`);
-    
-    // Initialize the matching test
-    initializeMatchingTest(testId);
-}
+
+
+
+
+
+
+
 
 function calculateTestScore(questions, answers, testType) {
     console.log(`[DEBUG] calculateTestScore called with ${questions.length} questions, testType: ${testType}`);
@@ -10388,16 +9935,7 @@ function checkAnswerCorrectness(question, studentAnswer, testType) {
                 isCorrect = studentAnswer.toLowerCase().trim() === question.correct_answer.toLowerCase().trim();
             }
             break;
-        case 'matching-type':
-            // For matching tests, check if the word was correctly matched to the block
-            // The student answer should be the word that was matched
-            if (question.word && studentAnswer) {
-                isCorrect = question.word.toLowerCase().trim() === studentAnswer.toLowerCase().trim();
-            } else {
-                // If no word or answer, consider it incorrect
-                isCorrect = false;
-            }
-            break;
+            
         default:
             console.warn(`[WARN] Unknown test type for answer checking: ${testType}`);
             isCorrect = false;
@@ -10429,9 +9967,7 @@ function getCorrectAnswer(question, testType) {
                 correctAnswer = question.correct_answer || 'Unknown'; // Fix: use correct_answer
             }
             break;
-        case 'matching-type':
-            correctAnswer = question.word || 'Word to match';
-            break;
+
         default:
             correctAnswer = 'Unknown';
     }

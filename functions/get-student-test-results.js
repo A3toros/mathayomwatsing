@@ -255,6 +255,69 @@ exports.handler = async function(event, context) {
       });
     });
 
+    // Matching type test results
+    let matchingQuery;
+    if (currentPeriodId) {
+      matchingQuery = sql`
+        SELECT 
+          mttr.id,
+          mttr.test_name,
+          mttr.score,
+          mttr.max_score,
+          mttr.created_at as submitted_at,
+          'matching_type' as test_type,
+          ay.academic_year,
+          ay.semester,
+          ay.term,
+          COALESCE(s.subject, 'Unknown Subject') as subject,
+          'System' as teacher_name
+        FROM matching_type_test_results mttr
+        LEFT JOIN academic_year ay ON mttr.academic_period_id = ay.id
+        LEFT JOIN matching_type_tests mtt ON mttr.test_id = mtt.id
+        LEFT JOIN test_assignments ta ON ta.test_type = 'matching_type' AND ta.test_id = mttr.test_id
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        WHERE mttr.student_id = ${student_id}
+          AND mttr.academic_period_id = ${currentPeriodId}
+        ORDER BY ay.semester, ay.term, mttr.created_at DESC
+      `;
+    } else {
+      matchingQuery = sql`
+        SELECT 
+          mttr.id,
+          mttr.test_name,
+          mttr.score,
+          mttr.max_score,
+          mttr.created_at as submitted_at,
+          'matching_type' as test_type,
+          ay.academic_year,
+          ay.semester,
+          ay.term,
+          COALESCE(s.subject, 'Unknown Subject') as subject,
+          'System' as teacher_name
+        FROM matching_type_test_results mttr
+        LEFT JOIN academic_year ay ON mttr.academic_period_id = ay.id
+        LEFT JOIN matching_type_tests mtt ON mttr.test_id = mtt.id
+        LEFT JOIN test_assignments ta ON ta.test_type = 'matching_type' AND ta.test_id = mttr.test_id
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        WHERE mttr.student_id = ${student_id}
+        ORDER BY ay.semester, ay.term, mttr.created_at DESC
+      `;
+    }
+    
+    const matchingResults = await matchingQuery;
+    
+    console.log('Matching type results found:', matchingResults.length);
+    if (matchingResults.length > 0) {
+      console.log('Sample matching result:', matchingResults[0]);
+    }
+    
+    matchingResults.forEach(result => {
+      results.push({
+        ...result,
+        score_percentage: Math.round((result.score / result.max_score) * 100)
+      });
+    });
+
     console.log('Found results:', results.length);
     
     // Comprehensive debugging information
@@ -283,18 +346,25 @@ exports.handler = async function(event, context) {
           raw_count: inputResults.length,
           sample_data: inputResults.length > 0 ? inputResults[0] : null,
           query_details: 'LEFT JOIN with academic_year, input_tests, teachers, test_assignments, subjects'
+        },
+        matching_type: {
+          raw_count: matchingResults.length,
+          sample_data: matchingResults.length > 0 ? matchingResults[0] : null,
+          query_details: 'LEFT JOIN with academic_year, matching_type_tests, test_assignments, subjects'
         }
       },
       database_state: {
         total_results_per_table: {
           multiple_choice: (await sql`SELECT COUNT(*) as count FROM multiple_choice_test_results`)[0].count,
           true_false: (await sql`SELECT COUNT(*) as count FROM true_false_test_results`)[0].count,
-          input: (await sql`SELECT COUNT(*) as count FROM input_test_results`)[0].count
+          input: (await sql`SELECT COUNT(*) as count FROM input_test_results`)[0].count,
+          matching_type: (await sql`SELECT COUNT(*) as count FROM matching_type_test_results`)[0].count
         },
         results_for_this_student: {
           multiple_choice: (await sql`SELECT COUNT(*) as count FROM multiple_choice_test_results WHERE student_id = ${student_id}`)[0].count,
           true_false: (await sql`SELECT COUNT(*) as count FROM true_false_test_results WHERE student_id = ${student_id}`)[0].count,
-          input: (await sql`SELECT COUNT(*) as count FROM input_test_results WHERE student_id = ${student_id}`)[0].count
+          input: (await sql`SELECT COUNT(*) as count FROM input_test_results WHERE student_id = ${student_id}`)[0].count,
+          matching_type: (await sql`SELECT COUNT(*) as count FROM matching_type_test_results WHERE student_id = ${student_id}`)[0].count
         }
       },
       subject_handling: {

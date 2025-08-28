@@ -108,6 +108,29 @@ exports.handler = async function(event, context) {
       WHERE it.teacher_id = ${teacher_id}
       GROUP BY it.id, it.test_name, it.num_questions, it.created_at
       
+      UNION ALL
+      
+      SELECT 
+        'matching_type' as test_type,
+        mtt.id as test_id,
+        mtt.test_name,
+        mtt.num_blocks as num_questions,
+        mtt.created_at,
+        COUNT(ta.id) as assignment_count,
+        ARRAY_AGG(
+          JSON_BUILD_OBJECT(
+            'assignment_id', ta.id,
+            'grade', ta.grade,
+            'class', ta.class,
+            'assigned_at', ta.assigned_at,
+            'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '30 days') - CURRENT_TIMESTAMP)
+          )
+        ) FILTER (WHERE ta.id IS NOT NULL) as assignments
+      FROM matching_type_tests mtt
+      INNER JOIN test_assignments ta ON mtt.id = ta.test_id AND ta.test_type = 'matching_type'
+      WHERE mtt.teacher_id = ${teacher_id}
+      GROUP BY mtt.id, mtt.test_name, mtt.num_blocks, mtt.created_at
+      
       ORDER BY created_at DESC
     `;
 
@@ -117,8 +140,8 @@ exports.handler = async function(event, context) {
         teacher_id: teacher_id
       },
       query_execution: {
-        query_type: 'UNION ALL of 3 test types with INNER JOIN test_assignments',
-        test_types: ['multiple_choice', 'true_false', 'input'],
+        query_type: 'UNION ALL of 4 test types with INNER JOIN test_assignments',
+        test_types: ['multiple_choice', 'true_false', 'input', 'matching_type'],
         join_strategy: 'INNER JOIN ensures only tests with assignments are returned'
       },
       results_analysis: {
@@ -126,7 +149,8 @@ exports.handler = async function(event, context) {
         test_type_breakdown: {
           multiple_choice: activeTests.filter(t => t.test_type === 'multiple_choice').length,
           true_false: activeTests.filter(t => t.test_type === 'true_false').length,
-          input: activeTests.filter(t => t.test_type === 'input').length
+          input: activeTests.filter(t => t.test_type === 'input').length,
+          matching_type: activeTests.filter(t => t.test_type === 'matching_type').length
         },
         assignment_statistics: {
           total_assignments: activeTests.reduce((sum, test) => sum + test.assignment_count, 0),
@@ -143,6 +167,7 @@ exports.handler = async function(event, context) {
         multiple_choice: 'INNER JOIN test_assignments, filtered by teacher_id',
         true_false: 'INNER JOIN test_assignments, filtered by teacher_id',
         input: 'INNER JOIN test_assignments, filtered by teacher_id',
+        matching_type: 'INNER JOIN test_assignments, filtered by teacher_id',
         ordering: 'ORDER BY created_at DESC'
       }
     };

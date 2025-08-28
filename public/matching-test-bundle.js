@@ -1860,6 +1860,63 @@
       const arrowId = ++this.currentArrowId;
       console.log('➡️ Creating arrow:', { startX, startY, endX, endY });
       
+      // Find which block this arrow is associated with
+      // Check if arrow starts or ends near a block
+      let associatedBlockId = null;
+      let associationType = 'none';
+      
+      // Check if arrow starts near a block
+      for (const block of this.blocks) {
+        const startNearBlock = this.isPointNearBlock(startX, startY, block);
+        const endNearBlock = this.isPointNearBlock(endX, endY, block);
+        
+        if (startNearBlock && endNearBlock) {
+          // Arrow connects two blocks
+          associatedBlockId = block.id;
+          associationType = 'connector';
+          break;
+        } else if (startNearBlock) {
+          // Arrow starts from this block
+          associatedBlockId = block.id;
+          associationType = 'start';
+          break;
+        } else if (endNearBlock) {
+          // Arrow points to this block
+          associatedBlockId = block.id;
+          associationType = 'end';
+          break;
+        }
+      }
+      
+      // If no block association found, associate with the closest block
+      if (!associatedBlockId && this.blocks.length > 0) {
+        let closestBlock = this.blocks[0];
+        let closestDistance = Infinity;
+        
+        for (const block of this.blocks) {
+          const blockCenterX = block.x + block.width / 2;
+          const blockCenterY = block.y + block.height / 2;
+          
+          const startDistance = Math.sqrt(
+            Math.pow(startX - blockCenterX, 2) + Math.pow(startY - blockCenterY, 2)
+          );
+          const endDistance = Math.sqrt(
+            Math.pow(endX - blockCenterX, 2) + Math.pow(endY - blockCenterY, 2)
+          );
+          
+          const minDistance = Math.min(startDistance, endDistance);
+          if (minDistance < closestDistance) {
+            closestDistance = minDistance;
+            closestBlock = block;
+          }
+        }
+        
+        associatedBlockId = closestBlock.id;
+        associationType = 'closest';
+      }
+      
+      console.log(`🎯 Arrow ${arrowId} associated with block ${associatedBlockId} (${associationType})`);
+      
       // Create arrow line
       const arrow = new Konva.Line({
         points: [startX, startY, endX, endY],
@@ -1910,7 +1967,7 @@
       
       this.stage.batchDraw();
 
-      // Store arrow data
+      // Store arrow data with block association
       this.arrows.push({
         id: arrowId,
         group: arrowGroup,
@@ -1918,10 +1975,43 @@
         start_x: startX,
         start_y: startY,
         end_x: endX,
-        end_y: endY
+        end_y: endY,
+        associated_block_id: associatedBlockId,
+        association_type: associationType
       });
       
+      // Add visual indicator for arrow-block association
+      if (associatedBlockId) {
+        const associatedBlock = this.blocks.find(b => b.id === associatedBlockId);
+        if (associatedBlock) {
+          // Add a small indicator near the block to show arrow association
+          const indicator = new Konva.Circle({
+            x: associatedBlock.x + associatedBlock.width + 5,
+            y: associatedBlock.y + 5,
+            radius: 4,
+            fill: '#dc3545',
+            stroke: 'white',
+            strokeWidth: 1,
+            id: `arrow-indicator-${arrowId}`
+          });
+          
+          this.blocksLayer.add(indicator);
+          this.stage.batchDraw();
+          
+          // Store reference to indicator for cleanup
+          this.arrows[this.arrows.length - 1].indicator = indicator;
+        }
+      }
+      
       console.log('✅ Arrow created and stored:', this.arrows[this.arrows.length - 1]);
+    }
+
+    // Helper method to check if a point is near a block
+    isPointNearBlock(x, y, block, tolerance = 20) {
+      return x >= block.x - tolerance && 
+             x <= block.x + block.width + tolerance && 
+             y >= block.y - tolerance && 
+             y <= block.y + block.height + tolerance;
     }
 
     deleteArrow(arrowId) {
@@ -1929,6 +2019,11 @@
       const arrowIndex = this.arrows.findIndex(a => a.id === arrowId);
       if (arrowIndex !== -1) {
         const arrow = this.arrows[arrowIndex];
+        
+        // Remove visual indicator if it exists
+        if (arrow.indicator) {
+          arrow.indicator.destroy();
+        }
         
         // Remove from layer
         arrow.group.destroy();
@@ -2095,23 +2190,23 @@
             has_arrow: false
           };
           
-          // Check if this block has an associated arrow
-          const associatedArrow = this.arrows.find(arrow => 
-            arrow.start_x >= block.x && 
-            arrow.start_x <= block.x + block.width &&
-            arrow.start_y >= block.y && 
-            arrow.start_y <= block.y + block.height
+          // Find arrows associated with this block using the improved association
+          const associatedArrows = this.arrows.filter(arrow => 
+            arrow.associated_block_id === block.id
           );
           
-          if (associatedArrow) {
+          if (associatedArrows.length > 0) {
             questionData.has_arrow = true;
+            // Use the first associated arrow (or could combine multiple)
+            const primaryArrow = associatedArrows[0];
             questionData.arrow = {
-              start_x: associatedArrow.start_x,
-              start_y: associatedArrow.start_y,
-              end_x: associatedArrow.end_x,
-              end_y: associatedArrow.end_y,
+              start_x: primaryArrow.start_x,
+              start_y: primaryArrow.start_y,
+              end_x: primaryArrow.end_x,
+              end_y: primaryArrow.end_y,
               style: { color: '#dc3545', thickness: 3 }
             };
+            console.log(`🎯 Block ${block.id} has ${associatedArrows.length} associated arrows`);
           }
           
           return questionData;
@@ -2175,22 +2270,26 @@
           },
           has_arrow: false
         };
-        const associatedArrow = this.arrows.find(arrow => 
-          arrow.start_x >= block.x && 
-          arrow.start_x <= block.x + block.width &&
-          arrow.start_y >= block.y && 
-          arrow.start_y <= block.y + block.height
+        
+        // Find arrows associated with this block using the improved association
+        const associatedArrows = this.arrows.filter(arrow => 
+          arrow.associated_block_id === block.id
         );
-        if (associatedArrow) {
+        
+        if (associatedArrows.length > 0) {
           q.has_arrow = true;
+          // Use the first associated arrow (or could combine multiple)
+          const primaryArrow = associatedArrows[0];
           q.arrow = {
-            start_x: associatedArrow.start_x,
-            start_y: associatedArrow.start_y,
-            end_x: associatedArrow.end_x,
-            end_y: associatedArrow.end_y,
+            start_x: primaryArrow.start_x,
+            start_y: primaryArrow.start_y,
+            end_x: primaryArrow.end_x,
+            end_y: primaryArrow.end_y,
             style: { color: '#dc3545', thickness: 3 }
           };
+          console.log(`🎯 Block ${block.id} has ${associatedArrows.length} associated arrows`);
         }
+        
         return q;
       });
 

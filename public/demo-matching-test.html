@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Matching Type Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .demo-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .demo-button:hover {
+            background: #0056b3;
+        }
+        .demo-button.secondary {
+            background: #6c757d;
+        }
+        .demo-button.secondary:hover {
+            background: #545b62;
+        }
+        .demo-button.success {
+            background: #28a745;
+        }
+        .demo-button.success:hover {
+            background: #1e7e34;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .test-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .test-info h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .test-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-info li {
+            margin: 5px 0;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Demo Matching Type Test System</h1>
+        
+        <div class="demo-section">
+            <h2>Test the Student Interface</h2>
+            <p>Use these links to test the matching type test student interface:</p>
+            
+            <div class="test-info">
+                <h3>Test 1: Basic Matching (No Arrows)</h3>
+                <ul>
+                    <li><strong>Test ID:</strong> demo-1</li>
+                    <li><strong>Words:</strong> Apple, Banana, Orange, Grape</li>
+                    <li><strong>Blocks:</strong> 4 numbered blocks</li>
+                    <li><strong>Arrows:</strong> None</li>
+                </ul>
+                <a href="matching-test-student.html?test_id=demo-1" class="demo-button success">Take Test 1</a>
+            </div>
+            
+            <div class="test-info">
+                <h3>Test 2: Matching with Arrows</h3>
+                <ul>
+                    <li><strong>Test ID:</strong> demo-2</li>
+                    <li><strong>Words:</strong> Cat, Dog, Bird, Fish</li>
+                    <li><strong>Blocks:</strong> 4 numbered blocks</li>
+                    <li><strong>Arrows:</strong> Directional arrows pointing to correct blocks</li>
+                </ul>
+                <a href="matching-test-student.html?test_id=demo-2" class="demo-button success">Take Test 2</a>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Test the Teacher Creation Interface</h2>
+            <p>Use this link to test the teacher interface for creating matching tests:</p>
+            <a href="test-matching.html" class="demo-button secondary">Teacher Creation Interface</a>
+        </div>
+        
+        <div class="demo-section">
+            <h2>API Testing</h2>
+            <p>Test the backend API functions directly:</p>
+            
+            <div class="test-info">
+                <h3>Get Test Data</h3>
+                <p>Test the <code>get-matching-type-test</code> function:</p>
+                <div class="code-block">
+                    GET /.netlify/functions/get-matching-type-test?test_id=demo-1
+                </div>
+                <button onclick="testGetAPI('demo-1')" class="demo-button">Test Get API</button>
+                <div id="getApiResult" style="margin-top: 10px;"></div>
+            </div>
+            
+            <div class="test-info">
+                <h3>Submit Test Results</h3>
+                <p>Test the <code>submit-matching-type-test</code> function:</p>
+                <div class="code-block">
+                    POST /.netlify/functions/submit-matching-type-test
+                    Body: JSON with test_id, student_data, and answers
+                </div>
+                <button onclick="testSubmitAPI()" class="demo-button">Test Submit API</button>
+                <div id="submitApiResult" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Sample Test Data Structure</h2>
+            <p>Here's what the test data looks like:</p>
+            <div class="code-block">
+{
+  "test_id": "demo-1",
+  "test_name": "Fruit Matching Test",
+  "image_url": "data:image/svg+xml;base64,...",
+  "num_blocks": 4,
+  "questions": [
+    {
+      "question_id": 1,
+      "word": "Apple",
+      "block_coordinates": {"x": 100, "y": 100, "width": 150, "height": 100},
+      "has_arrow": false
+    },
+    {
+      "question_id": 2,
+      "word": "Banana",
+      "block_coordinates": {"x": 300, "y": 100, "width": 150, "height": 100},
+      "has_arrow": false
+    }
+  ],
+  "arrows": []
+}
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Features Demonstrated</h2>
+            <ul>
+                <li><strong>Konva.js Integration:</strong> Canvas-based image display with blocks and arrows</li>
+                <li><strong>Drag & Drop:</strong> Words can be dragged from panel to blocks</li>
+                <li><strong>Arrow Support:</strong> Visual arrows guide word placement</li>
+                <li><strong>Real-time Validation:</strong> Immediate feedback on correct/incorrect placements</li>
+                <li><strong>Progress Tracking:</strong> Visual progress bar and word count</li>
+                <li><strong>Score Calculation:</strong> Automatic scoring with arrow compliance</li>
+                <li><strong>Responsive Design:</strong> Works on different screen sizes</li>
+                <li><strong>CSS Isolation:</strong> All styles scoped with .matching-test prefix</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function testGetAPI(testId) {
+            const resultDiv = document.getElementById('getApiResult');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch(`/.netlify/functions/get-matching-type-test?test_id=${testId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div style="color: green; font-weight: bold;">✅ API Test Successful!</div>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            Test: ${data.data.test_name}<br>
+                            Blocks: ${data.data.num_blocks}<br>
+                            Questions: ${data.data.questions.length}<br>
+                            Arrows: ${data.data.arrows.length}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="color: red; font-weight: bold;">❌ API Test Failed</div>
+                        <div style="font-size: 12px; margin-top: 5px;">${data.message}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="color: red; font-weight: bold;">❌ API Test Error</div>
+                    <div style="font-size: 12px; margin-top: 5px;">${error.message}</div>
+                `;
+            }
+        }
+        
+        async function testSubmitAPI() {
+            const resultDiv = document.getElementById('submitApiResult');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const testData = {
+                    test_id: "demo-1",
+                    student_data: {
+                        grade: "M1",
+                        class: "1/15",
+                        number: 1,
+                        student_id: "51706",
+                        name: "Demo",
+                        surname: "Student",
+                        nickname: "Demo"
+                    },
+                    answers: [
+                        {
+                            question_id: 1,
+                            word: "Apple",
+                            block_x: 175,
+                            block_y: 150
+                        },
+                        {
+                            question_id: 2,
+                            word: "Banana",
+                            block_x: 375,
+                            block_y: 150
+                        }
+                    ]
+                };
+                
+                const response = await fetch('/.netlify/functions/submit-matching-type-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div style="color: green; font-weight: bold;">✅ Submit API Test Successful!</div>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            Score: ${data.score}%<br>
+                            Correct Matches: ${data.correct_matches}/${data.total_questions}<br>
+                            Result ID: ${data.result_id}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="color: red; font-weight: bold;">❌ Submit API Test Failed</div>
+                        <div style="font-size: 12px; margin-top: 5px;">${data.message}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="color: red; font-weight: bold;">❌ Submit API Test Error</div>
+                    <div style="font-size: 12px; margin-top: 5px;">${error.message}</div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
