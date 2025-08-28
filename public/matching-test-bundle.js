@@ -30,11 +30,12 @@
         return;
       }
 
-      // Try multiple CDN sources
+      // Try multiple CDN sources with more reliable URLs
       const cdnSources = [
-        'https://unpkg.com/konva@9/konva.min.js',
-        'https://cdn.jsdelivr.net/npm/konva@9/konva.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/konva/9.2.3/konva.min.js'
+        'https://unpkg.com/konva@9.2.3/konva.min.js',
+        'https://cdn.jsdelivr.net/npm/konva@9.2.3/konva.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/konva/9.2.3/konva.min.js',
+        'https://unpkg.com/konva@latest/konva.min.js'
       ];
 
       let currentSourceIndex = 0;
@@ -57,14 +58,14 @@
           tryNextSource();
         };
         
-        // Set timeout for each source
+        // Set timeout for each source (increased to 8 seconds for slower connections)
         setTimeout(() => {
           if (script.parentNode) {
             script.parentNode.removeChild(script);
             currentSourceIndex++;
             tryNextSource();
           }
-        }, 5000);
+        }, 8000);
         
         document.head.appendChild(script);
       }
