@@ -7,6 +7,56 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // School Testing System - Main JavaScript File
 
 // Global function availability check
@@ -1502,7 +1552,7 @@ function clearTestProgress(testType, testId) {
 // ===== OLD loadSavedProgress FUNCTION REMOVED =====
 
 // Submit test function
-async function submitTest(testType, testId, studentId) {
+async function submitTest(testType, testId, studentId, studentAnswers) {
     console.log('Submitting test:', { testType, testId, studentId });
     
     try {
@@ -1538,9 +1588,10 @@ async function submitTest(testType, testId, studentId) {
             testInfo = { test_name: `Test ${testId}` };
         }
 
-        // Calculate score (this is a simplified calculation - you may want to implement proper scoring)
-        const maxScore = Object.keys(answers).length;
-        const score = Math.floor(Math.random() * maxScore) + 1; // Placeholder scoring
+       // Calculate score properly using the existing function
+        const questions = await getTestQuestions(testType, testId);
+        const score = calculateTestScore(questions, answers, testType);
+        const maxScore = testInfo.num_questions; // Use logical question count
 
         // Prepare common data for all test types
         const commonData = {
@@ -1595,6 +1646,7 @@ async function submitTest(testType, testId, studentId) {
         
         const data = await response.json();
         
+       // In submitTest function, after marking test as completed:
         if (data.success) {
             // Mark test as completed
             markTestCompleted(testType, testId, studentId);
@@ -1602,13 +1654,11 @@ async function submitTest(testType, testId, studentId) {
             // Clear progress
             clearTestProgress(testType, testId);
             
-            // Clear user session data to prevent interface confusion
-            clearUserSessionData();
+    // STOP the progress tracking interval
+    clearProgressTrackingInterval(testType, testId);
             
-            // Reset interface to prevent confusion
-            resetInterfaceAfterSessionClear();
             
-            // Return success result for the calling function to handle navigation
+    
             return { success: true, message: 'Test submitted successfully!' };
         } else {
             throw new Error(data.error || 'Failed to submit test');
@@ -1618,7 +1668,14 @@ async function submitTest(testType, testId, studentId) {
         return { success: false, message: error.message };
     }
 }
-
+function clearProgressTrackingInterval(testType, testId) {
+    const intervalKey = `progress_interval_${testType}_${testId}`;
+    if (window[intervalKey]) {
+        clearInterval(window[intervalKey]);
+        window[intervalKey] = null;
+        console.log(`[DEBUG] Progress tracking interval cleared for ${testType}_${testId}`);
+    }
+}
 // Collect answers from the test form
 function collectTestAnswers(testType, testId) {
     console.log(`[DEBUG] collectTestAnswers called with testType: ${testType}, testId: ${testId}`);
@@ -5058,24 +5115,32 @@ function displayClassResults(results, grade, classNum, semester) {
             console.log(`Found ${subjectResults.length} results for subject ${subject.subject}:`, subjectResults);
             
             if (subjectResults.length > 0) {
-                // Extract only the tests that belong to this subject
+                // Extract ALL tests that belong to this subject (across all students)
                 const subjectTests = [];
-                if (subjectResults.length > 0) {
-                    // Get all test keys from the first student that has results
-                    const studentWithResults = subjectResults.find(student => student.has_results);
-                    if (studentWithResults) {
-                        Object.keys(studentWithResults).forEach(key => {
+                const allTestKeys = new Set(); // Use Set to avoid duplicates
+
+                // Collect test keys from ALL students with results
+                subjectResults.forEach(student => {
+                    if (student.has_results) {
+                        Object.keys(student).forEach(key => {
                             if (!['student_id', 'name', 'surname', 'nickname', 'number', 'has_results', 'subject'].includes(key)) {
-                                // This is a test result, add it to subject tests
-                                subjectTests.push({
-                                    test_name: key,
-                                    test_type: 'unknown',
-                                    key: key
-                                });
+                                allTestKeys.add(key); // Add to Set to avoid duplicates
                             }
                         });
                     }
-                }
+                });
+
+                // Convert Set back to array with proper structure
+                allTestKeys.forEach(testKey => {
+                    subjectTests.push({
+                        test_name: testKey,
+                        test_type: 'unknown',
+                        key: testKey
+                    });
+                });
+
+                console.log(`[DEBUG] Enhanced test discovery for subject ${subject.subject}:`, subjectTests);
+                console.log(`[DEBUG] Subject tests count:`, subjectTests.length);
                 
                 console.log(`Subject ${subject.subject} has ${subjectTests.length} tests:`, subjectTests);
                 
@@ -8833,7 +8898,7 @@ function navigateToTest(testType, testId) {
     
     try {
         // Hide all sections first
-        hideAllSections();
+        hideTestSections();
         console.log('[DEBUG] All sections hidden');
         
         // Show test page section
@@ -8883,62 +8948,51 @@ function navigateToTestResults(testType, testId, studentAnswers) {
     console.log(`[DEBUG] navigateToTestResults called with testType: ${testType}, testId: ${testId}, studentAnswers:`, studentAnswers);
     
     // Hide all sections first
-    hideAllSections();
+    hideTestSections();
     console.log('[DEBUG] All sections hidden');
     
     // Show test results page section
     const testResultsPage = document.getElementById('test-results-page');
-    if (testResultsPage) {
-        testResultsPage.style.display = 'block';
-        console.log('[DEBUG] Test results page section displayed');
-        
-        // Load and display the test results
-        loadTestResultsForPage(testType, testId, studentAnswers);
-    } else {
-        console.error('[ERROR] Test results page section not found');
-    }
+// Show test results page section using the proper showSection system
+    showSection('test-results-page');
+    console.log('[DEBUG] Test results page section displayed via showSection');
+
+    // Load and display the test results
+    loadTestResultsForPage(testType, testId, studentAnswers);
 }
 
+// Navigate back to main cabinet
 // Navigate back to main cabinet
 function navigateBackToCabinet() {
     console.log('[DEBUG] navigateBackToCabinet called');
     
-    // Hide all sections first
-    hideAllSections();
-    console.log('[DEBUG] All sections hidden');
-    
-    // Show appropriate cabinet based on user type
+    // Use the existing showSection system instead of manual display manipulation
     const currentUser = JSON.parse(localStorage.getItem('user_session'));
     console.log('[DEBUG] Current user from session:', currentUser);
     
     if (currentUser && currentUser.user) {
         if (currentUser.user.student_id) {
-            // Student - show student cabinet
-            const studentCabinet = document.getElementById('student-cabinet');
-            if (studentCabinet) {
-                studentCabinet.style.display = 'block';
-                console.log('[DEBUG] Student cabinet displayed');
-            } else {
-                console.error('[ERROR] Student cabinet section not found');
-            }
+            // Student - show student cabinet using existing system
+            showSection('student-cabinet');
+            console.log('[DEBUG] Student cabinet displayed via showSection');
+            
+            // Refresh the test list to show updated completion status
+            setTimeout(() => {
+                console.log('[DEBUG] Refreshing test list for student:', currentUser.user.student_id);
+                loadStudentActiveTests(currentUser.user.student_id);
+                
+                // Also refresh the test results/score table
+                console.log('[DEBUG] Refreshing test results for student:', currentUser.user.student_id);
+                loadStudentTestResults(currentUser.user.student_id);
+            }, 100); // Small delay to ensure section is fully displayed
         } else if (currentUser.user.teacher_id) {
-            // Teacher - show teacher cabinet
-            const teacherCabinet = document.getElementById('teacher-cabinet');
-            if (teacherCabinet) {
-                teacherCabinet.style.display = 'block';
-                console.log('[DEBUG] Teacher cabinet displayed');
-            } else {
-                console.error('[ERROR] Teacher cabinet section not found');
-            }
+            // Teacher - show teacher cabinet using existing system
+            showSection('teacher-cabinet');
+            console.log('[DEBUG] Teacher cabinet displayed via showSection');
         } else if (currentUser.user.admin_id) {
-            // Admin - show admin panel
-            const adminPanel = document.getElementById('admin-panel');
-            if (adminPanel) {
-                adminPanel.style.display = 'block';
-                console.log('[DEBUG] Admin panel displayed');
-            } else {
-                console.error('[ERROR] Admin panel section not found');
-            }
+            // Admin - show admin panel using existing system
+            showSection('admin-panel');
+            console.log('[DEBUG] Admin panel displayed via showSection');
         }
     } else {
         console.warn('[WARN] No valid user session found, redirecting to login');
@@ -8947,11 +9001,11 @@ function navigateBackToCabinet() {
 }
 
 // Hide all sections
-function hideAllSections() {
-    console.log('[DEBUG] hideAllSections called');
+function hideTestSections() {
+    console.log('[DEBUG] hideTestSections called');
     
     const sections = [
-        'mainCabinetSection',
+
         'test-page',
         'test-results-page'
     ];
@@ -8998,7 +9052,6 @@ async function loadTestForPage(testType, testId) {
         // Debug: Check the questions data structure
         console.log('[DEBUG] Questions data structure:', {
             rawQuestionsLength: questions.length,
-            processedQuestionsLength: processedQuestions ? processedQuestions.length : 'undefined',
             questionsType: testType,
             testId: testId
         });
@@ -9018,6 +9071,47 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         return;
     }
     
+    // For input tests, group questions by question_id to handle multiple correct answers
+    let processedQuestions = questions;
+    if (testType === 'input') {
+        console.log('[DEBUG] Processing input test questions - grouping by question_id');
+        console.log('[DEBUG] Original questions structure:', questions);
+        
+        // Check if questions need grouping (multiple rows per question)
+        if (questions.length > 0 && questions[0].hasOwnProperty('question_id')) {
+// Group questions by question_id first
+            // Group questions by question_id first
+            const groupedQuestions = {};
+            questions.forEach(question => {
+                const questionId = question.question_id;
+                if (!groupedQuestions[questionId]) {
+                    groupedQuestions[questionId] = {
+                        question_id: questionId,
+                        question: question.question,
+                        correct_answers: []
+                    };
+                }
+                groupedQuestions[questionId].correct_answers.push(question.correct_answer);
+            });
+
+            processedQuestions = Object.values(groupedQuestions);
+            console.log(`[DEBUG] Grouped ${questions.length} database rows into ${processedQuestions.length} logical questions:`, processedQuestions);
+
+            // Log each grouped question for verification
+            processedQuestions.forEach((question, index) => {
+                console.log(`[DEBUG] Grouped question ${index + 1}:`, {
+                    question_id: question.question_id,
+                    question: question.question,
+                    correct_answers: question.correct_answers,
+                    correct_answers_count: question.correct_answers.length
+                });
+            });
+        } else {
+            console.log('[DEBUG] Questions already in correct format or no grouping needed');
+            processedQuestions = questions;
+        }
+    }
+    
     // Clear existing content
     testPageSection.innerHTML = '';
     console.log('[DEBUG] Cleared existing test page content');
@@ -9029,7 +9123,7 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         <h2>${testInfo.test_name || testInfo.title || 'Test'}</h2>
         <p><strong>Subject:</strong> ${testInfo.subject_name || testInfo.subject || 'Listening and Speaking'}</p>
         <p><strong>Type:</strong> ${testInfo.test_type || testInfo.type || 'Input Test'}</p>
-        <p><strong>Questions:</strong> ${testInfo.num_questions || (testType === 'input' && processedQuestions ? processedQuestions.length : questions.length) || 'Unknown'}</p>
+        <p><strong>Questions:</strong> ${testInfo.num_questions || processedQuestions.length || 'Unknown'}</p>
         <button class="btn btn-secondary" onclick="navigateBackToCabinet()">Back to Cabinet</button>
     `;
     testPageSection.appendChild(testHeader);
@@ -9042,7 +9136,7 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         <div class="progress-bar">
             <div class="progress-fill" style="width: 0%"></div>
         </div>
-        <span class="progress-text">0 / ${testType === 'input' && processedQuestions ? processedQuestions.length : questions.length} questions answered</span>
+        <span class="progress-text">0 / ${processedQuestions.length} questions answered</span>
     `;
     testPageSection.appendChild(progressIndicator);
     console.log('[DEBUG] Progress indicator created and added');
@@ -9052,52 +9146,6 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
     questionsContainer.className = 'questions-container';
     testPageSection.appendChild(questionsContainer);
     console.log('[DEBUG] Questions container created');
-    
-    // For input tests, group questions by question_id to handle multiple correct answers
-    let processedQuestions = questions;
-    if (testType === 'input') {
-        console.log('[DEBUG] Processing input test questions - grouping by question_id');
-        console.log('[DEBUG] Original questions structure:', questions);
-        
-        // Check if questions need grouping (multiple rows per question)
-        if (questions.length > 0 && questions[0].hasOwnProperty('question_id')) {
-            const groupedQuestions = {};
-            
-            questions.forEach((question, index) => {
-                console.log(`[DEBUG] Processing question ${index + 1}:`, question);
-                const questionId = question.question_id;
-                console.log(`[DEBUG] Question ID: ${questionId}`);
-                
-                if (!groupedQuestions[questionId]) {
-                    console.log(`[DEBUG] Creating new grouped question for ID: ${questionId}`);
-                    groupedQuestions[questionId] = {
-                        question_id: questionId,
-                        question: question.question,
-                        correct_answers: []
-                    };
-                }
-                
-                console.log(`[DEBUG] Adding correct answer: ${question.correct_answer} to question ${questionId}`);
-                groupedQuestions[questionId].correct_answers.push(question.correct_answer);
-            });
-            
-            processedQuestions = Object.values(groupedQuestions);
-            console.log(`[DEBUG] Grouped ${questions.length} database rows into ${processedQuestions.length} logical questions:`, processedQuestions);
-            
-            // Log each grouped question for verification
-            processedQuestions.forEach((groupedQuestion, index) => {
-                console.log(`[DEBUG] Grouped question ${index + 1}:`, {
-                    question_id: groupedQuestion.question_id,
-                    question: groupedQuestion.question,
-                    correct_answers: groupedQuestion.correct_answers,
-                    correct_answers_count: groupedQuestion.correct_answers.length
-                });
-            });
-        } else {
-            console.log('[DEBUG] Questions already in correct format or no grouping needed');
-            processedQuestions = questions;
-        }
-    }
     
     // Render questions
     console.log('[DEBUG] About to render questions...');
@@ -9291,9 +9339,7 @@ function renderInputQuestionsForPage(questions, testId) {
             <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
                 <h4>Question ${index + 1}</h4>
                 <p class="question-text">${question.question}</p>
-                <p class="correct-answers-hint" style="font-size: 0.9em; color: #6c757d; font-style: italic;">
-                    ${correctAnswersText}
-                </p>
+
                 <div class="input-question">
                     <input type="text" 
                            id="input_${questionId}" 
@@ -9622,9 +9668,6 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
     resultsHeader.className = 'results-header';
     resultsHeader.innerHTML = `
         <h2>Test Results: ${testInfo.test_name || testInfo.title || 'Test'}</h2>
-        <p><strong>Subject:</strong> ${testInfo.subject_name || testInfo.subject || 'Unknown'}</p>
-        <p><strong>Type:</strong> ${testInfo.test_type || testInfo.type || 'Unknown'}</p>
-        <button class="btn btn-secondary" onclick="navigateBackToCabinet()">Back to Cabinet</button>
     `;
     testResultsSection.appendChild(resultsHeader);
     console.log('[DEBUG] Results header created and added with info:', testInfo);
@@ -9633,10 +9676,30 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
     const resultsSummary = document.createElement('div');
     resultsSummary.className = 'results-summary';
     
-    // Calculate score
-    const score = calculateTestScore(questions, studentAnswers, testType);
-    const totalQuestions = questions.length;
+    // Group questions by question_id first (same logic as displayTestOnPage)
+    const groupedQuestions = {};
+    questions.forEach(question => {
+        const questionId = question.question_id;
+        if (!groupedQuestions[questionId]) {
+            groupedQuestions[questionId] = {
+                question_id: questionId,
+                question: question.question,
+                correct_answers: []
+            };
+        }
+        groupedQuestions[questionId].correct_answers.push(question.correct_answer);
+    });
+    
+    const processedQuestions = Object.values(groupedQuestions);
+    
+    // Calculate score using grouped questions for consistency
+    const score = calculateTestScore(processedQuestions, studentAnswers, testType);
+    const totalQuestions = testInfo.num_questions; // Use logical question count from test info
     const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+
+    const questionsReview = document.createElement('div');
+    questionsReview.className = 'questions-review';
+    questionsReview.innerHTML = '<h3>Question Review</h3>';
     
     console.log(`[DEBUG] Test score calculated: ${score}/${totalQuestions} (${percentage}%)`);
     
@@ -9649,25 +9712,22 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
     testResultsSection.appendChild(resultsSummary);
     console.log('[DEBUG] Results summary created and added');
     
-    // Create questions review
-    const questionsReview = document.createElement('div');
-    questionsReview.className = 'questions-review';
-    questionsReview.innerHTML = '<h3>Question Review</h3>';
+
     
-    questions.forEach((question, index) => {
-        console.log(`[DEBUG] Creating review for question ${index + 1}:`, question);
+    processedQuestions.forEach((question, logicalIndex) => {
+        console.log(`[DEBUG] Creating review for question ${logicalIndex + 1}:`, question);
         
         const questionReview = document.createElement('div');
         questionReview.className = 'question-review';
         
-        const studentAnswer = studentAnswers[question.id] || 'No answer';
+        const studentAnswer = studentAnswers[question.question_id] || studentAnswers[question.id] || 'No answer';
         const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
         
-        console.log(`[DEBUG] Question ${index + 1} - Student answer: ${studentAnswer}, Correct: ${isCorrect}`);
+        console.log(`[DEBUG] Question ${logicalIndex + 1} - Student answer: ${studentAnswer}, Correct: ${isCorrect}`);
         
         questionReview.innerHTML = `
             <div class="question-review-header ${isCorrect ? 'correct' : 'incorrect'}">
-                <h4>Question ${index + 1}</h4>
+                <h4>Question ${logicalIndex + 1}</h4>
                 <span class="result-indicator">${isCorrect ? '✓' : '✗'}</span>
             </div>
             <p class="question-text">${question.question}</p>
@@ -9680,6 +9740,16 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
     
     testResultsSection.appendChild(questionsReview);
     console.log('[DEBUG] Questions review created and added');
+    
+    // Add Back to Cabinet button at the bottom
+    const backButton = document.createElement('div');
+    backButton.className = 'results-actions';
+    backButton.innerHTML = `
+        <button class="btn btn-secondary" onclick="clearTestDataAndReturnToCabinet()">Back to Cabinet</button>
+    `;
+    testResultsSection.appendChild(backButton);
+    console.log('[DEBUG] Back button created and added:', backButton.outerHTML);
+    console.log('[DEBUG] Button element found:', backButton.querySelector('button'));
     
     // Setup event listeners
     setupTestResultsPageEventListeners();
@@ -10257,25 +10327,34 @@ function setupMatchingDragAndDrop(testId) {
     initializeMatchingTest(testId);
 }
 
-function calculateTestScore(questions, studentAnswers, testType) {
+function calculateTestScore(questions, answers, testType) {
     console.log(`[DEBUG] calculateTestScore called with ${questions.length} questions, testType: ${testType}`);
     
     let score = 0;
+    const processedQuestions = new Set(); // Track unique questions
     
     questions.forEach((question, index) => {
         // For grouped questions, use question_id instead of question.id
         const questionId = question.question_id || question.id;
-        const studentAnswer = studentAnswers[questionId];
+        
+        // Skip if we already processed this question
+        if (processedQuestions.has(questionId)) {
+            console.log(`[DEBUG] Skipping duplicate question ${questionId}`);
+            return;
+        }
+        
+        processedQuestions.add(questionId);
+        const studentAnswer = answers[questionId];
         const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
         
         if (isCorrect) {
             score++;
         }
         
-        console.log(`[DEBUG] Question ${index + 1}: answer=${studentAnswer}, correct=${isCorrect}, running score=${score}`);
+        console.log(`[DEBUG] Question ${questionId}: answer=${studentAnswer}, correct=${isCorrect}, running score=${score}`);
     });
     
-    console.log(`[DEBUG] Final test score: ${score}/${questions.length}`);
+    console.log(`[DEBUG] Final test score: ${score}/${processedQuestions.size}`);
     return score;
 }
 
@@ -10291,10 +10370,12 @@ function checkAnswerCorrectness(question, studentAnswer, testType) {
     
     switch (testType) {
         case 'true-false':
-            isCorrect = studentAnswer === question.correctAnswer;
+            // Use correct_answer (not correctAnswer)
+            isCorrect = studentAnswer === question.correct_answer;
             break;
         case 'multiple-choice':
-            isCorrect = parseInt(studentAnswer) === question.correctAnswer;
+            // Use correct_answer (not correctAnswer)
+            isCorrect = parseInt(studentAnswer) === question.correct_answer;
             break;
         case 'input':
             // For grouped questions, check against all correct answers
@@ -10303,8 +10384,8 @@ function checkAnswerCorrectness(question, studentAnswer, testType) {
                     studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
                 );
             } else {
-                // Fallback for old format
-                isCorrect = studentAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
+                // Fallback for old format - use correct_answer (not correctAnswer)
+                isCorrect = studentAnswer.toLowerCase().trim() === question.correct_answer.toLowerCase().trim();
             }
             break;
         case 'matching-type':
@@ -10325,7 +10406,6 @@ function checkAnswerCorrectness(question, studentAnswer, testType) {
     console.log(`[DEBUG] Answer correctness: ${isCorrect}`);
     return isCorrect;
 }
-
 function getCorrectAnswer(question, testType) {
     console.log(`[DEBUG] getCorrectAnswer called for question:`, question, 'testType:', testType);
     
@@ -10333,10 +10413,12 @@ function getCorrectAnswer(question, testType) {
     
     switch (testType) {
         case 'true-false':
-            correctAnswer = question.correctAnswer;
+            correctAnswer = question.correct_answer ? 'True' : 'False'; // Fix: use correct_answer
             break;
         case 'multiple-choice':
-            correctAnswer = question.options[question.correctAnswer];
+            // Fix: construct option key from correct_answer (integer)
+            const optionKey = `option_${String.fromCharCode(97 + question.correct_answer)}`; // a, b, c, d
+            correctAnswer = question[optionKey] || `Option ${question.correct_answer + 1}`;
             break;
         case 'input':
             // For grouped questions, show all correct answers
@@ -10344,11 +10426,10 @@ function getCorrectAnswer(question, testType) {
                 correctAnswer = question.correct_answers.join(', ');
             } else {
                 // Fallback for old format
-                correctAnswer = question.correctAnswer;
+                correctAnswer = question.correct_answer || 'Unknown'; // Fix: use correct_answer
             }
             break;
         case 'matching-type':
-            // For matching tests, show the correct word that should be matched
             correctAnswer = question.word || 'Word to match';
             break;
         default:
@@ -10357,6 +10438,41 @@ function getCorrectAnswer(question, testType) {
     
     console.log(`[DEBUG] Correct answer: ${correctAnswer}`);
     return correctAnswer;
+}
+
+// Function to clear test data and return to cabinet
+function clearTestDataAndReturnToCabinet() {
+    console.log('[DEBUG] clearTestDataAndReturnToCabinet called');
+    
+    // Get current test info
+    const currentTestType = getCurrentTestType();
+    const currentTestId = getCurrentTestId();
+    const currentStudentId = getCurrentStudentId();
+    
+    if (currentTestType && currentTestId && currentStudentId) {
+        // Clear test progress
+        clearTestProgress(currentTestType, currentTestId);
+        
+        // Clear test completion status
+        const completionKey = `test_completed_${currentTestType}_${currentTestId}_${currentStudentId}`;
+        localStorage.removeItem(completionKey);
+        
+        // Clear progress tracking interval
+        clearProgressTrackingInterval(currentTestType, currentTestId);
+        
+        console.log('[DEBUG] Test data cleared for:', { currentTestType, currentTestId, currentStudentId });
+    }
+    
+    // Navigate back to cabinet
+    navigateBackToCabinet();
+    
+    // Refresh the test results/score table after returning to cabinet
+    setTimeout(() => {
+        if (currentStudentId) {
+            console.log('[DEBUG] Refreshing test results for student:', currentStudentId);
+            loadStudentTestResults(currentStudentId);
+        }
+    }, 200); // Slightly longer delay to ensure navigation is complete
 }
 
 // ===== END NEW PAGE-BASED TEST NAVIGATION SYSTEM =====
