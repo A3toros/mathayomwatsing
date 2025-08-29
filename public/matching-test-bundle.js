@@ -906,13 +906,20 @@
       this.showUploadStatus('Uploading image to Cloudinary...', 'uploading');
       
       try {
-        // Upload image to Cloudinary immediately
-        const formData = new FormData();
-        formData.append('image', file);
+        // Convert file to data URL
+        const dataUrl = await this.fileToDataUrl(file);
+        console.log('📁 Converted file to data URL, length:', dataUrl.length);
         
+        // Send as JSON with dataUrl
         const response = await fetch('/.netlify/functions/upload-image', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            dataUrl: dataUrl,
+            folder: 'matching_tests'
+          })
         });
         
         const result = await response.json();
@@ -943,6 +950,16 @@
       statusDiv.textContent = message;
       statusDiv.className = `upload-status ${type}`;
       statusDiv.style.display = 'block';
+    }
+
+    // Convert file to data URL for upload
+    fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
     }
 
     showImageEditor() {
