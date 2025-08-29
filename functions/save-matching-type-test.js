@@ -127,36 +127,50 @@ exports.handler = async function(event, context) {
         const questionId = questionResult[0].id;
         console.log(`Question ${i + 1} inserted successfully with ID:`, questionId);
         
-        // Insert arrow if it exists
+        // ✅ ENHANCED: Save arrows with ALL coordinate systems
         if (question.arrow && question.has_arrow) {
-          console.log(`➡️ Inserting arrow for question ${i + 1}:`, question.arrow);
-          console.log(`➡️ Arrow data:`, {
+          console.log(`➡️ Inserting enhanced arrow for question ${i + 1}:`, question.arrow);
+          console.log(`➡️ Enhanced arrow data:`, {
             questionId,
             start_x: question.arrow.start_x,
             start_y: question.arrow.start_y,
             end_x: question.arrow.end_x,
             end_y: question.arrow.end_y,
+            rel_start_x: question.arrow.rel_start_x,
+            rel_start_y: question.arrow.rel_start_y,
+            rel_end_x: question.arrow.rel_end_x,
+            rel_end_y: question.arrow.rel_end_y,
+            image_width: question.arrow.image_width,
+            image_height: question.arrow.image_height,
             style: question.arrow.style
           });
           
           try {
             await sql`
               INSERT INTO matching_type_test_arrows (
-                question_id, start_x, start_y, end_x, end_y, arrow_style
+                question_id, start_x, start_y, end_x, end_y, 
+                rel_start_x, rel_start_y, rel_end_x, rel_end_y,
+                image_width, image_height, arrow_style
               )
               VALUES (
                 ${questionId}, 
-                ${question.arrow.start_x}, 
-                ${question.arrow.start_y}, 
-                ${question.arrow.end_x}, 
-                ${question.arrow.end_y}, 
+                ${Number(question.arrow.start_x)}, 
+                ${Number(question.arrow.start_y)}, 
+                ${Number(question.arrow.end_x)}, 
+                ${Number(question.arrow.end_y)},
+                ${Number(question.arrow.rel_start_x) || null},
+                ${Number(question.arrow.rel_start_y) || null},
+                ${Number(question.arrow.rel_end_x) || null},
+                ${Number(question.arrow.rel_end_y) || null},
+                ${Number(question.arrow.image_width) || null},
+                ${Number(question.arrow.image_height) || null},
                 ${JSON.stringify(question.arrow.style || {})}
               )
             `;
-            console.log(`✅ Arrow for question ${i + 1} inserted successfully`);
+            console.log(`✅ Enhanced arrow for question ${i + 1} inserted successfully`);
           } catch (arrowError) {
-            console.error(`❌ Failed to insert arrow for question ${i + 1}:`, arrowError);
-            console.error(`❌ Arrow data that failed:`, question.arrow);
+            console.error(`❌ Failed to insert enhanced arrow for question ${i + 1}:`, arrowError);
+            console.error(`❌ Enhanced arrow data that failed:`, question.arrow);
             // Continue with other questions instead of failing the entire test
           }
         } else {

@@ -195,17 +195,39 @@ CREATE TABLE matching_type_test_questions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- New table for storing arrow information
+-- Drop the existing arrows table
+DROP TABLE IF EXISTS matching_type_test_arrows CASCADE;
+
+-- Create the ENHANCED arrows table with responsive coordinate system
 CREATE TABLE matching_type_test_arrows (
     id SERIAL PRIMARY KEY,
-    question_id INTEGER REFERENCES matching_type_test_questions(id),
-    start_x INTEGER NOT NULL,  -- Arrow start point (relative to image)
-    start_y INTEGER NOT NULL,
-    end_x INTEGER NOT NULL,    -- Arrow end point (relative to image)
-    end_y INTEGER NOT NULL,
-    arrow_style JSONB DEFAULT '{}', -- For future styling options (color, thickness, etc.)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    question_id INTEGER NOT NULL REFERENCES matching_type_test_questions(id) ON DELETE CASCADE,
+    
+    -- ABSOLUTE coordinates (for backward compatibility)
+    start_x DECIMAL(10,4) NOT NULL,  -- Changed from INTEGER to DECIMAL for precision
+    start_y DECIMAL(10,4) NOT NULL,  -- Changed from INTEGER to DECIMAL for precision
+    end_x DECIMAL(10,4) NOT NULL,    -- Changed from INTEGER to DECIMAL for precision
+    end_y DECIMAL(10,4) NOT NULL,    -- Changed from INTEGER to DECIMAL for precision
+    
+    -- RELATIVE coordinates (for responsive positioning) - NEW!
+    rel_start_x DECIMAL(10,4), -- Percentage from left edge (0-100)
+    rel_start_y DECIMAL(10,4), -- Percentage from top edge (0-100)
+    rel_end_x DECIMAL(10,4),   -- Percentage from left edge (0-100)
+    rel_end_y DECIMAL(10,4),   -- Percentage from top edge (0-100)
+    
+    -- IMAGE dimensions (for accurate scaling) - NEW!
+    image_width INTEGER,  -- Original image width when test was created
+    image_height INTEGER, -- Original image height when test was created
+    
+    -- Arrow styling (enhanced)
+    arrow_style JSONB DEFAULT '{}',
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create index for performance
+CREATE INDEX idx_matching_type_test_arrows_question_id ON matching_type_test_arrows(question_id);
 
 CREATE TABLE matching_type_test_results (
     id SERIAL PRIMARY KEY,

@@ -287,8 +287,8 @@
 /* HTML Drop Zones */
 .matching-test__drop-zone {
   position: absolute;
-  background: rgba(255, 0, 0, 0.2);
-  border: 2px solid rgba(255, 0, 0, 0.8);
+  background: rgb(255, 255, 255);
+  border: 2px solid rgba(53, 21, 236, 0.8);
   border-radius: 6px;
   pointer-events: all;
   z-index: 10;

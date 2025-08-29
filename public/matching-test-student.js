@@ -151,7 +151,7 @@ class MatchingTestStudent {
       };
     });
     
-    // Process arrows - handle different possible data structures
+    // ✅ ENHANCED: Process arrows with complete coordinate systems
     this.arrows = [];
     
     // Check if arrows are in the main test data
@@ -160,13 +160,35 @@ class MatchingTestStudent {
         id: a.id,
         questionId: a.question_id,
         blockId: a.block_id,
-        start: { x: a.start_x, y: a.start_y },
-        end: { x: a.end_x, y: a.end_y },
-        style: a.style || {}
+        
+        // ✅ CORRECTED: Process flat properties from backend
+        start: { 
+          x: Number(a.start_x) || 0,
+          y: Number(a.start_y) || 0
+        },
+        end: { 
+          x: Number(a.end_x) || 0,
+          y: Number(a.end_y) || 0
+        },
+        
+        // ✅ NEW: Add relative coordinates for responsive positioning
+        rel_start_x: a.rel_start_x !== null ? Number(a.rel_start_x) : null,
+        rel_start_y: a.rel_start_y !== null ? Number(a.rel_start_y) : null,
+        rel_end_x: a.rel_end_x !== null ? Number(a.rel_end_x) : null,
+        rel_end_y: a.rel_end_y !== null ? Number(a.rel_end_y) : null,
+        
+        // ✅ NEW: Add image dimensions for accurate scaling
+        image_width: a.image_width ? Number(a.image_width) : null,
+        image_height: a.image_height ? Number(a.image_height) : null,
+        
+        // ✅ ENHANCED: Parse arrow style from JSONB
+        style: (typeof a.style === 'string' ? 
+                JSON.parse(a.style) : 
+                a.style) || { color: '#dc3545', thickness: 3 }
       }));
     }
     
-    // Also check if arrows are embedded in questions (new backend structure)
+    // ✅ ENHANCED: Also check if arrows are embedded in questions
     this.testData.questions.forEach(q => {
       if (q.arrows && Array.isArray(q.arrows)) {
         q.arrows.forEach(arrow => {
@@ -174,26 +196,66 @@ class MatchingTestStudent {
             id: arrow.id,
             questionId: arrow.question_id,
             blockId: arrow.block_id,
-            start: { x: arrow.start_x, y: arrow.start_y },
-            end: { x: arrow.end_x, y: arrow.end_y },
+            
+            // ✅ CORRECTED: Process flat properties
+            start: { 
+              x: Number(arrow.start_x) || 0,
+              y: Number(arrow.start_y) || 0
+            },
+            end: { 
+              x: Number(arrow.end_x) || 0,
+              y: Number(arrow.end_y) || 0
+            },
+            
+            // ✅ NEW: Add relative coordinates
+            rel_start_x: arrow.rel_start_x !== null ? Number(arrow.rel_start_x) : null,
+            rel_start_y: arrow.rel_start_y !== null ? Number(arrow.rel_start_y) : null,
+            rel_end_x: arrow.rel_end_x !== null ? Number(arrow.rel_end_x) : null,
+            rel_end_y: arrow.rel_end_y !== null ? Number(arrow.rel_end_y) : null,
+            
+            // ✅ NEW: Add image dimensions
+            image_width: arrow.image_width ? Number(arrow.image_width) : null,
+            image_height: arrow.image_height ? Number(arrow.image_height) : null,
+            
             style: arrow.style || { color: '#dc3545', thickness: 3 }
           });
         });
       }
       
-      // Legacy support for embedded arrows
+      // ✅ ENHANCED: Legacy support for embedded arrows
       if (q.has_arrow && q.arrow) {
         const arrowData = q.arrow;
         this.arrows.push({
           id: `embedded_${q.question_id}`,
           questionId: q.question_id,
-          blockId: q.question_id, // Associate with the question/block
-          start: { x: arrowData.start_x, y: arrowData.start_y },
-          end: { x: arrowData.end_x, y: arrowData.end_y },
+          blockId: q.question_id,
+          
+          // ✅ CORRECTED: Process flat properties
+          start: { 
+            x: Number(arrowData.start_x) || 0,
+            y: Number(arrowData.start_y) || 0
+          },
+          end: { 
+            x: Number(arrowData.end_x) || 0,
+            y: Number(arrowData.end_y) || 0
+          },
+          
+          // ✅ NEW: Add relative coordinates if available
+          rel_start_x: arrowData.rel_start_x !== null ? Number(arrowData.rel_start_x) : null,
+          rel_start_y: arrowData.rel_start_y !== null ? Number(arrowData.rel_start_y) : null,
+          rel_end_x: arrowData.rel_end_x !== null ? Number(arrowData.rel_end_x) : null,
+          rel_end_y: arrowData.rel_end_y !== null ? Number(arrowData.rel_end_y) : null,
+          
+          // ✅ NEW: Add image dimensions if available
+          image_width: arrowData.image_width ? Number(arrowData.image_width) : null,
+          image_height: arrowData.image_height ? Number(arrowData.image_height) : null,
+          
           style: arrowData.style || { color: '#dc3545', thickness: 3 }
         });
       }
     });
+    
+    console.log('✅ Enhanced arrows processed:', this.arrows.length);
     
     // Create words array
     this.words = this.blocks.map(block => ({
@@ -357,40 +419,6 @@ class MatchingTestStudent {
         // Clear previous image
         this.layers.background.destroyChildren();
         this.layers.background.add(konvaImage);
-        
-        // Add debug border around image to visualize bounds
-        const imageBorder = new Konva.Rect({
-          x: imgX,
-          y: imgY,
-          width: imgWidth,
-          height: imgHeight,
-          stroke: '#ff0000',
-          strokeWidth: 2,
-          fill: 'transparent',
-          dash: [5, 5]
-        });
-        this.layers.background.add(imageBorder);
-        
-        // Add debug grid lines every 50 pixels to visualize coordinate system
-        for (let x = 0; x <= imgWidth; x += 50) {
-          const gridLineX = new Konva.Line({
-            points: [imgX + x, imgY, imgX + x, imgY + imgHeight],
-            stroke: 'rgba(255, 0, 0, 0.3)',
-            strokeWidth: 1,
-            dash: [2, 2]
-          });
-          this.layers.background.add(gridLineX);
-        }
-        
-        for (let y = 0; y <= imgHeight; y += 50) {
-          const gridLineY = new Konva.Line({
-            points: [imgX, imgY + y, imgX + imgWidth, imgY + y],
-            stroke: 'rgba(255, 0, 0, 0.3)',
-            strokeWidth: 1,
-            dash: [2, 2]
-          });
-          this.layers.background.add(gridLineY);
-        }
         
         // Store image info for coordinate calculations
         this.imageInfo = {
@@ -586,34 +614,21 @@ class MatchingTestStudent {
         adjustedHeight = imageBounds.bottom - blockY;
       }
       
-      // Create Konva block (visual representation only - no correct answer text)
-      const konvaBlock = new Konva.Rect({
-        x: adjustedX,
-        y: adjustedY,
-        width: adjustedWidth,
-        height: adjustedHeight,
-        stroke: '#2c3e50',
-        strokeWidth: 2,
-        fill: 'rgba(52, 152, 219, 0.1)',
-        dash: [5, 5],
-        id: `block_${block.id}`,
-        data: { blockId: block.id, type: 'block' }
-      });
+                    // Create Konva block (visual representation only - no correct answer text)
+        const konvaBlock = new Konva.Rect({
+          x: adjustedX,
+          y: adjustedY,
+          width: adjustedWidth,
+          height: adjustedHeight,
+          stroke: 'transparent',
+          strokeWidth: 0,
+          fill: 'transparent',
+          id: `block_${block.id}`,
+          data: { blockId: block.id, type: 'block' }
+        });
       
-      // Add block number label (not the correct answer)
-      const blockLabel = new Konva.Text({
-        x: adjustedX + 5,
-        y: adjustedY + 5,
-        text: `Block ${block.id}`,
-        fontSize: 14,
-        fontFamily: 'Arial, sans-serif',
-        fill: '#2c3e50',
-        fontWeight: 'bold'
-      });
-      
-      // Add to content layer
-      this.layers.content.add(konvaBlock);
-      this.layers.content.add(blockLabel);
+             // Add to content layer
+       this.layers.content.add(konvaBlock);
       
       // Create HTML drop zone for drag and drop
       this.createHtmlDropZone(block, adjustedX, adjustedY, adjustedWidth, adjustedHeight);
@@ -628,10 +643,10 @@ class MatchingTestStudent {
       return;
     }
     
-    console.log('➡️ Rendering arrows...');
+    console.log('➡️ Rendering arrows with unified scaling...');
     
     this.arrows.forEach(arrow => {
-      // Validate arrow data structure
+      // ✅ ENHANCED: Validate the processed data structure
       if (!arrow.start || !arrow.end || 
           typeof arrow.start.x !== 'number' || typeof arrow.start.y !== 'number' ||
           typeof arrow.end.x !== 'number' || typeof arrow.end.y !== 'number') {
@@ -639,52 +654,69 @@ class MatchingTestStudent {
         return;
       }
       
-      // Calculate arrow position using relative coordinates if available, fallback to absolute
+      // ✅ UNIFIED: Use same scaling logic as blocks for perfect alignment
       let startX, startY, endX, endY;
       
-      // Check if arrow has relative coordinates (from enhanced data structure)
+      // ✅ PRIORITY 1: Relative coordinates with image dimensions (same as blocks)
       if (arrow.rel_start_x !== null && arrow.rel_start_y !== null && 
           arrow.rel_end_x !== null && arrow.rel_end_y !== null &&
-          arrow.image_width && arrow.image_height) {
-        // Use relative coordinates for responsive positioning
-        console.log(`➡️ Arrow ${arrow.id} using relative coordinates:`, {
-          rel_start_x: arrow.rel_start_x, rel_start_y: arrow.rel_start_y,
-          rel_end_x: arrow.rel_end_x, rel_end_y: arrow.rel_end_y,
-          image_width: arrow.image_width, image_height: arrow.image_height
-        });
+          arrow.image_width && arrow.image_height &&
+          arrow.image_width > 0 && arrow.image_height > 0) {
         
-        // Calculate position based on current image size
-        startX = this.imageInfo.x + (arrow.rel_start_x / 100) * this.imageInfo.width;
-        startY = this.imageInfo.y + (arrow.rel_start_y / 100) * this.imageInfo.height;
-        endX = this.imageInfo.x + (arrow.rel_end_x / 100) * this.imageInfo.width;
-        endY = this.imageInfo.y + (arrow.rel_end_y / 100) * this.imageInfo.height;
+        // ✅ UNIFIED: Same calculation as blocks for perfect alignment
+        const originalWidth = arrow.image_width;
+        const originalHeight = arrow.image_height;
         
-        console.log(`➡️ Arrow ${arrow.id} relative positioning:`, {
+        // ✅ UNIFIED: Same scale factors as blocks
+        const scaleX = this.imageInfo.width / originalWidth;
+        const scaleY = this.imageInfo.height / originalHeight;
+        
+        // ✅ UNIFIED: Same positioning math as blocks
+        startX = this.imageInfo.x + (arrow.rel_start_x / 100) * originalWidth * scaleX;
+        startY = this.imageInfo.y + (arrow.rel_start_y / 100) * originalHeight * scaleY;
+        endX = this.imageInfo.x + (arrow.rel_end_x / 100) * originalWidth * scaleX;
+        endY = this.imageInfo.y + (arrow.rel_end_y / 100) * originalHeight * scaleY;
+        
+        console.log(`✅ Arrow ${arrow.id} using unified relative coordinates:`, {
           rel_start: { x: arrow.rel_start_x, y: arrow.rel_start_y },
           rel_end: { x: arrow.rel_end_x, y: arrow.rel_end_y },
+          original_dimensions: { width: originalWidth, height: originalHeight },
+          scale_factors: { scaleX, scaleY },
           calculated: { start: { x: startX, y: startY }, end: { x: endX, y: endY } }
         });
-      } else {
-        // Fallback to absolute coordinates (backward compatibility)
-        console.log(`➡️ Arrow ${arrow.id} using absolute coordinates (fallback):`, {
+        
+      } else if (arrow.start && arrow.end) {
+        // ✅ PRIORITY 2: Absolute coordinates with scaling (fallback, same as blocks)
+        console.log(`✅ Arrow ${arrow.id} using absolute coordinates (fallback):`, {
           start: arrow.start, end: arrow.end
         });
         
-        // Use the same logic as blocks for consistent scaling
+        // ✅ UNIFIED: Same scaling logic as blocks
         startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
         startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
         endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleX);
         endY = this.imageInfo.y + (arrow.end.y * this.imageInfo.scaleY);
+        
+      } else {
+        console.warn(`⚠️ Arrow ${arrow.id} has no valid coordinates, skipping`);
+        return;
       }
       
-      console.log(`➡️ Arrow ${arrow.id} coordinates:`, {
-        original: { start: arrow.start, end: arrow.end },
-        scaled: { start: { x: startX, y: startY }, end: { x: endX, y: endY } },
-        imageInfo: this.imageInfo,
-        scaleFactors: {
-          scaleX: this.imageInfo.scaleX,
-          scaleY: this.imageInfo.scaleY
-        }
+      // ✅ VALIDATION: Ensure coordinates are within reasonable bounds
+      const maxCoordinate = Math.max(
+        Math.abs(startX), Math.abs(startY),
+        Math.abs(endX), Math.abs(endY)
+      );
+      
+      if (maxCoordinate > 10000) {
+        console.warn(`⚠️ Arrow ${arrow.id} has suspiciously large coordinates:`, maxCoordinate);
+        return; // Skip this arrow
+      }
+      
+      console.log(`✅ Arrow ${arrow.id} final coordinates:`, {
+        start: { x: startX, y: startY },
+        end: { x: endX, y: endY },
+        imageInfo: this.imageInfo
       });
       
       // Create arrow line
@@ -701,11 +733,11 @@ class MatchingTestStudent {
         data: { arrowId: arrow.id, type: 'arrow' }
       });
       
-      // Add to arrows layer
+      // Add to content layer
       this.layers.content.add(arrowLine);
     });
     
-    console.log(`✅ Rendered ${this.arrows.length} arrows`);
+    console.log(`✅ Rendered ${this.arrows.length} arrows with unified scaling`);
     
     // Show arrow legend if there are arrows
     this.showArrowLegend();
@@ -774,27 +806,14 @@ class MatchingTestStudent {
   addHtmlDropZoneEvents(dropZone, block) {
     console.log(`🎯 Setting up HTML drop zone events for block ${block.id}`);
     
-    // Highlight block on hover
-    dropZone.addEventListener('mouseenter', () => {
-      console.log(`🎯 Mouse enter on HTML drop zone for block ${block.id}`);
-      const blockRect = this.layers.content.findOne(`#block_${block.id}`);
-      if (blockRect) {
-        blockRect.stroke('#28a745');
-        blockRect.strokeWidth(3);
-        this.stage.batchDraw();
-      }
-    });
-    
-    // Restore block appearance on leave
-    dropZone.addEventListener('mouseleave', () => {
-      console.log(`🎯 Mouse leave on HTML drop zone for block ${block.id}`);
-      const blockRect = this.layers.content.findOne(`#block_${block.id}`);
-      if (blockRect) {
-        blockRect.stroke('#007bff');
-        blockRect.strokeWidth(2);
-        this.stage.batchDraw();
-      }
-    });
+         // No hover feedback - keep blocks completely invisible
+     // dropZone.addEventListener('mouseenter', () => {
+     //   // No visual feedback on hover
+     // });
+     
+     // dropZone.addEventListener('mouseleave', () => {
+     //   // No visual feedback on leave
+     // });
     
     // Handle word drop
     dropZone.addEventListener('drop', (e) => {
@@ -831,28 +850,15 @@ class MatchingTestStudent {
       }
     });
     
-    // Handle drag enter
-    dropZone.addEventListener('dragenter', (e) => {
-      console.log(`🎯 Drag enter on HTML drop zone for block ${block.id}`);
-      e.preventDefault();
-      const blockRect = this.layers.content.findOne(`#block_${block.id}`);
-      if (blockRect) {
-        blockRect.stroke('#28a745');
-        blockRect.strokeWidth(4);
-        this.stage.batchDraw();
-      }
-    });
-    
-    // Handle drag leave
-    dropZone.addEventListener('dragleave', (e) => {
-      console.log(`🎯 Drag leave on HTML drop zone for block ${block.id}`);
-      const blockRect = this.layers.content.findOne(`#block_${block.id}`);
-      if (blockRect) {
-        blockRect.stroke('#007bff');
-        blockRect.strokeWidth(2);
-        this.stage.batchDraw();
-      }
-    });
+         // No visual feedback during drag operations
+     // dropZone.addEventListener('dragenter', (e) => {
+     //   e.preventDefault();
+     //   // No visual feedback
+     // });
+     
+     // dropZone.addEventListener('dragleave', (e) => {
+     //   // No visual feedback
+     // });
     
     console.log(`✅ HTML drop zone events set up for block ${block.id}`);
   }
@@ -1036,7 +1042,7 @@ class MatchingTestStudent {
     }
     
     // Visual feedback on block
-    this.highlightBlock(blockId, word.isCorrect);
+    this.highlightBlock(blockId, word.isCorrect, word.word);
     
     console.log(`✅ Word "${word.word}" placed on block ${blockId}, correct: ${word.isCorrect}`);
     console.log(`📊 Current correct matches: ${this.correctMatches}/${this.words.length}`);
@@ -1070,6 +1076,8 @@ class MatchingTestStudent {
     // Remove block highlight using the stored blockId
     if (blockId) {
       this.removeBlockHighlight(blockId);
+      // Also clear the word text from the dropzone
+      this.highlightBlock(blockId, false, '');
     }
     
     // Update correct matches count - check if the removed word was correct
@@ -1080,34 +1088,187 @@ class MatchingTestStudent {
     console.log(`🗑️ Removed word "${word.word}" placement from block ${blockId}`);
   }
 
-  highlightBlock(blockId, isCorrect) {
-    // Find the Konva block rectangle
-    const blockRect = this.layers.content.findOne(`#block_${blockId}`);
-    if (blockRect) {
-      if (isCorrect) {
-        // Correct placement - green
-        blockRect.fill('rgba(40, 167, 69, 0.2)');
-        blockRect.stroke('#28a745');
-        blockRect.strokeWidth(3);
-      } else {
-        // Incorrect placement - red
-        blockRect.fill('rgba(220, 53, 69, 0.2)');
-        blockRect.stroke('#dc3545');
-        blockRect.strokeWidth(3);
+  highlightBlock(blockId, isCorrect, wordText = '') {
+    try {
+      // ✅ SAFETY CHECK #1: Validate blockId
+      if (!blockId || (typeof blockId !== 'string' && typeof blockId !== 'number')) {
+        console.warn('⚠️ Invalid blockId:', blockId);
+        return;
       }
+      
+      // ✅ SAFETY CHECK #2: Find dropzone with validation
+      const dropZone = document.getElementById(`dropZone_${blockId}`);
+      if (!dropZone) {
+        console.warn('⚠️ Dropzone not found for blockId:', blockId);
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #3: Validate wordText
+      if (!wordText || typeof wordText !== 'string' || wordText.length === 0) {
+        console.warn('⚠️ Invalid wordText:', wordText);
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #4: Apply color logic
+      if (isCorrect) {
+        // Correct placement - green background and border
+        dropZone.style.background = 'rgba(40, 167, 69, 0.4)'; // Light green background
+        dropZone.style.borderColor = 'rgba(40, 167, 69, 1)'; // Solid green border
+      } else {
+        // Incorrect placement - blue background and border
+        dropZone.style.background = 'rgba(0, 123, 255, 0.4)'; // Light blue background
+        dropZone.style.borderColor = 'rgba(0, 123, 255, 1)'; // Solid blue border
+      }
+      
+      // ✅ SAFETY CHECK #5: Set text content
+      dropZone.textContent = wordText;
+      
+      // ✅ SAFETY CHECK #6: Calculate font size with validation
+      let fontSize = 12; // Default fallback
+      if (this.getSimpleFontSize && typeof this.getSimpleFontSize === 'function') {
+        try {
+          fontSize = this.getSimpleFontSize(wordText);
+        } catch (fontError) {
+          console.warn('⚠️ Font size calculation failed:', fontError);
+        }
+      }
+      
+      // ✅ SAFETY CHECK #7: Validate and clamp fontSize
+      fontSize = this.validateFontSize(fontSize);
+      
+      // ✅ SAFETY CHECK #8: Create CSS properties object
+      const cssProperties = {
+        fontSize: `${fontSize}px`,
+        fontWeight: '600',
+        color: '#2c3e50',
+        textAlign: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      };
+      
+      // ✅ SAFETY CHECK #9: Apply CSS safely
+      if (this.applySafeCSS && typeof this.applySafeCSS === 'function') {
+        this.applySafeCSS(dropZone, cssProperties);
+      } else {
+        // Fallback: apply CSS directly
+        this.applyCSSDirectly(dropZone, cssProperties);
+      }
+      
+      console.log('✅ Word display applied successfully:', { blockId, wordText, fontSize });
+      
+    } catch (error) {
+      console.error('❌ Error in highlightBlock:', error);
+      // Emergency fallback
+      this.emergencyWordDisplay(blockId, wordText);
     }
-    
-    this.stage.batchDraw();
+  }
+
+  // ✅ SAFETY METHOD: Calculate simple font size based on word length
+  getSimpleFontSize(word) {
+    try {
+      if (!word || typeof word !== 'string') return 12;
+      
+      const length = word.length;
+      if (length <= 10) return 12;
+      if (length <= 20) return 10;
+      if (length <= 30) return 8;
+      return 6;
+    } catch (error) {
+      console.warn('⚠️ Font size calculation error:', error);
+      return 12; // Safe fallback
+    }
+  }
+
+  // ✅ SAFETY METHOD: Validate and clamp font size
+  validateFontSize(size) {
+    try {
+      if (typeof size === 'number' && isFinite(size) && size > 0) {
+        return Math.max(6, Math.min(size, 12)); // Clamp to safe range 6-12px
+      }
+      return 12; // Default fallback
+    } catch (error) {
+      console.warn('⚠️ Font size validation error:', error);
+      return 12; // Safe fallback
+    }
+  }
+
+  // ✅ SAFETY METHOD: Apply CSS safely with error handling
+  applySafeCSS(element, properties) {
+    try {
+      if (!element || !properties || typeof properties !== 'object') {
+        console.warn('⚠️ Invalid parameters for applySafeCSS');
+        return;
+      }
+      
+      Object.entries(properties).forEach(([property, value]) => {
+        try {
+          if (value && value !== 'undefined' && value !== 'null') {
+            element.style[property] = value;
+          }
+        } catch (cssError) {
+          console.warn(`⚠️ Failed to apply CSS property ${property}:`, cssError);
+        }
+      });
+      
+      console.log('✅ CSS applied safely');
+    } catch (error) {
+      console.error('❌ Error in applySafeCSS:', error);
+      // Fallback to direct application
+      this.applyCSSDirectly(element, properties);
+    }
+  }
+
+  // ✅ SAFETY METHOD: Direct CSS application fallback
+  applyCSSDirectly(element, properties) {
+    try {
+      if (!element || !properties) return;
+      
+      Object.entries(properties).forEach(([property, value]) => {
+        try {
+          element.style[property] = value;
+        } catch (cssError) {
+          console.warn(`⚠️ Failed to apply CSS property ${property}:`, cssError);
+        }
+      });
+      
+      console.log('✅ CSS applied directly');
+    } catch (error) {
+      console.error('❌ Error in applyCSSDirectly:', error);
+    }
+  }
+
+  // ✅ SAFETY METHOD: Emergency fallback display
+  emergencyWordDisplay(blockId, wordText) {
+    try {
+      const dropZone = document.getElementById(`dropZone_${blockId}`);
+      if (dropZone && wordText) {
+        dropZone.textContent = wordText;
+        dropZone.style.fontSize = '12px';
+        dropZone.style.whiteSpace = 'nowrap';
+        dropZone.style.overflow = 'hidden';
+        dropZone.style.textOverflow = 'ellipsis';
+        console.log('⚠️ Emergency word display applied');
+      }
+    } catch (emergencyError) {
+      console.error('❌ Emergency display also failed:', emergencyError);
+    }
   }
 
   removeBlockHighlight(blockId) {
-    // Reset block to default appearance
+    // Reset block to completely invisible
     const blockRect = this.layers.content.findOne(`#block_${blockId}`);
     if (blockRect) {
-      blockRect.fill('rgba(0, 123, 255, 0.1)');
-      blockRect.stroke('#007bff');
-      blockRect.strokeWidth(2);
+      blockRect.fill('transparent');
+      blockRect.stroke('transparent');
+      blockRect.strokeWidth(0);
     }
+    
+    // Also clear word text from dropzone
+    this.highlightBlock(blockId, false, '');
     
     this.stage.batchDraw();
   }
@@ -1239,38 +1400,397 @@ class MatchingTestStudent {
       // Re-center image if it exists
       if (this.imageInfo) {
         this.recenterImage();
+        
+        // 🆕 CRITICAL: After image moves, update ALL other elements
+        this.updateAllElementPositions();
       }
       
       this.stage.batchDraw();
     }
   }
 
-  recenterImage() {
-    if (!this.imageInfo || !this.layers.background) return; // Changed from layers.image
-    
-    const canvasWidth = this.stage.width();
-    const canvasHeight = this.stage.height();
-    
-    // Recalculate image position
-    let imgX, imgY;
-    
-    if (this.imageInfo.width > this.imageInfo.height) {
-      imgX = (canvasWidth - this.imageInfo.width) / 2;
-      imgY = (canvasHeight - this.imageInfo.height) / 2;
-    } else {
-      imgX = (canvasWidth - this.imageInfo.width) / 2;
-      imgY = (canvasHeight - this.imageInfo.height) / 2;
-    }
-    
-    // Update image position
-    const konvaImage = this.layers.background.getChildren()[0]; // Changed from layers.image
-    if (konvaImage) {
-      konvaImage.x(imgX);
-      konvaImage.y(imgY);
+  // ✅ CORRECTED: Update all element positions after image recentering
+  updateAllElementPositions() {
+    try {
+      // 1. Update Konva blocks to match new image position
+      this.updateKonvaBlockPositions();
       
-      // Update stored image info
-      this.imageInfo.x = imgX;
-      this.imageInfo.y = imgY;
+      // 2. Update Konva arrows to match new image position  
+      this.updateKonvaArrowPositions();
+      
+      // 3. Update HTML dropzones to match new Konva positions
+      this.updateHtmlDropzonePositions();
+      
+      console.log('✅ All element positions updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating element positions:', error);
+      // Fallback: re-render everything if update fails
+      this.fallbackRerenderElements();
+    }
+  }
+
+  // ✅ CORRECTED: Update Konva block positions with proper error handling
+  updateKonvaBlockPositions() {
+    if (!this.blocks || !Array.isArray(this.blocks)) {
+      console.warn('⚠️ No blocks to update');
+      return;
+    }
+
+    this.blocks.forEach(block => {
+      try {
+        const konvaBlock = this.layers.content.findOne(`#block_${block.id}`);
+        if (konvaBlock && block.coordinates) {
+          // Recalculate block position using same logic as renderBlocks()
+          let blockX, blockY, blockWidth, blockHeight;
+          
+          // Parse coordinates if needed (same as renderBlocks)
+          let coordinates = block.coordinates;
+          if (typeof coordinates === 'string') {
+            try {
+              coordinates = JSON.parse(coordinates);
+            } catch (e) {
+              console.error(`❌ Failed to parse coordinates for block ${block.id}:`, e);
+              return; // Skip this block
+            }
+          }
+          
+          // Validate coordinates (same as renderBlocks)
+          if (!coordinates || typeof coordinates.x !== 'number' || typeof coordinates.y !== 'number' || 
+              typeof coordinates.width !== 'number' || typeof coordinates.height !== 'number') {
+            console.error(`❌ Invalid coordinates structure for block ${block.id}:`, coordinates);
+            return; // Skip this block
+          }
+          
+          if (coordinates.rel_x !== null && coordinates.rel_y !== null && 
+              coordinates.rel_width !== null && coordinates.rel_height !== null &&
+              coordinates.image_width && coordinates.image_height) {
+            // Use relative coordinates
+            const originalWidth = coordinates.image_width;
+            const originalHeight = coordinates.image_height;
+            const scaleX = this.imageInfo.width / originalWidth;
+            const scaleY = this.imageInfo.height / originalHeight;
+            
+            blockX = this.imageInfo.x + (coordinates.rel_x / 100) * originalWidth * scaleX;
+            blockY = this.imageInfo.y + (coordinates.rel_y / 100) * originalHeight * scaleY;
+            blockWidth = (coordinates.rel_width / 100) * originalWidth * scaleX;
+            blockHeight = (coordinates.rel_height / 100) * originalHeight * scaleY;
+          } else {
+            // Use absolute coordinates
+            blockX = this.imageInfo.x + (coordinates.x * this.imageInfo.scaleX);
+            blockY = this.imageInfo.y + (coordinates.y * this.imageInfo.scaleY);
+            blockWidth = coordinates.width * this.imageInfo.scaleX;
+            blockHeight = coordinates.height * this.imageInfo.scaleX;
+          }
+          
+          // Update Konva block position AND size
+          konvaBlock.x(blockX);
+          konvaBlock.y(blockY);
+          konvaBlock.width(blockWidth);
+          konvaBlock.height(blockHeight);
+          
+          console.log(`✅ Block ${block.id} updated:`, { x: blockX, y: blockY, width: blockWidth, height: blockHeight });
+        }
+      } catch (error) {
+        console.error(`❌ Error updating block ${block.id}:`, error);
+      }
+    });
+  }
+
+  // ✅ ENHANCED: Update Konva arrow positions with unified scaling logic
+  updateKonvaArrowPositions() {
+    if (!this.arrows || !Array.isArray(this.arrows)) {
+      console.warn('⚠️ No arrows to update');
+      return;
+    }
+
+    this.arrows.forEach(arrow => {
+      try {
+        // Find arrow in the content layer by ID
+        const arrowLine = this.layers.content.findOne(`#arrow_${arrow.id}`);
+        if (arrowLine && this.imageInfo && 
+            typeof this.imageInfo.scaleX === 'number' && 
+            typeof this.imageInfo.scaleY === 'number' &&
+            this.imageInfo.scaleX > 0 && 
+            this.imageInfo.scaleY > 0) {
+          
+          let startX, startY, endX, endY;
+          
+          // ✅ UNIFIED: Same scaling logic as blocks for perfect alignment
+          if (arrow.rel_start_x !== null && arrow.rel_start_y !== null && 
+              arrow.rel_end_x !== null && arrow.rel_end_y !== null &&
+              arrow.image_width && arrow.image_height &&
+              arrow.image_width > 0 && arrow.image_height > 0) {
+            
+            // ✅ UNIFIED: Same calculation as blocks
+            const originalWidth = arrow.image_width;
+            const originalHeight = arrow.image_height;
+            const scaleX = this.imageInfo.width / originalWidth;
+            const scaleY = this.imageInfo.height / originalHeight;
+            
+            startX = this.imageInfo.x + (arrow.rel_start_x / 100) * originalWidth * scaleX;
+            startY = this.imageInfo.y + (arrow.rel_start_y / 100) * originalHeight * scaleY;
+            endX = this.imageInfo.x + (arrow.rel_end_x / 100) * originalWidth * scaleX;
+            endY = this.imageInfo.y + (arrow.rel_end_y / 100) * originalHeight * scaleY;
+            
+          } else if (arrow.start && arrow.end) {
+            // ✅ UNIFIED: Same fallback logic as blocks
+            startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
+            startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
+            endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleX);
+            endY = this.imageInfo.y + (arrow.end.y * this.imageInfo.scaleY);
+            
+          } else {
+            console.warn(`⚠️ Arrow ${arrow.id} has no valid coordinates, skipping`);
+            return;
+          }
+          
+          // Update arrow position
+          arrowLine.points([startX, startY, endX, endY]);
+          
+          // Scale arrow visual properties safely
+          const scaleFactor = Math.min(this.imageInfo.scaleX, this.imageInfo.scaleY);
+          if (arrow.style && typeof arrow.style.thickness === 'number') {
+            arrowLine.strokeWidth(arrow.style.thickness * scaleFactor);
+          }
+          if (arrow.style && typeof arrow.style.pointerLength === 'number') {
+            arrowLine.pointerLength(arrow.style.pointerLength * scaleFactor);
+          }
+          if (arrow.style && typeof arrow.style.pointerWidth === 'number') {
+            arrowLine.pointerWidth(arrow.style.pointerWidth * scaleFactor);
+          }
+          
+          console.log(`✅ Arrow ${arrow.id} updated with unified scaling:`, { 
+            start: { x: startX, y: startY }, 
+            end: { x: endX, y: endY } 
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error updating arrow ${arrow.id}:`, error);
+      }
+    });
+  }
+
+  // ✅ CORRECTED: Update HTML dropzone positions
+  updateHtmlDropzonePositions() {
+    if (!this.blocks || !Array.isArray(this.blocks)) {
+      console.warn('⚠️ No blocks to update dropzones for');
+      return;
+    }
+
+    this.blocks.forEach(block => {
+      try {
+        const konvaBlock = this.layers.content.findOne(`#block_${block.id}`);
+        const dropZone = document.getElementById(`dropZone_${block.id}`);
+        
+        if (konvaBlock && dropZone) {
+          // Update dropzone to match Konva block position and size
+          dropZone.style.left = `${konvaBlock.x()}px`;
+          dropZone.style.top = `${konvaBlock.y()}px`;
+          dropZone.style.width = `${konvaBlock.width()}px`;
+          dropZone.style.height = `${konvaBlock.height()}px`;
+          
+          console.log(`✅ Dropzone ${block.id} updated:`, {
+            x: konvaBlock.x(), y: konvaBlock.y(),
+            width: konvaBlock.width(), height: konvaBlock.height()
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error updating dropzone ${block.id}:`, error);
+      }
+    });
+  }
+
+  // ✅ CORRECTED: Safety net with unique method name
+  fallbackRerenderElements() {
+    console.warn('⚠️ Falling back to full re-render due to update error');
+    try {
+      // Clear and re-render everything
+      this.layers.content.destroyChildren();
+      this.renderBlocks();
+      this.renderArrows();
+      console.log('✅ Fallback re-render completed');
+    } catch (error) {
+      console.error('❌ Fallback re-render also failed:', error);
+    }
+  }
+
+  recenterImage() {
+    try {
+      // ✅ SAFETY CHECK #1: Validate required properties exist
+      if (!this.imageInfo || !this.layers.background) {
+        console.warn('⚠️ Image info or background layer not available');
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #2: Validate stage exists
+      if (!this.stage) {
+        console.warn('⚠️ Konva stage not available');
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #3: Validate original dimensions exist
+      if (!this.originalImageWidth || !this.originalImageHeight) {
+        console.warn('⚠️ Original image dimensions not available');
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #4: Validate original dimensions are valid numbers
+      if (this.originalImageWidth <= 0 || this.originalImageHeight <= 0) {
+        console.error('❌ Invalid original image dimensions:', {
+          width: this.originalImageWidth,
+          height: this.originalImageHeight
+        });
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #5: Validate original dimensions are numbers
+      if (typeof this.originalImageWidth !== 'number' || typeof this.originalImageHeight !== 'number') {
+        console.error('❌ Original image dimensions are not numbers:', {
+          width: this.originalImageWidth,
+          height: this.originalImageHeight
+        });
+        return;
+      }
+      
+      const canvasWidth = this.stage.width();
+      const canvasHeight = this.stage.height();
+      
+      // ✅ SAFETY CHECK #6: Validate canvas dimensions are numbers
+      if (typeof canvasWidth !== 'number' || typeof canvasHeight !== 'number') {
+        console.error('❌ Canvas dimensions are not numbers:', {
+          width: canvasWidth,
+          height: canvasHeight
+        });
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #7: Validate canvas dimensions
+      if (canvasWidth <= 0 || canvasHeight <= 0) {
+        console.error('❌ Invalid canvas dimensions:', {
+          width: canvasWidth,
+          height: canvasHeight
+        });
+        return;
+      }
+      
+      let newWidth, newHeight, newX, newY;
+      
+      // ✅ SAFETY CHECK #8: Validate before division
+      if (this.originalImageHeight === 0) {
+        console.error('❌ Original image height is 0');
+        return;
+      }
+      
+      // ✅ SAFETY CHECK #9: Calculate aspect ratios safely
+      const imgAspectRatio = this.originalImageWidth / this.originalImageHeight;
+      const canvasAspectRatio = canvasWidth / canvasHeight;
+      
+      // ✅ LOGIC: Only scale down if image is larger than canvas
+      if (this.originalImageWidth <= canvasWidth && this.originalImageHeight <= canvasHeight) {
+        // Image fits in canvas - keep original size
+        newWidth = this.originalImageWidth;
+        newHeight = this.originalImageHeight;
+        console.log('📱 Image fits in canvas - keeping original size:', { width: newWidth, height: newHeight });
+      } else {
+        // Image is larger than canvas - scale down to fit
+        if (imgAspectRatio > canvasAspectRatio) {
+          // Image is wider than canvas - fit to width
+          newWidth = canvasWidth * 0.95;
+          newHeight = newWidth / imgAspectRatio;
+        } else {
+          // Image is taller than canvas - fit to height
+          newHeight = canvasHeight * 0.95;
+          newWidth = newHeight * imgAspectRatio;
+        }
+        console.log('📱 Image scaled down to fit canvas:', { width: newWidth, height: newHeight });
+      }
+      
+      // ✅ SAFETY CHECK #10: Validate calculated dimensions using compatible methods
+      if (newWidth <= 0 || newHeight <= 0 || isNaN(newWidth) || isNaN(newHeight) || !isFinite(newWidth) || !isFinite(newHeight)) {
+        console.error('❌ Invalid calculated dimensions:', { width: newWidth, height: newHeight });
+        return;
+      }
+      
+      // Center the image
+      newX = (canvasWidth - newWidth) / 2;
+      newY = (canvasHeight - newHeight) / 2;
+      
+      // ✅ SAFETY CHECK #11: Validate image layer has children
+      const imageLayer = this.layers.background;
+      if (!imageLayer || imageLayer.getChildren().length === 0) {
+        console.warn('⚠️ Background layer has no children');
+        return;
+      }
+      
+      // Update Konva image with new position AND size
+      const konvaImage = imageLayer.getChildren()[0];
+      
+      // ✅ SAFETY CHECK #12: Use multiple validation methods for Konva Image
+      if (konvaImage && (konvaImage.image || (konvaImage.getClassName && konvaImage.getClassName() === 'Image') || konvaImage.constructor.name === 'Image')) {
+        konvaImage.x(newX);
+        konvaImage.y(newY);
+        konvaImage.width(newWidth);
+        konvaImage.height(newHeight);
+        
+        // Update stored image info
+        this.imageInfo.x = newX;
+        this.imageInfo.y = newY;
+        this.imageInfo.width = newWidth;
+        this.imageInfo.height = newHeight;
+        this.imageInfo.scaleX = newWidth / this.originalImageWidth;
+        this.imageInfo.scaleY = newHeight / this.originalImageHeight;
+        
+        console.log('✅ Image updated successfully:', {
+          position: { x: newX, y: newY },
+          size: { width: newWidth, height: newHeight },
+          scale: { scaleX: this.imageInfo.scaleX, scaleY: this.imageInfo.scaleY }
+        });
+        
+        // ✅ SAFETY CHECK #13: Validate method exists before calling (multiple checks)
+        if (this.blocks && this.blocks.length > 0 && this.updateAllElementPositions && typeof this.updateAllElementPositions === 'function') {
+          // 🆕 CRITICAL: After image rescaling, update ALL element positions
+          this.updateAllElementPositions();
+        } else {
+          console.log('ℹ️ No blocks to update or update method not available - skipping element position updates');
+        }
+      } else {
+        console.error('❌ Invalid image element in background layer');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in recenterImage:', error);
+      // Fallback: try to at least center the existing image
+      this.fallbackCenterImage();
+    }
+  }
+
+  // ✅ SAFETY NET: Fallback method if main logic fails
+  fallbackCenterImage() {
+    try {
+      if (this.imageInfo && this.layers.background && this.stage) {
+        const konvaImage = this.layers.background.getChildren()[0];
+        if (konvaImage && (konvaImage.image || (konvaImage.getClassName && konvaImage.getClassName() === 'Image'))) {
+          const canvasWidth = this.stage.width();
+          const canvasHeight = this.stage.height();
+          
+          // Validate canvas dimensions
+          if (typeof canvasWidth === 'number' && typeof canvasHeight === 'number' && canvasWidth > 0 && canvasHeight > 0) {
+            // Just center without rescaling
+            const imgX = (canvasWidth - this.imageInfo.width) / 2;
+            const imgY = (canvasHeight - this.imageInfo.height) / 2;
+            
+            konvaImage.x(imgX);
+            konvaImage.y(imgY);
+            
+            this.imageInfo.x = imgX;
+            this.imageInfo.y = imgY;
+            
+            console.log('⚠️ Fallback image centering applied');
+          }
+        }
+      }
+    } catch (fallbackError) {
+      console.error('❌ Fallback centering also failed:', fallbackError);
     }
   }
 
@@ -1467,10 +1987,13 @@ class MatchingTestStudent {
     this.blocks.forEach(block => {
       const blockRect = this.layers.content.findOne(`#block_${block.id}`);
       if (blockRect) {
-        blockRect.fill('rgba(0, 123, 255, 0.1)');
-        blockRect.stroke('#007bff');
-        blockRect.strokeWidth(2);
+        blockRect.fill('transparent');
+        blockRect.stroke('transparent');
+        blockRect.strokeWidth(0);
       }
+      
+      // Also clear word text from dropzones
+      this.highlightBlock(block.id, false, '');
     });
     
     this.stage.batchDraw();

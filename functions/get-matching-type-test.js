@@ -86,8 +86,8 @@ exports.handler = async function(event, context) {
     
     console.log('Questions retrieved:', questionsResult.length);
     
-    // Get arrows for questions that have them
-    console.log('Fetching arrows...');
+    // ✅ ENHANCED: Get arrows with ALL coordinate systems
+    console.log('Fetching enhanced arrows...');
     const arrowsResult = await sql`
       SELECT 
         a.id,
@@ -96,6 +96,12 @@ exports.handler = async function(event, context) {
         a.start_y,
         a.end_x,
         a.end_y,
+        a.rel_start_x,
+        a.rel_start_y,
+        a.rel_end_x,
+        a.rel_end_y,
+        a.image_width,
+        a.image_height,
         a.arrow_style,
         q.question_id as block_id
       FROM matching_type_test_arrows a
@@ -136,7 +142,7 @@ exports.handler = async function(event, context) {
       return question;
     });
     
-    // Prepare response data
+    // ✅ ENHANCED: Include all coordinate systems in response
     const responseData = {
       test_id: testData.id,
       test_name: testData.test_name,
@@ -152,6 +158,14 @@ exports.handler = async function(event, context) {
         start_y: a.start_y,
         end_x: a.end_x,
         end_y: a.end_y,
+        // ✅ NEW: Include relative coordinates
+        rel_start_x: a.rel_start_x,
+        rel_start_y: a.rel_start_y,
+        rel_end_x: a.rel_end_x,
+        rel_end_y: a.rel_end_y,
+        // ✅ NEW: Include image dimensions
+        image_width: a.image_width,
+        image_height: a.image_height,
         style: a.arrow_style || {}
       }))
     };
