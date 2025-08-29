@@ -465,13 +465,44 @@ class MatchingTestStudent {
         return; // Skip this block if coordinates are invalid
       }
       
-      // Calculate block position relative to the displayed image
-      // The coordinates from the database are relative to the original image dimensions
-      // We need to scale them proportionally to the displayed image size
-      const blockX = this.imageInfo.x + (coordinates.x * this.imageInfo.scaleX);
-      const blockY = this.imageInfo.y + (coordinates.y * this.imageInfo.scaleY);
-      const blockWidth = coordinates.width * this.imageInfo.scaleX;
-      const blockHeight = coordinates.height * this.imageInfo.scaleY;
+      // Calculate block position using relative coordinates if available, fallback to absolute
+      let blockX, blockY, blockWidth, blockHeight;
+      
+      if (coordinates.rel_x !== null && coordinates.rel_y !== null && 
+          coordinates.rel_width !== null && coordinates.rel_height !== null &&
+          coordinates.image_width && coordinates.image_height) {
+        // Use relative coordinates for responsive positioning
+        console.log(`🔲 Block ${block.id} using relative coordinates:`, {
+          rel_x: coordinates.rel_x,
+          rel_y: coordinates.rel_y,
+          rel_width: coordinates.rel_width,
+          rel_height: coordinates.rel_height,
+          image_width: coordinates.image_width,
+          image_height: coordinates.image_height
+        });
+        
+        // Calculate position based on current image size
+        blockX = this.imageInfo.x + (coordinates.rel_x / 100) * this.imageInfo.width;
+        blockY = this.imageInfo.y + (coordinates.rel_y / 100) * this.imageInfo.height;
+        blockWidth = (coordinates.rel_width / 100) * this.imageInfo.width;
+        blockHeight = (coordinates.rel_height / 100) * this.imageInfo.height;
+        
+        console.log(`🔲 Block ${block.id} relative positioning:`, {
+          rel_x: coordinates.rel_x, rel_y: coordinates.rel_y,
+          calculated: { x: blockX, y: blockY, width: blockWidth, height: blockHeight }
+        });
+      } else {
+        // Fallback to absolute coordinates (backward compatibility)
+        console.log(`🔲 Block ${block.id} using absolute coordinates (fallback):`, {
+          x: coordinates.x, y: coordinates.y,
+          width: coordinates.width, height: coordinates.height
+        });
+        
+        blockX = this.imageInfo.x + (coordinates.x * this.imageInfo.scaleX);
+        blockY = this.imageInfo.y + (coordinates.y * this.imageInfo.scaleY);
+        blockWidth = coordinates.width * this.imageInfo.scaleX;
+        blockHeight = coordinates.height * this.imageInfo.scaleY;
+      }
       
       console.log(`🔲 Block ${block.id} calculated position:`, {
         x: blockX,
@@ -585,11 +616,42 @@ class MatchingTestStudent {
         return;
       }
       
-      // Scale arrow coordinates relative to the displayed image
-      const startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
-      const startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
-      const endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleX);
-      const endY = this.imageInfo.y + (arrow.end.y * this.imageInfo.scaleY);
+      // Calculate arrow position using relative coordinates if available, fallback to absolute
+      let startX, startY, endX, endY;
+      
+      // Check if arrow has relative coordinates (from enhanced data structure)
+      if (arrow.rel_start_x !== null && arrow.rel_start_y !== null && 
+          arrow.rel_end_x !== null && arrow.rel_end_y !== null &&
+          arrow.image_width && arrow.image_height) {
+        // Use relative coordinates for responsive positioning
+        console.log(`➡️ Arrow ${arrow.id} using relative coordinates:`, {
+          rel_start_x: arrow.rel_start_x, rel_start_y: arrow.rel_start_y,
+          rel_end_x: arrow.rel_end_x, rel_end_y: arrow.rel_end_y,
+          image_width: arrow.image_width, image_height: arrow.image_height
+        });
+        
+        // Calculate position based on current image size
+        startX = this.imageInfo.x + (arrow.rel_start_x / 100) * this.imageInfo.width;
+        startY = this.imageInfo.y + (arrow.rel_start_y / 100) * this.imageInfo.height;
+        endX = this.imageInfo.x + (arrow.rel_end_x / 100) * this.imageInfo.width;
+        endY = this.imageInfo.y + (arrow.rel_end_y / 100) * this.imageInfo.height;
+        
+        console.log(`➡️ Arrow ${arrow.id} relative positioning:`, {
+          rel_start: { x: arrow.rel_start_x, y: arrow.rel_start_y },
+          rel_end: { x: arrow.rel_end_x, y: arrow.rel_end_y },
+          calculated: { start: { x: startX, y: startY }, end: { x: endX, y: endY } }
+        });
+      } else {
+        // Fallback to absolute coordinates (backward compatibility)
+        console.log(`➡️ Arrow ${arrow.id} using absolute coordinates (fallback):`, {
+          start: arrow.start, end: arrow.end
+        });
+        
+        startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
+        startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
+        endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleY);
+        endY = this.imageInfo.y + (arrow.end.y * this.imageInfo.scaleY);
+      }
       
       console.log(`➡️ Arrow ${arrow.id} coordinates:`, {
         original: { start: arrow.start, end: arrow.end },

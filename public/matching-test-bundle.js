@@ -927,7 +927,12 @@
         if (response.ok && result.success && result.url) {
           // Use the real Cloudinary URL
           this.image = result.url;
+          
+          // Store image dimensions for coordinate calculations
+          this.imageWidth = result.width;
+          this.imageHeight = result.height;
           console.log('✅ Image uploaded to Cloudinary:', result.url);
+          console.log('📏 Image dimensions stored:', this.imageWidth, 'x', this.imageHeight);
           
           this.showUploadStatus('Image uploaded successfully!', 'success');
           this.showImageEditor();
@@ -950,6 +955,16 @@
       statusDiv.textContent = message;
       statusDiv.className = `upload-status ${type}`;
       statusDiv.style.display = 'block';
+    }
+
+    // Convert file to data URL for upload
+    fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
     }
 
     // Convert file to data URL for upload
@@ -1782,18 +1797,8 @@
          const points = this.currentArrow.points();
          this.currentArrow.points([points[0], points[1], pos.x, pos.y]);
          
-         // Store arrow data for database
-         this.arrows.push({
-           id: this.currentArrowId,
-           group: this.currentArrow,
-           line: this.currentArrow,
-           start_x: points[0],
-           start_y: points[1],
-           end_x: pos.x,
-           end_y: pos.y
-         });
-         
-         console.log('✅ Arrow created and stored:', this.arrows[this.arrows.length - 1]);
+         // Use magnetic arrow creation instead of raw coordinates
+         this.createArrow(points[0], points[1], pos.x, pos.y);
          
          // Reset for next arrow
          this.currentArrow = null;
@@ -2321,10 +2326,21 @@
             question_id: block.id,
             word: (this.words.find(w => w.blockId === block.id)?.word) || '',
             block_coordinates: {
+              // Absolute coordinates (for backward compatibility)
               x: block.x,
               y: block.y,
               width: block.width,
-              height: block.height
+              height: block.height,
+              
+              // Relative coordinates (for responsive positioning)
+              rel_x: this.imageWidth ? (block.x / this.imageWidth) * 100 : null,
+              rel_y: this.imageHeight ? (block.y / this.imageHeight) * 100 : null,
+              rel_width: this.imageWidth ? (block.width / this.imageWidth) * 100 : null,
+              rel_height: this.imageHeight ? (block.height / this.imageHeight) * 100 : null,
+              
+              // Image dimensions for reference
+              image_width: this.imageWidth || null,
+              image_height: this.imageHeight || null
             },
             has_arrow: false
           };
@@ -2339,10 +2355,22 @@
             // Use the first associated arrow (or could combine multiple)
             const primaryArrow = associatedArrows[0];
             questionData.arrow = {
+              // Absolute coordinates (for backward compatibility)
               start_x: primaryArrow.start_x,
               start_y: primaryArrow.start_y,
               end_x: primaryArrow.end_x,
               end_y: primaryArrow.end_y,
+              
+              // Relative coordinates (for responsive positioning)
+              rel_start_x: this.imageWidth ? (primaryArrow.start_x / this.imageWidth) * 100 : null,
+              rel_start_y: this.imageHeight ? (primaryArrow.start_y / this.imageHeight) * 100 : null,
+              rel_end_x: this.imageWidth ? (primaryArrow.end_x / this.imageWidth) * 100 : null,
+              rel_end_y: this.imageHeight ? (primaryArrow.end_y / this.imageHeight) * 100 : null,
+              
+              // Image dimensions for reference
+              image_width: this.imageWidth || null,
+              image_height: this.imageHeight || null,
+              
               style: { color: '#dc3545', thickness: 3 }
             };
             console.log(`🎯 Block ${block.id} has ${associatedArrows.length} associated arrows`);
@@ -2351,10 +2379,22 @@
           return questionData;
         }),
         arrows: this.arrows.map(arrow => ({
+          // Absolute coordinates (for backward compatibility)
           start_x: arrow.start_x,
           start_y: arrow.start_y,
           end_x: arrow.end_x,
           end_y: arrow.end_y,
+          
+          // Relative coordinates (for responsive positioning)
+          rel_start_x: this.imageWidth ? (arrow.start_x / this.imageWidth) * 100 : null,
+          rel_start_y: this.imageHeight ? (arrow.start_y / this.imageHeight) * 100 : null,
+          rel_end_x: this.imageWidth ? (arrow.end_x / this.imageWidth) * 100 : null,
+          rel_end_y: this.imageHeight ? (arrow.end_y / this.imageHeight) * 100 : null,
+          
+          // Image dimensions for reference
+          image_width: this.imageWidth || null,
+          image_height: this.imageHeight || null,
+          
           arrow_style: { color: '#dc3545', thickness: 3 }
         }))
       };
@@ -2405,10 +2445,21 @@
           question_id: block.id,
           word: w,
           block_coordinates: {
+            // Absolute coordinates (for backward compatibility)
             x: block.x,
             y: block.y,
             width: block.width,
-            height: block.height
+            height: block.height,
+            
+            // Relative coordinates (for responsive positioning)
+            rel_x: this.imageWidth ? (block.x / this.imageWidth) * 100 : null,
+            rel_y: this.imageHeight ? (block.y / this.imageHeight) * 100 : null,
+            rel_width: this.imageWidth ? (block.width / this.imageWidth) * 100 : null,
+            rel_height: this.imageHeight ? (block.height / this.imageHeight) * 100 : null,
+            
+            // Image dimensions for reference
+            image_width: this.imageWidth || null,
+            image_height: this.imageHeight || null
           },
           has_arrow: false
         };
@@ -2423,10 +2474,22 @@
           // Use the first associated arrow (or could combine multiple)
           const primaryArrow = associatedArrows[0];
           q.arrow = {
+            // Absolute coordinates (for backward compatibility)
             start_x: primaryArrow.start_x,
             start_y: primaryArrow.start_y,
             end_x: primaryArrow.end_x,
             end_y: primaryArrow.end_y,
+            
+            // Relative coordinates (for responsive positioning)
+            rel_start_x: this.imageWidth ? (primaryArrow.start_x / this.imageWidth) * 100 : null,
+            rel_start_y: this.imageHeight ? (primaryArrow.start_y / this.imageHeight) * 100 : null,
+            rel_end_x: this.imageWidth ? (primaryArrow.end_x / this.imageWidth) * 100 : null,
+            rel_end_y: this.imageHeight ? (primaryArrow.end_y / this.imageHeight) * 100 : null,
+            
+            // Image dimensions for reference
+            image_width: this.imageWidth || null,
+            image_height: this.imageHeight || null,
+            
             style: { color: '#dc3545', thickness: 3 }
           };
           console.log(`🎯 Block ${block.id} has ${associatedArrows.length} associated arrows`);
