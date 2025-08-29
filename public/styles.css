@@ -3093,7 +3093,7 @@ textarea:focus {
     .results-table,
     .test-results-table {
       font-size: 0.65rem;
-      transform: scale(1.1);
+      transform: scale(1);
       transform-origin: center top;
       width: 100%;
       margin: 0;
