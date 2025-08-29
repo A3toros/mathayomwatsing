@@ -1793,16 +1793,18 @@
          
          console.log('✅ Arrow drawing completed at:', pos.x, pos.y);
          
-         // Finalize arrow with end position
+         // Get original coordinates
          const points = this.currentArrow.points();
-         this.currentArrow.points([points[0], points[1], pos.x, pos.y]);
          
-         // Use magnetic arrow creation instead of raw coordinates
+         // REMOVE the original arrow from display to prevent duplicates
+         this.currentArrow.destroy();
+         
+         // Create magneted arrow (replaces the original)
          this.createArrow(points[0], points[1], pos.x, pos.y);
          
          // Reset for next arrow
          this.currentArrow = null;
-         this.stage.batchDraw();
+         this.isDrawingArrow = false;
        }
      }
      
