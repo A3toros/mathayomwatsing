@@ -444,7 +444,7 @@ textarea:focus {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px 30px;
+  padding: 20px 30px 25px 30px;
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   color: white;
   margin: -30px -30px 30px -30px;
@@ -474,8 +474,6 @@ textarea:focus {
   margin-left: 4px;
 }
 
-
-
 /* Menu */
 .menu {
   position: absolute;
@@ -497,38 +495,65 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.3);
 }
 
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
+/* Student Header - Separate from general header rules */
+.student-header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px 25px 30px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: white;
+  margin: -30px -30px 30px -30px;
+  border-radius: var(--border-radius-lg);
+  margin-bottom: 25px;
+  position: relative;
+  gap: 15px;
+}
+
+/* Student Header H1 Styling */
+.student-header h1 {
+  margin: 0;
+  color: white;
+  background: none;
+  -webkit-text-fill-color: white;
+  font-size: 2rem;
+  text-align: center;
+  min-width: 300px;
+  flex-shrink: 0;
+}
+
+/* Ensure student menu button stays right-aligned */
+#student-cabinet .student-menu {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+#student-cabinet #studentMenuBtn {
+  margin-left: auto;
   right: 0;
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  min-width: 150px;
-  z-index: 1000;
-  display: none;
-}
-
-.dropdown-menu.show {
-  display: block;
-}
-
-.dropdown-menu a {
-  display: block;
-  padding: 12px 20px;
-  color: var(--text-main);
-  text-decoration: none;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   transition: var(--transition);
-  border-bottom: 1px solid var(--border-color);
 }
 
-.dropdown-menu a:last-child {
-  border-bottom: none;
+#student-cabinet #studentMenuBtn:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: none !important;
 }
 
-.dropdown-menu a:hover {
-  background: var(--neutral-light);
-  color: var(--primary-color);
+/* Desktop: Show text, hide hamburger */
+#student-cabinet #studentMenuBtn .btn-text {
+  display: inline;
+}
+
+#student-cabinet #studentMenuBtn span.hamburger-line {
+  display: none;
 }
 
 /* Content Sections */
@@ -1172,19 +1197,19 @@ textarea:focus {
 }
 
 /* Active Tests Section */
-.active-tests-section {
-  margin: 20px 0;
-  padding: 20px;
-  background: white;
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
+.active-tests-title {
+  color: var(--primary-color);
+  margin: 20px 0 20px 0;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
-.active-tests-section h3,
-.active-tests-section h4 {
-  color: var(--primary-color);
-  margin-bottom: 20px;
-  text-align: center;
+.student-active-tests-content {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
 }
 
 .test-item {
@@ -1314,7 +1339,7 @@ textarea:focus {
   align-items: center;
   gap: 8px;
   padding: 24px 48px; /* more space around graph */
-  background: #f3e8ff; /* light purple */
+  background: #fafafa; /* light purple */
   border: 1px solid #e9d5ff; /* soft purple border */
   border-radius: 12px; /* smooth edges */
   box-shadow: 0 6px 16px rgba(139, 92, 246, 0.08);
@@ -2038,26 +2063,23 @@ textarea:focus {
 .back-to-tests-btn:hover { background: #004085; color: white; }
 
 /* Test Results Section */
-.test-results-section {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e1e5e9;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.test-results-section h3 {
-  margin: 0 0 1rem 0;
+.test-results-title {
+  margin: 2rem 0 1rem 0;
   color: #2c3e50;
   font-size: 1.2rem;
   font-weight: 600;
-  border-bottom: 2px solid #f1f3f4;
+  text-align: center;
   padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f1f3f4;
+  width: 100%;
 }
 
 #studentTestResults {
   min-height: 80px;
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 #studentTestResults:empty::before {
@@ -2558,6 +2580,9 @@ textarea:focus {
   flex-direction: column;
   gap: 2rem;
   animation: fadeInUp 0.5s ease-out;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 @keyframes fadeInUp {
@@ -2572,10 +2597,10 @@ textarea:focus {
 }
 
 .results-group {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
   margin-bottom: 1.5rem;
 }
 
@@ -2766,7 +2791,7 @@ textarea:focus {
     margin: 0 -1rem;
   }
   
-  .test-results-section {
+  .test-results-title {
     padding: 1rem;
   }
 }
@@ -3010,8 +3035,8 @@ textarea:focus {
   }
   
   /* Active Tests Mobile */
-  .active-tests-section {
-    padding: 15px;
+  .student-active-tests-content {
+    padding: 0;
   }
   
   .test-item {
@@ -3177,7 +3202,7 @@ textarea:focus {
     @media (max-width: 400px) {
       .results-table,
       .test-results-table {
-        transform: scale(0.8);
+        transform: scale(1);
         width: 125%; /* Compensate for scale */
       }
       
@@ -3437,18 +3462,7 @@ textarea:focus {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
   
-  /* Dropdown menu positioning */
-  .dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    min-width: 150px;
-    z-index: 1002;
-    display: none;
-  }
+
 }
 
 /* Additional Mobile Optimizations */
@@ -3668,16 +3682,7 @@ textarea:focus {
     box-shadow: 0 0.125rem 0.625rem rgba(0, 0, 0, 0.1);
   }
   
-  /* Menu dropdown mobile */
-  .dropdown-menu {
-    position: fixed;
-    top: 5rem;
-    right: 1.25rem;
-    left: auto;
-    max-width: 15.625rem;
-    box-shadow: 0 0.25rem 1.25rem rgba(0, 0, 0, 0.2);
-    border-radius: 0.75rem;
-  }
+
   
   /* Edit subjects button mobile */
   .edit-subjects-container {
@@ -3738,17 +3743,6 @@ textarea:focus {
   .edit-subjects-container {
     bottom: 0.5rem;
     right: 0.5rem;
-  }
-  
-  /* Student cabinet header for very small screens */
-  #student-cabinet .header h1 {
-    font-size: 1.1rem;
-  }
-  
-  #student-cabinet .header #studentLogoutBtn {
-    padding: 6px 10px;
-    font-size: 11px;
-    min-width: 70px;
   }
 }
 
@@ -4120,10 +4114,7 @@ textarea:focus {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
   
-  /* Ensure header has relative positioning for absolute logout button */
-  #student-cabinet .header {
-    position: relative;
-  }
+
 }
 
 /* Mobile Header Styles */
@@ -4208,32 +4199,9 @@ textarea:focus {
     margin: 0;
   }
   
-  /* Student cabinet header mobile */
-  #student-cabinet .header {
-    position: relative;
-    flex-direction: row !important;
-    justify-content: space-between !important;
-    align-items: center;
-    gap: 10px;
-    padding: 15px 15px 15px 15px;
-  }
+
   
-  #student-cabinet .header h1 {
-    order: 1;
-    flex: 1;
-    text-align: left;
-    font-size: 1.3rem;
-    margin: 0;
-  }
-  
-  #student-cabinet .header #studentLogoutBtn {
-    order: 2;
-    position: static;
-    padding: 8px 12px;
-    font-size: 12px;
-    min-width: 80px;
-    margin: 0;
-  }
+
   
   /* Ensure menu button is properly visible on mobile */
   .menu-btn {
@@ -4291,16 +4259,11 @@ textarea:focus {
     margin-left: calc((50px + 40px + 15px) / 2);
   }
   
-  /* Student cabinet header for very small screens */
-  #student-cabinet .header h1 {
-    font-size: 1.1rem;
-  }
+
   
-  #student-cabinet .header #studentLogoutBtn {
-    padding: 6px 10px;
-    font-size: 11px;
-    min-width: 70px;
-  }
+
+  
+
 }
 
 /* Admin Panel Styles - Compact Professional Design */
@@ -4699,41 +4662,19 @@ textarea:focus {
   z-index: 1000 !important;
 }
 
-/* Debug: Make sure student menu button is visible */
-#studentMenuBtn {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  color: white !important;
-  padding: 0.5rem 1rem !important;
-  border-radius: 5px !important;
-  cursor: pointer !important;
-}
+
 
 /* Force student menu to be visible */
-#student-cabinet .header .student-menu,
-#student-cabinet .header #studentMenuBtn,
-#student-cabinet .header .dropdown-toggle {
+.student-header .student-menu,
+.student-header #studentMenuBtn,
+.student-header .dropdown-toggle {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
 
-/* Basic student cabinet header styles */
-#student-cabinet .header {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 1rem 2rem !important;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
-  border-radius: 10px 10px 0 0 !important;
-  margin-bottom: 2rem !important;
-  flex-direction: row !important;
-}
+
 
 .dropdown-toggle {
   background: rgba(255, 255, 255, 0.2);
@@ -4749,24 +4690,26 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.3);
 }
 
-.dropdown-menu {
+/* Student Dropdown Menu */
+.student-dropdown-menu {
   position: absolute;
   top: 100%;
   right: 0;
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
   min-width: 150px;
   z-index: 1000;
   display: none;
+  backdrop-filter: blur(10px);
 }
 
-.dropdown-menu.show {
+.student-dropdown-menu.show {
   display: block;
 }
 
-.dropdown-item {
+.student-dropdown-item {
   display: block;
   width: 100%;
   padding: 0.75rem 1rem;
@@ -4774,12 +4717,62 @@ textarea:focus {
   background: none;
   text-align: left;
   cursor: pointer;
-  color: #333;
-  transition: background-color 0.2s ease;
+  color: var(--text-main);
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid var(--neutral-100);
+  font-weight: 500;
 }
 
-.dropdown-item:hover {
-  background-color: #f5f5f5;
+.student-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.student-dropdown-item:hover {
+  background-color: var(--neutral-50);
+  color: var(--primary-color);
+  transform: translateX(4px);
+}
+
+.student-dropdown-item:active {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+/* Teacher Dropdown Menu */
+.teacher-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  min-width: 150px;
+  z-index: 1000;
+  display: none;
+  backdrop-filter: blur(10px);
+}
+
+.teacher-dropdown-menu.show {
+  display: block;
+}
+
+.teacher-dropdown-menu a {
+  display: block;
+  padding: 12px 20px;
+  color: var(--text-main);
+  text-decoration: none;
+  transition: var(--transition);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.teacher-dropdown-menu a:last-child {
+  border-bottom: none;
+}
+
+.teacher-dropdown-menu a:hover {
+  background: var(--neutral-100);
+  color: var(--primary-color);
 }
 
 /* Password Change Section */
@@ -4875,15 +4868,41 @@ textarea:focus {
   min-width: 120px;
 }
 
-/* Mobile Responsiveness for Student Menu */
+/* Mobile Responsiveness for Dropdowns */
 @media (max-width: 768px) {
   .student-menu {
     position: relative;
   }
   
-  .dropdown-menu {
-    right: 0;
-    min-width: 140px;
+  /* Student header adjustments for tablets */
+  .student-header {
+    padding: 18px 25px 22px 25px;
+    margin: -25px -25px 25px -25px;
+  }
+  
+  .student-header h1 {
+    font-size: 1.6rem;
+    min-width: 250px;
+  }
+  
+  /* Teacher cabinet dropdowns - fixed positioning */
+  #teacher-cabinet .teacher-dropdown-menu {
+    position: fixed !important;
+    top: 5rem !important;
+    right: 1.25rem !important;
+    left: auto !important;
+    max-width: 15.625rem !important;
+    box-shadow: 0 0.25rem 1.25rem rgba(0, 0, 0, 0.2) !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Student cabinet dropdowns - absolute positioning, left-aligned */
+  #student-cabinet .student-dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    max-width: calc(100vw - 2rem) !important;
+    min-width: 140px !important;
   }
   
   .password-change-section {
@@ -4898,7 +4917,13 @@ textarea:focus {
   .form-buttons {
     flex-direction: column;
   }
+  
+
 }
+
+
+
+
 
 /* Accessibility and motion preferences */
 @media (prefers-reduced-motion: reduce) {
@@ -6267,3 +6292,264 @@ tr:hover td {
     max-width: 80px;
   }
 }
+
+/* Mobile Responsiveness for Dropdowns */
+@media (max-width: 768px) {
+  .student-menu {
+    position: relative;
+  }
+  
+  /* Student header adjustments for tablets */
+  .student-header {
+    padding: 18px 25px 22px 25px;
+    margin: -25px -25px 25px -25px;
+  }
+  
+  .student-header h1 {
+    font-size: 1.6rem;
+    min-width: 250px;
+  }
+  
+  /* Teacher cabinet dropdowns - fixed positioning */
+  #teacher-cabinet .teacher-dropdown-menu {
+    position: fixed !important;
+    top: 5rem !important;
+    right: 1.25rem !important;
+    left: auto !important;
+    max-width: 15.625rem !important;
+    box-shadow: 0 0.25rem 1.25rem rgba(0, 0, 0, 0.2) !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Student cabinet dropdowns - absolute positioning, left-aligned */
+  #student-cabinet .student-dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    max-width: calc(100vw - 2rem) !important;
+    min-width: 140px !important;
+  }
+  
+  .password-change-section {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .password-change-form {
+    max-width: 100%;
+  }
+  
+  .form-buttons {
+    flex-direction: column;
+  }
+  
+
+}
+
+/* Medium mobile screens */
+@media (max-width: 480px) {
+  .student-header {
+    justify-content: space-between;
+    padding: 12px 15px;
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 25px;
+    margin: -20px -20px 20px -20px;
+  }
+  
+  .student-header h1 {
+    font-size: 1.1rem;
+    flex: 1;
+    margin-right: 10px;
+    min-width: 200px;
+  }
+  
+  #student-cabinet .student-menu {
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    position: relative !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  #student-cabinet #studentMenuBtn {
+    width: 40px !important;
+    height: 40px !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    right: 0 !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+    border-radius: 5px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    transform: none !important;
+  }
+  
+  #student-cabinet #studentMenuBtn::before,
+  #student-cabinet #studentMenuBtn::after,
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    content: '';
+    position: absolute;
+    height: 2px;
+    background: white;
+    width: 18px;
+    border-radius: 1px;
+    transition: var(--transition);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  #student-cabinet #studentMenuBtn::before {
+    top: 12px;
+  }
+  
+  #student-cabinet #studentMenuBtn::after {
+    bottom: 12px;
+  }
+  
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  /* Hide text on mobile */
+  #student-cabinet #studentMenuBtn .btn-text {
+    display: none !important;
+  }
+  
+  /* Show hamburger lines on mobile */
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    display: block !important;
+  }
+}
+
+/* Small mobile screens */
+@media (max-width: 400px) {
+  .student-header {
+    padding: 10px 12px;
+    margin: -15px -15px 15px -15px;
+    gap: 10px;
+  }
+  
+  .student-header h1 {
+    font-size: 1rem;
+    min-width: 180px;
+    margin-right: 8px;
+  }
+  
+  #student-cabinet #studentMenuBtn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+  }
+  
+  #student-cabinet #studentMenuBtn::before,
+  #student-cabinet #studentMenuBtn::after,
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    width: 16px;
+  }
+  
+  #student-cabinet #studentMenuBtn::before {
+    top: 10px;
+  }
+  
+  #student-cabinet #studentMenuBtn::after {
+    bottom: 10px;
+  }
+}
+
+/* Extra small mobile screens */
+@media (max-width: 375px) {
+  .student-header {
+    padding: 8px 10px;
+    margin: -12px -12px 12px -12px;
+    gap: 8px;
+  }
+  
+  .student-header h1 {
+    font-size: 0.9rem;
+    min-width: 160px;
+    margin-right: 6px;
+  }
+  
+  #student-cabinet #studentMenuBtn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+  }
+  
+  #student-cabinet #studentMenuBtn::before,
+  #student-cabinet #studentMenuBtn::after,
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    width: 14px;
+  }
+  
+  #student-cabinet #studentMenuBtn::before {
+    top: 9px;
+  }
+  
+  #student-cabinet #studentMenuBtn::after {
+    bottom: 9px;
+  }
+}
+
+/* Ultra small mobile screens */
+@media (max-width: 350px) {
+  .student-header {
+    padding: 6px 8px;
+    margin: -10px -10px 10px -10px;
+    gap: 6px;
+  }
+  
+  .student-header h1 {
+    font-size: 0.8rem;
+    min-width: 140px;
+    margin-right: 4px;
+  }
+  
+  #student-cabinet #studentMenuBtn {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+  }
+  
+  #student-cabinet #studentMenuBtn::before,
+  #student-cabinet #studentMenuBtn::after,
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    width: 12px;
+    height: 1.5px;
+  }
+  
+  #student-cabinet #studentMenuBtn::before {
+    top: 8px;
+  }
+  
+  #student-cabinet #studentMenuBtn::after {
+    bottom: 8px;
+  }
+}
+
+/* Student cabinet dropdowns - smart positioning */
+#student-cabinet .student-dropdown-menu {
+  position: absolute !important;
+  top: 100% !important;
+  right: 0 !important;
+  max-width: calc(100vw - 2rem) !important;
+  min-width: 140px !important;
+}
+
+

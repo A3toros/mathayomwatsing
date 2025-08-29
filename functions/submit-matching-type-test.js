@@ -162,9 +162,8 @@ exports.handler = async function(event, context) {
     // Calculate score
     console.log('Calculating score...');
     let correctMatches = 0;
-    let arrowCompliance = 0;
+    // Arrow compliance removed - arrows are visual only
     const totalQuestions = correctAnswersResult.length;
-    const totalArrows = arrowsResult.length;
     
     console.log('🔍 Student answers:', answers);
     console.log('🔍 Correct answers from DB:', correctAnswersResult);
@@ -210,24 +209,7 @@ exports.handler = async function(event, context) {
         if (!coordsCorrect) console.log(`  - Coordinate mismatch: got (${studentAnswer.block_x}, ${studentAnswer.block_y}), expected (${correctAnswer.block_coordinates.x}, ${correctAnswer.block_coordinates.y})`);
       }
       
-      // Check arrow compliance
-      let arrowFollowed = false;
-      if (correctAnswer.has_arrow) {
-        console.log(`🔍 Checking arrow compliance for question ${correctAnswer.question_id}`);
-        const arrow = arrowsResult.find(a => a.question_id === correctAnswer.question_id);
-        if (arrow) {
-          console.log(`🔍 Found arrow for question ${correctAnswer.question_id}:`, arrow);
-          // Check if student followed arrow direction
-          arrowFollowed = checkArrowCompliance(studentAnswer, arrow, correctAnswer);
-          console.log(`🔍 Arrow compliance result:`, arrowFollowed);
-          if (arrowFollowed) {
-            arrowCompliance++;
-            console.log(`🔍 Arrow compliance incremented to:`, arrowCompliance);
-          }
-        } else {
-          console.log(`🔍 No arrow found for question ${correctAnswer.question_id}`);
-        }
-      }
+      // Arrow compliance removed - arrows are visual guidance only
       
       return {
         question_id: studentAnswer.question_id,
@@ -235,7 +217,7 @@ exports.handler = async function(event, context) {
         word_correct: wordCorrect,
         block_correct: blockCorrect,
         coords_correct: coordsCorrect,
-        arrow_followed: arrowFollowed,
+        // arrow_followed removed - arrows are visual only
         reason: isCorrect ? 'Correct' : 
                 !wordCorrect ? 'Wrong word' : 
                 !blockCorrect ? 'Wrong block' :
@@ -246,25 +228,18 @@ exports.handler = async function(event, context) {
     console.log('🔍 Answer validation results:', answerValidation);
     console.log('🔍 Score breakdown:', {
       correctMatches,
-      totalQuestions,
-      arrowCompliance,
-      totalArrows
+      totalQuestions
     });
     
-    // Calculate final score
+    // Calculate final score - simple scoring without arrow weighting
     const score = Math.round((correctMatches / totalQuestions) * 100);
-    const arrowScore = totalArrows > 0 ? Math.round((arrowCompliance / totalArrows) * 100) : 100;
-    const finalScore = totalArrows > 0 ? Math.round((score * 0.7) + (arrowScore * 0.3)) : score;
+    const finalScore = score;
     
     console.log('🔍 Score calculation details:');
     console.log('  - correctMatches:', correctMatches);
     console.log('  - totalQuestions:', totalQuestions);
-    console.log('  - arrowCompliance:', arrowCompliance);
-    console.log('  - totalArrows:', totalArrows);
-    console.log('  - Base score (correctMatches/totalQuestions):', score);
-    console.log('  - Arrow score (arrowCompliance/totalArrows):', arrowScore);
-    console.log('  - Final weighted score:', finalScore);
-    console.log('  - Weighting applied:', totalArrows > 0 ? '70% base + 30% arrows' : '100% base only');
+    console.log('  - Final score (correctMatches/totalQuestions):', finalScore);
+    console.log('  - Simple scoring - no arrow weighting');
     
     // Store results in database
     console.log('Storing results in database...');
@@ -317,8 +292,7 @@ exports.handler = async function(event, context) {
         percentage_score: finalScore, // Percentage score for frontend display
         correct_matches: correctMatches,
         total_questions: totalQuestions,
-        arrow_compliance: arrowCompliance,
-        total_arrows: totalArrows,
+        // Arrow compliance data removed
         details: answerValidation
       })
     };
@@ -342,52 +316,4 @@ exports.handler = async function(event, context) {
   }
 };
 
-// Helper function to check arrow compliance
-function checkArrowCompliance(studentAnswer, arrow, correctAnswer) {
-  // Check if student placed word in the direction indicated by arrow
-  const arrowStart = { x: arrow.start_x, y: arrow.start_y };
-  const arrowEnd = { x: arrow.end_x, y: arrow.end_y };
-  const studentPosition = { x: studentAnswer.block_x, y: studentAnswer.block_y };
-  const correctPosition = { 
-    x: correctAnswer.block_coordinates.x, 
-    y: correctAnswer.block_coordinates.y 
-  };
-  
-  // Calculate arrow direction
-  const arrowVector = {
-    x: arrowEnd.x - arrowStart.x,
-    y: arrowEnd.y - arrowStart.y
-  };
-  
-  // Calculate student's placement relative to arrow start
-  const studentVector = {
-    x: studentPosition.x - arrowStart.x,
-    y: studentPosition.y - arrowStart.y
-  };
-  
-  // Check if student followed arrow direction (within reasonable tolerance)
-  const tolerance = 30; // pixels
-  
-  // If arrow points to a specific block, check if student placed word there
-  if (Math.abs(arrowEnd.x - correctPosition.x) <= tolerance && 
-      Math.abs(arrowEnd.y - correctPosition.y) <= tolerance) {
-    // Arrow points to correct block, check if student placed word there
-    return Math.abs(studentPosition.x - correctPosition.x) <= tolerance && 
-           Math.abs(studentPosition.y - correctPosition.y) <= tolerance;
-  }
-  
-  // If arrow points in a general direction, check if student followed that direction
-  const dotProduct = arrowVector.x * studentVector.x + arrowVector.y * studentVector.y;
-  const arrowMagnitude = Math.sqrt(arrowVector.x * arrowVector.x + arrowVector.y * arrowVector.y);
-  const studentMagnitude = Math.sqrt(studentVector.x * studentVector.x + studentVector.y * studentVector.y);
-  
-  if (arrowMagnitude === 0 || studentMagnitude === 0) {
-    return false;
-  }
-  
-  const cosine = dotProduct / (arrowMagnitude * studentMagnitude);
-  const angle = Math.acos(Math.max(-1, Math.min(1, cosine))) * 180 / Math.PI;
-  
-  // Student followed arrow direction if angle is less than 45 degrees
-  return angle <= 45;
-}
+// Arrow compliance function removed - arrows are visual only

@@ -31,7 +31,7 @@
                 <div class="matching-test__progress-fill" id="progressFill" style="width: 0%;"></div>
             </div>
             <div class="matching-test__scoring-info">
-                <small>💡 <strong>Scoring:</strong> Words can be placed on any block, but you get points for placing them on the correct blocks. The expected word for each block is shown in parentheses below the block number.</small>
+                <small><strong>Instructions:</strong> Tap and hold a word in the word bank below the picture, then drag it to the correct container on the picture.</small>
             </div>
         </div>
 
@@ -47,6 +47,7 @@
                     <div class="matching-test__canvas-overlay" id="canvasOverlay">
                         <div class="matching-test__loading" id="canvasLoading">
                             Loading test...
+                            <div style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.8);" id="loadingStatus">Connecting...</div>
                         </div>
                     </div>
                 </div>
@@ -85,24 +86,13 @@
                     </div>
                 </div>
                 
-                <div class="matching-test__arrow-score" id="arrowScoreItem" style="display: none;">
-                    <span class="matching-test__arrow-label">Arrow Compliance</span>
-                    <span class="matching-test__arrow-value" id="arrowCompliance">0%</span>
-                </div>
+                <!-- Arrow compliance score removed - arrows are visual only -->
                 
                 <div class="matching-test__score-feedback" id="scoreFeedback"></div>
                 
                 <button class="matching-test__btn matching-test__btn--back-to-cabinet" id="backToCabinetFromResults">
                     Back to Cabinet
                 </button>
-            </div>
-        </div>
-
-        <!-- Arrow Legend -->
-        <div class="matching-test__arrow-legend" id="arrowLegend">
-            <h4 class="matching-test__arrow-title">Arrow Types</h4>
-            <div class="matching-test__arrow-types" id="arrowTypes">
-                <!-- Arrow types will be dynamically generated here -->
             </div>
         </div>
 
@@ -146,6 +136,12 @@
         </div>
     </div>
 
+
+
+    <!-- GSAP Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="gsap-animations.js"></script>
+    
     <!-- Konva.js Library -->
     <script src="https://unpkg.com/konva@9/konva.min.js"></script>
     

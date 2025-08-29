@@ -69,16 +69,14 @@ class MatchingTestStudent {
       canvasLoading: document.getElementById('canvasLoading'),
       wordsGrid: document.getElementById('wordsGrid'),
       wordsCount: document.getElementById('wordsCount'),
-      arrowLegend: document.getElementById('arrowLegend'),
-      arrowTypes: document.getElementById('arrowTypes'),
+      // Arrow legend elements removed
       progressFill: document.getElementById('progressFill'),
       progressText: document.getElementById('progressText'),
       resetBtn: document.getElementById('resetBtn'),
       submitBtn: document.getElementById('submitBtn'),
       finalScore: document.getElementById('finalScore'),
       correctMatches: document.getElementById('correctMatches'),
-      arrowScoreItem: document.getElementById('arrowScoreItem'),
-      arrowCompliance: document.getElementById('arrowCompliance'),
+      // Arrow compliance elements removed
       scoreFeedback: document.getElementById('scoreFeedback'),
       // Section elements for hiding/showing
       header: document.querySelector('.matching-test__header'),
@@ -99,11 +97,104 @@ class MatchingTestStudent {
       resultsSection: document.getElementById('resultsSection'),
       backToCabinetFromResults: document.getElementById('backToCabinetFromResults')
     };
+    
+    // Initialize safe loading manager
+    this.initializeLoadingManager();
+    
+    // Validate critical elements exist
+    this.validateCriticalElements();
+  }
+
+  // Safe Loading Manager with GSAP fallback
+  initializeLoadingManager() {
+    this.gsapAvailable = false;
+    this.checkGSAPAvailability();
+  }
+
+  // Validate critical elements exist
+  validateCriticalElements() {
+    const criticalElements = ['canvas', 'canvasOverlay', 'wordsGrid'];
+    const missingElements = [];
+    
+    criticalElements.forEach(elementKey => {
+      if (!this.elements[elementKey]) {
+        missingElements.push(elementKey);
+      }
+    });
+    
+    if (missingElements.length > 0) {
+      console.error('❌ Critical elements missing:', missingElements);
+    } else {
+      console.log('✅ All critical elements found');
+    }
+  }
+
+  checkGSAPAvailability() {
+    // Check if GSAP is available
+    if (window.gsap && window.GSAPAnimations) {
+      this.gsapAvailable = true;
+      console.log('✅ GSAP animations available');
+    } else {
+      console.warn('⚠️ GSAP not available, using fallback animations');
+    }
+  }
+
+  showLoading(message = 'Connecting...') {
+    const status = document.getElementById('loadingStatus');
+    if (status) status.textContent = message;
+    
+    if (this.gsapAvailable) {
+      // Use GSAP animations
+      try {
+        window.GSAPAnimations.animateLoading(this.elements.canvasOverlay);
+      } catch (error) {
+        console.warn('⚠️ GSAP animation failed, using fallback:', error);
+        this.useFallbackAnimation();
+      }
+    } else {
+      // Use fallback animations
+      this.useFallbackAnimation();
+    }
+    
+    this.elements.canvasOverlay.style.display = 'flex';
+  }
+
+  hideLoading() {
+    if (this.gsapAvailable) {
+      // Use GSAP animations
+      try {
+        window.GSAPAnimations.stopLoading(this.elements.canvasOverlay);
+      } catch (error) {
+        console.warn('⚠️ GSAP animation failed, using fallback:', error);
+        this.useFallbackReset();
+      }
+    } else {
+      // Use fallback animations
+      this.useFallbackReset();
+    }
+    
+    this.elements.canvasOverlay.style.display = 'none';
+  }
+
+  useFallbackAnimation() {
+    // Simple CSS fallback for loading state
+    this.elements.canvasOverlay.style.opacity = '0.6';
+    this.elements.canvasOverlay.style.transform = 'scale(0.98)';
+    this.elements.canvasOverlay.style.transition = 'all 0.3s ease';
+  }
+
+  useFallbackReset() {
+    // Reset to normal state
+    this.elements.canvasOverlay.style.opacity = '1';
+    this.elements.canvasOverlay.style.transform = 'scale(1)';
   }
 
   async loadTestData(testId) {
     try {
       console.log('📡 Loading test data for ID:', testId);
+      
+      // Show loading with status updates
+      this.showLoading('Connecting to server...');
       
       const response = await fetch(`/.netlify/functions/get-matching-type-test?test_id=${testId}`);
       const result = await response.json();
@@ -115,6 +206,9 @@ class MatchingTestStudent {
       this.testData = result.data;
       console.log('✅ Test data loaded successfully:', this.testData);
       
+      // Update loading status
+      this.showLoading('Loading test data...');
+      
       // Update UI with test information
       this.elements.testTitle.textContent = this.testData.test_name;
       this.elements.testId.textContent = `Test ID: ${this.testData.test_id}`;
@@ -122,8 +216,12 @@ class MatchingTestStudent {
       // Process questions and arrows
       this.processTestData();
       
+      // Hide loading
+      this.hideLoading();
+      
     } catch (error) {
       console.error('❌ Error loading test data:', error);
+      this.hideLoading();
       this.showError(`Failed to load test: ${error.message}`);
     }
   }
@@ -352,10 +450,13 @@ class MatchingTestStudent {
         console.error('❌ Failed to load image:', error);
         console.warn('⚠️ This might be due to blob URL restrictions when testing locally');
         
-        // Show user-friendly error message
-        this.showError('Image failed to load. This may be due to testing locally with a blob URL from the live site. Please test on the live site or use a different image.');
+        // Clear timeout if it exists
+        if (imageLoadTimeout) {
+          clearTimeout(imageLoadTimeout);
+        }
         
-
+        // Log error but don't show user-facing error for blob URL issues
+        // User will see loading state continues, which is better UX
       };
       
       img.onload = () => {
@@ -440,8 +541,9 @@ class MatchingTestStudent {
       // Set a timeout to handle cases where image loading hangs
       const imageLoadTimeout = setTimeout(() => {
         console.warn('⚠️ Image loading timeout - this might be a blob URL issue');
+        clearTimeout(imageLoadTimeout);
         img.onerror(new Error('Image loading timeout'));
-      }, 10000); // 10 second timeout
+      }, 15000); // 15 second timeout for better reliability
       
       img.src = this.testData.image_url;
       
@@ -638,6 +740,12 @@ class MatchingTestStudent {
   }
 
   renderArrows() {
+    // Safety check: ensure arrows array exists before processing
+    if (!this.arrows || !Array.isArray(this.arrows)) {
+      console.warn('⚠️ No arrows to process');
+      return;
+    }
+    
     if (this.arrows.length === 0) {
       console.log('ℹ️ No arrows to render');
       return;
@@ -647,6 +755,11 @@ class MatchingTestStudent {
     
     this.arrows.forEach(arrow => {
       // ✅ ENHANCED: Validate the processed data structure
+      if (!arrow || !arrow.id) {
+        console.warn('⚠️ Invalid arrow object:', arrow);
+        return;
+      }
+      
       if (!arrow.start || !arrow.end || 
           typeof arrow.start.x !== 'number' || typeof arrow.start.y !== 'number' ||
           typeof arrow.end.x !== 'number' || typeof arrow.end.y !== 'number') {
@@ -739,8 +852,7 @@ class MatchingTestStudent {
     
     console.log(`✅ Rendered ${this.arrows.length} arrows with unified scaling`);
     
-    // Show arrow legend if there are arrows
-    this.showArrowLegend();
+    // Arrow legend removed - no longer needed
   }
 
   createHtmlDropZone(block, blockX, blockY, blockWidth, blockHeight) {
@@ -1341,33 +1453,7 @@ class MatchingTestStudent {
     }
   }
 
-  showArrowLegend() {
-    if (this.arrows.length === 0) return;
-    
-    console.log('📚 Showing arrow legend...');
-    
-    // Create arrow type descriptions
-    const arrowTypes = [
-      { type: 'directional', description: 'Points to the correct block location' },
-      { type: 'connection', description: 'Shows relationship between elements' },
-      { type: 'sequence', description: 'Indicates order or flow' }
-    ];
-    
-    // Populate arrow types
-    this.elements.arrowTypes.innerHTML = '';
-    arrowTypes.forEach(arrowType => {
-      const arrowTypeElement = document.createElement('div');
-      arrowTypeElement.className = 'matching-test__arrow-type';
-      arrowTypeElement.innerHTML = `
-        <div class="matching-test__arrow-icon"></div>
-        <div class="matching-test__arrow-description">${arrowType.description}</div>
-      `;
-      this.elements.arrowTypes.appendChild(arrowTypeElement);
-    });
-    
-    // Show legend
-    this.elements.arrowLegend.style.display = 'block';
-  }
+  // Arrow legend method removed - no longer needed
 
   hideLoadingOverlay() {
     console.log('🔍 Attempting to hide loading overlay...');
@@ -2156,13 +2242,7 @@ class MatchingTestStudent {
     console.log('  - correctMatches element:', this.elements.correctMatches);
     console.log('  - scoreFeedback element:', this.elements.scoreFeedback);
     
-    // Show arrow compliance if applicable
-    if (results.total_arrows > 0 && this.elements.arrowScoreItem) {
-      this.elements.arrowScoreItem.style.display = 'block';
-      if (this.elements.arrowCompliance) {
-        this.elements.arrowCompliance.textContent = `${results.arrow_compliance}%`;
-      }
-    }
+    // Arrow compliance display removed
     
     // Generate and display feedback
     if (this.elements.scoreFeedback) {
@@ -2225,22 +2305,9 @@ class MatchingTestStudent {
       </div>
     </div>`;
     
-    // Add motivational message based on score
-    if (scorePercentage === 100) {
-      feedback += '<div style="text-align: center;"><strong>🎉 Perfect Score!</strong> Excellent work! You matched all words correctly.</div>';
-    } else if (scorePercentage >= 80) {
-      feedback += '<div style="text-align: center;"><strong>🌟 Great Job!</strong> You did very well on this test.</div>';
-    } else if (scorePercentage >= 60) {
-      feedback += '<div style="text-align: center;"><strong>👍 Good Effort!</strong> You\'re on the right track.</div>';
-    } else if (scorePercentage >= 40) {
-      feedback += '<div style="text-align: center;"><strong>📚 Keep Learning!</strong> Review the material and try again.</div>';
-    } else {
-      feedback += '<div style="text-align: center;"><strong>💪 Don\'t Give Up!</strong> Practice makes perfect.</div>';
-    }
+    // Motivational messages removed - keep feedback simple
     
-    if (results.total_arrows > 0) {
-      feedback += `<br><br><div style="text-align: center;"><strong>Arrow Compliance:</strong> You followed ${results.arrow_compliance}% of the arrow directions correctly.</div>`;
-    }
+    // Arrow compliance feedback removed
     
     console.log('🔍 Generated feedback:', feedback);
     return feedback;

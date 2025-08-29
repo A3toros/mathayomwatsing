@@ -47,7 +47,7 @@
           <button class="menu-btn" id="menuBtn">
             <i class="fas fa-bars"></i>
           </button>
-          <div class="dropdown-menu" id="dropdownMenu">
+          <div class="teacher-dropdown-menu" id="dropdownMenu">
             <a href="#" id="archiveBtn">Archive</a>
             <a href="#" id="logoutBtn" onclick="logout()">Log Out</a>
           </div>
@@ -246,15 +246,16 @@
 
     <!-- Student's Cabinet Section -->
     <section id="student-cabinet" class="section">
-      <div class="header">
+      <div class="student-header">
         <h1>Student's Cabinet</h1>
         <div class="student-menu">
           <button class="btn btn-secondary dropdown-toggle" id="studentMenuBtn" onclick="toggleStudentMenu()">
-            Menu ▼
+            <span class="btn-text">Menu</span>
+            <span class="hamburger-line"></span>
           </button>
-          <div class="dropdown-menu" id="studentDropdownMenu">
-            <button class="dropdown-item" onclick="showChangePasswordTab()">Change Password</button>
-            <button class="dropdown-item" onclick="logout()">Log Out</button>
+          <div class="student-dropdown-menu" id="studentDropdownMenu">
+            <button class="student-dropdown-item" onclick="showChangePasswordTab()">Change Password</button>
+            <button class="student-dropdown-item" onclick="logout()">Log Out</button>
           </div>
         </div>
       </div>
@@ -271,16 +272,12 @@
       </div>
       
       <!-- Active Tests Section -->
-      <div class="active-tests-section">
-        <h3>Active Tests</h3>
-        <div id="studentActiveTests"></div>
-      </div>
+      <h3 class="active-tests-title">Active Tests</h3>
+      <div id="studentActiveTests" class="student-active-tests-content"></div>
       
       <!-- Test Results Section -->
-      <div class="test-results-section">
-        <h3>Test Results</h3>
-        <div id="studentTestResults"></div>
-      </div>
+      <h3 class="test-results-title">Test Results</h3>
+      <div id="studentTestResults"></div>
       
 
       
