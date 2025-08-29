@@ -502,6 +502,111 @@
           </div>
         </div>
 
+        <!-- Test Deletion Management -->
+        <div class="admin-section">
+          <h2 class="section-header">
+            Test Deletion Management
+          </h2>
+          <div id="test-deletion-section" class="section-content">
+            <div class="section-controls">
+              <button class="btn btn-danger" onclick="showTestAssignmentDeletion()">
+                <i class="fas fa-trash"></i> Delete Test Assignments
+              </button>
+              <button class="btn btn-danger" onclick="showTestDataDeletion()">
+                <i class="fas fa-trash-alt"></i> Delete Test Data & Assignments
+              </button>
+            </div>
+            
+            <!-- Test Assignment Deletion Form -->
+            <div id="assignmentDeletionForm" class="form-section deletion-form" style="display: none;">
+              <h3>Delete Test Assignments</h3>
+              <form id="assignmentDeletionFormElement">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="assignmentStartDate">Start Date:</label>
+                    <input type="date" id="assignmentStartDate" name="assignmentStartDate" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="assignmentEndDate">End Date:</label>
+                    <input type="date" id="assignmentEndDate" name="assignmentEndDate" required>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="assignmentTeacherSelect">Teacher:</label>
+                    <select id="assignmentTeacherSelect" name="assignmentTeacherSelect" required>
+                      <option value="">Select Teacher</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="assignmentSubjectSelect">Subject:</label>
+                    <select id="assignmentSubjectSelect" name="assignmentSubjectSelect">
+                      <option value="">All Subjects</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label>Grades & Classes:</label>
+                  <div id="assignmentGradesClassesContainer" class="grades-classes-container">
+                    <!-- Dynamic checkboxes will be loaded here -->
+                  </div>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-danger">Delete Assignments</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideAssignmentDeletionForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Test Data Deletion Form -->
+            <div id="testDataDeletionForm" class="form-section deletion-form" style="display: none;">
+              <h3>Delete Test Data & Assignments</h3>
+              <form id="testDataDeletionFormElement">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="dataStartDate">Start Date:</label>
+                    <input type="date" id="dataStartDate" name="dataStartDate" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="dataEndDate">End Date:</label>
+                    <input type="date" id="dataEndDate" name="dataEndDate" required>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="dataTeacherSelect">Teacher:</label>
+                    <select id="dataTeacherSelect" name="dataTeacherSelect" required>
+                      <option value="">Select Teacher</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="dataSubjectSelect">Subject:</label>
+                    <select id="dataSubjectSelect" name="dataSubjectSelect">
+                      <option value="">All Subjects</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label>Grades & Classes:</label>
+                  <div id="dataGradesClassesContainer" class="grades-classes-container">
+                    <!-- Dynamic checkboxes will be loaded here -->
+                  </div>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-danger">Delete Test Data & Assignments</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideTestDataDeletionForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
         <!-- Local Storage & Debug -->
         <div class="admin-section">
           <h2 class="section-header" onclick="toggleSection('debug-section')">

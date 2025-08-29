@@ -30,6 +30,7 @@
   --neutral-700: #334155;
   --neutral-800: #1e293b;
   --neutral-900: #0f172a;
+  --neutral-dark: #6c757d;
   
   /* Typography */
   --text-main: var(--neutral-900);
@@ -297,7 +298,6 @@ textarea:focus {
 }
 
 .btn:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
@@ -341,6 +341,7 @@ textarea:focus {
 
 .btn-debug {
   background: var(--neutral-dark);
+  color: white;
   margin: 5px;
   min-width: auto;
   padding: 10px 20px;
@@ -4366,6 +4367,84 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+/* Test Deletion Forms */
+.deletion-form {
+  background: #fff3f3;
+  border: 1px solid #ffcdd2;
+  border-radius: var(--border-radius);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.deletion-form h3 {
+  color: #d32f2f;
+  margin-bottom: 20px;
+}
+
+.grades-classes-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  background: white;
+}
+
+.grade-class-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.grade-class-checkbox:hover {
+  background-color: var(--neutral-100);
+}
+
+.grade-class-checkbox input[type="checkbox"] {
+  margin: 0;
+}
+
+.grade-class-checkbox label {
+  font-size: 0.9em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-danger {
+  background: #d32f2f;
+  color: white;
+  border: 1px solid #d32f2f;
+}
+
+.btn-danger:hover {
+  background: #b71c1c;
+  border-color: #b71c1c;
+}
+
+.btn-danger:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Form validation styles */
+.form-group.error input,
+.form-group.error select {
+  border-color: #d32f2f;
+}
+
+.form-group.error .error-message {
+  color: #d32f2f;
+  font-size: 0.8em;
+  margin-top: 5px;
+}
+
 .form-section {
   background: var(--neutral-light);
   border: 1px solid var(--border-color);
@@ -4896,14 +4975,7 @@ textarea:focus {
     border-radius: 0.75rem !important;
   }
   
-  /* Student cabinet dropdowns - absolute positioning, left-aligned */
-  #student-cabinet .student-dropdown-menu {
-    position: absolute !important;
-    top: 100% !important;
-    right: 0 !important;
-    max-width: calc(100vw - 2rem) !important;
-    min-width: 140px !important;
-  }
+
   
   .password-change-section {
     padding: 1rem;

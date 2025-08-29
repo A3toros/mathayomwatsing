@@ -152,7 +152,6 @@ function initializeEntranceAnimations() {
     // Animate buttons with stagger
     gsap.from('.btn', {
         opacity: 0,
-        y: 20,
         duration: 0.5,
         stagger: 0.1,
         ease: "back.out(1.7)",
@@ -169,7 +168,6 @@ function initializeButtonAnimations() {
         button.addEventListener('mouseenter', () => {
             gsap.to(button, {
                 scale: 1.05,
-                y: -3,
                 duration: 0.2,
                 ease: "power2.out"
             });
@@ -179,7 +177,6 @@ function initializeButtonAnimations() {
         button.addEventListener('mouseleave', () => {
             gsap.to(button, {
                 scale: 1,
-                y: 0,
                 duration: 0.2,
                 ease: "power2.out"
             });

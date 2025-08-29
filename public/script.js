@@ -8707,6 +8707,35 @@ document.addEventListener('DOMContentLoaded', function() {
   if (newSubjectForm) {
     newSubjectForm.addEventListener('submit', handleAddSubject);
   }
+
+  // Add deletion form submit listeners
+  const assignmentForm = document.getElementById('assignmentDeletionFormElement');
+  if (assignmentForm) {
+    assignmentForm.addEventListener('submit', handleAssignmentDeletion);
+  }
+  
+  const dataForm = document.getElementById('testDataDeletionFormElement');
+  if (dataForm) {
+    dataForm.addEventListener('submit', handleTestDataDeletion);
+  }
+  
+  // Add teacher selection change handlers
+  const assignmentTeacherSelect = document.getElementById('assignmentTeacherSelect');
+  if (assignmentTeacherSelect) {
+    assignmentTeacherSelect.addEventListener('change', (e) => {
+      loadTeacherGradesClasses(e.target.value, 'assignmentGradesClassesContainer');
+    });
+  }
+  
+  const dataTeacherSelect = document.getElementById('dataTeacherSelect');
+  if (dataTeacherSelect) {
+    dataTeacherSelect.addEventListener('change', (e) => {
+      loadTeacherGradesClasses(e.target.value, 'dataGradesClassesContainer');
+    });
+  }
+  
+  // Initialize deletion functionality
+  initializeTestDeletion();
 });
 async function handleAddUser(event) {
   event.preventDefault();
@@ -10574,3 +10603,322 @@ function clearTestDataAndReturnToCabinet() {
 }
 
 // ===== END NEW PAGE-BASED TEST NAVIGATION SYSTEM =====
+
+// ===== TEST DELETION MANAGEMENT FUNCTIONS =====
+
+// Global variables for deletion forms
+let currentDeletionType = null;
+let teachersList = [];
+let subjectsList = [];
+
+// Initialize deletion functionality
+function initializeTestDeletion() {
+  loadTeachersList();
+  loadSubjectsList();
+  setupDateValidation();
+}
+
+// Load teachers for dropdowns
+async function loadTeachersList() {
+  try {
+    const response = await fetch('/.netlify/functions/get-all-teachers');
+    const data = await response.json();
+    if (data.success) {
+      teachersList = data.teachers;
+      populateTeacherDropdowns();
+    } else {
+      console.error('Failed to load teachers:', data.message);
+    }
+  } catch (error) {
+    console.error('Error loading teachers:', error);
+  }
+}
+
+// Load subjects for dropdowns
+async function loadSubjectsList() {
+  try {
+    const response = await fetch('/.netlify/functions/get-all-subjects');
+    const data = await response.json();
+    if (data.success) {
+      subjectsList = data.subjects;
+      populateSubjectDropdowns();
+    } else {
+      console.error('Failed to load subjects:', data.message);
+    }
+  } catch (error) {
+    console.error('Error loading subjects:', error);
+  }
+}
+
+// Populate teacher dropdowns
+function populateTeacherDropdowns() {
+  const teacherSelects = ['assignmentTeacherSelect', 'dataTeacherSelect'];
+  
+  teacherSelects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (select) {
+      select.innerHTML = '<option value="">Select Teacher</option>';
+      teachersList.forEach(teacher => {
+        const option = document.createElement('option');
+        option.value = teacher.teacher_id;
+        option.textContent = teacher.username;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// Populate subject dropdowns
+function populateSubjectDropdowns() {
+  const subjectSelects = ['assignmentSubjectSelect', 'dataSubjectSelect'];
+  
+  subjectSelects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (select) {
+      select.innerHTML = '<option value="">All Subjects</option>';
+      subjectsList.forEach(subject => {
+        const option = document.createElement('option');
+        option.value = subject.subject_id;
+        option.textContent = subject.subject;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// Show assignment deletion form
+function showTestAssignmentDeletion() {
+  currentDeletionType = 'assignment';
+  document.getElementById('assignmentDeletionForm').style.display = 'block';
+  document.getElementById('testDataDeletionForm').style.display = 'none';
+  
+  // Reset form
+  document.getElementById('assignmentDeletionFormElement').reset();
+  document.getElementById('assignmentGradesClassesContainer').innerHTML = '';
+}
+
+// Show test data deletion form
+function showTestDataDeletion() {
+  currentDeletionType = 'data';
+  document.getElementById('testDataDeletionForm').style.display = 'block';
+  document.getElementById('assignmentDeletionForm').style.display = 'none';
+  
+  // Reset form
+  document.getElementById('testDataDeletionFormElement').reset();
+  document.getElementById('dataGradesClassesContainer').innerHTML = '';
+}
+
+// Hide forms
+function hideAssignmentDeletionForm() {
+  document.getElementById('assignmentDeletionForm').style.display = 'none';
+}
+
+function hideTestDataDeletionForm() {
+  document.getElementById('testDataDeletionForm').style.display = 'none';
+}
+
+// Load grades and classes for selected teacher
+async function loadTeacherGradesClasses(teacherId, containerId) {
+  if (!teacherId) {
+    document.getElementById(containerId).innerHTML = '';
+    return;
+  }
+
+  try {
+    const response = await fetch(`/.netlify/functions/get-teacher-grades-classes?teacherId=${teacherId}`);
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.error('Failed to load grades/classes:', data.message);
+      return;
+    }
+    
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    if (data.data.length === 0) {
+      container.innerHTML = '<p>No grades/classes found for this teacher.</p>';
+      return;
+    }
+    
+    // Group by grade
+    const groupedByGrade = {};
+    data.data.forEach(item => {
+      if (!groupedByGrade[item.grade]) {
+        groupedByGrade[item.grade] = [];
+      }
+      groupedByGrade[item.grade].push(item.class);
+    });
+    
+    // Create checkboxes
+    Object.keys(groupedByGrade).sort().forEach(grade => {
+      const gradeDiv = document.createElement('div');
+      gradeDiv.className = 'grade-group';
+      
+      const gradeLabel = document.createElement('h4');
+      gradeLabel.textContent = `Grade ${grade}`;
+      gradeDiv.appendChild(gradeLabel);
+      
+      groupedByGrade[grade].sort().forEach(className => {
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'grade-class-checkbox';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `${grade}-${className}`;
+        checkbox.value = `${grade}-${className}`;
+        
+        const label = document.createElement('label');
+        label.htmlFor = `${grade}-${className}`;
+        label.textContent = `Class ${className}`;
+        
+        checkboxDiv.appendChild(checkbox);
+        checkboxDiv.appendChild(label);
+        gradeDiv.appendChild(checkboxDiv);
+      });
+      
+      container.appendChild(gradeDiv);
+    });
+    
+  } catch (error) {
+    console.error('Error loading grades/classes:', error);
+    document.getElementById(containerId).innerHTML = '<p>Error loading grades/classes.</p>';
+  }
+}
+
+// Setup date validation
+function setupDateValidation() {
+  const startDateInputs = ['assignmentStartDate', 'dataStartDate'];
+  const endDateInputs = ['assignmentEndDate', 'dataEndDate'];
+  
+  startDateInputs.forEach((startId, index) => {
+    const startInput = document.getElementById(startId);
+    const endInput = document.getElementById(endDateInputs[index]);
+    
+    startInput.addEventListener('change', () => {
+      endInput.min = startInput.value;
+      validateDateRange(startInput, endInput);
+    });
+    
+    endInput.addEventListener('change', () => {
+      validateDateRange(startInput, endInput);
+    });
+  });
+}
+
+// Validate date range
+function validateDateRange(startInput, endInput) {
+  const startDate = new Date(startInput.value);
+  const endDate = new Date(endInput.value);
+  
+  if (startDate && endDate && startDate > endDate) {
+    endInput.setCustomValidity('End date must be after start date');
+  } else {
+    endInput.setCustomValidity('');
+  }
+}
+
+// Handle assignment deletion form submission
+async function handleAssignmentDeletion(event) {
+  event.preventDefault();
+  
+  if (!confirm('Are you sure you want to delete test assignments? This action cannot be undone.')) {
+    return;
+  }
+  
+  const formData = new FormData(event.target);
+  const selectedGradesClasses = getSelectedGradesClasses('assignmentGradesClassesContainer');
+  
+  if (selectedGradesClasses.length === 0) {
+    alert('Please select at least one grade/class combination.');
+    return;
+  }
+  
+  const deletionData = {
+    startDate: formData.get('assignmentStartDate'),
+    endDate: formData.get('assignmentEndDate'),
+    teacherId: formData.get('assignmentTeacherSelect'),
+    grades: selectedGradesClasses.map(item => item.grade),
+    classes: selectedGradesClasses.map(item => item.class),
+    subjectId: formData.get('assignmentSubjectSelect') || null
+  };
+  
+  try {
+    const response = await fetch('/.netlify/functions/delete-test-assignments', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deletionData)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      alert(`Successfully deleted ${result.deletedCount} test assignments.`);
+      hideAssignmentDeletionForm();
+    } else {
+      alert(`Error: ${result.message || 'Failed to delete assignments'}`);
+    }
+  } catch (error) {
+    console.error('Error deleting assignments:', error);
+    alert('Error deleting assignments. Please try again.');
+  }
+}
+
+        // Handle test data and assignments deletion
+        async function handleTestDataDeletion(event) {
+  event.preventDefault();
+  
+            if (!confirm('Are you sure you want to delete test questions, results, and assignments? This action cannot be undone.')) {
+    return;
+  }
+  
+  const formData = new FormData(event.target);
+  const selectedGradesClasses = getSelectedGradesClasses('dataGradesClassesContainer');
+  
+  if (selectedGradesClasses.length === 0) {
+    alert('Please select at least one grade/class combination.');
+    return;
+  }
+  
+  const deletionData = {
+    startDate: formData.get('dataStartDate'),
+    endDate: formData.get('dataEndDate'),
+    teacherId: formData.get('dataTeacherSelect'),
+    grades: selectedGradesClasses.map(item => item.grade),
+    classes: selectedGradesClasses.map(item => item.class),
+    subjectId: formData.get('dataSubjectSelect') || null
+  };
+  
+  try {
+    const response = await fetch('/.netlify/functions/delete-test-data', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deletionData)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+                  alert(`Successfully deleted ${result.deletedCount} test records and assignments.`);
+      hideTestDataDeletionForm();
+    } else {
+      alert(`Error: ${result.message || 'Failed to delete test data'}`);
+    }
+  } catch (error) {
+    console.error('Error deleting test data:', error);
+    alert('Error deleting test data. Please try again.');
+  }
+}
+
+// Get selected grades and classes from checkboxes
+function getSelectedGradesClasses(containerId) {
+  const container = document.getElementById(containerId);
+  const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+  
+  return Array.from(checkboxes).map(checkbox => {
+    const [grade, className] = checkbox.value.split('-');
+    return { grade, class: className };
+  });
+}
+
+// ===== END TEST DELETION MANAGEMENT FUNCTIONS =====
