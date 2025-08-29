@@ -3158,8 +3158,7 @@
         progressFill.style.width = `${progress}%`;
       }
     }
-
-    
+  }
 
   // Export the widget class
   window.MatchingTestWidget = MatchingTestWidget;
