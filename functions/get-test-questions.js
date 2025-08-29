@@ -133,9 +133,22 @@ exports.handler = async function(event, context) {
           testInfo = mtInfo[0];
         }
 
-        // Get questions with coordinates/word
+        // Get questions with coordinates/word and arrows
         const rows = await sql`
-          SELECT question_id, word, block_coordinates, has_arrow FROM matching_type_test_questions WHERE test_id = ${test_id} ORDER BY question_id
+          SELECT 
+            q.question_id, 
+            q.word, 
+            q.block_coordinates, 
+            q.has_arrow,
+            a.start_x,
+            a.start_y,
+            a.end_x,
+            a.end_y,
+            a.arrow_style
+          FROM matching_type_test_questions q
+          LEFT JOIN matching_type_test_arrows a ON q.question_id = a.question_id
+          WHERE q.test_id = ${test_id} 
+          ORDER BY q.question_id
         `;
         
         // Restructure data for frontend - create one question object with all the data
@@ -149,12 +162,27 @@ exports.handler = async function(event, context) {
             y: r.block_coordinates.y
           }));
           
+          // Extract arrows data
+          const arrows = rows
+            .filter(r => r.start_x !== null && r.start_y !== null && r.end_x !== null && r.end_y !== null)
+            .map((r, index) => ({
+              id: index + 1,
+              question_id: r.question_id,
+              block_id: r.question_id,
+              start_x: r.start_x,
+              start_y: r.start_y,
+              end_x: r.end_x,
+              end_y: r.end_y,
+              style: r.arrow_style || { color: '#dc3545', thickness: 3 }
+            }));
+          
           // Create a single question object with all the data
           questions = [{
             question_id: 1,
             image_url: testInfo.image_url,
             words: words,
-            blocks: blocks
+            blocks: blocks,
+            arrows: arrows
           }];
         } else {
           questions = [];

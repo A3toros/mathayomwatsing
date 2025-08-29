@@ -388,6 +388,72 @@
               border: 2px solid #dee2e6;
               border-radius: 5px;
             }
+            
+            /* Test Creation Loading Overlay Styles */
+            .test-creation-loading-overlay {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: rgba(0, 0, 0, 0.8);
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              z-index: 9999;
+              backdrop-filter: blur(5px);
+            }
+            
+            .loading-content {
+              background: white;
+              border-radius: 20px;
+              padding: 40px;
+              text-align: center;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+              max-width: 500px;
+              width: 90%;
+            }
+            
+            .loading-content h3 {
+              color: #333;
+              margin: 0 0 20px 0;
+              font-size: 24px;
+              font-weight: 600;
+            }
+            
+            .loading-content p {
+              color: #666;
+              margin: 0 0 20px 0;
+              font-size: 16px;
+            }
+            
+            .loading-spinner {
+              width: 60px;
+              height: 60px;
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #007bff;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 20px;
+            }
+            
+            .progress-bar {
+              width: 100%;
+              height: 8px;
+              background: #f3f3f3;
+              border-radius: 4px;
+              margin-top: 20px;
+              overflow: hidden;
+            }
+            
+            .progress-fill {
+              height: 100%;
+              background: linear-gradient(90deg, #007bff, #28a745);
+              width: 0%;
+              transition: width 0.3s ease;
+            }
+            
+
           </style>
           
           <div class="loading-indicator" id="loadingIndicator">
@@ -525,6 +591,8 @@
         });
         console.log('✅ Delete arrow button event bound');
       }
+
+
 
       // Reset image button
       const resetImageBtn = this.container.querySelector('#resetImageBtn');
@@ -1048,8 +1116,19 @@
         // Store image info for block positioning
         this.imageInfo = {
           x, y, width: scaledWidth, height: scaledHeight,
-          scale: scale
+          scale: scale,
+          originalWidth: img.width,
+          originalHeight: img.height
         };
+        
+        // Store original image dimensions for relative coordinate calculations
+        this.originalImageWidth = img.width;
+        this.originalImageHeight = img.height;
+        
+        console.log('🖼️ Original image dimensions stored:', {
+          width: this.originalImageWidth,
+          height: this.originalImageHeight
+        });
         
         this.stage.batchDraw();
       };
@@ -1898,15 +1977,15 @@
       const arrowId = ++this.currentArrowId;
       console.log('➡️ Creating arrow:', { startX, startY, endX, endY });
       
-      // MAGNETIC SNAPPING: Automatically snap arrow start/end to nearby blocks
+      // MAGNETIC SNAPPING: Only snap arrow START to nearby blocks
       const snappedStart = this.snapToNearestBlock(startX, startY);
-      const snappedEnd = this.snapToNearestBlock(endX, endY);
       
-      // Use snapped coordinates if available, otherwise use original
+      // Use snapped coordinates for start if available, otherwise use original
       const finalStartX = snappedStart ? snappedStart.x : startX;
       const finalStartY = snappedStart ? snappedStart.y : startY;
-      const finalEndX = snappedEnd ? snappedEnd.x : endX;
-      const finalEndY = snappedEnd ? snappedEnd.y : endY;
+      // End point is free - use original coordinates
+      const finalEndX = endX;
+      const finalEndY = endY;
       
       // VALIDATION: Ensure arrow is near at least one block
       if (!this.validateArrowPlacement(finalStartX, finalStartY, finalEndX, finalEndY)) {
@@ -1914,59 +1993,22 @@
         return; // Don't create the arrow
       }
       
-      // Find which block this arrow is associated with
-      // Check if arrow starts or ends near a block
+      // Find which block this arrow is associated with using snap results
       let associatedBlockId = null;
       let associationType = 'none';
       
-      // Check if arrow starts near a block (using final snapped coordinates)
-      for (const block of this.blocks) {
-        const startNearBlock = this.isPointNearBlock(finalStartX, finalStartY, block);
-        const endNearBlock = this.isPointNearBlock(finalEndX, finalEndY, block);
-        
-        if (startNearBlock && endNearBlock) {
-          // Arrow connects two blocks
-          associatedBlockId = block.id;
-          associationType = 'connector';
-          break;
-        } else if (startNearBlock) {
-          // Arrow starts from this block
-          associatedBlockId = block.id;
-          associationType = 'start';
-          break;
-        } else if (endNearBlock) {
-          // Arrow points to this block
-          associatedBlockId = block.id;
-          associationType = 'end';
-          break;
-        }
+      // Use snap results directly for association (much simpler!)
+      if (snappedStart) {
+        // Arrow starts from a block - associate with that block
+        associatedBlockId = snappedStart.blockId;
+        associationType = 'start';
       }
       
-      // If no block association found, associate with the closest block
-      if (!associatedBlockId && this.blocks.length > 0) {
-        let closestBlock = this.blocks[0];
-        let closestDistance = Infinity;
-        
-        for (const block of this.blocks) {
-          const blockCenterX = block.x + block.width / 2;
-          const blockCenterY = block.y + block.height / 2;
-          
-          const startDistance = Math.sqrt(
-            Math.pow(finalStartX - blockCenterX, 2) + Math.pow(finalStartY - blockCenterY, 2)
-          );
-          const endDistance = Math.sqrt(
-            Math.pow(finalEndX - blockCenterX, 2) + Math.pow(finalEndY - blockCenterY, 2)
-          );
-          
-          const minDistance = Math.min(startDistance, endDistance);
-          if (minDistance < closestDistance) {
-            closestDistance = minDistance;
-            closestBlock = block;
-          }
-        }
-        
-        associatedBlockId = closestBlock.id;
-        associationType = 'closest';
+      // If no block association found, don't create the arrow
+      if (!associatedBlockId) {
+        console.log('❌ Arrow not associated with any block - cancelling creation');
+        this.showNoBlockWarning();
+        return;
       }
       
       console.log(`🎯 Arrow ${arrowId} associated with block ${associatedBlockId} (${associationType})`);
@@ -2021,15 +2063,16 @@
       
       this.stage.batchDraw();
 
-      // Store arrow data with block association (using final snapped coordinates)
+      // Store arrow data with block association (using ORIGINAL image coordinates)
       this.arrows.push({
         id: arrowId,
         group: arrowGroup,
         line: arrow,
-        start_x: finalStartX,
-        start_y: finalStartY,
-        end_x: finalEndX,
-        end_y: finalEndY,
+        // Store ORIGINAL image coordinates, not scaled display coordinates
+        start_x: this.convertToOriginalCoordinates(finalStartX, finalStartY).x,
+        start_y: this.convertToOriginalCoordinates(finalStartX, finalStartY).y,
+        end_x: this.convertToOriginalCoordinates(finalEndX, finalEndY).x,
+        end_y: this.convertToOriginalCoordinates(finalEndX, finalEndY).y,
         associated_block_id: associatedBlockId,
         association_type: associationType
       });
@@ -2060,12 +2103,21 @@
       console.log('✅ Arrow created and stored:', this.arrows[this.arrows.length - 1]);
     }
 
-    // Helper method to check if a point is near a block
-    isPointNearBlock(x, y, block, tolerance = 50) {  // Increased from 20 to 50 for better arrow detection
+    // Helper method to check if a point is near a block (DEPRECATED - now handled by snapToNearestBlock)
+    // Keeping for backward compatibility but no longer used in arrow creation
+    isPointNearBlock(x, y, block, tolerance = 60) {
       return x >= block.x - tolerance && 
              x <= block.x + block.width + tolerance && 
              y >= block.y - tolerance && 
              y <= block.y + block.height + tolerance;
+    }
+
+    // Helper method to convert scaled display coordinates to original image coordinates
+    convertToOriginalCoordinates(displayX, displayY) {
+      // Convert from scaled display coordinates to original image coordinates
+      const originalX = (displayX - this.imageInfo.x) / this.imageInfo.scale;
+      const originalY = (displayY - this.imageInfo.y) / this.imageInfo.scale;
+      return { x: originalX, y: originalY };
     }
 
     // Magnetic snapping method to automatically snap arrows to nearby blocks
@@ -2085,7 +2137,13 @@
         if (distance <= snapRadius && distance < nearestDistance) {
           nearestDistance = distance;
           nearestBlock = block;
-          snapPoint = { x: blockCenterX, y: blockCenterY };
+          snapPoint = { 
+            x: blockCenterX, 
+            y: blockCenterY,
+            blockId: nearestBlock.id,
+            block: nearestBlock,
+            distance: nearestDistance
+          };
         }
       }
       
@@ -2096,20 +2154,20 @@
       return snapPoint;
     }
 
-    // Validation method to ensure arrows are placed near blocks
+    // Validation method to ensure arrows start near blocks
     validateArrowPlacement(startX, startY, endX, endY) {
       let hasValidPlacement = false;
       
+      // Arrow is valid if START point is near a block
       for (const block of this.blocks) {
-        if (this.isPointNearBlock(startX, startY, block) || 
-            this.isPointNearBlock(endX, endY, block)) {
+        if (this.isPointNearBlock(startX, startY, block)) {
           hasValidPlacement = true;
           break;
         }
       }
       
       if (!hasValidPlacement) {
-        console.log('❌ Arrow not near any block - cancelling creation');
+        console.log('❌ Arrow start point not near any block - cancelling creation');
         this.showNoBlockWarning();
         return false;
       }
@@ -2335,14 +2393,15 @@
               height: block.height,
               
               // Relative coordinates (for responsive positioning)
-              rel_x: this.imageWidth ? (block.x / this.imageWidth) * 100 : null,
-              rel_y: this.imageHeight ? (block.y / this.imageHeight) * 100 : null,
-              rel_width: this.imageWidth ? (block.width / this.imageWidth) * 100 : null,
-              rel_height: this.imageHeight ? (block.height / this.imageHeight) * 100 : null,
+              // Convert scaled display coordinates back to original image coordinates first
+              rel_x: this.originalImageWidth ? (((block.x - this.imageInfo.x) / this.imageInfo.scale) / this.originalImageWidth) * 100 : null,
+              rel_y: this.originalImageHeight ? (((block.y - this.imageInfo.y) / this.imageInfo.scale) / this.originalImageHeight) * 100 : null,
+              rel_width: this.originalImageWidth ? ((block.width / this.imageInfo.scale) / this.originalImageWidth) * 100 : null,
+              rel_height: this.originalImageHeight ? ((block.height / this.imageInfo.scale) / this.originalImageHeight) * 100 : null,
               
               // Image dimensions for reference
-              image_width: this.imageWidth || null,
-              image_height: this.imageHeight || null
+              image_width: this.originalImageWidth || null,
+              image_height: this.originalImageHeight || null
             },
             has_arrow: false
           };
@@ -2364,14 +2423,15 @@
               end_y: primaryArrow.end_y,
               
               // Relative coordinates (for responsive positioning)
-              rel_start_x: this.imageWidth ? (primaryArrow.start_x / this.imageWidth) * 100 : null,
-              rel_start_y: this.imageHeight ? (primaryArrow.start_y / this.imageHeight) * 100 : null,
-              rel_end_x: this.imageWidth ? (primaryArrow.end_x / this.imageWidth) * 100 : null,
-              rel_end_y: this.imageHeight ? (primaryArrow.end_y / this.imageHeight) * 100 : null,
+              // Simple percentage calculation since arrows now store original coordinates
+              rel_start_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (primaryArrow.start_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+              rel_start_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (primaryArrow.start_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
+              rel_end_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (primaryArrow.end_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+              rel_end_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (primaryArrow.end_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
               
               // Image dimensions for reference
-              image_width: this.imageWidth || null,
-              image_height: this.imageHeight || null,
+              image_width: this.originalImageWidth || this.imageInfo?.originalWidth || null,
+              image_height: this.originalImageHeight || this.imageInfo?.originalHeight || null,
               
               style: { color: '#dc3545', thickness: 3 }
             };
@@ -2388,14 +2448,15 @@
           end_y: arrow.end_y,
           
           // Relative coordinates (for responsive positioning)
-          rel_start_x: this.imageWidth ? (arrow.start_x / this.imageWidth) * 100 : null,
-          rel_start_y: this.imageHeight ? (arrow.start_y / this.imageHeight) * 100 : null,
-          rel_end_x: this.imageWidth ? (arrow.end_x / this.imageWidth) * 100 : null,
-          rel_end_y: this.imageHeight ? (arrow.end_y / this.imageHeight) * 100 : null,
+          // Simple percentage calculation since arrows now store original coordinates
+          rel_start_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (arrow.start_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+          rel_start_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (arrow.start_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
+          rel_end_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (arrow.end_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+          rel_end_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (arrow.end_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
           
           // Image dimensions for reference
-          image_width: this.imageWidth || null,
-          image_height: this.imageHeight || null,
+          image_width: this.originalImageWidth || this.imageInfo?.originalWidth || null,
+          image_height: this.originalImageHeight || this.imageInfo?.originalHeight || null,
           
           arrow_style: { color: '#dc3545', thickness: 3 }
         }))
@@ -2415,6 +2476,10 @@
     }
 
       createTest() {
+      // IMMEDIATE FEEDBACK: Show loading state
+      this.updateCreateTestButtonState('loading');
+      this.showTestCreationLoadingOverlay();
+      this.updateLoadingStep('Preparing test data...', 25);
 
       // Use name from main form; fallback to timestamped default
       const defaultName = `Matching Test — ${new Date().toLocaleString()}`;
@@ -2454,14 +2519,15 @@
             height: block.height,
             
             // Relative coordinates (for responsive positioning)
-            rel_x: this.imageWidth ? (block.x / this.imageWidth) * 100 : null,
-            rel_y: this.imageHeight ? (block.y / this.imageHeight) * 100 : null,
-            rel_width: this.imageWidth ? (block.width / this.imageWidth) * 100 : null,
-            rel_height: this.imageHeight ? (block.height / this.imageHeight) * 100 : null,
+            // Convert scaled display coordinates back to original image coordinates first
+            rel_x: this.originalImageWidth ? (((block.x - this.imageInfo.x) / this.imageInfo.scale) / this.originalImageWidth) * 100 : null,
+            rel_y: this.originalImageHeight ? (((block.y - this.imageInfo.y) / this.imageInfo.scale) / this.originalImageHeight) * 100 : null,
+            rel_width: this.originalImageWidth ? ((block.width / this.imageInfo.scale) / this.originalImageWidth) * 100 : null,
+            rel_height: this.originalImageHeight ? ((block.height / this.imageInfo.scale) / this.originalImageHeight) * 100 : null,
             
             // Image dimensions for reference
-            image_width: this.imageWidth || null,
-            image_height: this.imageHeight || null
+            image_width: this.originalImageWidth || null,
+            image_height: this.originalImageHeight || null
           },
           has_arrow: false
         };
@@ -2483,14 +2549,15 @@
             end_y: primaryArrow.end_y,
             
             // Relative coordinates (for responsive positioning)
-            rel_start_x: this.imageWidth ? (primaryArrow.start_x / this.imageWidth) * 100 : null,
-            rel_start_y: this.imageHeight ? (primaryArrow.start_y / this.imageHeight) * 100 : null,
-            rel_end_x: this.imageWidth ? (primaryArrow.end_x / this.imageWidth) * 100 : null,
-            rel_end_y: this.imageHeight ? (primaryArrow.end_y / this.imageHeight) * 100 : null,
+            // Simple percentage calculation since arrows now store original coordinates
+            rel_start_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (primaryArrow.start_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+            rel_start_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (primaryArrow.start_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
+            rel_end_x: (this.originalImageWidth || this.imageInfo?.originalWidth) ? (primaryArrow.end_x / (this.originalImageWidth || this.imageInfo.originalWidth)) * 100 : null,
+            rel_end_y: (this.originalImageHeight || this.imageInfo?.originalHeight) ? (primaryArrow.end_y / (this.originalImageHeight || this.imageInfo.originalHeight)) * 100 : null,
             
             // Image dimensions for reference
-            image_width: this.imageWidth || null,
-            image_height: this.imageHeight || null,
+            image_width: this.originalImageWidth || this.imageInfo?.originalWidth || null,
+            image_height: this.originalImageHeight || this.imageInfo?.originalHeight || null,
             
             style: { color: '#dc3545', thickness: 3 }
           };
@@ -2521,6 +2588,10 @@
 
       uploadIfNeeded().then((ok) => {
         if (!ok) return;
+        
+        // Update loading state for API call
+        this.updateLoadingStep('Saving test to database...', 50);
+        
         fetch('/.netlify/functions/save-matching-type-test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2531,22 +2602,36 @@
         if (!res.ok || !data.success) {
           console.error('❌ Save matching test failed:', res.status, data);
           alert('Failed to save matching test.');
+          // Reset button state on failure
+          this.updateCreateTestButtonState('reset');
+          this.hideTestCreationLoadingOverlay();
           return;
         }
-                          console.log('✅ Matching test saved, id:', data.test_id);
-                  
-                  // Clear local draft if any
-                  if (typeof window.clearTestLocalStorage === 'function') {
-                    window.clearTestLocalStorage();
-                  }
-                  
-                  // Hide the test creation UI and show assignment interface
-                  this.hideTestCreationUI();
-                  showTestAssignment('matching_type', data.test_id);
+        
+        console.log('✅ Matching test saved, id:', data.test_id);
+        
+        // Update loading state for success
+        this.updateLoadingStep('Test created successfully! Loading assignment interface...', 100);
+        this.updateCreateTestButtonState('success');
+        
+        // Small delay to show success state
+        setTimeout(() => {
+          // Clear local draft if any
+          if (typeof window.clearTestLocalStorage === 'function') {
+            window.clearTestLocalStorage();
+          }
+          
+          // Hide the test creation UI and show assignment interface
+          this.hideTestCreationUI();
+          showTestAssignment('matching_type', data.test_id);
+        }, 1000);
       })
       .catch((error) => {
         console.error('❌ Error saving matching test:', error);
         alert('Error saving matching test. Please try again.');
+        // Reset button state on error
+        this.updateCreateTestButtonState('reset');
+        this.hideTestCreationLoadingOverlay();
       });
       });
     }
@@ -3001,7 +3086,80 @@
       console.log('✅ Image reset complete');
     }
 
-  }
+    // Helper method to update create test button state safely
+    updateCreateTestButtonState(state) {
+      const createTestBtn = this.container.querySelector('#createTestBtn');
+      if (!createTestBtn) return;
+      
+      switch(state) {
+        case 'loading':
+          createTestBtn.textContent = 'Creating Test...';
+          createTestBtn.disabled = true;
+          createTestBtn.classList.remove('btn-success');
+          createTestBtn.classList.add('btn-secondary');
+          break;
+        case 'success':
+          createTestBtn.textContent = 'Test Created!';
+          createTestBtn.disabled = true;
+          createTestBtn.classList.remove('btn-secondary');
+          createTestBtn.classList.add('btn-success');
+          break;
+        case 'reset':
+          createTestBtn.textContent = 'Create Test';
+          createTestBtn.disabled = false;
+          createTestBtn.classList.remove('btn-secondary');
+          createTestBtn.classList.add('btn-success');
+          break;
+      }
+    }
+
+    // Helper method to show loading overlay during test creation
+    showTestCreationLoadingOverlay() {
+      // Create overlay if it doesn't exist
+      let overlay = this.container.querySelector('#testCreationLoadingOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'testCreationLoadingOverlay';
+        overlay.className = 'test-creation-loading-overlay';
+        overlay.innerHTML = `
+          <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Creating Your Test</h3>
+            <p id="loadingStep">Preparing test data...</p>
+            <div class="progress-bar">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+        `;
+        this.container.appendChild(overlay);
+      }
+      
+      overlay.style.display = 'flex';
+    }
+
+    // Helper method to hide loading overlay
+    hideTestCreationLoadingOverlay() {
+      const overlay = this.container.querySelector('#testCreationLoadingOverlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+    }
+
+    // Helper method to update loading step and progress
+    updateLoadingStep(step, progress) {
+      const stepElement = this.container.querySelector('#loadingStep');
+      const progressFill = this.container.querySelector('.progress-fill');
+      
+      if (stepElement) {
+        stepElement.textContent = step;
+      }
+      
+      if (progressFill) {
+        progressFill.style.width = `${progress}%`;
+      }
+    }
+
+    
 
   // Export the widget class
   window.MatchingTestWidget = MatchingTestWidget;

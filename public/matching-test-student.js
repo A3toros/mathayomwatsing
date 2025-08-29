@@ -166,8 +166,22 @@ class MatchingTestStudent {
       }));
     }
     
-    // Also check if arrows are embedded in questions
+    // Also check if arrows are embedded in questions (new backend structure)
     this.testData.questions.forEach(q => {
+      if (q.arrows && Array.isArray(q.arrows)) {
+        q.arrows.forEach(arrow => {
+          this.arrows.push({
+            id: arrow.id,
+            questionId: arrow.question_id,
+            blockId: arrow.block_id,
+            start: { x: arrow.start_x, y: arrow.start_y },
+            end: { x: arrow.end_x, y: arrow.end_y },
+            style: arrow.style || { color: '#dc3545', thickness: 3 }
+          });
+        });
+      }
+      
+      // Legacy support for embedded arrows
       if (q.has_arrow && q.arrow) {
         const arrowData = q.arrow;
         this.arrows.push({
@@ -482,10 +496,19 @@ class MatchingTestStudent {
         });
         
         // Calculate position based on current image size
-        blockX = this.imageInfo.x + (coordinates.rel_x / 100) * this.imageInfo.width;
-        blockY = this.imageInfo.y + (coordinates.rel_y / 100) * this.imageInfo.height;
-        blockWidth = (coordinates.rel_width / 100) * this.imageInfo.width;
-        blockHeight = (coordinates.rel_height / 100) * this.imageInfo.height;
+        // Use the original image dimensions from coordinates for accurate scaling
+        const originalWidth = coordinates.image_width;
+        const originalHeight = coordinates.image_height;
+        
+        // Calculate scale factors between original and displayed image
+        const scaleX = this.imageInfo.width / originalWidth;
+        const scaleY = this.imageInfo.height / originalHeight;
+        
+        // Apply relative coordinates to the original image dimensions, then scale to display
+        blockX = this.imageInfo.x + (coordinates.rel_x / 100) * originalWidth * scaleX;
+        blockY = this.imageInfo.y + (coordinates.rel_y / 100) * originalHeight * scaleY;
+        blockWidth = (coordinates.rel_width / 100) * originalWidth * scaleX;
+        blockHeight = (coordinates.rel_height / 100) * originalHeight * scaleY;
         
         console.log(`🔲 Block ${block.id} relative positioning:`, {
           rel_x: coordinates.rel_x, rel_y: coordinates.rel_y,
@@ -647,9 +670,10 @@ class MatchingTestStudent {
           start: arrow.start, end: arrow.end
         });
         
+        // Use the same logic as blocks for consistent scaling
         startX = this.imageInfo.x + (arrow.start.x * this.imageInfo.scaleX);
         startY = this.imageInfo.y + (arrow.start.y * this.imageInfo.scaleY);
-        endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleY);
+        endX = this.imageInfo.x + (arrow.end.x * this.imageInfo.scaleX);
         endY = this.imageInfo.y + (arrow.end.y * this.imageInfo.scaleY);
       }
       
