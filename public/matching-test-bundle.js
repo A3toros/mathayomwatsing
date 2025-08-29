@@ -1874,15 +1874,31 @@
       const arrowId = ++this.currentArrowId;
       console.log('➡️ Creating arrow:', { startX, startY, endX, endY });
       
+      // MAGNETIC SNAPPING: Automatically snap arrow start/end to nearby blocks
+      const snappedStart = this.snapToNearestBlock(startX, startY);
+      const snappedEnd = this.snapToNearestBlock(endX, endY);
+      
+      // Use snapped coordinates if available, otherwise use original
+      const finalStartX = snappedStart ? snappedStart.x : startX;
+      const finalStartY = snappedStart ? snappedStart.y : startY;
+      const finalEndX = snappedEnd ? snappedEnd.x : endX;
+      const finalEndY = snappedEnd ? snappedEnd.y : endY;
+      
+      // VALIDATION: Ensure arrow is near at least one block
+      if (!this.validateArrowPlacement(finalStartX, finalStartY, finalEndX, finalEndY)) {
+        console.log(`❌ Arrow ${arrowId} validation failed - cancelling creation`);
+        return; // Don't create the arrow
+      }
+      
       // Find which block this arrow is associated with
       // Check if arrow starts or ends near a block
       let associatedBlockId = null;
       let associationType = 'none';
       
-      // Check if arrow starts near a block
+      // Check if arrow starts near a block (using final snapped coordinates)
       for (const block of this.blocks) {
-        const startNearBlock = this.isPointNearBlock(startX, startY, block);
-        const endNearBlock = this.isPointNearBlock(endX, endY, block);
+        const startNearBlock = this.isPointNearBlock(finalStartX, finalStartY, block);
+        const endNearBlock = this.isPointNearBlock(finalEndX, finalEndY, block);
         
         if (startNearBlock && endNearBlock) {
           // Arrow connects two blocks
@@ -1912,10 +1928,10 @@
           const blockCenterY = block.y + block.height / 2;
           
           const startDistance = Math.sqrt(
-            Math.pow(startX - blockCenterX, 2) + Math.pow(startY - blockCenterY, 2)
+            Math.pow(finalStartX - blockCenterX, 2) + Math.pow(finalStartY - blockCenterY, 2)
           );
           const endDistance = Math.sqrt(
-            Math.pow(endX - blockCenterX, 2) + Math.pow(endY - blockCenterY, 2)
+            Math.pow(finalEndX - blockCenterX, 2) + Math.pow(finalEndY - blockCenterY, 2)
           );
           
           const minDistance = Math.min(startDistance, endDistance);
@@ -1931,23 +1947,23 @@
       
       console.log(`🎯 Arrow ${arrowId} associated with block ${associatedBlockId} (${associationType})`);
       
-      // Create arrow line
+      // Create arrow line with final (snapped) coordinates
       const arrow = new Konva.Line({
-        points: [startX, startY, endX, endY],
+        points: [finalStartX, finalStartY, finalEndX, finalEndY],
         stroke: '#dc3545',
         strokeWidth: 3,
         id: `arrow-${arrowId}`,
         data: { arrowId, type: 'arrow' }
       });
 
-      // Create arrow head
+      // Create arrow head with final (snapped) coordinates
       const arrowHead = new Konva.RegularPolygon({
-        x: endX,
-        y: endY,
+        x: finalEndX,
+        y: finalEndY,
         sides: 3,
         radius: 8,
         fill: '#dc3545',
-        rotation: Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90
+        rotation: Math.atan2(finalEndY - finalStartY, finalEndX - finalStartX) * 180 / Math.PI + 90
       });
 
       // Create group for arrow
@@ -1981,15 +1997,15 @@
       
       this.stage.batchDraw();
 
-      // Store arrow data with block association
+      // Store arrow data with block association (using final snapped coordinates)
       this.arrows.push({
         id: arrowId,
         group: arrowGroup,
         line: arrow,
-        start_x: startX,
-        start_y: startY,
-        end_x: endX,
-        end_y: endY,
+        start_x: finalStartX,
+        start_y: finalStartY,
+        end_x: finalEndX,
+        end_y: finalEndY,
         associated_block_id: associatedBlockId,
         association_type: associationType
       });
@@ -2021,11 +2037,103 @@
     }
 
     // Helper method to check if a point is near a block
-    isPointNearBlock(x, y, block, tolerance = 20) {
+    isPointNearBlock(x, y, block, tolerance = 50) {  // Increased from 20 to 50 for better arrow detection
       return x >= block.x - tolerance && 
              x <= block.x + block.width + tolerance && 
              y >= block.y - tolerance && 
              y <= block.y + block.height + tolerance;
+    }
+
+    // Magnetic snapping method to automatically snap arrows to nearby blocks
+    snapToNearestBlock(x, y, snapRadius = 60) {
+      let nearestBlock = null;
+      let nearestDistance = Infinity;
+      let snapPoint = null;
+      
+      for (const block of this.blocks) {
+        const blockCenterX = block.x + (block.width / 2);
+        const blockCenterY = block.y + (block.height / 2);
+        
+        const distance = Math.sqrt(
+          Math.pow(x - blockCenterX, 2) + Math.pow(y - blockCenterY, 2)
+        );
+        
+        if (distance <= snapRadius && distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestBlock = block;
+          snapPoint = { x: blockCenterX, y: blockCenterY };
+        }
+      }
+      
+      if (snapPoint) {
+        console.log(`🧲 Snapping to block ${nearestBlock.id} at (${snapPoint.x}, ${snapPoint.y})`);
+      }
+      
+      return snapPoint;
+    }
+
+    // Validation method to ensure arrows are placed near blocks
+    validateArrowPlacement(startX, startY, endX, endY) {
+      let hasValidPlacement = false;
+      
+      for (const block of this.blocks) {
+        if (this.isPointNearBlock(startX, startY, block) || 
+            this.isPointNearBlock(endX, endY, block)) {
+          hasValidPlacement = true;
+          break;
+        }
+      }
+      
+      if (!hasValidPlacement) {
+        console.log('❌ Arrow not near any block - cancelling creation');
+        this.showNoBlockWarning();
+        return false;
+      }
+      
+      return true;
+    }
+
+    // Show warning when arrow can't be created
+    showNoBlockWarning() {
+      const warning = document.createElement('div');
+      warning.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #dc3545;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 10000;
+        box-shadow: 0 4px 20px rgba(220, 53, 69, 0.3);
+        animation: warningFade 2s ease-in-out;
+      `;
+      warning.textContent = '⚠️ Arrow must start or end near a block';
+      
+      // Add animation CSS if not already present
+      if (!document.getElementById('warningStyles')) {
+        const style = document.createElement('style');
+        style.id = 'warningStyles';
+        style.textContent = `
+          @keyframes warningFade {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      document.body.appendChild(warning);
+      
+      setTimeout(() => {
+        if (warning.parentNode) {
+          warning.parentNode.removeChild(warning);
+        }
+      }, 2000);
     }
 
     deleteArrow(arrowId) {
