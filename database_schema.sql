@@ -195,8 +195,7 @@ CREATE TABLE matching_type_test_questions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Drop the existing arrows table
-DROP TABLE IF EXISTS matching_type_test_arrows CASCADE;
+
 
 -- Create the ENHANCED arrows table with responsive coordinate system
 CREATE TABLE matching_type_test_arrows (

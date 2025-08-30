@@ -4384,36 +4384,64 @@ textarea:focus {
 .grades-classes-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 8px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--border-color);
+  border: 2px solid #e5e7eb;
   padding: 15px;
-  border-radius: var(--border-radius);
-  background: white;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
 .grade-class-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 2px solid #3b82f6;
+  transition: all 0.2s ease;
+  background: white;
+  margin: 2px;
 }
 
 .grade-class-checkbox:hover {
-  background-color: var(--neutral-100);
+  background-color: #f0f9ff;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .grade-class-checkbox input[type="checkbox"] {
   margin: 0;
+  transform: scale(1.1);
 }
 
 .grade-class-checkbox label {
   font-size: 0.9em;
   cursor: pointer;
   user-select: none;
+  margin-left: 2px;
+  font-weight: 500;
+  color: #1e40af;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .grades-classes-container {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+    padding: 10px;
+  }
+  
+  .grade-class-checkbox {
+    padding: 6px;
+    gap: 3px;
+  }
+  
+  .grade-class-checkbox label {
+    font-size: 0.8em;
+  }
 }
 
 .btn-danger {

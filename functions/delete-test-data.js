@@ -16,6 +16,20 @@ exports.handler = async function(event, context) {
     };
   }
 
+  // Add a test endpoint for debugging
+  if (event.httpMethod === 'GET') {
+    return {
+      statusCode: 200,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        message: 'Function is working - this is a test response',
+        method: event.httpMethod,
+        timestamp: new Date().toISOString()
+      })
+    };
+  }
+
   if (event.httpMethod !== 'DELETE') {
     return {
       statusCode: 405,
@@ -25,18 +39,57 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    console.log('Delete test data function called with event:', JSON.stringify(event, null, 2));
+    console.log('=== DELETE TEST DATA FUNCTION STARTED ===');
+    console.log('Event method:', event.httpMethod);
+    console.log('Event body:', event.body);
+    console.log('Event headers:', event.headers);
+    console.log('Context:', JSON.stringify(context, null, 2));
     
-    const { startDate, endDate, teacherId, grades, classes, subjectId } = JSON.parse(event.body);
+    // Validate event.body exists
+    if (!event.body) {
+      console.error('No event.body received');
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'No request body received',
+          error: 'event.body is undefined'
+        })
+      };
+    }
+
+    let requestData;
+    try {
+      requestData = JSON.parse(event.body);
+      console.log('Successfully parsed JSON:', requestData);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Raw event.body:', event.body);
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'Invalid JSON in request body',
+          error: parseError.message,
+          rawBody: event.body
+        })
+      };
+    }
+    
+    const { startDate, endDate, teacherId, grades, classes, subjectId } = requestData;
     console.log('Parsed request data:', { startDate, endDate, teacherId, grades, classes, subjectId });
 
     if (!startDate || !endDate || !teacherId) {
+      console.log('Validation failed: missing required fields');
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           success: false, 
-          message: 'Start date, end date, and teacher ID are required' 
+          message: 'Start date, end date, and teacher ID are required',
+          received: { startDate, endDate, teacherId, grades, classes, subjectId }
         })
       };
     }
@@ -55,14 +108,17 @@ exports.handler = async function(event, context) {
       };
     }
 
+    console.log('Database URL available, length:', process.env.NEON_DATABASE_URL.length);
     console.log('Initializing database connection...');
+    
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection initialized');
 
     // Test database connection
     try {
-      await sql`SELECT 1 as test`;
-      console.log('Database connection test successful');
+      console.log('Testing database connection...');
+      const testResult = await sql`SELECT 1 as test`;
+      console.log('Database connection test successful:', testResult);
     } catch (dbError) {
       console.error('Database connection test failed:', dbError);
       return {
@@ -71,7 +127,8 @@ exports.handler = async function(event, context) {
         body: JSON.stringify({
           success: false,
           message: 'Database connection failed',
-          error: dbError.message
+          error: dbError.message,
+          stack: dbError.stack
         })
       };
     }
@@ -86,92 +143,65 @@ exports.handler = async function(event, context) {
       let deletionSummary = {};
 
       // Helper function to delete from a table with teacher filtering
-      const deleteFromTableWithTeacher = async (tableName, dateColumn, teacherTableName) => {
+      // Note: Question tables don't have created_at, so we'll use a different approach
+      const deleteFromTableWithTeacher = async (tableName, teacherTableName) => {
         console.log(`Deleting from ${tableName} with teacher filter...`);
-        const query = `
-          DELETE FROM ${tableName} 
-          WHERE ${dateColumn} BETWEEN ${startDate} AND ${endDate}
-          AND test_id IN (
-            SELECT id FROM ${teacherTableName} 
+        
+        // Since question tables don't have created_at, we'll delete all records for the teacher
+        // This is safer than deleting without date filtering
+        // Use neon's template literal syntax for safe SQL execution
+        const result = await sql`
+          DELETE FROM ${sql(tableName)} 
+          WHERE test_id IN (
+            SELECT id FROM ${sql(teacherTableName)} 
             WHERE teacher_id = ${teacherId}
           )
         `;
         
-        console.log(`Executing query: ${query}`);
-        const result = await sql.unsafe(query);
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
         return result.rowCount;
       };
 
-      // Helper function to delete from results tables with grade/class filtering
-      // Note: Only matching_type_test_results has test_id, others don't
-      const deleteFromResultsTable = async (tableName, dateColumn, teacherTableName, hasTestId = false) => {
-        console.log(`Deleting from ${tableName} (hasTestId: ${hasTestId})...`);
-        let whereConditions = [`${dateColumn} BETWEEN ${startDate} AND ${endDate}`];
-
-        if (hasTestId) {
-          // For matching_type_test_results, filter by test_id
-          whereConditions.push(`test_id IN (
-            SELECT id FROM ${teacherTableName} 
+      // Helper function to delete from results tables with date filtering
+      // Note: Results tables DO have created_at columns AND test_id columns
+      const deleteFromResultsTable = async (tableName, teacherTableName) => {
+        console.log(`Deleting from ${tableName}...`);
+        
+        // ALL results tables now have test_id columns (added via ALTER TABLE)
+        // So we can filter by teacher for ALL test types
+        // Use neon's template literal syntax for safe SQL execution
+        const result = await sql`
+          DELETE FROM ${sql(tableName)} 
+          WHERE created_at BETWEEN ${startDate} AND ${endDate}
+          AND test_id IN (
+            SELECT id FROM ${sql(teacherTableName)} 
             WHERE teacher_id = ${teacherId}
-          )`);
-        } else {
-          // For other results tables, we can't filter by teacher directly
-          // We'll delete based on date and grade/class only
-          console.log(`Warning: ${tableName} has no test_id, cannot filter by teacher`);
-        }
-
-        if (grades && grades.length > 0) {
-          whereConditions.push(`grade = ANY(${grades})`);
-        }
-
-        if (classes && classes.length > 0) {
-          whereConditions.push(`class = ANY(${classes})`);
-        }
-
-        const query = `
-          DELETE FROM ${tableName} 
-          WHERE ${whereConditions.join(' AND ')}
+          )
         `;
-
-        console.log(`Executing query: ${query}`);
-        const result = await sql.unsafe(query);
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
         return result.rowCount;
       };
 
-      // Helper function to delete test assignments
+      // Helper function to delete test assignments with date filtering
       const deleteTestAssignments = async () => {
         console.log('Deleting test assignments...');
-        let whereConditions = [`ta.assigned_at BETWEEN ${startDate} AND ${endDate}`];
-
-        // Filter by teacher through the test tables
-        whereConditions.push(`(
-          (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-          OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-          OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-          OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-        )`);
-
-        if (grades && grades.length > 0) {
-          whereConditions.push(`ta.grade = ANY(${grades})`);
-        }
-
-        if (classes && classes.length > 0) {
-          whereConditions.push(`ta.class = ANY(${classes})`);
-        }
-
-        if (subjectId) {
-          whereConditions.push(`ta.subject_id = ${subjectId}`);
-        }
-
-        const query = `
+        
+        // Use neon's template literal syntax for safe SQL execution
+        // Build the query dynamically but safely
+        const result = await sql`
           DELETE FROM test_assignments ta
-          WHERE ${whereConditions.join(' AND ')}
+          WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+          AND (
+            (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
+            OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
+            OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
+            OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
+          )
+          ${grades && grades.length > 0 ? sql`AND ta.grade = ANY(${grades})` : sql``}
+          ${classes && classes.length > 0 ? sql`AND ta.class = ANY(${classes})` : sql``}
+          ${subjectId ? sql`AND ta.subject_id = ${subjectId}` : sql``}
         `;
 
-        console.log(`Executing query: ${query}`);
-        const result = await sql.unsafe(query);
         console.log(`Deleted ${result.rowCount} test assignments`);
         return result.rowCount;
       };
@@ -180,19 +210,16 @@ exports.handler = async function(event, context) {
       console.log('=== Starting Multiple Choice Test Deletion ===');
       deletionSummary.multipleChoice = {};
       
-      // Delete questions
+      // Delete questions (no created_at column, so no date filtering)
       deletionSummary.multipleChoice.questions = await deleteFromTableWithTeacher(
         'multiple_choice_test_questions', 
-        'created_at', 
         'multiple_choice_tests'
       );
       
-      // Delete results (no test_id, so no teacher filtering)
+      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
       deletionSummary.multipleChoice.results = await deleteFromResultsTable(
         'multiple_choice_test_results', 
-        'created_at', 
-        'multiple_choice_tests',
-        false // hasTestId = false
+        'multiple_choice_tests'
       );
       
       totalDeleted += deletionSummary.multipleChoice.questions + deletionSummary.multipleChoice.results;
@@ -201,19 +228,16 @@ exports.handler = async function(event, context) {
       console.log('=== Starting True/False Test Deletion ===');
       deletionSummary.trueFalse = {};
       
-      // Delete questions
+      // Delete questions (no created_at column, so no date filtering)
       deletionSummary.trueFalse.questions = await deleteFromTableWithTeacher(
         'true_false_test_questions', 
-        'created_at', 
         'true_false_tests'
       );
       
-      // Delete results (no test_id, so no teacher filtering)
+      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
       deletionSummary.trueFalse.results = await deleteFromResultsTable(
         'true_false_test_results', 
-        'created_at', 
-        'true_false_tests',
-        false // hasTestId = false
+        'true_false_tests'
       );
       
       totalDeleted += deletionSummary.trueFalse.questions + deletionSummary.trueFalse.results;
@@ -222,19 +246,16 @@ exports.handler = async function(event, context) {
       console.log('=== Starting Input Test Deletion ===');
       deletionSummary.input = {};
       
-      // Delete questions
+      // Delete questions (no created_at column, so no date filtering)
       deletionSummary.input.questions = await deleteFromTableWithTeacher(
         'input_test_questions', 
-        'created_at', 
         'input_tests'
       );
       
-      // Delete results (no test_id, so no teacher filtering)
+      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
       deletionSummary.input.results = await deleteFromResultsTable(
         'input_test_results', 
-        'created_at', 
-        'input_tests',
-        false // hasTestId = false
+        'input_tests'
       );
       
       totalDeleted += deletionSummary.input.questions + deletionSummary.input.results;
@@ -243,26 +264,50 @@ exports.handler = async function(event, context) {
       console.log('=== Starting Matching Type Test Deletion ===');
       deletionSummary.matching = {};
       
-      // Delete arrows first (due to foreign key constraints)
-      deletionSummary.matching.arrows = await deleteFromTableWithTeacher(
-        'matching_type_test_arrows', 
-        'created_at', 
-        'matching_type_tests'
-      );
+      // Delete arrows first (due to foreign key constraints, has created_at column)
+      // Since arrows have created_at, we can filter by date AND teacher
+      const deleteMatchingArrows = async () => {
+        console.log('Deleting matching type test arrows with date and teacher filter...');
+        // Use neon's template literal syntax for safe SQL execution
+        const result = await sql`
+          DELETE FROM matching_type_test_arrows mta
+          WHERE mta.created_at BETWEEN ${startDate} AND ${endDate}
+          AND mta.question_id IN (
+            SELECT mtq.id FROM matching_type_test_questions mtq
+            WHERE mtq.test_id IN (
+              SELECT id FROM matching_type_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          )
+        `;
+        console.log(`Deleted ${result.rowCount} matching type test arrows`);
+        return result.rowCount;
+      };
       
-      // Delete questions
-      deletionSummary.matching.questions = await deleteFromTableWithTeacher(
-        'matching_type_test_questions', 
-        'created_at', 
-        'matching_type_tests'
-      );
+      deletionSummary.matching.arrows = await deleteMatchingArrows();
       
-      // Delete results (has test_id, so can filter by teacher)
+      // Delete questions (has created_at column, so can filter by date)
+      const deleteMatchingQuestions = async () => {
+        console.log('Deleting matching type test questions with date and teacher filter...');
+        // Use neon's template literal syntax for safe SQL execution
+        const result = await sql`
+          DELETE FROM matching_type_test_questions mtq
+          WHERE mtq.created_at BETWEEN ${startDate} AND ${endDate}
+          AND mtq.test_id IN (
+            SELECT id FROM matching_type_tests 
+            WHERE teacher_id = ${teacherId}
+          )
+        `;
+        console.log(`Deleted ${result.rowCount} matching type test questions`);
+        return result.rowCount;
+      };
+      
+      deletionSummary.matching.questions = await deleteMatchingQuestions();
+      
+      // Delete results (has test_id AND created_at, so can filter by both)
       deletionSummary.matching.results = await deleteFromResultsTable(
         'matching_type_test_results', 
-        'created_at', 
-        'matching_type_tests',
-        true // hasTestId = true
+        'matching_type_tests'
       );
       
       totalDeleted += deletionSummary.matching.arrows + deletionSummary.matching.questions + deletionSummary.matching.results;
@@ -293,12 +338,16 @@ exports.handler = async function(event, context) {
     } catch (error) {
       // Rollback on error
       console.error('Error during deletion, rolling back transaction:', error);
+      console.error('Error stack:', error.stack);
       await sql`ROLLBACK`;
       console.log('Transaction rolled back');
       throw error;
     }
   } catch (error) {
     console.error('Delete test data error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     
     return {
       statusCode: 500,
@@ -306,7 +355,9 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({
         success: false,
         message: 'Failed to delete test data',
-        error: error.message
+        error: error.message,
+        errorType: error.name,
+        stack: error.stack
       })
     };
   }
