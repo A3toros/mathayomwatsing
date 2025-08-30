@@ -121,19 +121,29 @@ exports.handler = async function(event, context) {
 
     try {
       // Remove the specific assignment
-      await sql`DELETE FROM test_assignments WHERE id = ${assignment_id}`;
+      // OLD: await sql`DELETE FROM test_assignments WHERE id = ${assignment_id}`;
+      
+      // NEW: Hide the test by updating assigned_at to expired date
+      const expiredDate = new Date();
+      expiredDate.setDate(expiredDate.getDate() - 8); // 8 days ago to ensure expired
+      
+      await sql`
+        UPDATE test_assignments 
+        SET assigned_at = ${expiredDate.toISOString()}
+        WHERE id = ${assignment_id}
+      `;
 
       // Commit transaction
       await sql`COMMIT`;
       
-      console.log('Assignment removed successfully');
+      console.log('Test hidden successfully');
 
       return {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: true,
-          message: 'Assignment removed successfully',
+          message: 'Test hidden successfully - students can no longer see this test',
           assignment_id: assignment_id,
           test_type: test_type,
           test_id: test_id,

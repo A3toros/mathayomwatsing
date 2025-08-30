@@ -6652,4 +6652,194 @@ tr:hover td {
   min-width: 140px !important;
 }
 
+/* Test expiration status indicators */
+.status-indicator {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.status-indicator.active {
+  background-color: #10b981;
+  color: white;
+}
+
+.status-indicator.expiring-soon {
+  background-color: #f59e0b;
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.expired {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* Hide test button styling */
+.hide-test-btn {
+  background-color: #f59e0b;
+  border-color: #f59e0b;
+  color: white;
+}
+
+.hide-test-btn:hover {
+  background-color: #d97706;
+  border-color: #d97706;
+}
+
+/* Disabled hide test button styling */
+.hide-test-btn:disabled,
+.btn-secondary.hide-test-btn {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: #fff;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.hide-test-btn:disabled:hover,
+.btn-secondary.hide-test-btn:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Assignment item status styling */
+.assignment-item.expired {
+  border-left: 4px solid #ef4444;
+  background-color: #fef2f2;
+  padding-left: 12px;
+}
+
+.assignment-item.expiring-soon {
+  border-left: 4px solid #f59e0b;
+  background-color: #fffbeb;
+  padding-left: 12px;
+}
+
+.assignment-item.active {
+  border-left: 4px solid #10b981;
+  background-color: #f0fdf4;
+  padding-left: 12px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Space optimization for teacher active tests - compact layout */
+.teacher-test-item {
+  padding: 0.75rem;        /* Reduce from default */
+  margin-bottom: 0.5rem;   /* Reduce from default */
+}
+
+.teacher-test-item .test-header {
+  margin-bottom: 0.5rem;   /* Reduce from 10px */
+}
+
+.teacher-test-item .test-title {
+  text-align: center;      /* Center the title */
+  font-size: 1.25rem;      /* Make it more prominent */
+}
+
+.teacher-test-item .test-meta-compact {
+  gap: 0.5rem;            /* Reduce from 0.75rem */
+  margin: 0.25rem 0 0.5rem 0; /* Reduce margins */
+}
+
+.teacher-test-item .meta-item {
+  padding: 0.15rem 0.3rem; /* Reduce from 0.2rem 0.4rem */
+  font-size: 0.65rem;      /* Reduce from 0.7rem */
+}
+
+/* Target assignments within teacher tests only */
+.teacher-test-item .assignments {
+  margin-bottom: 0.5rem;   /* Reduce from 15px */
+}
+
+.teacher-test-item .assignments h6 {
+  margin-bottom: 0.5rem;   /* Reduce margin */
+  font-size: 0.9rem;       /* Reduce font size */
+}
+
+.teacher-test-item .assignment-item {
+  padding: 0.5rem;         /* Reduce from 0.75rem */
+  margin-bottom: 0.25rem;  /* Reduce from 0.5rem */
+}
+
+/* Excel hint styling - follows existing minimalistic design */
+.excel-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  padding: 8px 12px;
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 300px;
+}
+
+.excel-hint i {
+  color: var(--primary-color);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.excel-hint .hint-text {
+  line-height: 1.4;
+  font-size: 12px;
+}
+
+/* Excel upload button styling - light grey with Excel icon */
+.excel-upload-btn {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #6c757d;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.excel-upload-btn:hover {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+  color: #495057;
+}
+
+.excel-upload-btn i {
+  font-size: 16px;
+  color: #28a745;
+}
+
+.excel-upload-btn:active {
+  background-color: #dee2e6;
+  transform: translateY(1px);
+}
+
+/* Responsive hint positioning */
+@media (max-width: 768px) {
+  .excel-hint {
+    margin-left: 0;
+    margin-top: 10px;
+    max-width: 100%;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 

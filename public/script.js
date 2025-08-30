@@ -61,6 +61,8 @@
 
 
 
+
+
 // School Testing System - Main JavaScript File
 
 // Global function availability check
@@ -124,6 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return;
     }
+    
+    // Initialize Excel upload functionality for ALL test types
+    initializeExcelUploadForAllTestTypes();
     
     // Check if user has an existing session
     console.log('Checking for existing session...');
@@ -1056,8 +1061,23 @@ async function displayStudentActiveTests(tests, studentId) {
         
         const testsWithCompletion = await Promise.all(completionChecks);
     
+    // Filter out any tests that might be expired (double safety)
+    const activeTests = testsWithCompletion.filter(test => {
+        const daysSinceAssigned = Math.floor((Date.now() - new Date(test.assigned_at)) / (1000 * 60 * 60 * 24));
+        return daysSinceAssigned <= 7;
+    });
+    
+    console.log(`Filtered ${testsWithCompletion.length} total tests to ${activeTests.length} active tests`);
+    
+    // Check if all tests are expired after filtering
+    if (activeTests.length === 0) {
+        console.log('All tests are expired, showing "no active tests" message');
+        container.innerHTML = '<p>No active tests available for your class. All tests have expired.</p>';
+        return;
+    }
+    
     // Sort by assigned_at desc (fallback: test_id desc)
-    const sorted = [...testsWithCompletion].sort((a, b) => {
+    const sorted = [...activeTests].sort((a, b) => {
         const atA = a.assigned_at ? new Date(a.assigned_at).getTime() : 0;
         const atB = b.assigned_at ? new Date(b.assigned_at).getTime() : 0;
         if (atA !== atB) return atB - atA;
@@ -2361,6 +2381,9 @@ function resetTestCreation() {
     
     // Clear all form fields to give teacher a clean slate
     clearAllTestFormFields();
+    
+    // NEW: Also reset Excel upload state explicitly (redundant but safe)
+    resetExcelUploadState();
 }
 
 // Disable navigation buttons during test creation
@@ -2492,10 +2515,27 @@ function saveTestCreationState(currentStep) {
     console.log('🔍 🔴 saveTestCreationState called with step:', currentStep);
     console.log('🔍 🔴 Call stack:', new Error().stack);
     
+    // NEW: Include Excel upload state in saved state
+    const excelState = {
+        multipleChoice: {
+            buttonVisible: document.querySelector('.excel-upload-btn[data-test-type="multiple-choice"]')?.style.display !== 'none',
+            hintVisible: document.querySelector('.excel-hint[data-test-type="multiple-choice"]')?.style.display !== 'none'
+        },
+        trueFalse: {
+            buttonVisible: document.querySelector('.excel-upload-btn[data-test-type="true-false"]')?.style.display !== 'none',
+            hintVisible: document.querySelector('.excel-hint[data-test-type="true-false"]')?.style.display !== 'none'
+        },
+        input: {
+            buttonVisible: document.querySelector('.excel-upload-btn[data-test-type="input"]')?.style.display !== 'none',
+            hintVisible: document.querySelector('.excel-hint[data-test-type="input"]')?.style.display !== 'none'
+        }
+    };
+    
     const state = {
         isInTestCreation: true,
         currentStep: currentStep,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        excelState // NEW: Save Excel state
     };
     localStorage.setItem('test_creation_state', JSON.stringify(state));
     console.log('🔍 Saved test creation state:', state);
@@ -2594,6 +2634,59 @@ function clearAllTestFormFields() {
     if (wordsEditorContainer) wordsEditorContainer.innerHTML = '';
     
     console.log('🔍 All test form fields cleared');
+    
+    // NEW: Reset Excel upload state
+    resetExcelUploadState();
+}
+
+// Reset Excel upload state for all test types
+function resetExcelUploadState() {
+    const testTypes = ['multiple-choice', 'true-false', 'input'];
+    
+    testTypes.forEach(testType => {
+        // Hide Excel upload button
+        const excelBtn = document.querySelector(`.excel-upload-btn[data-test-type="${testType}"]`);
+        if (excelBtn) {
+            excelBtn.style.display = 'none';
+            console.log('🔍 Excel button hidden for:', testType);
+        }
+        
+        // Hide Excel hint
+        const excelHint = document.querySelector(`.excel-hint[data-test-type="${testType}"]`);
+        if (excelHint) {
+            excelHint.style.display = 'none';
+            console.log('🔍 Excel hint hidden for:', testType);
+        }
+        
+        // Clear file input value
+        const fileInput = document.querySelector(`.excel-file-input[data-test-type="${testType}"]`);
+        if (fileInput) {
+            fileInput.value = '';
+            console.log(' File input cleared for:', testType);
+        }
+    });
+    
+    console.log(' Excel upload state reset complete');
+}
+
+// Restore Excel upload state from saved state
+function restoreExcelUploadState(excelState) {
+    if (!excelState) return;
+    
+    console.log('🔍 Restoring Excel upload state:', excelState);
+    
+    if (excelState.multipleChoice?.buttonVisible) {
+        showExcelUploadButton('multiple-choice');
+        showExcelHint('multiple-choice');
+    }
+    if (excelState.trueFalse?.buttonVisible) {
+        showExcelUploadButton('true-false');
+        showExcelHint('true-false');
+    }
+    if (excelState.input?.buttonVisible) {
+        showExcelUploadButton('input');
+        showExcelHint('input');
+    }
 }
 
 // Save form data for the current test creation step
@@ -3142,6 +3235,11 @@ function restoreTestCreationState() {
             console.log('🔍 Made test creation section visible for restoration');
         }
         
+        // NEW: Restore Excel upload state
+        if (state.excelState) {
+            restoreExcelUploadState(state.excelState);
+        }
+        
         // Show the appropriate step
         switch (state.currentStep) {
             case 'testTypeSelection':
@@ -3369,8 +3467,8 @@ function handleMultipleChoiceSubmit() {
     console.log('Number of Questions:', numQuestions);
     console.log('Number of Options:', numOptions);
     
-    if (!testName || !numQuestions || numQuestions < 1 || numQuestions > 100) {
-        alert('Please enter a valid test name and number of questions (1-100)');
+    if (!testName || !numQuestions || !numOptions || numQuestions < 1 || numQuestions > 100 || numOptions < 2 || numOptions > 6) {
+        alert('Please enter valid test name, number of questions (1-100), and number of options (2-6)');
         return;
     }
     
@@ -3379,6 +3477,10 @@ function handleMultipleChoiceSubmit() {
     
     console.log('Calling createMultipleChoiceQuestions...');
     createMultipleChoiceQuestions(testName, numQuestions, numOptions, null);
+    
+    // NEW CODE - Show Excel button and hint after questions are generated
+    showExcelUploadButton('multiple-choice');
+    showExcelHint('multiple-choice');
 }
 
 // Handle true/false test submission
@@ -3395,6 +3497,10 @@ function handleTrueFalseSubmit() {
     saveFormDataForStep('trueFalseForm');
     
     createTrueFalseQuestions(testName, numQuestions, null);
+    
+    // NEW CODE - Show Excel button and hint after questions are generated
+    showExcelUploadButton('true-false');
+    showExcelHint('true-false');
 }
 
 // Handle input test submission
@@ -3411,6 +3517,10 @@ function handleInputTestSubmit() {
     saveFormDataForStep('inputForm');
     
     createInputQuestions(testName, numQuestions, null);
+    
+    // NEW CODE - Show Excel button and hint after questions are generated
+    showExcelUploadButton('input');
+    showExcelHint('input');
 }
 
 // Create multiple choice questions form
@@ -4210,6 +4320,9 @@ function showTestAssignment(testType, testId) {
     // Show test assignment section
     const assignmentSection = document.getElementById('testAssignmentSection');
     assignmentSection.style.display = 'block';
+    
+    // NEW: Reset Excel upload state when moving to assignment
+    resetExcelUploadState();
     
     // Load teacher's available grades and classes
     loadTeacherGradesAndClasses(testType, testId);
@@ -6972,21 +7085,31 @@ function displayTeacherActiveTests(tests) {
             
             test.assignments.forEach(assignment => {
                 const daysRemaining = Math.max(0, Math.floor(assignment.days_remaining));
-                let daysClass = '';
-                if (daysRemaining <= 7) daysClass = 'danger';
-                else if (daysRemaining <= 14) daysClass = 'warning';
+                let statusClass = '';
+                let statusText = '';
+                
+                if (daysRemaining <= 1) {
+                    statusClass = 'expired';
+                    statusText = 'EXPIRED!';
+                } else if (daysRemaining <= 2) {
+                    statusClass = 'expiring-soon';
+                    statusText = `Expires in ${daysRemaining} days!`;
+                } else {
+                    statusClass = 'active';
+                    statusText = `${daysRemaining} days remaining`;
+                }
                 
                 html += `
-                    <div class="assignment-item">
+                    <div class="assignment-item ${statusClass}">
                         <div class="assignment-info">
                             <strong>Grade ${assignment.grade}, Class ${assignment.class}</strong>
                             <br>
                             <small>Assigned: ${new Date(assignment.assigned_at).toLocaleDateString()}</small>
-                            <span class="days-remaining ${daysClass}">${daysRemaining} days remaining</span>
+                            <span class="status-indicator ${statusClass}">${statusText}</span>
                         </div>
                         <div class="assignment-actions">
-                            <button class="btn btn-danger btn-sm remove-assignment-btn" onclick="event.stopPropagation(); removeClassAssignment('${test.test_type}', ${test.test_id}, ${assignment.assignment_id}, '${test.test_name}', '${assignment.grade}', '${assignment.class}')">
-                                Delete Test
+                            <button class="btn btn-warning btn-sm hide-test-btn" onclick="event.stopPropagation(); removeClassAssignment('${test.test_type}', ${test.test_id}, ${assignment.assignment_id}, '${test.test_name}', '${assignment.grade}', '${assignment.class}')">
+                                Hide Test
                             </button>
                         </div>
                     </div>
@@ -7193,16 +7316,16 @@ async function removeClassAssignment(testType, testId, assignmentId, testName, g
     
     try {
         // Professional confirmation dialog
-        if (!confirm(`Remove Assignment Confirmation
+        if (!confirm(`Hide Test Confirmation
 
 Test: ${testName}
 Class: Grade ${grade}, Class ${className}
 
-This will remove this test assignment for the specified class only. Students in this class will no longer see or be able to take this test.
+This will hide this test from students in this class. The test will no longer be visible to students, but all data will be preserved.
 
 Are you sure you want to proceed?
 
-Click "OK" to remove the assignment or "Cancel" to keep it.`)) {
+Click "OK" to hide the test or "Cancel" to keep it visible.`)) {
             return;
         }
         
@@ -7225,12 +7348,21 @@ Click "OK" to remove the assignment or "Cancel" to keep it.`)) {
         const result = await response.json();
         
         if (result.success) {
-            alert(`Assignment removed successfully.
+            // Disable the button immediately to prevent redundant clicks
+            const button = event.target;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Test Hidden';
+                button.classList.add('btn-secondary');
+                button.classList.remove('btn-warning', 'hide-test-btn');
+            }
+            
+            alert(`Test hidden successfully.
 
 Test: ${testName}
 Class: Grade ${grade}, Class ${className}
 
-Students in this class can no longer access this test.`);
+Students in this class can no longer see this test. All data has been preserved.`);
             // Refresh the active tests display
             await loadTeacherActiveTests();
         } else {
@@ -10922,3 +11054,790 @@ function getSelectedGradesClasses(containerId) {
 }
 
 // ===== END TEST DELETION MANAGEMENT FUNCTIONS =====
+
+// ===== EXCEL UPLOAD SYSTEM =====
+
+// Initialize Excel upload functionality for all test types
+function initializeExcelUploadForAllTestTypes() {
+    // Get all Excel upload buttons
+    const excelButtons = document.querySelectorAll('.excel-upload-btn');
+    
+    // Set up event listeners for each test type
+    excelButtons.forEach(button => {
+        const testType = button.dataset.testType;
+        const fileInput = document.querySelector(`.excel-file-input[data-test-type="${testType}"]`);
+        
+        if (fileInput) {
+            button.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (event) => handleExcelFileUpload(event, testType));
+        }
+    });
+}
+
+// Show Excel upload button and hint after submit
+function showExcelUploadButton(testType) {
+    const excelBtn = document.querySelector(`.excel-upload-btn[data-test-type="${testType}"]`);
+    if (excelBtn) {
+        excelBtn.style.display = 'inline-block';
+    }
+}
+
+function showExcelHint(testType) {
+    const hint = document.querySelector(`.excel-hint[data-test-type="${testType}"]`);
+    if (hint) {
+        hint.style.display = 'flex';
+    }
+}
+
+// Excel file upload handler
+function handleExcelFileUpload(event, testType) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Basic file validation
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        alert('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('File is too large. Please select a file smaller than 5MB.');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            processExcelDataForTestType(jsonData, testType);
+        } catch (error) {
+            showNotification('Error reading Excel file: ' + error.message, 'error');
+            // Clear file input to allow re-upload
+            event.target.value = '';
+        }
+    };
+    
+    reader.onerror = function() {
+        showNotification('Failed to read file', 'error');
+        // Clear file input to allow re-upload
+        event.target.value = '';
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+// Header detection function
+function detectHeaders(excelData, testType) {
+    if (excelData.length === 0) {
+        return { hasHeaders: false, headerRow: null, dataRows: excelData };
+    }
+    
+    const firstRow = excelData[0];
+    
+    // Check if first row looks like headers
+    const headerPattern = getHeaderPattern(testType);
+    const headerMatch = checkHeaderMatch(firstRow, headerPattern);
+    
+    if (headerMatch.isLikelyHeader) {
+        // First row looks like headers - ask user
+        const message = `The first row of your Excel file looks like it contains headers:\n\n` +
+                       `"${firstRow.join(' | ')}"\n\n` +
+                       `Does the first row contain column headers?\n\n` +
+                       `Click "OK" if YES (headers will be removed)\n` +
+                       `Click "Cancel" if NO (first row will be treated as data)`;
+        
+        const hasHeaders = confirm(message);
+        
+        if (hasHeaders) {
+            return { 
+                hasHeaders: true, 
+                headerRow: firstRow,
+                dataRows: excelData.slice(1) // Remove first row
+            };
+        }
+    }
+    
+    // No headers or user chose to keep first row as data
+    return { 
+        hasHeaders: false, 
+        headerRow: null,
+        dataRows: excelData
+    };
+}
+
+function getHeaderPattern(testType) {
+    switch (testType) {
+        case 'multiple-choice':
+            return {
+                keywords: ['question', 'answer', 'correct', 'option', 'a', 'b', 'c', 'd', 'e', 'f'],
+                expectedColumns: 4
+            };
+        case 'true-false':
+            return {
+                keywords: ['question', 'answer', 'correct', 'true', 'false'],
+                expectedColumns: 2
+            };
+        case 'input':
+            return {
+                keywords: ['question', 'answer', 'response'],
+                expectedColumns: 2
+            };
+        default:
+            return { keywords: [], expectedColumns: 0 };
+    }
+}
+
+function checkHeaderMatch(firstRow, headerPattern) {
+    const rowText = firstRow.map(cell => {
+        if (cell === null || cell === undefined) return '';
+        return cell.toString().toLowerCase();
+    }).join(' ');
+    const keywordMatches = headerPattern.keywords.filter(keyword => 
+        rowText.includes(keyword.toLowerCase())
+    );
+    
+    const hasKeywords = keywordMatches.length >= 2;
+    const hasExpectedColumns = firstRow.length >= headerPattern.expectedColumns;
+    
+    return {
+        isLikelyHeader: hasKeywords && hasExpectedColumns
+    };
+}
+
+// Data pattern recognition function
+function recognizeExcelData(excelData, testType) {
+    if (excelData.length === 0) {
+        alert('No data rows found. Please check your Excel file.');
+        return { recognized: false, data: [] };
+    }
+    
+    // Check if data matches our expected format
+    console.log(`🔍 Checking data pattern for test type: ${testType}`);
+    console.log(`🔍 Excel data to validate:`, excelData);
+    const recognitionResult = checkDataPattern(excelData, testType);
+    console.log(`🔍 Recognition result:`, recognitionResult);
+    
+    if (!recognitionResult.matches) {
+        // Data doesn't match our pattern - prompt user to review
+        const message = `Your Excel file doesn't match the expected format.\n\n` +
+                       `Required format:\n${getRequiredFormatForTestType(testType)}\n\n` +
+                       `Please review your Excel file and make sure it follows this format exactly.\n\n` +
+                       `Then try uploading again.`;
+        
+        console.log(`❌ Data pattern validation failed:`, message);
+        alert(message);
+        return { recognized: false, data: [] };
+    }
+    
+    console.log(`✅ Data pattern validation passed for test type: ${testType}`);
+    
+    // Data matches our pattern - return it unchanged
+    return { recognized: true, data: excelData };
+}
+
+function checkDataPattern(excelData, testType) {
+    if (testType === 'multiple-choice') {
+        // Check if each row has: Question + Correct Answer + Options
+        for (let i = 0; i < excelData.length; i++) {
+            const row = excelData[i];
+            
+            // Need at least 4 columns: Question + Correct Answer + Option A + Option B
+            if (row.length < 4) {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has ${row.length} columns but needs at least 4` 
+                };
+            }
+            
+            // Check if question exists
+            if (!row[0] || row[0].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no question in column 1` 
+                };
+            }
+            
+            // Check if correct answer is valid
+            const correctAnswer = row[1];
+            if (!correctAnswer || !['A', 'B', 'C', 'D', 'E', 'F'].includes(correctAnswer.toString().toUpperCase())) {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has invalid correct answer "${correctAnswer}". Must be A, B, C, D, E, or F` 
+                };
+            }
+            
+            // Check if required options exist
+            if (!row[2] || row[2].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no text for Option A (column 3)` 
+                };
+            }
+            
+            if (!row[3] || row[3].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no text for Option B (column 4)` 
+                };
+            }
+        }
+        
+    } else if (testType === 'true-false') {
+        // Check if each row has: Question + True/False
+        for (let i = 0; i < excelData.length; i++) {
+            const row = excelData[i];
+            
+            // Need at least 2 columns: Question + Answer
+            if (row.length < 2) {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has ${row.length} columns but needs 2` 
+                };
+            }
+            
+            // Check if question exists
+            if (!row[0] || row[0].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no question in column 1` 
+                };
+            }
+            
+                    // Check if answer is valid using string normalization
+        const answer = row[1];
+        console.log(`🔍 Checking true/false answer: "${answer}" (type: ${typeof answer})`);
+
+        // Normalize the answer to handle Excel's inconsistent data representation
+        const normalizedAnswer = answer.toString().toLowerCase().trim();
+        const isValidAnswer = normalizedAnswer === 'true' || normalizedAnswer === 'false';
+        
+        console.log(`🔍 Normalized answer: "${normalizedAnswer}"`);
+        console.log(`🔍 Validation result: ${isValidAnswer}`);
+
+        if (!isValidAnswer) {
+            console.log(`❌ True/false validation failed for row ${i + 1}: "${answer}" (normalized: "${normalizedAnswer}")`);
+            return { 
+                matches: false, 
+                issue: `Row ${i + 1} has invalid answer "${answer}". Must be TRUE or FALSE` 
+            };
+        }
+
+        console.log(`✅ True/false validation passed for row ${i + 1}: "${answer}" (normalized: "${normalizedAnswer}")`);
+        }
+        
+    } else if (testType === 'input') {
+        // Check if each row has: Question + at least 1 Answer
+        for (let i = 0; i < excelData.length; i++) {
+            const row = excelData[i];
+            
+            // Need at least 2 columns: Question + Answer
+            if (row.length < 2) {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has ${row.length} columns but needs 2` 
+                };
+            }
+            
+            // Check if question exists
+            if (!row[0] || row[0].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no question in column 1` 
+                };
+            }
+            
+            // Check if first answer exists
+            if (!row[1] || row[1].toString().trim() === '') {
+                return { 
+                    matches: false, 
+                    issue: `Row ${i + 1} has no answer in column 2` 
+                };
+            }
+        }
+    }
+    
+    // All rows passed the pattern check
+    return { matches: true };
+}
+
+// Main Excel processing function
+function processExcelDataForTestType(excelData, testType) {
+    // First, check for headers
+    const headerInfo = detectHeaders(excelData, testType);
+    
+    // Use the appropriate data rows (with or without headers)
+    const dataRows = headerInfo.dataRows;
+    
+    if (dataRows.length === 0) {
+        showNotification('No data rows found after header processing. Please check your Excel file.', 'error');
+        // Clear file input to allow re-upload
+        clearFileInputForTestType(testType);
+        return;
+    }
+    
+    // Now recognize the data pattern (without headers)
+    console.log(`🔍 Processing Excel data for test type: ${testType}`);
+    console.log(`🔍 Data rows after header processing:`, dataRows);
+    const recognition = recognizeExcelData(dataRows, testType);
+    console.log(`🔍 Recognition result:`, recognition);
+    
+    if (!recognition.recognized) {
+        // Data wasn't recognized - user needs to fix their file
+        console.log(`❌ Excel data recognition failed for test type: ${testType}`);
+        // Clear file input to allow re-upload
+        clearFileInputForTestType(testType);
+        return;
+    }
+    
+    console.log(`✅ Excel data recognition successful for test type: ${testType}`);
+    
+    // Data was recognized - check question count
+    const excelQuestionCount = dataRows.length;
+    const userQuestionCount = getQuestionCountForTestType(testType);
+    
+    if (excelQuestionCount !== userQuestionCount) {
+        // Counts don't match - prompt user to fix
+        const message = `Your Excel file has ${excelQuestionCount} data rows, but you specified ${userQuestionCount} questions.\n\n` +
+                       `Please either:\n` +
+                       `1. Change your question count to ${excelQuestionCount}, or\n` +
+                       `2. Fix your Excel file to have exactly ${userQuestionCount} data rows\n\n` +
+                       `Then try uploading again.`;
+        
+        showNotification(message, 'error');
+        // Clear file input to allow re-upload
+        clearFileInputForTestType(testType);
+        return;
+    }
+    
+    // Everything matches - use the data exactly as it is (without headers)
+    populateFromExcelForTestType(dataRows, testType);
+    
+    // Show success message with header info
+    let successMessage = `Excel data loaded successfully! ${excelQuestionCount} questions processed.`;
+    if (headerInfo.hasHeaders) {
+        successMessage += `\n\nNote: First row was detected as headers and removed.`;
+    }
+    
+    showNotification(successMessage, 'success');
+}
+
+// Helper function to clear file input for a specific test type
+function clearFileInputForTestType(testType) {
+    const fileInput = document.querySelector(`.excel-file-input[data-test-type="${testType}"]`);
+    if (fileInput) {
+        fileInput.value = '';
+        console.log(' File input cleared for:', testType);
+    }
+}
+
+// Re-attach form event listeners that may have been lost during form recreation
+function reattachFormEventListeners(testType) {
+    console.log('🔍 Re-attaching form event listeners for:', testType);
+    
+    // Re-attach any event listeners that may have been lost
+    // during form recreation by Excel population
+    // This ensures form functionality is preserved
+    
+    switch (testType) {
+        case 'multiple-choice':
+            // Re-setup auto-save for newly created fields
+            setupMultipleChoiceFormAutoSave();
+            break;
+        case 'true-false':
+            // Re-setup auto-save for newly created fields
+            setupTrueFalseFormAutoSave();
+            break;
+        case 'input':
+            // Re-setup auto-save for newly created fields
+            setupInputFormAutoSave();
+            break;
+    }
+}
+
+// Helper functions
+function getQuestionCountForTestType(testType) {
+    switch (testType) {
+        case 'multiple-choice':
+            return parseInt(document.getElementById('mcNumQuestions').value);
+        case 'true-false':
+            return parseInt(document.getElementById('tfNumQuestions').value);
+        case 'input':
+            return parseInt(document.getElementById('inputNumQuestions').value);
+        default:
+            return 0;
+    }
+}
+
+function getRequiredFormatForTestType(testType) {
+    switch (testType) {
+        case 'multiple-choice':
+            return `Multiple Choice Format:
+Column 1: Question
+Column 2: Correct Answer (A, B, C, D, E, or F)
+Column 3: Option A text
+Column 4: Option B text
+Column 5: Option C text (if needed)
+Column 6: Option D text (if needed)
+
+Example with headers:
+Question | Correct Answer | Option A | Option B | Option C | Option D
+What is 2+2? | A | 4 | 5 | 6 | 7
+What color is the sky? | B | Red | Blue | Green | Yellow
+
+Example without headers:
+What is 2+2? | A | 4 | 5 | 6 | 7
+What color is the sky? | B | Red | Blue | Green | Yellow
+
+Note: Headers are optional. If you include them, the first row will be automatically detected and removed.`;
+            
+        case 'true-false':
+            return `True/False Format:
+Column 1: Question
+Column 2: Correct Answer (true or false)
+
+Example with headers:
+Question | Answer
+The Earth is round | true
+The sun is blue | false
+
+Example without headers:
+The Earth is round | true
+The sun is blue | false
+
+Note: Headers are optional. If you include them, the first row will be automatically detected and removed.`;
+            
+        case 'input':
+            return `Input Test Format:
+Column 1: Question
+Column 2: Answer 1
+Column 3: Answer 2 (optional)
+Column 4: Answer 3 (optional)
+
+Example with headers:
+Question | Answer 1 | Answer 2 | Answer 3
+What is the capital of France? | Paris | Paris, France | The capital of France is Paris
+
+Example without headers:
+What is the capital of France? | Paris | Paris, France | The capital of France is Paris
+
+Note: Headers are optional. If you include them, the first row will be automatically detected and removed.`;
+            
+        default:
+            return 'Unknown test type';
+    }
+}
+
+// Data population functions
+function populateFromExcelForTestType(excelData, testType) {
+    switch (testType) {
+        case 'multiple-choice':
+            populateMultipleChoiceFromExcel(excelData);
+            break;
+        case 'true-false':
+            populateTrueFalseFromExcel(excelData);
+            break;
+        case 'input':
+            populateInputFromExcel(excelData);
+            break;
+    }
+}
+
+
+
+function populateMultipleChoiceFromExcel(excelData) {
+    const container = document.getElementById('mcQuestionsContainer');
+    container.innerHTML = '';
+    
+    // Get the number of options the user wants
+    const userNumOptions = parseInt(document.getElementById('mcNumOptions').value);
+    
+    excelData.forEach((row, index) => {
+        // Create question container using EXACT same structure as createMultipleChoiceQuestions
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-container';
+        
+        const questionTitle = document.createElement('h5');
+        questionTitle.textContent = `Question ${index + 1}`;
+        questionDiv.appendChild(questionTitle);
+        
+        const questionInput = document.createElement('input');
+        questionInput.type = 'text';
+        questionInput.placeholder = `Enter your question here`;
+        questionInput.id = `mc_question_${index + 1}`;
+        questionInput.required = true;
+        questionInput.value = row[0] || ''; // Set Excel question
+        questionDiv.appendChild(questionInput);
+        
+        // Create options based on user's choice (A, B, C, D, E, F)
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'option-inputs';
+        
+        // Get the options array based on user's choice
+        const allOptions = ['A', 'B', 'C', 'D', 'E', 'F'];
+        const userOptions = allOptions.slice(0, userNumOptions);
+        
+        userOptions.forEach((option, optIndex) => {
+            const optionInput = document.createElement('input');
+            optionInput.type = 'text';
+            optionInput.placeholder = `${option}`;
+            optionInput.id = `mc_option_${index + 1}_${option}`;
+            optionInput.required = true;
+            
+            // Get option text from Excel
+            // Column 2 is correct answer, so options start from column 3
+            const excelOptionText = row[optIndex + 2]; // +2 because column 1 is question, column 2 is correct answer
+            optionInput.value = excelOptionText || '';
+            
+            optionsDiv.appendChild(optionInput);
+        });
+        
+        questionDiv.appendChild(optionsDiv);
+        
+        // Create correct answer select
+        const correctAnswerSelect = document.createElement('div');
+        correctAnswerSelect.className = 'correct-answer-select';
+        const correctAnswerLabel = document.createElement('label');
+        correctAnswerLabel.textContent = 'Correct Answer:';
+        correctAnswerSelect.appendChild(correctAnswerLabel);
+        
+        const select = document.createElement('select');
+        select.id = `mc_correct_${index + 1}`;
+        select.required = true;
+        
+        // Only show options that the user wants
+        userOptions.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option;
+            optionElement.textContent = option;
+            if (option === row[1]) { // Column 2 is correct answer
+                optionElement.selected = true;
+            }
+            select.appendChild(optionElement);
+        });
+        
+        correctAnswerSelect.appendChild(select);
+        questionDiv.appendChild(correctAnswerSelect);
+        
+        container.appendChild(questionDiv);
+    });
+    
+    // Add save button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-success';
+    saveBtn.textContent = 'Save Test';
+    saveBtn.onclick = () => saveMultipleChoiceTest(
+        document.getElementById('mcTestName').value, 
+        excelData.length,
+        userNumOptions
+    );
+    container.appendChild(saveBtn);
+    
+    // Setup auto-save
+    setupMultipleChoiceFormAutoSave();
+    
+    // NEW: Re-attach any necessary event listeners
+    reattachFormEventListeners('multiple-choice');
+}
+
+function populateTrueFalseFromExcel(excelData) {
+    const container = document.getElementById('tfQuestionsContainer');
+    container.innerHTML = '';
+    
+    excelData.forEach((row, index) => {
+        // Create question container using EXACT same structure as createTrueFalseQuestions
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-container';
+        
+        const questionTitle = document.createElement('h5');
+        questionTitle.textContent = `Question ${index + 1}`;
+        questionDiv.appendChild(questionTitle);
+        
+        const questionInput = document.createElement('input');
+        questionInput.type = 'text';
+        questionInput.placeholder = `Enter question ${index + 1}`;
+        questionInput.id = `tf_question_${index + 1}`;
+        questionInput.value = row[0] || ''; // Set Excel question
+        
+        // Add auto-save listener to match existing pattern
+        questionInput.addEventListener('input', () => {
+            console.log(`🔍 Auto-saving question ${index + 1} input`);
+            saveFormDataForStep('trueFalseForm');
+        });
+        
+        questionDiv.appendChild(questionInput);
+        
+        // Create correct answer select
+        const correctAnswerSelect = document.createElement('div');
+        correctAnswerSelect.className = 'correct-answer-select';
+        const select = document.createElement('select');
+        select.id = `tf_correct_${index + 1}`;
+        
+        // Add auto-save listener to match existing pattern
+        select.addEventListener('change', () => {
+            console.log(`🔍 Auto-saving correct answer ${index + 1} selection`);
+            saveFormDataForStep('trueFalseForm');
+        });
+        
+        const trueOption = document.createElement('option');
+        trueOption.value = 'true';
+        trueOption.textContent = 'True';
+        select.appendChild(trueOption);
+        
+        const falseOption = document.createElement('option');
+        falseOption.value = 'false';
+        falseOption.textContent = 'False';
+        select.appendChild(falseOption);
+        
+        // Use string normalization for consistent handling
+        const excelAnswer = row[1];
+        const normalizedAnswer = excelAnswer.toString().toLowerCase().trim();
+        console.log(`🔍 Excel answer for row ${index + 1}: ${excelAnswer} (normalized: "${normalizedAnswer}")`);
+
+        if (normalizedAnswer === 'true') {
+            select.value = 'true';
+            console.log(`🔍 Set form value to 'true' for Excel value: ${excelAnswer}`);
+        } else if (normalizedAnswer === 'false') {
+            select.value = 'false';
+            console.log(`🔍 Set form value to 'false' for Excel value: ${excelAnswer}`);
+        } else {
+            console.log(`⚠️ Unexpected Excel value: ${excelAnswer}, leaving form unselected`);
+        }
+        
+        correctAnswerSelect.appendChild(select);
+        questionDiv.appendChild(correctAnswerSelect);
+        
+        container.appendChild(questionDiv);
+    });
+    
+    // Add save button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-success';
+    saveBtn.textContent = 'Save Test';
+    saveBtn.onclick = () => saveTrueFalseTest(
+        document.getElementById('tfTestName').value, 
+        excelData.length
+    );
+    container.appendChild(saveBtn);
+    
+    // Setup auto-save
+    setupTrueFalseFormAutoSave();
+    
+    // NEW: Re-attach any necessary event listeners
+    reattachFormEventListeners('true-false');
+}
+
+function populateInputFromExcel(excelData) {
+    const container = document.getElementById('inputQuestionsContainer');
+    container.innerHTML = '';
+    
+    excelData.forEach((row, index) => {
+        // Create question container using EXACT same structure as createInputQuestions
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-container';
+        
+        const questionTitle = document.createElement('h5');
+        questionTitle.textContent = `Question ${index + 1}`;
+        questionDiv.appendChild(questionTitle);
+        
+        const questionInput = document.createElement('input');
+        questionInput.type = 'text';
+        questionInput.placeholder = `Enter question ${index + 1}`;
+        questionInput.id = `input_question_${index + 1}`;
+        questionInput.value = row[0] || ''; // Set Excel question
+        
+        // Add auto-save listener to match existing pattern
+        questionInput.addEventListener('input', () => {
+            console.log(`🔍 Auto-saving question ${index + 1} input`);
+            saveFormDataForStep('inputForm');
+        });
+        
+        questionDiv.appendChild(questionInput);
+        
+        // Create answers container using EXACT same structure
+        const answersContainer = document.createElement('div');
+        answersContainer.className = 'answers-container';
+        answersContainer.id = `answers_container_${index + 1}`;
+        
+        // Create answer fields based on THIS specific row's data (no unnecessary empty fields)
+        const thisRowAnswerCount = row.length - 1; // -1 because first column is question
+        for (let answerIndex = 0; answerIndex < thisRowAnswerCount; answerIndex++) {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'answer-input-group';
+            
+            const answerInput = document.createElement('input');
+            answerInput.type = 'text';
+            
+            if (answerIndex === 0) {
+                answerInput.placeholder = `Correct answer for question ${index + 1}`;
+            } else {
+                answerInput.placeholder = `Alternative answer ${answerIndex + 1} for question ${index + 1}`;
+            }
+            
+            answerInput.className = 'answer-input';
+            answerInput.dataset.questionId = index + 1;
+            answerInput.dataset.answerIndex = answerIndex;
+            
+            // Set value from Excel data if it exists, otherwise empty
+            answerInput.value = row[answerIndex + 1] || '';
+            
+            // Add auto-save listener to match existing pattern
+            answerInput.addEventListener('input', () => {
+                console.log(`🔍 Auto-saving answer ${answerIndex + 1} for question ${index + 1}`);
+                saveFormDataForStep('inputForm');
+            });
+            
+            answerDiv.appendChild(answerInput);
+            
+            // For additional answers (not the first), add remove button
+            if (answerIndex > 0) {
+                const removeAnswerBtn = document.createElement('button');
+                removeAnswerBtn.type = 'button';
+                removeAnswerBtn.className = 'btn btn-sm btn-outline-danger remove-answer-btn';
+                removeAnswerBtn.textContent = '× Remove';
+                removeAnswerBtn.onclick = () => removeAnswerField(answerDiv);
+                answerDiv.appendChild(removeAnswerBtn);
+            }
+            
+            answersContainer.appendChild(answerDiv);
+        }
+        
+        // Add answer button for manual addition of more answers
+        const addAnswerBtn = document.createElement('button');
+        addAnswerBtn.type = 'button';
+        addAnswerBtn.className = 'btn btn-sm btn-outline-primary add-answer-btn';
+        addAnswerBtn.textContent = '+ Add Answer';
+        addAnswerBtn.onclick = () => addAnswerField(index + 1); // Use existing function
+        
+        // Find the last answer div to append the button to
+        const lastAnswerDiv = answersContainer.lastElementChild;
+        if (lastAnswerDiv) {
+            lastAnswerDiv.appendChild(addAnswerBtn);
+        }
+        
+        questionDiv.appendChild(answersContainer);
+        container.appendChild(questionDiv);
+    });
+    
+    // Add save button using existing pattern
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-success';
+    saveBtn.textContent = 'Save Test';
+    saveBtn.onclick = () => saveInputTest(
+        document.getElementById('inputTestName').value, 
+        excelData.length
+    );
+    container.appendChild(saveBtn);
+    
+    // Setup auto-save for Excel-generated fields
+    setupInputFormAutoSave();
+    
+    // NEW: Re-attach any necessary event listeners
+    reattachFormEventListeners('input');
+}
+
+// ===== END EXCEL UPLOAD SYSTEM =====
