@@ -1,229 +1,104 @@
-# Mathayomwatsing School Testing System
+# MWS Mobile App
 
-A comprehensive web-based testing system for schools with Neon DB and Netlify hosting.
+A native Android application for the Mathayomwatsing School system, built with Kotlin and modern Android development practices.
 
 ## Features
 
-### 🎓 Student Features
-- **Login System**: Students can log in using their Student ID and Number
-- **Subject Viewing**: View assigned subjects and test results
-- **Performance Tracking**: Track scores across different subjects and semesters
-- **Responsive Interface**: Mobile-friendly design
+- **Student Authentication**: Secure login system for students
+- **Test Management**: View and take assigned tests
+- **Anti-Cheating Protection**: Advanced security measures including:
+  - App minimization monitoring (7-second timer)
+  - 3-strike warning system
+  - Screenshot prevention
+  - Screen orientation locking
+  - Local security logging
+- **Offline Support**: Local SQLite database for data persistence
+- **Modern UI**: Material Design 3 components with teen-friendly aesthetics
 
-### 👨‍🏫 Teacher Features
-- **Subject Management**: Assign subjects to specific grades and classes
-- **Test Creation**: Create multiple choice and free answer tests
-- **Results Viewing**: View and analyze student performance by grade, class, and semester
-- **Dashboard**: Comprehensive overview of assigned classes
+## Architecture
 
-### 🔧 Admin Features
-- **User Management**: View all students, teachers, and subjects
-- **Database Debugging**: Test database connections and view system data
-- **Academic Year Management**: Monitor academic periods and terms
-- **System Monitoring**: Comprehensive debugging tools
+- **Language**: Kotlin
+- **Architecture Pattern**: MVVM with Repository pattern
+- **Database**: Room (SQLite wrapper)
+- **Networking**: Retrofit for API calls
+- **Asynchronous Programming**: Coroutines and Flow
+- **UI Components**: Material Design components
+- **Image Loading**: Glide for profile pictures
+- **Cloud Storage**: Cloudinary for image management
 
-## 🚀 Quick Start
+## Project Structure
+
+```
+app/src/main/java/com/mws/
+├── activities/          # Activity classes
+├── fragments/           # Fragment classes
+├── adapters/            # RecyclerView adapters
+├── services/            # Background services
+├── utils/               # Utility classes
+├── models/              # Data models
+├── viewmodels/          # ViewModel classes
+├── database/            # Room database classes
+│   ├── entity/          # Database entities
+│   ├── dao/             # Data Access Objects
+│   └── converter/       # Type converters
+└── testlogic/           # Test processing logic
+```
+
+## Security Features
+
+### Anti-Cheating Measures
+1. **App State Monitoring**: Tracks when app goes to background
+2. **Background Timer**: 7-second limit before warning
+3. **Warning System**: 3-strike system before auto-submission
+4. **Screen Security**: Disables screenshots and screen recording
+5. **Orientation Lock**: Prevents device rotation during tests
+6. **Local Logging**: Stores security events locally
+
+### Test Security
+- Unique local tokens for each test session
+- Local question shuffling (Multiple Choice, True/False, Input)
+- Local word bank shuffling (Matching tests)
+- Failed submission tracking with retry logic
+
+## Database Schema
+
+### Tables
+- **test_sessions**: Active test sessions with security tokens
+- **app_state_logs**: Security event logging
+- **failed_submissions**: Failed test submissions for retry
+
+## Getting Started
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- Neon DB account
-- Netlify account
+- Android Studio Arctic Fox or later
+- Android SDK 24+ (API level 24)
+- Gradle 8.0+
 
-### 1. Database Setup
+### Setup
+1. Clone the repository
+2. Open in Android Studio
+3. Sync Gradle files
+4. Build and run on device/emulator
 
-1. **Create Neon Database**
-   - Sign up at [neon.tech](https://neon.tech)
-   - Create a new project
-   - Copy your connection string
+### Configuration
+- Update API endpoints in `ApiService`
+- Configure Cloudinary credentials for image uploads
+- Set up backend server endpoints
 
-2. **Run Database Schema**
-   ```bash
-   # Connect to your Neon database and run:
-   psql "your-neon-connection-string"
-   \i database_schema.sql
-   ```
+## Development Notes
 
-### 2. Local Development
+- All test processing happens locally on device
+- Backend APIs remain unchanged (existing functionality preserved)
+- Security logging is device-specific and not sent to backend
+- Profile pictures use hybrid storage (Cloudinary + local)
 
-1. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+## Contributing
 
-2. **Set Environment Variables**
-   Create a `.env` file in the root directory:
-   ```env
-   DATABASE_URL=your-neon-connection-string
-   ```
+1. Follow Kotlin coding conventions
+2. Use meaningful commit messages
+3. Test thoroughly before submitting
+4. Follow Material Design guidelines for UI
 
-3. **Run Locally**
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:8888`
+## License
 
-### 3. Deploy to Netlify
-
-1. **Push to Git Repository**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
-
-2. **Connect to Netlify**
-   - Connect your Git repository to Netlify
-   - Set the build command: `npm run build`
-   - Set the publish directory: `public`
-   - Add environment variable: `DATABASE_URL`
-
-3. **Deploy**
-   Netlify will automatically deploy your application
-
-## 📊 Database Schema
-
-### Core Tables
-- **users**: Student information (217 students across 6 grades)
-- **teachers**: Teacher credentials and information
-- **subjects**: Available subjects (9 subjects)
-- **academic_year**: Academic periods and terms
-- **teacher_subjects**: Teacher-subject-class assignments
-
-### Test Tables
-- **multiple_choice_tests**: Multiple choice test definitions
-- **true_false_tests**: True/false test definitions
-- **input_tests**: Free answer test definitions
-- **test_questions**: Individual test questions
-- **test_results**: Student test results
-
-## 🔐 Login Credentials
-
-### Students
-- **Student ID**: Use the student ID from the database (e.g., 51706)
-- **Password**: Use the student's number (e.g., 1)
-
-### Teachers
-- **Username**: Alex or Charlie
-- **Password**: 465
-
-### Admin
-- **Username**: admin
-- **Password**: maxpower
-
-## 🛠️ API Endpoints
-
-### Authentication
-- `POST /.netlify/functions/student-login` - Student login
-- `POST /.netlify/functions/teacher-login` - Teacher login
-- `POST /.netlify/functions/admin-login` - Admin login
-
-### Student Management
-- `GET /.netlify/functions/get-student-subjects` - Get student subjects
-- `GET /.netlify/functions/get-student-test-results` - Get student test results
-
-### Teacher Management
-- `GET /.netlify/functions/get-subjects` - Get all subjects
-- `POST /.netlify/functions/save-teacher-subjects` - Save teacher subject assignments
-- `GET /.netlify/functions/get-teacher-subjects` - Get teacher subjects
-- `GET /.netlify/functions/get-class-results` - Get class results
-
-### Test Management
-- `POST /.netlify/functions/save-multiple-choice-test` - Save multiple choice test
-- `POST /.netlify/functions/save-input-test` - Save input test
-
-### Admin Management
-- `GET /.netlify/functions/get-all-users` - Get all users
-- `GET /.netlify/functions/get-all-teachers` - Get all teachers
-- `GET /.netlify/functions/get-all-subjects` - Get all subjects
-- `GET /.netlify/functions/get-academic-year` - Get academic year data
-- `GET /.netlify/functions/test-db-connection` - Test database connection
-
-## 🎨 Customization
-
-### Styling
-- Modify `public/styles.css` for custom styling
-- The system uses a modern, responsive design with CSS Grid and Flexbox
-
-### Functionality
-- Add new test types in the `functions/` directory
-- Extend the database schema as needed
-- Modify the frontend JavaScript in `public/script.js`
-
-## 📱 Responsive Design
-
-The system is fully responsive and works on:
-- Desktop computers
-- Tablets
-- Mobile phones
-- All modern browsers
-
-## 🔒 Security Features
-
-- Input validation on all forms
-- SQL injection prevention using parameterized queries
-- CORS configuration for API endpoints
-- Secure password handling
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Failed**
-   - Check your `DATABASE_URL` environment variable
-   - Verify your Neon database is running
-   - Test connection using the debug function
-
-2. **Functions Not Working**
-   - Ensure all dependencies are installed
-   - Check Netlify function logs
-   - Verify function names match the frontend calls
-
-3. **Build Errors**
-   - Check Node.js version compatibility
-   - Verify all required files are present
-   - Check for syntax errors in JavaScript files
-
-### Debug Tools
-
-Use the admin panel's debug functions to:
-- Test database connections
-- View system data
-- Monitor API responses
-
-## 📈 Performance
-
-- **Database**: Optimized queries with proper indexing
-- **Frontend**: Efficient DOM manipulation and event handling
-- **API**: Fast response times with proper error handling
-- **Caching**: Browser-based caching for static assets
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For support and questions:
-- Check the troubleshooting section
-- Review the API documentation
-- Test with the debug functions
-- Contact the development team
-
-## 🔄 Updates
-
-The system is designed to be easily updatable:
-- Database migrations can be applied incrementally
-- New features can be added as new functions
-- Frontend updates can be deployed independently
-
----
-
-**Built with ❤️ for Mathayomwatsing School**
+This project is proprietary software for Mathayomwatsing School.
