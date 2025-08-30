@@ -1,4 +1,48 @@
 const { neon } = require('@neondatabase/serverless');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+if (process.env.CLOUDINARY_URL) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_URL.split('@')[1],
+    api_key: process.env.CLOUDINARY_URL.split('://')[1].split(':')[0],
+    api_secret: process.env.CLOUDINARY_URL.split(':')[1].split('@')[0]
+  });
+}
+
+// Helper function to delete Cloudinary images
+const deleteCloudinaryImage = async (imageUrl) => {
+  try {
+    if (!process.env.CLOUDINARY_URL) {
+      console.log('Cloudinary not configured, skipping image deletion:', imageUrl);
+      return { success: false, reason: 'Cloudinary not configured' };
+    }
+
+    // Extract public_id from Cloudinary URL
+    // URL format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/image_name.jpg
+    const urlParts = imageUrl.split('/');
+    const uploadIndex = urlParts.findIndex(part => part === 'upload');
+    
+    if (uploadIndex === -1 || uploadIndex + 2 >= urlParts.length) {
+      console.log('Invalid Cloudinary URL format, skipping:', imageUrl);
+      return { success: false, reason: 'Invalid URL format' };
+    }
+
+    // Extract the public_id (everything after upload/version/folder/image)
+    const publicIdParts = urlParts.slice(uploadIndex + 2);
+    const publicId = publicIdParts.join('/').replace(/\.[^/.]+$/, ''); // Remove file extension
+    
+    console.log('Deleting Cloudinary image with public_id:', publicId);
+    
+    const result = await cloudinary.uploader.destroy(publicId);
+    console.log('Cloudinary deletion result:', result);
+    
+    return { success: true, publicId, result };
+  } catch (error) {
+    console.error('Error deleting Cloudinary image:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 exports.handler = async function(event, context) {
   // Enable CORS
@@ -149,14 +193,36 @@ exports.handler = async function(event, context) {
         
         // Since question tables don't have created_at, we'll delete all records for the teacher
         // This is safer than deleting without date filtering
-        // Use neon's template literal syntax for safe SQL execution
-        const result = await sql`
-          DELETE FROM ${sql(tableName)} 
-          WHERE test_id IN (
-            SELECT id FROM ${sql(teacherTableName)} 
-            WHERE teacher_id = ${teacherId}
-          )
-        `;
+        // Use conditional SQL building for dynamic table names
+        let result;
+        
+        if (tableName === 'multiple_choice_test_questions') {
+          result = await sql`
+            DELETE FROM multiple_choice_test_questions 
+            WHERE test_id IN (
+              SELECT id FROM multiple_choice_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'true_false_test_questions') {
+          result = await sql`
+            DELETE FROM true_false_test_questions 
+            WHERE test_id IN (
+              SELECT id FROM true_false_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'input_test_questions') {
+          result = await sql`
+            DELETE FROM input_test_questions 
+            WHERE test_id IN (
+              SELECT id FROM input_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else {
+          throw new Error(`Unsupported table name: ${tableName}`);
+        }
         
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
         return result.rowCount;
@@ -169,15 +235,49 @@ exports.handler = async function(event, context) {
         
         // ALL results tables now have test_id columns (added via ALTER TABLE)
         // So we can filter by teacher for ALL test types
-        // Use neon's template literal syntax for safe SQL execution
-        const result = await sql`
-          DELETE FROM ${sql(tableName)} 
-          WHERE created_at BETWEEN ${startDate} AND ${endDate}
-          AND test_id IN (
-            SELECT id FROM ${sql(teacherTableName)} 
-            WHERE teacher_id = ${teacherId}
-          )
-        `;
+        // Use conditional SQL building for dynamic table names
+        let result;
+        
+        if (tableName === 'multiple_choice_test_results') {
+          result = await sql`
+            DELETE FROM multiple_choice_test_results 
+            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            AND test_id IN (
+              SELECT id FROM multiple_choice_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'true_false_test_results') {
+          result = await sql`
+            DELETE FROM true_false_test_results 
+            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            AND test_id IN (
+              SELECT id FROM true_false_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'input_test_results') {
+          result = await sql`
+            DELETE FROM input_test_results 
+            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            AND test_id IN (
+              SELECT id FROM input_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'matching_type_test_results') {
+          result = await sql`
+            DELETE FROM matching_type_test_results 
+            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            AND test_id IN (
+              SELECT id FROM matching_type_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else {
+          throw new Error(`Unsupported results table name: ${tableName}`);
+        }
+        
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
         return result.rowCount;
       };
@@ -311,6 +411,55 @@ exports.handler = async function(event, context) {
       );
       
       totalDeleted += deletionSummary.matching.arrows + deletionSummary.matching.questions + deletionSummary.matching.results;
+
+      // Delete Cloudinary images for matching type tests before deleting the tests themselves
+      console.log('=== Starting Cloudinary Image Deletion ===');
+      deletionSummary.cloudinaryImages = {};
+      
+      try {
+        // Get all matching type test image URLs for this teacher and date range
+        const imageUrlsResult = await sql`
+          SELECT image_url FROM matching_type_tests 
+          WHERE teacher_id = ${teacherId}
+          AND created_at BETWEEN ${startDate} AND ${endDate}
+        `;
+        
+        console.log(`Found ${imageUrlsResult.length} matching type tests with images to delete`);
+        
+        let deletedImages = 0;
+        let failedImages = 0;
+        
+        for (const row of imageUrlsResult) {
+          const imageUrl = row.image_url;
+          console.log('Processing image for deletion:', imageUrl);
+          
+          const deleteResult = await deleteCloudinaryImage(imageUrl);
+          if (deleteResult.success) {
+            deletedImages++;
+            console.log('✅ Successfully deleted Cloudinary image:', deleteResult.publicId);
+          } else {
+            failedImages++;
+            console.log('❌ Failed to delete Cloudinary image:', imageUrl, deleteResult.reason || deleteResult.error);
+          }
+        }
+        
+        deletionSummary.cloudinaryImages = {
+          total: imageUrlsResult.length,
+          deleted: deletedImages,
+          failed: failedImages
+        };
+        
+        console.log(`Cloudinary image deletion complete: ${deletedImages} deleted, ${failedImages} failed`);
+      } catch (cloudinaryError) {
+        console.error('Error during Cloudinary image deletion:', cloudinaryError);
+        deletionSummary.cloudinaryImages = {
+          error: cloudinaryError.message,
+          total: 0,
+          deleted: 0,
+          failed: 0
+        };
+        // Don't fail the entire operation if Cloudinary deletion fails
+      }
 
       // Delete test assignments
       console.log('=== Starting Test Assignment Deletion ===');
