@@ -1,14 +1,16 @@
 const { neon } = require('@neondatabase/serverless');
+const jwt = require('jsonwebtoken');
 
 exports.handler = async function(event, context) {
   console.log('=== submit-test-results function called ===');
   console.log('Event:', event);
   
-  // CORS headers
+  // CORS headers with Authorization support
   const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Origin': 'https://yourdomain.com',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true'
   };
 
   // Handle preflight request
@@ -30,6 +32,73 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Extract and validate JWT token
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return {
+        statusCode: 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Authorization header missing or invalid'
+        })
+      };
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Verify JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: false,
+            message: 'Token expired',
+            error: 'TOKEN_EXPIRED'
+          })
+        };
+      } else {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: false,
+            message: 'Invalid token'
+          })
+        };
+      }
+    }
+
+    // Validate role
+    if (decoded.role !== 'student') {
+      return {
+        statusCode: 403,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Access denied. Student role required.'
+        })
+      };
+    }
+
     console.log('=== PARSING REQUEST ===');
     console.log('Raw event.body:', event.body);
     console.log('Event body type:', typeof event.body);
@@ -38,13 +107,15 @@ exports.handler = async function(event, context) {
     console.log('Parsed request body:', requestBody);
     
     const { 
-      student_id, 
       test_type, 
       test_id, 
       student_answers, 
       score, 
       max_score
     } = requestBody;
+
+    // Extract student_id from JWT token
+    const student_id = decoded.sub;
     
     console.log('Extracted values:');
     console.log('- student_id:', student_id, 'type:', typeof student_id);
@@ -55,17 +126,16 @@ exports.handler = async function(event, context) {
     console.log('- max_score:', max_score, 'type:', typeof max_score);
 
     console.log('=== VALIDATING PARAMETERS ===');
-    console.log('student_id exists:', !!student_id);
+    console.log('student_id (from JWT):', student_id);
     console.log('test_type exists:', !!test_type);
     console.log('test_id exists:', !!test_id);
     console.log('student_answers exists:', !!student_answers);
     console.log('score is defined:', score !== undefined);
     console.log('max_score exists:', !!max_score);
     
-    if (!student_id || !test_type || !test_id || !student_answers || score === undefined || !max_score) {
+    if (!test_type || !test_id || !student_answers || score === undefined || !max_score) {
       console.log('❌ Missing required parameters');
       console.log('Missing fields:');
-      if (!student_id) console.log('- student_id');
       if (!test_type) console.log('- test_type');
       if (!test_id) console.log('- test_id');
       if (!student_answers) console.log('- student_answers');
@@ -74,11 +144,13 @@ exports.handler = async function(event, context) {
       
       return {
         statusCode: 400,
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ 
           error: 'Missing required parameters',
           missing: {
-            student_id: !student_id,
             test_type: !test_type,
             test_id: !test_id,
             student_answers: !student_answers,

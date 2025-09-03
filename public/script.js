@@ -1,68 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // School Testing System - Main JavaScript File
 
 // Global function availability check
@@ -74,20 +10,6 @@ console.log('🔧 deleteUser available:', typeof deleteUser);
 console.log('🔧 deleteTeacher available:', typeof deleteTeacher);
 console.log('🔧 deleteSubject available:', typeof deleteSubject);
 
-// Global variables
-let currentUser = null;
-let currentUserType = null;
-let teacherSubjects = [];
-let currentTestType = null;
-
-// Local storage keys
-const STORAGE_KEYS = {
-    USER_SESSION: 'user_session',
-    TEACHER_SUBJECTS: 'teacher_subjects',
-    STUDENT_SUBJECTS: 'student_subjects',
-    ADMIN_DATA: 'admin_data',
-    FORM_DATA: 'form_data'
-};
 
 // DOM elements
 const loginSection = document.getElementById('login-section');
@@ -95,11 +17,10 @@ const studentCabinet = document.getElementById('student-cabinet');
 const teacherCabinet = document.getElementById('teacher-cabinet');
 const adminPanel = document.getElementById('admin-panel');
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing application...');
-    
-    // Check function availability
+/**
+ * Debug function to check availability of key functions
+ */
+function checkFunctionAvailability() {
     console.log('🔧 Checking function availability...');
     console.log('🔧 editUserRow available:', typeof editUserRow);
     console.log('🔧 editTeacherRow available:', typeof editTeacherRow);
@@ -107,50 +28,83 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 deleteUser available:', typeof deleteUser);
     console.log('🔧 deleteTeacher available:', typeof deleteTeacher);
     console.log('🔧 deleteSubject available:', typeof deleteSubject);
+}
+
+/**
+ * Handle force logout scenario - prevent automatic session restoration
+ */
+function handleForceLogout() {
+    console.log('⚠️ Automatic session restoration blocked - force logout in progress');
+    hideAllSections();
+    const loginSection = document.getElementById('login-section');
+    if (loginSection) {
+        loginSection.classList.add('active');
+        loginSection.style.display = 'block';
+        loginSection.style.visibility = 'visible';
+        loginSection.style.opacity = '1';
+    }
+}
+
+/**
+ * Initialize application session based on JWT token
+ * Handles automatic login for users with valid JWT sessions
+ */
+function initializeApplicationSession() {
+    console.log('Checking for existing JWT session...');
     
-    // Check and clear expired local storage
-    checkAndClearExpiredStorage();
+    if (window.tokenManager && window.tokenManager.isAuthenticated()) {
+        console.log('JWT session valid, checking user role...');
+        try {
+            const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+            if (decoded && decoded.role) {
+                console.log('User role from JWT:', decoded.role);
+                // User has valid JWT session, show appropriate section
+                if (decoded.role === 'teacher') {
+                    showSection('teacher-cabinet');
+                    initializeTeacherCabinet();
+                } else if (decoded.role === 'student') {
+                    showSection('student-cabinet');
+                    // Populate student information from JWT token
+                    populateStudentInfo(decoded);
+                } else if (decoded.role === 'admin') {
+                    showSection('admin-panel');
+                    // Initialize admin panel if needed
+                }
+            } else {
+                console.log('No valid role found in JWT, showing login');
+                showSection('login-section');
+            }
+        } catch (error) {
+            console.error('Error decoding JWT token:', error);
+            showSection('login-section');
+        }
+    } else {
+        console.log('No valid JWT session found, showing login');
+        // No valid session, show login
+        showSection('login-section');
+    }
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing application...');
+    
+    // Check function availability
+    checkFunctionAvailability();
+    
+    // JWT system handles session management - no need for legacy session restoration
+    // checkAndClearExpiredStorage(); - REMOVED
     
     initializeEventListeners();
     
     // Check if we're forcing logout - prevent automatic session restoration
     if (window.forceLogout || window.preventAutoLogin) {
-        console.log('⚠️ Automatic session restoration blocked - force logout in progress');
-        hideAllSections();
-        const loginSection = document.getElementById('login-section');
-        if (loginSection) {
-            loginSection.classList.add('active');
-            loginSection.style.display = 'block';
-            loginSection.style.visibility = 'visible';
-            loginSection.style.opacity = '1';
-        }
+        handleForceLogout();
         return;
     }
     
-    // Initialize Excel upload functionality for ALL test types
-    initializeExcelUploadForAllTestTypes();
-    
-    // Check if user has an existing session
-    console.log('Checking for existing session...');
-    if (restoreUserSession()) {
-        console.log('Session restored:', currentUserType, currentUser);
-        // User has valid session, show appropriate section
-        if (currentUserType === 'teacher') {
-            showSection('teacher-cabinet');
-            initializeTeacherCabinet();
-        } else if (currentUserType === 'student') {
-            showSection('student-cabinet');
-            // Populate student information from restored session
-            populateStudentInfo(currentUser);
-        } else if (currentUserType === 'admin') {
-            showSection('admin-panel');
-            // Initialize admin panel if needed
-        }
-    } else {
-        console.log('No valid session found, showing login');
-        // No valid session, show login
-        showSection('login-section');
-    }
+    // Initialize application session
+    initializeApplicationSession();
 });
 
 // Utility functions from working template
@@ -227,191 +181,67 @@ function calculateScore(answers, correctAnswers) {
     return score;
 }
 
-// Local Storage Functions
-function saveToLocalStorage(key, data) {
+// Legacy localStorage helper functions removed - JWT system handles storage management
+// function saveToLocalStorage(key, data) - REMOVED
+// function saveFormData(formId, formData) - REMOVED
+// function restoreFormData(formId) - REMOVED
+// function clearFormData(formId) - REMOVED
+
+// JWT-based helper functions for user information
+function getCurrentTeacherId() {
     try {
-        console.log('Saving to localStorage:', key, data);
-        localStorage.setItem(key, JSON.stringify(data));
-        console.log('Successfully saved to localStorage');
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-    }
-}
-
-function saveFormData(formId, formData) {
-    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
-    saveToLocalStorage(key, formData);
-}
-
-function restoreFormData(formId) {
-    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
-    return getFromLocalStorage(key);
-}
-
-function clearFormData(formId) {
-    const key = `${STORAGE_KEYS.FORM_DATA}_${formId}`;
-    try {
-        localStorage.removeItem(key);
-    } catch (error) {
-        console.error('Error clearing form data:', error);
-    }
-}
-
-function checkAndClearExpiredStorage() {
-    try {
-        // Check for expired sessions
-        const sessionData = getFromLocalStorage(STORAGE_KEYS.USER_SESSION);
-        if (sessionData && sessionData.timestamp) {
-            const sessionAge = Date.now() - sessionData.timestamp;
-            const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-            
-            if (sessionAge >= maxSessionAge) {
-                // Session expired, clear all storage
-                clearLocalStorage();
-                console.log('Expired session cleared from local storage');
-            }
+        if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+            console.warn('[WARN] No valid JWT token found for teacher');
+            return null;
         }
         
-        // Check for old form data (older than 1 hour)
-        const formDataKeys = Object.keys(localStorage).filter(key => key.startsWith(STORAGE_KEYS.FORM_DATA));
-        formDataKeys.forEach(key => {
-            try {
-                const data = JSON.parse(localStorage.getItem(key));
-                if (data && data.timestamp) {
-                    const dataAge = Date.now() - data.timestamp;
-                    const maxFormDataAge = 60 * 60 * 1000; // 1 hour
-                    
-                    if (dataAge >= maxFormDataAge) {
-                        localStorage.removeItem(key);
-                        console.log('Expired form data cleared:', key);
-                    }
-                }
-            } catch (error) {
-                // If data is corrupted, remove it
-                localStorage.removeItem(key);
-                console.log('Corrupted form data removed:', key);
-            }
-        });
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        if (decoded && decoded.sub) {
+            console.log(`[DEBUG] Found teacher ID from JWT: ${decoded.sub}`);
+            return decoded.sub;
+        } else {
+            console.warn('[WARN] No teacher ID found in JWT token');
+            return null;
+        }
     } catch (error) {
-        console.error('Error checking expired storage:', error);
-    }
-}
-
-function getFromLocalStorage(key) {
-    try {
-        console.log('Reading from localStorage:', key);
-        const data = localStorage.getItem(key);
-        console.log('Raw data from localStorage:', data);
-        const parsed = data ? JSON.parse(data) : null;
-        console.log('Parsed data:', parsed);
-        return parsed;
-    } catch (error) {
-        console.error('Error reading from localStorage:', error);
+        console.error('[ERROR] Error getting current teacher ID from JWT:', error);
         return null;
     }
 }
 
-function clearLocalStorage() {
+function getCurrentTeacherUsername() {
     try {
-        // Clear all localStorage
-        localStorage.clear();
-        console.log('✅ All localStorage cleared successfully');
-    } catch (error) {
-        console.error('Error clearing localStorage:', error);
-    }
-}
-
-function clearUserSessionData() {
-    try {
-        console.log('🗑️ Starting user session data clearing...');
-        
-        // Set flag to prevent session restoration
-        window.isClearingSession = true;
-        
-        // Clear user session data specifically
-        const sessionKeys = [
-            'user_session',
-            'current_user_type',
-            'teacher_subjects',
-            'current_test_type',
-            'current_test_id',
-            'user_session_timestamp',
-            'last_login_time',
-            'user_preferences'
-        ];
-        
-        sessionKeys.forEach(key => {
-            if (localStorage.getItem(key)) {
-                localStorage.removeItem(key);
-                console.log(`🗑️ Cleared session key: ${key}`);
-            }
-        });
-        
-        // Clear any other user-related data
-        const keys = Object.keys(localStorage);
-        let clearedCount = 0;
-        keys.forEach(key => {
-            if (key.includes('user_') || key.includes('session_') || key.includes('teacher_') || key.includes('student_') || key.includes('login_')) {
-                localStorage.removeItem(key);
-                clearedCount++;
-                console.log(`🗑️ Cleared user-related key: ${key}`);
-            }
-        });
-        
-        // Reset global variables to prevent interface confusion
-        if (typeof currentUser !== 'undefined') currentUser = null;
-        if (typeof currentUserType !== 'undefined') currentUserType = null;
-        if (typeof teacherSubjects !== 'undefined') teacherSubjects = [];
-        if (typeof currentTestType !== 'undefined') currentTestType = null;
-        
-        // Clear any session storage as well
-        if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.clear();
-            console.log('🗑️ Cleared sessionStorage');
+        if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+            console.warn('[WARN] No valid JWT token found for teacher');
+            return null;
         }
         
-        console.log(`✅ User session data cleared successfully. Cleared ${clearedCount} additional keys.`);
-        
-        // Reset flag after a delay to allow interface reset
-        setTimeout(() => {
-            window.isClearingSession = false;
-            console.log('🔄 Session clearing flag reset');
-        }, 2000);
-        
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        if (decoded && decoded.username) {
+            console.log(`[DEBUG] Found teacher username from JWT: ${decoded.username}`);
+            return decoded.username;
+        } else {
+            console.warn('[WARN] No teacher username found in JWT token');
+            return null;
+        }
     } catch (error) {
-        console.error('Error clearing user session data:', error);
-        window.isClearingSession = false;
+        console.error('[ERROR] Error getting current teacher username from JWT:', error);
+        return null;
     }
 }
 
-function debugRemainingSessionData() {
-    console.log('🔍 Checking for remaining session data...');
-    
-    const keys = Object.keys(localStorage);
-    const sessionKeys = keys.filter(key => 
-        key.includes('user_') || 
-        key.includes('session_') || 
-        key.includes('teacher_') || 
-        key.includes('student_') || 
-        key.includes('login_')
-    );
-    
-    if (sessionKeys.length > 0) {
-        console.log('⚠️ Found remaining session keys:', sessionKeys);
-        sessionKeys.forEach(key => {
-            console.log(`  ${key}:`, localStorage.getItem(key));
-        });
-    } else {
-        console.log('✅ No remaining session keys found');
-    }
-    
-    // Check global variables
-    console.log('🔍 Global variables state:');
-    console.log('  currentUser:', currentUser);
-    console.log('  currentUserType:', currentUserType);
-    console.log('  teacherSubjects:', teacherSubjects);
-    console.log('  currentTestType:', currentTestType);
-}
+// Legacy checkAndClearExpiredStorage function removed - JWT system handles session expiration
+// function checkAndClearExpiredStorage() - REMOVED
+
+// Legacy localStorage helper functions removed - JWT system handles storage management
+// function getFromLocalStorage(key) - REMOVED
+// function clearLocalStorage() - REMOVED
+
+// Legacy clearUserSessionData function removed - JWT system handles session clearing
+// function clearUserSessionData() - REMOVED
+
+// Legacy debugRemainingSessionData function removed - JWT system handles debugging
+// function debugRemainingSessionData() - REMOVED
 
 function forceCompleteLogout() {
     console.log('🚨 FORCE COMPLETE LOGOUT INITIATED');
@@ -441,11 +271,11 @@ function forceCompleteLogout() {
         document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
     });
     
-    // Reset all global variables
-    if (typeof currentUser !== 'undefined') currentUser = null;
-    if (typeof currentUserType !== 'undefined') currentUserType = null;
-    if (typeof teacherSubjects !== 'undefined') teacherSubjects = [];
-    if (typeof currentTestType !== 'undefined') currentTestType = null;
+    // Reset all global variables (legacy variables removed - JWT system handles session)
+    // if (typeof currentUser !== 'undefined') currentUser = null; - REMOVED
+    // if (typeof currentUserType !== 'undefined') currentUserType = null; - REMOVED
+    // if (typeof teacherSubjects !== 'undefined') teacherSubjects = []; - REMOVED
+    // if (typeof currentTestType !== 'undefined') currentTestType = null; - REMOVED
     
     // Force page reload with cache busting
     const timestamp = new Date().getTime();
@@ -551,49 +381,11 @@ function resetInterfaceAfterSessionClear() {
     }
 }
 
-function saveUserSession(userData, userType) {
-    const sessionData = {
-        user: userData,
-        type: userType,
-        timestamp: Date.now()
-    };
-    console.log('Saving user session:', sessionData);
-    saveToLocalStorage(STORAGE_KEYS.USER_SESSION, sessionData);
-}
+// Legacy saveUserSession function removed - JWT system handles session management
+// function saveUserSession(userData, userType) - REMOVED
 
-function restoreUserSession() {
-    // Check if we're in the middle of clearing session data
-    if (window.isClearingSession || window.forceLogout || window.preventAutoLogin) {
-        console.log('⚠️ Session restoration blocked - force logout in progress');
-        return false;
-    }
-    
-    console.log('Attempting to restore user session...');
-    const sessionData = getFromLocalStorage(STORAGE_KEYS.USER_SESSION);
-    console.log('Retrieved session data:', sessionData);
-    
-    if (sessionData && sessionData.user && sessionData.type) {
-        // Check if session is not expired (24 hours)
-        const sessionAge = Date.now() - sessionData.timestamp;
-        const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-        
-        console.log('Session age:', sessionAge, 'ms, max age:', maxSessionAge, 'ms');
-        
-        if (sessionAge < maxSessionAge) {
-            currentUser = sessionData.user;
-            currentUserType = sessionData.type;
-            console.log('Session restored successfully');
-            return true;
-        } else {
-            console.log('Session expired, clearing storage');
-            // Session expired, clear it
-            clearLocalStorage();
-        }
-    } else {
-        console.log('No valid session data found');
-    }
-    return false;
-}
+// Legacy restoreUserSession function removed - JWT system handles session restoration
+// function restoreUserSession() - REMOVED
 
 // Reset login form to working state
 function resetLoginForm() {
@@ -640,27 +432,8 @@ function initializeEventListeners() {
         const passwordInput = loginForm.querySelector('input[name="password"]');
         
         if (usernameInput && passwordInput) {
-            // Restore saved form data
-            const savedFormData = restoreFormData('login');
-            if (savedFormData) {
-                usernameInput.value = savedFormData.username || '';
-                passwordInput.value = savedFormData.password || '';
-            }
-            
-            // Save form data as user types
-            usernameInput.addEventListener('input', () => {
-                saveFormData('login', {
-                    username: usernameInput.value,
-                    password: passwordInput.value
-                });
-            });
-            
-            passwordInput.addEventListener('input', () => {
-                saveFormData('login', {
-                    username: usernameInput.value,
-                    password: passwordInput.value
-                });
-            });
+            // JWT system handles session management - no need to save/restore form data
+            // Form data is cleared after successful login
         }
     }
 
@@ -781,6 +554,140 @@ function hideAllSections() {
     });
 }
 
+// ===== HELPER FUNCTIONS FOR ASYNC LOGIN PATTERN =====
+
+// Admin Login API
+async function adminLogin(credentials) {
+    console.log('Trying admin login...');
+    const response = await fetch('/.netlify/functions/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+    });
+    return response;
+}
+
+// Teacher Login API
+async function teacherLogin(credentials) {
+    console.log('Trying teacher login...');
+    const response = await fetch('/.netlify/functions/teacher-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+    });
+    return response;
+}
+
+// Student Login API
+async function studentLogin(credentials) {
+    console.log('Trying student login...');
+    const response = await fetch('/.netlify/functions/student-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: credentials.username, password: credentials.password })
+    });
+    return response;
+}
+
+// Unified Response Handler
+async function handleLoginResponse(response, role, data) {
+    if (response.ok && data.success) {
+        // ✅ DEFENSIVE: Validate JWT system availability
+        if (!window.tokenManager || !window.roleBasedLoader) {
+            console.error('[ERROR] JWT system not available during login response handling');
+            handleLoginFailure();
+            return false;
+        }
+        
+        // Initialize JWT system
+        if (data.accessToken && data.role) {
+            try {
+                window.tokenManager.setTokens(data.accessToken, data.role);
+                window.roleBasedLoader.setupAccessAfterLogin();
+            } catch (error) {
+                console.error('[ERROR] Failed to initialize JWT system:', error);
+                handleLoginFailure();
+                return false;
+            }
+        }
+        
+        // Reset form to working state
+        resetLoginForm();
+        
+        // Handle role-specific post-login actions
+        await handlePostLoginActions(data, role);
+        
+        return true; // Success
+    }
+    return false; // Failure
+}
+
+// Post-Login Action Handler
+async function handlePostLoginActions(data, role) {
+    switch (role) {
+        case 'admin':
+            console.log('Admin login successful, role:', data.role);
+            showSection('admin-panel');
+            break;
+            
+        case 'teacher':
+            console.log('Teacher login successful, role:', data.role);
+            console.log('Teacher data:', data.teacher);
+            showSection('teacher-cabinet');
+            
+            // ✅ DEFENSIVE: Validate teacher functions exist
+            if (typeof initializeTeacherCabinet === 'function' && typeof checkTeacherSubjects === 'function') {
+                // Initialize teacher cabinet functionality
+                setTimeout(() => {
+                    try {
+                        initializeTeacherCabinet();
+                        checkTeacherSubjects();
+                    } catch (error) {
+                        console.error('[ERROR] Failed to initialize teacher cabinet:', error);
+                    }
+                }, 100);
+            } else {
+                console.error('[ERROR] Teacher functions not available:', {
+                    initializeTeacherCabinet: typeof initializeTeacherCabinet,
+                    checkTeacherSubjects: typeof checkTeacherSubjects
+                });
+            }
+            break;
+            
+        case 'student':
+            console.log('Student login successful, role:', data.role);
+            console.log('Student data:', data.student);
+            showSection('student-cabinet');
+            
+            // ✅ DEFENSIVE: Validate student functions exist
+            if (typeof populateStudentInfo === 'function') {
+                try {
+                    // Populate student information from JWT token
+                    populateStudentInfo(data.student);
+                } catch (error) {
+                    console.error('[ERROR] Failed to populate student info:', error);
+                }
+            } else {
+                console.error('[ERROR] Student function not available:', {
+                    populateStudentInfo: typeof populateStudentInfo
+                });
+            }
+            break;
+            
+        default:
+            console.error('Unknown role:', role);
+    }
+}
+
+// Login Failure Handler
+function handleLoginFailure() {
+    console.log('All login attempts failed');
+    resetLoginForm();
+    alert('Login failed. Please check your credentials and try again.');
+}
+
+// ===== MAIN LOGIN FUNCTION =====
+
 // Unified login handler
 async function handleUnifiedLogin(e) {
     e.preventDefault();
@@ -798,10 +705,21 @@ async function handleUnifiedLogin(e) {
 
     console.log('Attempting login with:', username, password);
 
-    // Get form elements
+    // Get form elements and show loading state
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
+    
+    // ✅ DEFENSIVE: Validate form elements exist
+    if (!submitBtn || !usernameInput || !passwordInput) {
+        console.error('[ERROR] Required form elements not found:', {
+            submitBtn: !!submitBtn,
+            usernameInput: !!usernameInput,
+            passwordInput: !!passwordInput
+        });
+        alert('Login form error. Please refresh the page and try again.');
+        return;
+    }
     
     // Show loading state
     submitBtn.disabled = true;
@@ -809,103 +727,36 @@ async function handleUnifiedLogin(e) {
     usernameInput.disabled = true;
     passwordInput.disabled = true;
 
-    let loginSuccess = false;
+    const credentials = { username, password };
 
-    // First, try admin login (admin usernames are typically short)
-    if (username === 'admin') {
-        try {
-            console.log('Trying admin login...');
-            const response = await fetch('/.netlify/functions/admin-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
+    try {
+        // Try admin login first
+        if (username === 'admin') {
+            const response = await adminLogin(credentials);
             const data = await response.json();
-            console.log('Admin login response:', data);
-            
-            if (data.success) {
-                currentUser = { username };
-                currentUserType = 'admin';
-                saveUserSession(currentUser, 'admin');
-                clearFormData('login'); // Clear saved form data
-                showSection('admin-panel');
-                loginSuccess = true;
-                return;
-            }
-        } catch (error) {
-            console.error('Admin login error:', error);
+            if (await handleLoginResponse(response, 'admin', data)) return;
         }
-    }
 
-    // Try teacher login (check if it's a known teacher username)
-    if (!loginSuccess && (username === 'Alex' || username === 'Charlie')) {
-        try {
-            console.log('Trying teacher login...');
-            const response = await fetch('/.netlify/functions/teacher-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
+        // Try teacher login
+        if (username === 'Alex' || username === 'Charlie') {
+            const response = await teacherLogin(credentials);
             const data = await response.json();
-            console.log('Teacher login response:', data);
-            
-            if (data.success) {
-                currentUser = data.teacher;
-                currentUserType = 'teacher';
-                console.log('Teacher login successful, currentUser:', currentUser);
-                console.log('Teacher ID type:', typeof currentUser.teacher_id);
-                console.log('Teacher ID value:', currentUser.teacher_id);
-                saveUserSession(currentUser, 'teacher');
-                clearFormData('login'); // Clear saved form data
-                showSection('teacher-cabinet');
-                // Initialize teacher cabinet functionality
-                setTimeout(() => {
-                    initializeTeacherCabinet();
-                    // Check if teacher already has subjects
-                    checkTeacherSubjects();
-                }, 100);
-                loginSuccess = true;
-                return;
-            }
-        } catch (error) {
-            console.error('Teacher login error:', error);
+            if (await handleLoginResponse(response, 'teacher', data)) return;
         }
-    }
 
-    // Finally, try student login (student IDs are numeric)
-    if (!loginSuccess && /^\d+$/.test(username)) {
-        try {
-            console.log('Trying student login...');
-            const response = await fetch('/.netlify/functions/student-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: username, password })
-            });
-
+        // Try student login
+        if (/^\d+$/.test(username)) {
+            const response = await studentLogin(credentials);
             const data = await response.json();
-            console.log('Student login response:', data);
-            
-            if (data.success) {
-                currentUser = data.student;
-                currentUserType = 'student';
-                saveUserSession(currentUser, 'student');
-                clearFormData('login'); // Clear saved form data
-                showSection('student-cabinet');
-                // Populate student information
-                populateStudentInfo(data.student);
-                loginSuccess = true;
-                return;
-            }
-        } catch (error) {
-            console.error('Student login error:', error);
+            if (await handleLoginResponse(response, 'student', data)) return;
         }
-    }
 
-    // If no login succeeded, show error
-    if (!loginSuccess) {
-        alert('Login failed. Please check your credentials and try again.');
+        // All login attempts failed
+        handleLoginFailure();
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        handleLoginFailure();
     }
 }
 
@@ -935,16 +786,16 @@ function populateStudentInfo(student) {
     
     // Load active tests for this student
     console.log('About to call loadStudentActiveTests with student_id:', student.student_id);
-    loadStudentActiveTests(student.student_id);
+            loadStudentActiveTests();
     
     // Load test results for this student
     console.log('About to call loadStudentTestResults with student_id:', student.student_id);
-    loadStudentTestResults(student.student_id);
+            loadStudentTestResults();
 }
 
 // Load active tests for student
-async function loadStudentActiveTests(studentId) {
-    console.log('loadStudentActiveTests called with studentId:', studentId);
+async function loadStudentActiveTests() {
+    console.log('loadStudentActiveTests called - extracting studentId from JWT token');
     
     // Show loading state
     const container = document.getElementById('studentActiveTests');
@@ -958,10 +809,12 @@ async function loadStudentActiveTests(studentId) {
     }
     
     try {
-        const url = `/.netlify/functions/get-student-active-tests?student_id=${studentId}`;
-        console.log('Fetching from URL:', url);
+        console.log('Fetching student active tests using JWT authentication...');
         
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-student-active-tests'
+        );
+        
         console.log('Response received:', response);
         console.log('Response status:', response.status);
         
@@ -971,7 +824,7 @@ async function loadStudentActiveTests(studentId) {
         
         if (data.success) {
             console.log('Successfully loaded tests, calling displayStudentActiveTests');
-            displayStudentActiveTests(data.tests, studentId);
+            displayStudentActiveTests(data.tests);
         } else {
             console.error('Error loading student active tests:', data.error);
             // Show error state
@@ -989,72 +842,122 @@ async function loadStudentActiveTests(studentId) {
 }
 
 // Check if a test has been completed by the current student
-async function isTestCompleted(testType, testId, studentId) {
-    console.log(`🔍 Checking completion for test ${testType}_${testId} for student ${studentId}`);
-    
-    // Check local storage first (for immediate feedback)
-    const localKey = `test_completed_${testType}_${testId}_${studentId}`;
-    const localStatus = localStorage.getItem(localKey);
-    if (localStatus === 'true') {
-        console.log(`✅ Found completion status in local storage: ${localStatus}`);
-        return true;
-    }
-    
-    // Check database for existing results
+async function isTestCompleted(testType, testId) {
     try {
-        console.log(`🌐 Checking database for completion status...`);
-        const response = await fetch(`/.netlify/functions/check-test-completion?test_type=${testType}&test_id=${testId}&student_id=${studentId}`);
-        const data = await response.json();
+        // Extract studentId from JWT token
+        const token = window.tokenManager.getAccessToken();
+        if (!token) {
+            console.warn('[WARN] No access token available for isTestCompleted');
+            return false;
+        }
         
-        console.log(`📊 Database response:`, data);
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        const studentId = decoded.sub;
         
-        if (data.success && data.isCompleted) {
-            // Mark as completed in local storage for future checks
-            localStorage.setItem(localKey, 'true');
-            console.log(`✅ Test marked as completed in local storage`);
+        console.log(`🔍 Checking completion for test ${testType}_${testId} for student ${studentId}`);
+        
+        // Check local storage first (for immediate feedback)
+        const localKey = `test_completed_${testType}_${testId}_${studentId}`;
+        const localStatus = localStorage.getItem(localKey);
+        if (localStatus === 'true') {
+            console.log(`✅ Found completion status in local storage: ${localStatus}`);
             return true;
         }
         
-        console.log(`❌ Test not completed according to database`);
-        return false;
+        // Check database for existing results
+        try {
+            console.log(`🌐 Checking database for completion status...`);
+            const response = await window.tokenManager.makeAuthenticatedRequest(
+                `/.netlify/functions/check-test-completion?test_type=${testType}&test_id=${testId}`
+            );
+            const data = await response.json();
+            
+            console.log(`📊 Database response:`, data);
+            
+            if (data.success && data.isCompleted) {
+                // Mark as completed in local storage for future checks
+                localStorage.setItem(localKey, 'true');
+                console.log(`✅ Test marked as completed in local storage`);
+                return true;
+            }
+            
+            console.log(`❌ Test not completed according to database`);
+            return false;
+        } catch (error) {
+            console.error('❌ Error checking test completion:', error);
+            return false; // Allow test if we can't check
+        }
     } catch (error) {
-        console.error('❌ Error checking test completion:', error);
-        return false; // Allow test if we can't check
+        console.error('[ERROR] Failed to check test completion:', error);
+        return false;
     }
 }
 
 // Mark a test as completed
-function markTestCompleted(testType, testId, studentId) {
-    console.log(`[DEBUG] markTestCompleted called with testType: ${testType}, testId: ${testId}, studentId: ${studentId}`);
+async function markTestCompleted(testType, testId) {
+    console.log(`[DEBUG] markTestCompleted called with testType: ${testType}, testId: ${testId}`);
     
-    const key = `test_completed_${testType}_${testId}_${studentId}`;
-    console.log(`[DEBUG] Setting localStorage key: ${key}`);
-    
-    localStorage.setItem(key, 'true');
-    console.log(`[DEBUG] ✅ Marked test ${testType}_${testId} as completed for student ${studentId}`);
-    console.log(`[DEBUG] 💾 Saved to local storage with key: ${key}`);
+    try {
+        // Extract studentId from JWT token
+        const token = window.tokenManager.getAccessToken();
+        if (!token) {
+            console.warn('[WARN] No access token available for markTestCompleted');
+            return;
+        }
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        const studentId = decoded.sub;
+        
+        const key = `test_completed_${testType}_${testId}_${studentId}`;
+        console.log(`[DEBUG] Setting localStorage key: ${key}`);
+        
+        localStorage.setItem(key, 'true');
+        console.log(`[DEBUG] ✅ Marked test ${testType}_${testId} as completed for student ${studentId}`);
+        console.log(`[DEBUG] 💾 Saved to local storage with key: ${key}`);
+    } catch (error) {
+        console.error('[ERROR] Failed to mark test as completed:', error);
+    }
 }
 // Display active tests for student
-async function displayStudentActiveTests(tests, studentId) {
-    console.log('displayStudentActiveTests called with tests:', tests);
-    
-    const container = document.getElementById('studentActiveTests');
-    if (!container) {
-        console.error('studentActiveTests container not found');
-        return;
-    }
-    
-    console.log('Container found, tests length:', tests.length);
-    
-    if (tests.length === 0) {
-        console.log('No tests found, showing "no tests" message');
-        container.innerHTML = '<p>No active tests available for your class.</p>';
-        return;
-    }
-    
-            // Check completion status for all tests
+async function displayStudentActiveTests(tests) {
+    try {
+        // Extract studentId from JWT token
+        if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+            console.warn('[WARN] No valid JWT token found for displayStudentActiveTests');
+            return;
+        }
+        
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        console.log('[DEBUG] Full JWT token decoded:', decoded);
+        console.log('[DEBUG] Available fields in JWT:', Object.keys(decoded || {}));
+        
+        // Check for different possible field names for student ID
+        const studentId = decoded?.student_id || decoded?.sub || decoded?.user_id || decoded?.id;
+        if (!studentId) {
+            console.warn('[WARN] No student_id found in JWT token. Available fields:', Object.keys(decoded || {}));
+            return;
+        }
+        
+        console.log('[DEBUG] Using student ID:', studentId);
+        
+        console.log('displayStudentActiveTests called with tests:', tests);
+        
+        const container = document.getElementById('studentActiveTests');
+        if (!container) {
+            console.error('studentActiveTests container not found');
+            return;
+        }
+        
+        console.log('Container found, tests length:', tests.length);
+        
+        if (tests.length === 0) {
+            console.log('No tests found, showing "no tests" message');
+            container.innerHTML = '<p>No active tests available for your class.</p>';
+            return;
+        }
+        
+        // Check completion status for all tests
         const completionChecks = tests.map(async test => {
-            const isCompleted = await isTestCompleted(test.test_type, test.test_id, studentId);
+            const isCompleted = await isTestCompleted(test.test_type, test.test_id);
             console.log(`Test ${test.test_name} (${test.test_type}_${test.test_id}) completion status:`, isCompleted);
             return { ...test, isCompleted };
         });
@@ -1087,15 +990,15 @@ async function displayStudentActiveTests(tests, studentId) {
     const top = sorted.slice(0, 3);
     const rest = sorted.slice(3);
 
-    // Compute average score from student's historical results
+    // Compute average score from student's historical results using JWT authentication
     let averagePct = null;
     try {
-        const sessionRaw = localStorage.getItem('user_session');
-        const session = sessionRaw ? JSON.parse(sessionRaw) : null;
-        const studentId = session && session.user ? session.user.student_id : null;
+        // Use the studentId already extracted from JWT token above
         if (studentId) {
-            const res = await fetch(`/.netlify/functions/get-student-test-results?student_id=${studentId}`);
-            const data = await res.json();
+            const response = await window.tokenManager.makeAuthenticatedRequest(
+                `/.netlify/functions/get-student-test-results?student_id=${studentId}`
+            );
+            const data = await response.json();
             if (data && data.success && Array.isArray(data.results)) {
                 const results = data.results;
                 if (results.length > 0) {
@@ -1110,7 +1013,9 @@ async function displayStudentActiveTests(tests, studentId) {
                 }
             }
         }
-    } catch (_) {}
+    } catch (error) {
+        console.warn('[WARN] Failed to load average score:', error);
+    }
 
     const getAvgMessage = (pct) => {
         if (pct == null) return 'Godspeed!';
@@ -1191,37 +1096,47 @@ async function displayStudentActiveTests(tests, studentId) {
                         <stop offset="100%" stop-color="#3b82f6"/>
                     </linearGradient>
                 </defs>
-                 <!-- Light blue track -->
-                 <circle class="avg-bg" cx="70" cy="70" r="${r}" stroke-width="12" fill="none"></circle>
-                 <!-- Violet gradient progress on track -->
-                 <circle class="avg-fg" cx="70" cy="70" r="${r}" stroke="url(#avgFillPB)" stroke-width="12" fill="none" stroke-linecap="round"
-                     stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${dash.toFixed(2)}"></circle>
-                <text x="70" y="76" text-anchor="middle" class="avg-text">${pct == null ? '--' : pct + '%'}</text>
+                
+                <circle cx="70" cy="70" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                <circle cx="70" cy="70" r="50" fill="none" stroke="url(#avgFillPB)" stroke-width="8" 
+                        stroke-dasharray="${c}" stroke-dashoffset="${dash}" 
+                        transform="rotate(-90 70 70)"/>
             </svg>
-            <div class="avg-message ${msgClass}">${getAvgMessage(pct)}</div>
+            <div class="avg-text">
+                <span class="avg-number">${pct != null ? pct : '?'}</span>
+                <span class="avg-percent">%</span>
+            </div>
+            <div class="avg-message">${getAvgMessage(pct)}</div>
         </div>
     `;
 
     container.innerHTML = html;
 
-    // Bind expand/collapse
-    const expandBtn = document.getElementById('studentActiveExpand');
-    const collapseBtn = document.getElementById('studentActiveCollapse');
-    const expandRow = document.getElementById('studentActiveExpandRow');
-    const collapseRow = document.getElementById('studentActiveCollapseRow');
-    const hiddenList = document.getElementById('studentActiveHidden');
-    if (expandBtn && collapseBtn && hiddenList && expandRow && collapseRow) {
-        expandBtn.addEventListener('click', () => {
-            hiddenList.style.display = 'block';
-            expandRow.style.display = 'none';
-            collapseRow.style.display = 'block';
-        });
-        collapseBtn.addEventListener('click', () => {
-            hiddenList.style.display = 'none';
-            collapseRow.style.display = 'none';
-            expandRow.style.display = 'block';
-        });
+    // Setup expand/collapse functionality
+    if (rest.length > 0) {
+        const expandBtn = document.getElementById('studentActiveExpand');
+        const collapseBtn = document.getElementById('studentActiveCollapse');
+        const hiddenList = document.getElementById('studentActiveHidden');
+        const expandRow = document.getElementById('studentActiveExpandRow');
+        const collapseRow = document.getElementById('studentActiveCollapseRow');
+
+        if (expandBtn && collapseBtn && hiddenList && expandRow && collapseRow) {
+            expandBtn.onclick = () => {
+                hiddenList.style.display = 'block';
+                expandRow.style.display = 'none';
+                collapseRow.style.display = 'block';
+            };
+
+            collapseBtn.onclick = () => {
+                hiddenList.style.display = 'none';
+                expandRow.style.display = 'block';
+                collapseRow.style.display = 'none';
+            };
+        }
     }
+} catch (error) {
+    console.error('[ERROR] Failed to display student active tests:', error);
+}
 }
 
 // View test details (questions and correct answers)
@@ -1342,7 +1257,7 @@ function closeTestDetailsModal() {
 let isLoadingTestResults = false;
 
 // Load test results for student
-async function loadStudentTestResults(studentId) {
+async function loadStudentTestResults() {
     // Prevent multiple simultaneous calls
     if (isLoadingTestResults) {
         console.log('loadStudentTestResults already in progress, skipping duplicate call');
@@ -1350,13 +1265,15 @@ async function loadStudentTestResults(studentId) {
     }
     
     isLoadingTestResults = true;
-    console.log('loadStudentTestResults called with studentId:', studentId);
+    console.log('loadStudentTestResults called - extracting studentId from JWT token');
     
     try {
-        const url = `/.netlify/functions/get-student-test-results?student_id=${studentId}`;
-        console.log('Fetching test results from URL:', url);
+        console.log('Fetching test results using JWT authentication...');
         
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-student-test-results'
+        );
+        
         console.log('Test results response received:', response);
         console.log('Test results response status:', response.status);
         
@@ -1534,8 +1451,14 @@ function displayStudentTestResults(results) {
 
 // ===== OLD TEST FUNCTIONS REMOVED - REPLACED WITH NEW PAGE-BASED SYSTEM =====
 
-// Local storage functions for test progress
+// Local storage functions for test progress (with JWT validation)
 function saveTestProgress(testType, testId, questionId, answer) {
+    // Validate JWT before saving progress
+    if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        console.warn('[WARN] Cannot save progress: No valid JWT token');
+        return;
+    }
+    
     const key = `test_progress_${testType}_${testId}`;
     let progress = JSON.parse(localStorage.getItem(key) || '{}');
     progress[questionId] = answer;
@@ -1544,6 +1467,12 @@ function saveTestProgress(testType, testId, questionId, answer) {
 }
 
 function getTestProgress(testType, testId, questionId) {
+    // Validate JWT before getting progress
+    if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        console.warn('[WARN] Cannot get progress: No valid JWT token');
+        return null;
+    }
+    
     const key = `test_progress_${testType}_${testId}`;
     const progress = JSON.parse(localStorage.getItem(key) || '{}');
     return progress[questionId] || null;
@@ -1551,6 +1480,13 @@ function getTestProgress(testType, testId, questionId) {
 
 function clearTestProgress(testType, testId) {
     console.log(`[DEBUG] clearTestProgress called with testType: ${testType}, testId: ${testId}`);
+    
+    // Validate JWT before clearing progress
+    if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        console.warn('[WARN] Cannot clear progress: No valid JWT token');
+        return;
+    }
+    
     const key = `test_progress_${testType}_${testId}`;
     console.log(`[DEBUG] Removing localStorage key: ${key}`);
     
@@ -1576,8 +1512,8 @@ function clearTestProgress(testType, testId) {
 // ===== OLD loadSavedProgress FUNCTION REMOVED =====
 
 // Submit test function
-async function submitTest(testType, testId, studentId, studentAnswers) {
-    console.log('Submitting test:', { testType, testId, studentId });
+async function submitTest(testType, testId) {
+    console.log('Submitting test:', { testType, testId });
     
     try {
         // Collect answers
@@ -1588,18 +1524,15 @@ async function submitTest(testType, testId, studentId, studentAnswers) {
             return;
         }
 
-        // Get current user session to get student information
-        const sessionData = JSON.parse(localStorage.getItem('user_session'));
-        if (!sessionData || !sessionData.user) {
-            throw new Error('User session not found');
-        }
-
-        const student = sessionData.user;
+        // Remove localStorage dependency - backend will extract user info from JWT
+        // No need to get user session data
         
         // Get test information to get test_name
         let testInfo;
         try {
-            const testResponse = await fetch(`/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`);
+            const testResponse = await window.tokenManager.makeAuthenticatedRequest(
+                `/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`
+            );
             const testData = await testResponse.json();
             if (testData.success) {
                 testInfo = testData.test_info;
@@ -1618,16 +1551,10 @@ async function submitTest(testType, testId, studentId, studentAnswers) {
         const maxScore = testInfo.num_questions; // Use logical question count
 
         // Prepare common data for all test types
+        // Remove user information - backend will extract from JWT token
         const commonData = {
             test_id: testId,
             test_name: testInfo.test_name,
-            studentId: student.student_id,
-            grade: student.grade,
-            class: student.class,
-            number: student.number,
-            name: student.name,
-            surname: student.surname,
-            nickname: student.nickname,
             score: score,
             maxScore: maxScore,
             answers: answers
@@ -1637,32 +1564,44 @@ async function submitTest(testType, testId, studentId, studentAnswers) {
         let response;
         switch (testType) {
             case 'true_false':
-                response = await fetch('/.netlify/functions/submit-true-false-test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(commonData)
-                });
+                response = await window.tokenManager.makeAuthenticatedRequest(
+                    '/.netlify/functions/submit-true-false-test',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(commonData)
+                    }
+                );
                 break;
             case 'multiple_choice':
-                response = await fetch('/.netlify/functions/submit-multiple-choice-test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(commonData)
-                });
+                response = await window.tokenManager.makeAuthenticatedRequest(
+                    '/.netlify/functions/submit-multiple-choice-test',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(commonData)
+                    }
+                );
                 break;
             case 'input':
-                response = await fetch('/.netlify/functions/submit-input-test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(commonData)
-                });
+                response = await window.tokenManager.makeAuthenticatedRequest(
+                    '/.netlify/functions/submit-input-test',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(commonData)
+                    }
+                );
                 break;
             case 'matching_type':
-                response = await fetch('/.netlify/functions/submit-matching-type-test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(commonData)
-                });
+                response = await window.tokenManager.makeAuthenticatedRequest(
+                    '/.netlify/functions/submit-matching-type-test',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(commonData)
+                    }
+                );
                 break;
             default:
                 throw new Error('Unsupported test type');
@@ -1673,7 +1612,7 @@ async function submitTest(testType, testId, studentId, studentAnswers) {
        // In submitTest function, after marking test as completed:
         if (data.success) {
             // Mark test as completed
-            markTestCompleted(testType, testId, studentId);
+            markTestCompleted(testType, testId);
             
             // Clear progress
             clearTestProgress(testType, testId);
@@ -1826,19 +1765,20 @@ function initializeTeacherCabinet() {
 
 // Teacher info population function
 function populateTeacherInfo() {
-    console.log('Populating teacher info:', currentUser);
+    console.log('Populating teacher info from JWT token');
     
-    if (currentUser && currentUser.username) {
+    const teacherUsername = getCurrentTeacherUsername();
+    if (teacherUsername) {
         // Populate teacher username in header
         const teacherUsernameElement = document.getElementById('teacherUsername');
         if (teacherUsernameElement) {
-            teacherUsernameElement.textContent = currentUser.username;
+            teacherUsernameElement.textContent = teacherUsername;
         }
         
         // Populate teacher username in welcome message
         const welcomeTeacherUsernameElement = document.getElementById('welcomeTeacherUsername');
         if (welcomeTeacherUsernameElement) {
-            welcomeTeacherUsernameElement.textContent = currentUser.username;
+            welcomeTeacherUsernameElement.textContent = teacherUsername;
         }
         
         console.log('Teacher info populated successfully');
@@ -1851,19 +1791,20 @@ function populateTeacherInfo() {
 
 // Check if teacher already has subjects in database
 async function checkTeacherSubjects() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in checkTeacherSubjects, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
-    console.log('checkTeacherSubjects called with teacher_id:', currentUser.teacher_id);
+    console.log('checkTeacherSubjects called with teacher_id:', teacherId);
     try {
-        const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-subjects'
+        );
         const data = await response.json();
         console.log('Teacher subjects response:', data);
         console.log('Response status:', response.status);
@@ -1966,11 +1907,10 @@ function displayExistingSubjects(subjects) {
 
 // Show prompt to add subjects
 async function showSubjectSelectionPrompt() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showSubjectSelectionPrompt, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2018,11 +1958,10 @@ async function showSubjectSelectionPrompt() {
 // Load and display existing subjects in the subject selection interface
 async function loadAndDisplayExistingSubjects() {
     try {
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found in loadAndDisplayExistingSubjects, redirecting to login');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
@@ -2030,7 +1969,9 @@ async function loadAndDisplayExistingSubjects() {
         
         console.log('Loading existing subjects for display...');
         
-        const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-subjects'
+        );
         const data = await response.json();
         
         if (data.success && data.subjects && data.subjects.length > 0) {
@@ -2051,11 +1992,10 @@ async function loadAndDisplayExistingSubjects() {
 
 // Display existing subjects in the subject selection interface
 function displayExistingSubjectsInSelection(subjects) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayExistingSubjectsInSelection, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2106,11 +2046,10 @@ function displayExistingSubjectsInSelection(subjects) {
 }
 // Initialize test creation functionality
 function initializeTestCreation() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in initializeTestCreation, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2291,12 +2230,11 @@ function setupFormAutoSave() {
 
 // Show test type selection
 function showTestTypeSelection() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showTestTypeSelection, redirecting to login');
         alert('Missing teacher session. Please sign in again.');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2338,11 +2276,10 @@ function showTestTypeSelection() {
 }
 // Reset test creation
 function resetTestCreation() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in resetTestCreation, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2388,11 +2325,10 @@ function resetTestCreation() {
 
 // Disable navigation buttons during test creation
 function disableNavigationButtons() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in disableNavigationButtons, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2445,11 +2381,10 @@ function disableNavigationButtons() {
 
 // Enable navigation buttons after test creation
 function enableNavigationButtons() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in enableNavigationButtons, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2502,11 +2437,10 @@ function enableNavigationButtons() {
 
 // Save test creation state to localStorage
 function saveTestCreationState(currentStep) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in saveTestCreationState, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2546,11 +2480,10 @@ function saveTestCreationState(currentStep) {
 }
 // Clear test creation state from localStorage
 function clearTestCreationState() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in clearTestCreationState, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2581,11 +2514,10 @@ function clearTestCreationState() {
 
 // Clear all test form fields to give teacher a clean slate
 function clearAllTestFormFields() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
-        console.error('No valid teacher session found in clearAllTestFormFields, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
+        console.error('No valid teacher session found in clearAllTestFields, redirecting to login');
         // Redirect to login
         showSection('login-section');
         return;
@@ -2691,11 +2623,10 @@ function restoreExcelUploadState(excelState) {
 
 // Save form data for the current test creation step
 function saveFormDataForStep(step) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in saveFormDataForStep, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -2855,11 +2786,10 @@ function saveFormDataForStep(step) {
 }
 // Restore form data for the current test creation step
 function restoreFormDataForStep(step) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in restoreFormDataForStep, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -3282,12 +3212,11 @@ function restoreTestCreationState() {
 }
 // Show test form based on type
 function showTestForm(testType) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showTestForm, redirecting to login');
         alert('Missing teacher session. Please sign in again.');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -3617,24 +3546,23 @@ async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
     try {
         console.log('=== saveMultipleChoiceTest called ===');
         
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found in saveMultipleChoiceTest, redirecting to login');
             alert('Missing teacher session. Please sign in again.');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
         }
         
-        console.log('Teacher ID:', currentUser.teacher_id);
+        console.log('Teacher ID:', teacherId);
         console.log('Test Name:', testName);
         console.log('Number of Questions:', numQuestions);
         console.log('Number of Options:', numOptions);
         
         const testData = {
-            teacher_id: currentUser.teacher_id,
+            teacher_id: teacherId,
             test_name: testName,
             num_questions: numQuestions,
             num_options: numOptions,
@@ -3709,11 +3637,14 @@ async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
             }
         }
         
-        const response = await fetch('/.netlify/functions/save-multiple-choice-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testData)
-        });
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/save-multiple-choice-test',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            }
+        );
         
         console.log('Response received:', response);
         console.log('Response status:', response.status);
@@ -3749,21 +3680,19 @@ async function saveTrueFalseTest(testName, numQuestions) {
         console.log('Test Name:', testName);
         console.log('Number of Questions (original):', numQuestions, 'type:', typeof numQuestions);
         console.log('Number of Questions (converted):', numQuestionsInt, 'type:', typeof numQuestionsInt);
-        console.log('Current User:', currentUser);
         
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found in saveTrueFalseTest, redirecting to login');
             alert('Missing teacher session. Please sign in again.');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
         }
         
         const testData = {
-            teacher_id: currentUser.teacher_id,
+            teacher_id: teacherId,
             test_name: testName,
             num_questions: numQuestionsInt,
             questions: []
@@ -3785,11 +3714,14 @@ async function saveTrueFalseTest(testName, numQuestions) {
         
         console.log('Final testData to be sent:', testData);
         
-        const response = await fetch('/.netlify/functions/save-true-false-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testData)
-        });
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/save-true-false-test',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            }
+        );
         
         console.log('Response received:', response);
         console.log('Response status:', response.status);
@@ -3808,6 +3740,9 @@ async function saveTrueFalseTest(testName, numQuestions) {
             alert('True/False test saved successfully!');
             
             // Clear ONLY test form data, NOT user session data
+            clearTestLocalStorage();
+            
+            // Show test assignment interface with test type and ID
             showTestAssignment('trueFalse', result.test_id);
         } else {
             alert('Error saving test: ' + result.message);
@@ -3826,26 +3761,25 @@ async function saveInputTest(testName, numQuestions) {
     saveFormDataForStep('inputForm');
     
     try {
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found in saveInputTest, redirecting to login');
             alert('Missing teacher session. Please sign in again.');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
         }
         
         const testData = {
-            teacher_id: currentUser.teacher_id,
+            teacher_id: teacherId,
             test_name: testName,
             num_questions: numQuestions,
             questions: []
         };
         
         console.log('🔍 Initial testData:', testData);
-        console.log('🔍 Current user teacher_id:', currentUser.teacher_id);
+        console.log('🔍 Current user teacher_id:', teacherId);
         
         for (let i = 1; i <= numQuestions; i++) {
             console.log(`🔍 Processing question ${i}...`);
@@ -3911,11 +3845,14 @@ async function saveInputTest(testName, numQuestions) {
         }
         
         console.log('🔍 Sending request to save-input-test function...');
-        const response = await fetch('/.netlify/functions/save-input-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testData)
-        });
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/save-input-test',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            }
+        );
         
         console.log('🔍 Response received:', response);
         console.log('🔍 Response status:', response.status);
@@ -3928,6 +3865,9 @@ async function saveInputTest(testName, numQuestions) {
             alert('Input test saved successfully!');
             
             // Clear ONLY test form data, NOT user session data
+            clearTestLocalStorage();
+            
+            // Show test assignment interface with test type and ID
             showTestAssignment('input', result.test_id);
         } else {
             console.error('🔍 Error from backend:', result.message);
@@ -4286,11 +4226,10 @@ function showTestAssignment(testType, testId) {
         return;
     }
     
-    // Check if user session is still valid before proceeding
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid before proceeding using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showTestAssignment, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -4333,19 +4272,18 @@ async function loadTeacherGradesAndClasses(testType, testId) {
     try {
         console.log('Loading teacher grades and classes for test assignment');
         
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found, redirecting to login');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
         }
         
-        console.log('Teacher ID:', currentUser.teacher_id);
+        console.log('Teacher ID:', teacherId);
         
-        const url = `/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`;
+        const url = `/.netlify/functions/get-teacher-subjects?teacher_id=${teacherId}`;
         console.log('Fetching from URL:', url);
         
         const response = await fetch(url);
@@ -4380,11 +4318,10 @@ async function loadTeacherGradesAndClasses(testType, testId) {
 
 // Display test assignment options
 function displayTestAssignmentOptions(subjects, testType, testId) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayTestAssignmentOptions, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -4501,18 +4438,17 @@ async function assignTestToClasses(testType, testId) {
     console.log('Test Type:', testType);
     console.log('Test ID:', testId);
     
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in assignTestToClasses, redirecting to login');
         alert('Missing teacher session. Please sign in again.');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
-    console.log('Teacher ID:', currentUser.teacher_id);
+    console.log('Teacher ID:', teacherId);
     
     const selectedGradesClasses = [];
     
@@ -4538,7 +4474,7 @@ async function assignTestToClasses(testType, testId) {
         console.log('Sending assignment request...');
         
         const requestBody = {
-            teacher_id: currentUser.teacher_id,
+            teacher_id: teacherId,
             test_type: test_type_map[testType],
             test_id: testId,
             assignments: selectedGradesClasses
@@ -4546,11 +4482,14 @@ async function assignTestToClasses(testType, testId) {
         
         console.log('Request body:', requestBody);
         
-        const response = await fetch('/.netlify/functions/assign-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/assign-test',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            }
+        );
         
         console.log('Assignment response received:', response);
         console.log('Assignment response status:', response.status);
@@ -4726,15 +4665,10 @@ function showTestCreationSuccessMessage() {
 async function refreshActiveTestsData() {
     console.log('refreshActiveTestsData called - updating active tests data');
     
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
-        console.error('No valid teacher session found in refreshActiveTestsData, skipping refresh');
-        return;
-    }
-    
     try {
-        const url = `/.netlify/functions/get-teacher-active-tests?teacher_id=${currentUser.teacher_id}`;
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-active-tests'
+        );
         
         if (response.ok) {
             const data = await response.json();
@@ -5007,11 +4941,10 @@ function removeSubject(button) {
 
 // Show edit subjects button
 function showEditSubjectsButton() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showEditSubjectsButton, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -5025,11 +4958,10 @@ function showEditSubjectsButton() {
 
 // Hide edit subjects button
 function hideEditSubjectsButton() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in hideEditSubjectsButton, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -5042,16 +4974,6 @@ function hideEditSubjectsButton() {
 }
 // Initialize grade buttons functionality - only show grades where teacher has subjects
 async function initializeGradeButtons() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
-        console.error('No valid teacher session found in initializeGradeButtons, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
-        // Redirect to login
-        showSection('login-section');
-        return;
-    }
-    
     console.log('Initializing grade buttons...');
     const gradeButtons = document.querySelectorAll('.grade-btn');
     console.log('Found grade buttons:', gradeButtons.length);
@@ -5064,15 +4986,10 @@ async function initializeGradeButtons() {
         return;
     }
     
-    // Get teacher's assigned grades and classes from database
-    const teacherId = getCurrentTeacherId();
-    if (!teacherId) {
-        console.error('No teacher ID found');
-        return;
-    }
-    
     try {
-        const response = await fetch(`/.netlify/functions/get-teacher-assignments?teacher_id=${teacherId}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-assignments'
+        );
         const data = await response.json();
         
         if (data.success) {
@@ -5118,11 +5035,10 @@ async function initializeGradeButtons() {
 
 // Show classes for selected grade - only show classes where teacher has subjects
 function showClassesForGrade(grade, assignments = null) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showClassesForGrade, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -5236,11 +5152,10 @@ function showClassesForGrade(grade, assignments = null) {
 
 // Show semesters for selected class
 function showSemestersForClass(grade, classNum) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showSemestersForClass, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -5300,11 +5215,10 @@ function showSemestersForClass(grade, classNum) {
 }
 // Determine and automatically open the current semester based on academic year
 async function determineAndOpenCurrentSemester(grade, classNum) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in determineAndOpenCurrentSemester, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -5413,23 +5327,13 @@ async function determineAndOpenCurrentSemester(grade, classNum) {
 
 // Load class results for selected semester
 async function loadClassResults(grade, classNum, semester) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
-        console.error('No valid teacher session found in loadClassResults, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
-        // Redirect to login
-        showSection('login-section');
-        return;
-    }
-    
-    console.log('loadClassResults called with:', { grade, classNum, semester, teacher_id: currentUser.teacher_id });
+    console.log('loadClassResults called with:', { grade, classNum, semester });
     
     try {
-        const url = `/.netlify/functions/get-class-results?grade=${grade}&class=${classNum}&semester=${semester}&teacher_id=${currentUser.teacher_id}`;
+        const url = `/.netlify/functions/get-class-results?grade=${grade}&class=${classNum}&semester=${semester}`;
         console.log('Fetching from URL:', url);
         
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(url);
         console.log('Response received:', response);
         console.log('Response status:', response.status);
         console.log('Response ok:', response.ok);
@@ -5565,27 +5469,7 @@ function displayClassResults(results, grade, classNum, semester) {
 
 
 
-// Helper function to get current teacher ID from session
-function getCurrentTeacherId() {
-    // Use global currentUser variable first (more reliable)
-    if (currentUser && currentUser.teacher_id) {
-        return currentUser.teacher_id;
-    }
-    
-    // Fallback to localStorage if global variable is not available
-    const session = localStorage.getItem('user_session');
-    if (session) {
-        try {
-            const sessionData = JSON.parse(session);
-            if (sessionData.type === 'teacher' && sessionData.user && sessionData.user.teacher_id) {
-                return sessionData.user.teacher_id;
-            }
-        } catch (e) {
-            console.error('Error parsing session data:', e);
-        }
-    }
-    return null;
-}
+// Legacy getCurrentTeacherId function removed - using JWT-based version above
 
 // Helper function to determine score class for styling
 function getScoreClass(score, maxScore) {
@@ -5725,7 +5609,9 @@ function debugFunction(functionName) {
 // Get all users
 async function getAllUsers() {
     try {
-        const response = await fetch('/.netlify/functions/get-all-users');
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-all-users'
+        );
         const data = await response.json();
         
         const container = document.getElementById('allUsersContainer');
@@ -5744,7 +5630,9 @@ async function getAllUsers() {
 // Get all teachers
 async function getAllTeachers() {
     try {
-        const response = await fetch('/.netlify/functions/get-all-teachers');
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-all-teachers'
+        );
         const data = await response.json();
         
         const container = document.getElementById('allTeachersContainer');
@@ -5763,7 +5651,9 @@ async function getAllTeachers() {
 // Get all subjects
 async function getAllSubjects() {
     try {
-        const response = await fetch('/.netlify/functions/get-all-subjects');
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-all-subjects'
+        );
         const data = await response.json();
         
         const container = document.getElementById('allSubjectsContainer');
@@ -5928,25 +5818,41 @@ function closeMenuOnOutsideClick(event) {
 function logout() {
     console.log('🚪 Logout initiated...');
     
+    // Call backend logout to clear httpOnly cookie
+    if (window.tokenManager) {
+        window.tokenManager.logout();
+    }
+    
+    // Clear role-based loader
+    if (window.roleBasedLoader) {
+        window.roleBasedLoader.reloadRoleAccess();
+    }
+    
     // Clear user session data specifically
     clearUserSessionData();
     
-    // Reset global variables
-    currentUser = null;
-    currentUserType = null;
-    teacherSubjects = [];
-    currentTestType = null;
+    // Clear test progress to prevent cross-student data leakage
+    clearTestLocalStorage();
+    
+    // Reset global variables (legacy variables removed - JWT system handles session)
+    // currentUser = null; - REMOVED
+    // currentUserType = null; - REMOVED
+    // teacherSubjects = []; - REMOVED
+    // currentTestType = null; - REMOVED
     
     // CRITICAL FIX: Use the improved interface reset instead of just showSection
     resetInterfaceAfterSessionClear();
     
-    console.log('✅ Logout completed - user session cleared and interface reset');
+    console.log('✅ Logout completed - user session cleared, test data cleared, and interface reset');
 }
 
 // Student cabinet functionality
 async function loadStudentData() {
     try {
-        const response = await fetch(`/.netlify/functions/get-student-subjects?student_id=${currentUser.student_id}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-student-subjects'
+        );
+        
         const data = await response.json();
         
         if (data.success) {
@@ -5984,18 +5890,20 @@ function displayStudentSubjects(subjects) {
 
 // Teacher cabinet functionality
 async function loadTeacherData() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadTeacherData, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
     try {
-        const response = await fetch(`/.netlify/functions/get-teacher-subjects?teacher_id=${currentUser.teacher_id}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-subjects'
+        );
+        
         const data = await response.json();
         
         if (data.success) {
@@ -6012,11 +5920,10 @@ async function loadTeacherData() {
 }
 
 function showSubjectSelection() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showSubjectSelection, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6137,26 +6044,27 @@ async function saveTeacherSubjects() {
     }
     
     try {
-        // Check if user session is still valid
-        if (!currentUser || !currentUser.teacher_id) {
+        // Check if user session is still valid using JWT
+        const teacherId = getCurrentTeacherId();
+        if (!teacherId) {
             console.error('No valid teacher session found in saveTeacherSubjects, redirecting to login');
             alert('Missing teacher session. Please sign in again.');
-            // Clear any invalid session data
-            clearLocalStorage();
             // Redirect to login
             showSection('login-section');
             return;
         }
         
         console.log('Sending subjects to save:', selectedSubjects);
-        const response = await fetch('/.netlify/functions/save-teacher-subjects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                teacher_id: currentUser.teacher_id,
-                subjects: selectedSubjects
-            })
-        });
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/save-teacher-subjects',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subjects: selectedSubjects
+                })
+            }
+        );
         
         const data = await response.json();
         if (data.success) {
@@ -6191,11 +6099,10 @@ async function saveTeacherSubjects() {
 }
 
 function showMainCabinet() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showMainCabinet, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6211,11 +6118,10 @@ function showMainCabinet() {
 }
 
 function displayGradeButtons() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayGradeButtons, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6242,11 +6148,10 @@ function displayGradeButtons() {
 }
 
 function generateClassButtons(grade) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in generateClassButtons, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return '';
@@ -6277,18 +6182,19 @@ async function showClassResults(grade, className) {
         return;
     }
     
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showClassResults, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
     try {
-        const response = await fetch(`/.netlify/functions/get-class-results?grade=${grade}&class=${className}&semester=1&teacher_id=${currentUser.teacher_id}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            `/.netlify/functions/get-class-results?grade=${grade}&class=${className}&semester=1`
+        );
         const data = await response.json();
         
         if (data.success) {
@@ -6300,11 +6206,10 @@ async function showClassResults(grade, className) {
 }
 
 function displayClassResultsAdmin(results, grade, className) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayClassResultsAdmin, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6373,11 +6278,10 @@ function displayClassResultsAdmin(results, grade, className) {
 
 // Admin panel functionality
 async function loadAdminData() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadAdminData, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6391,11 +6295,10 @@ async function loadAdminData() {
 }
 
 async function loadAllTeachers() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadAllTeachers, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6414,11 +6317,10 @@ async function loadAllTeachers() {
 }
 
 function displayAllTeachers(teachers) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayAllTeachers, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6453,18 +6355,19 @@ function displayAllTeachers(teachers) {
 }
 
 async function loadAllSubjects() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadAllSubjects, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
     try {
-        const response = await fetch('/.netlify/functions/get-all-subjects');
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-all-subjects'
+        );
         const data = await response.json();
         
         if (data.success) {
@@ -6476,11 +6379,10 @@ async function loadAllSubjects() {
 }
 
 function displayAllSubjects(subjects) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayAllSubjects, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6511,18 +6413,19 @@ function displayAllSubjects(subjects) {
 }
 
 async function loadAcademicYear() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadAcademicYear, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
     }
     
     try {
-        const response = await fetch('/.netlify/functions/get-academic-year');
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-academic-year'
+        );
         const data = await response.json();
         
         if (data.success) {
@@ -6534,11 +6437,10 @@ async function loadAcademicYear() {
 }
 
 function displayAcademicYear(academicYears) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayAcademicYear, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6577,11 +6479,10 @@ function displayAcademicYear(academicYears) {
 }
 
 async function loadAllUsers() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadAllUsers, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6600,11 +6501,10 @@ async function loadAllUsers() {
 }
 
 function displayAllUsers(users) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayAllUsers, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6934,11 +6834,10 @@ function initializeActiveTests() {
 
 // Show active tests for teacher
 async function showActiveTests() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showActiveTests, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -6997,23 +6896,12 @@ async function showActiveTests() {
 async function loadTeacherActiveTests() {
     console.log('🔧 DEBUG: loadTeacherActiveTests called');
     
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
-        console.error('No valid teacher session found in loadTeacherActiveTests, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
-        // Redirect to login
-        showSection('login-section');
-        return;
-    }
-    
-    console.log('🔧 DEBUG: Current user teacher_id:', currentUser.teacher_id);
-    
     try {
-        const url = `/.netlify/functions/get-teacher-active-tests?teacher_id=${currentUser.teacher_id}`;
-        console.log('🔧 DEBUG: Fetching from URL:', url);
+        console.log('🔧 DEBUG: Fetching teacher active tests using JWT authentication...');
         
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/get-teacher-active-tests'
+        );
         console.log('🔧 DEBUG: Response received:', response);
         console.log('🔧 DEBUG: Response status:', response.status);
         console.log('🔧 DEBUG: Response ok:', response.ok);
@@ -7039,17 +6927,16 @@ async function loadTeacherActiveTests() {
         console.error('🔧 DEBUG: Error details:', {
             message: error.message,
             stack: error.stack,
-            teacherId: currentUser.teacher_id
+            teacherId: teacherId
         });
     }
 }
 // Display teacher's active tests
 function displayTeacherActiveTests(tests) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in displayTeacherActiveTests, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7127,11 +7014,10 @@ function displayTeacherActiveTests(tests) {
 
 // View teacher test details (questions and correct answers)
 async function viewTeacherTestDetails(testType, testId, testName) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in viewTeacherTestDetails, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7157,11 +7043,11 @@ async function viewTeacherTestDetails(testType, testId, testName) {
 
 // Show teacher test details modal
 function showTeacherTestDetailsModal(testType, testId, testName, questions) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in showTeacherTestDetailsModal, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
+        // Redirect to login
         // Redirect to login
         showSection('login-section');
         return;
@@ -7234,11 +7120,10 @@ function showTeacherTestDetailsModal(testType, testId, testName, questions) {
 
 // Load test questions for teacher (without completion check)
 async function loadTeacherTestQuestions(testType, testId) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in loadTeacherTestQuestions, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7277,11 +7162,10 @@ async function loadTeacherTestQuestions(testType, testId) {
 
 // Close teacher test details modal
 function closeTeacherTestDetailsModal() {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in closeTeacherTestDetailsModal, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7302,11 +7186,10 @@ function closeTeacherTestDetailsModal() {
 
 // Remove individual class assignment
 async function removeClassAssignment(testType, testId, assignmentId, testName, grade, className) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in removeClassAssignment, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7334,7 +7217,7 @@ Click "OK" to hide the test or "Cancel" to keep it visible.`)) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                teacher_id: currentUser.teacher_id,
+                teacher_id: teacherId,
                 assignment_id: assignmentId,
                 test_type: testType,
                 test_id: testId
@@ -7377,11 +7260,10 @@ Students in this class can no longer see this test. All data has been preserved.
 
 // Edit teacher function
 function editTeacher(teacherId) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const currentTeacherId = getCurrentTeacherId();
+    if (!currentTeacherId) {
         console.error('No valid teacher session found in editTeacher, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7409,11 +7291,10 @@ function editTeacher(teacherId) {
 
 // Mark test as completed in the UI without page reload
 function markTestCompletedInUI(testType, testId) {
-    // Check if user session is still valid
-    if (!currentUser || !currentUser.teacher_id) {
+    // Check if user session is still valid using JWT
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) {
         console.error('No valid teacher session found in markTestCompletedInUI, redirecting to login');
-        // Clear any invalid session data
-        clearLocalStorage();
         // Redirect to login
         showSection('login-section');
         return;
@@ -7631,20 +7512,23 @@ window.debugAllLocalStorage = function() {
  * Usage: clearTestLocalStorage()
  */
 window.clearTestLocalStorage = function() {
-    console.log('🔧 DEBUG: Clearing all test-related local storage');
+    console.log('🔧 DEBUG: Clearing test-related local storage (preserving critical keys)');
     
     const keys = Object.keys(localStorage);
     let clearedCount = 0;
     
     keys.forEach(key => {
-        if (key.includes('test_') || key.includes('form_data_')) {
+        // ONLY clear problematic keys, preserve critical ones
+        if (key.startsWith('test_progress_') || key.startsWith('form_data_')) {
             localStorage.removeItem(key);
             clearedCount++;
             console.log('🗑️ Cleared:', key);
+        } else if (key.includes('test_') || key.includes('form_data_')) {
+            console.log('🛡️ Preserved critical key:', key);
         }
     });
     
-    console.log(`✅ Cleared ${clearedCount} test-related items`);
+    console.log(`✅ Cleared ${clearedCount} test-related items (preserved critical functionality)`);
 };
 
         console.log('🔧 DEBUG: Debugging tools loaded! Available functions:');
@@ -9430,15 +9314,19 @@ async function handlePasswordChange(event) {
     return;
   }
   
-  // Get current user session
-  const userSession = localStorage.getItem('user_session');
-  if (!userSession) {
+  // Get current user from JWT token
+  if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
     showNotification('Session expired. Please login again.', 'error');
     return;
   }
   
-  const sessionData = JSON.parse(userSession);
-  const studentId = sessionData.user.student_id;
+  const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+  if (!decoded || !decoded.sub) {
+    showNotification('Invalid session. Please login again.', 'error');
+    return;
+  }
+  
+  const studentId = decoded.sub;
   
   // Show confirmation dialog
   if (!confirm('Are you sure you want to change your password?')) {
@@ -9463,9 +9351,7 @@ async function handlePasswordChange(event) {
     if (data.success) {
       showNotification('Password changed successfully!', 'success');
       
-      // Update session with new password
-      sessionData.user.password = newPassword;
-      localStorage.setItem('user_session', JSON.stringify(sessionData));
+      // Password updated successfully - JWT token remains valid
       
       // Return to cabinet
       hideChangePasswordTab();
@@ -9616,36 +9502,46 @@ function navigateToTestResults(testType, testId, studentAnswers) {
 function navigateBackToCabinet() {
     console.log('[DEBUG] navigateBackToCabinet called');
     
-    // Use the existing showSection system instead of manual display manipulation
-    const currentUser = JSON.parse(localStorage.getItem('user_session'));
-    console.log('[DEBUG] Current user from session:', currentUser);
+    // Use JWT authentication instead of localStorage
+    if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        console.warn('[WARN] No valid JWT token found, redirecting to login');
+        showSection('login-section');
+        return;
+    }
     
-    if (currentUser && currentUser.user) {
-        if (currentUser.user.student_id) {
+    try {
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        console.log('[DEBUG] Current user from JWT:', decoded);
+        
+        if (decoded && decoded.role === 'student') {
             // Student - show student cabinet using existing system
             showSection('student-cabinet');
             console.log('[DEBUG] Student cabinet displayed via showSection');
             
             // Refresh the test list to show updated completion status
             setTimeout(() => {
-                console.log('[DEBUG] Refreshing test list for student:', currentUser.user.student_id);
-                loadStudentActiveTests(currentUser.user.student_id);
+                console.log('[DEBUG] Refreshing test list for student:', decoded.sub);
+                loadStudentActiveTests();
                 
                 // Also refresh the test results/score table
-                console.log('[DEBUG] Refreshing test results for student:', currentUser.user.student_id);
-                loadStudentTestResults(currentUser.user.student_id);
+                console.log('[DEBUG] Refreshing test results for student:', decoded.sub);
+                loadStudentTestResults();
             }, 100); // Small delay to ensure section is fully displayed
-        } else if (currentUser.user.teacher_id) {
+        } else if (decoded && decoded.role === 'teacher') {
             // Teacher - show teacher cabinet using existing system
             showSection('teacher-cabinet');
             console.log('[DEBUG] Teacher cabinet displayed via showSection');
-        } else if (currentUser.user.admin_id) {
+        } else if (decoded && decoded.role === 'admin') {
             // Admin - show admin panel using existing system
             showSection('admin-panel');
             console.log('[DEBUG] Admin panel displayed via showSection');
+        } else {
+            console.warn('[WARN] Unknown user role, redirecting to login');
+            showSection('login-section');
         }
-    } else {
-        console.warn('[WARN] No valid user session found, redirecting to login');
+    } catch (error) {
+        console.error('[ERROR] Error decoding JWT token:', error);
+        console.warn('[WARN] JWT token error, redirecting to login');
         showSection('login-section');
     }
 }
@@ -9767,39 +9663,9 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
         console.log('[DEBUG] Processing input test questions - grouping by question_id');
         console.log('[DEBUG] Original questions structure:', questions);
         
-        // Check if questions need grouping (multiple rows per question)
-        if (questions.length > 0 && questions[0].hasOwnProperty('question_id')) {
-// Group questions by question_id first
-            // Group questions by question_id first
-            const groupedQuestions = {};
-            questions.forEach(question => {
-                const questionId = question.question_id;
-                if (!groupedQuestions[questionId]) {
-                    groupedQuestions[questionId] = {
-                        question_id: questionId,
-                        question: question.question,
-                        correct_answers: []
-                    };
-                }
-                groupedQuestions[questionId].correct_answers.push(question.correct_answer);
-            });
-
-            processedQuestions = Object.values(groupedQuestions);
-            console.log(`[DEBUG] Grouped ${questions.length} database rows into ${processedQuestions.length} logical questions:`, processedQuestions);
-
-            // Log each grouped question for verification
-            processedQuestions.forEach((question, index) => {
-                console.log(`[DEBUG] Grouped question ${index + 1}:`, {
-                    question_id: question.question_id,
-                    question: question.question,
-                    correct_answers: question.correct_answers,
-                    correct_answers_count: question.correct_answers.length
-                });
-            });
-        } else {
-            console.log('[DEBUG] Questions already in correct format or no grouping needed');
-            processedQuestions = questions;
-        }
+        // Backend now provides consistent data structure - no grouping needed
+        processedQuestions = questions;
+        console.log(`[DEBUG] Backend provided ${questions.length} questions with consistent structure:`, processedQuestions);
     }
     
     // Clear existing content
@@ -9811,10 +9677,7 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
     testHeader.className = 'test-header';
     testHeader.innerHTML = `
         <h2>${testInfo.test_name || testInfo.title || 'Test'}</h2>
-        <p><strong>Subject:</strong> ${testInfo.subject_name || testInfo.subject || 'Listening and Speaking'}</p>
-        <p><strong>Type:</strong> ${testInfo.test_type || testInfo.type || 'Input Test'}</p>
-        <p><strong>Questions:</strong> ${testInfo.num_questions || processedQuestions.length || 'Unknown'}</p>
-        <button class="btn btn-secondary" onclick="navigateBackToCabinet()">Back to Cabinet</button>
+        <button class="btn btn-secondary" onclick="navigateBackToCabinet()">Back to&#10;Cabinet</button>
     `;
     testPageSection.appendChild(testHeader);
     console.log('[DEBUG] Test header created and added with info:', testInfo);
@@ -9847,12 +9710,12 @@ function displayTestOnPage(testInfo, questions, testType, testId) {
     submitButton.className = 'btn btn-primary submit-test-btn';
     submitButton.textContent = 'Submit Test';
     submitButton.disabled = true;
-    submitButton.onclick = () => submitTestFromPage(testType, testId, getCurrentStudentId());
+            submitButton.onclick = () => submitTestFromPage(testType, testId);
     testPageSection.appendChild(submitButton);
     console.log('[DEBUG] Submit button created and added');
     
     // Setup event listeners and progress tracking
-    setupTestPageEventListeners(testType, testId, getCurrentStudentId());
+            setupTestPageEventListeners(testType, testId);
     setupProgressTrackingForPage(testType, testId);
     
     // Load saved progress
@@ -9884,16 +9747,16 @@ function renderQuestionsForPage(questions, testType, testId) {
         let renderedHtml = '';
         switch (testType) {
             case 'true-false':
-                renderedHtml = renderTrueFalseQuestionsForPage([question], testId);
+                renderedHtml = renderTrueFalseQuestionsForPage(question, testId);
                 console.log(`[DEBUG] True/false HTML for question ${index + 1}:`, renderedHtml);
                 break;
             case 'multiple-choice':
-                renderedHtml = renderMultipleChoiceQuestionsForPage([question], testId);
+                renderedHtml = renderMultipleChoiceQuestionsForPage(question, testId);
                 console.log(`[DEBUG] Multiple choice HTML for question ${index + 1}:`, renderedHtml);
                 break;
             case 'input':
                 // Use the proper rendering function for input questions
-                renderedHtml = renderInputQuestionsForPage([question], testId);
+                renderedHtml = renderInputQuestionsForPage(question, testId);
                 console.log(`[DEBUG] Input HTML for question ${index + 1}:`, renderedHtml);
                 break;
 
@@ -9932,125 +9795,88 @@ function renderQuestionsForPage(questions, testType, testId) {
 }
 
 // Render true/false questions for page
-function renderTrueFalseQuestionsForPage(questions, testId) {
-    console.log(`[DEBUG] renderTrueFalseQuestionsForPage called with ${questions.length} questions, testId: ${testId}`);
-    let html = '';
+function renderTrueFalseQuestionsForPage(question, testId) {
+    console.log(`[DEBUG] renderTrueFalseQuestionsForPage called with question:`, question, 'testId:', testId);
     
-    questions.forEach((question, index) => {
-        console.log(`[DEBUG] Rendering true/false question ${index + 1}:`, question);
-        const questionId = question.question_id || index;
-        const savedAnswer = getTestProgress('true_false', testId, questionId);
-        
-        html += `
-            <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-                <h4>Question ${index + 1}</h4>
-                <p class="question-text">${question.question}</p>
-                <div class="answer-options">
-                    <label class="radio-option">
-                        <input type="radio" name="question_${questionId}" value="true" 
-                               ${savedAnswer === 'true' ? 'checked' : ''} data-question-id="${questionId}">
-                        <span class="radio-custom"></span>
-                        True
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="question_${questionId}" value="false" 
-                               ${savedAnswer === 'false' ? 'checked' : ''} data-question-id="${questionId}">
-                        <span class="radio-custom"></span>
-                        False
-                    </label>
-                </div>
+    const questionId = question.question_id;
+    const savedAnswer = getTestProgress('true_false', testId, questionId);
+    
+    return `
+        <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
+            <h4>Question ${question.question_id}</h4>
+            <p class="question-text">${question.question}</p>
+            <div class="answer-options">
+                <label class="radio-option">
+                    <input type="radio" name="question_${questionId}" value="true" 
+                           ${savedAnswer === 'true' ? 'checked' : ''} data-question-id="${questionId}">
+                    <span class="radio-custom"></span>
+                    True
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="question_${questionId}" value="false" 
+                           ${savedAnswer === 'false' ? 'checked' : ''} data-question-id="${questionId}">
+                    <span class="radio-custom"></span>
+                    False
+                </label>
             </div>
-        `;
-    });
-    
-    return html;
+        </div>
+    `;
 }
 
 // Render multiple choice questions for page
-function renderMultipleChoiceQuestionsForPage(questions, testId) {
-    console.log(`[DEBUG] renderMultipleChoiceQuestionsForPage called with ${questions.length} questions, testId: ${testId}`);
-    let html = '';
+function renderMultipleChoiceQuestionsForPage(question, testId) {
+    console.log(`[DEBUG] renderMultipleChoiceQuestionsForPage called with question:`, question, 'testId:', testId);
     
-    questions.forEach((question, index) => {
-        console.log(`[DEBUG] Rendering multiple choice question ${index + 1}:`, question);
-        const questionId = question.question_id || index;
-        const savedAnswer = getTestProgress('multiple_choice', testId, questionId);
-        
-        html += `
-            <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-                <h4>Question ${index + 1}</h4>
-                <p class="question-text">${question.question}</p>
-                <div class="answer-options">
-        `;
-        
-        // Parse options from the question
-        const options = question.options ? JSON.parse(question.options) : [];
-        options.forEach((option, optionIndex) => {
-            html += `
-                <label class="radio-option">
-                    <input type="radio" name="question_${questionId}" value="${optionIndex}" 
-                           ${savedAnswer === String(optionIndex) ? 'checked' : ''} data-question-id="${questionId}">
-                    <span class="radio-custom"></span>
-                    ${option}
-                </label>
-            `;
-        });
-        
-        html += `
-                </div>
+    const questionId = question.question_id;
+    const savedAnswer = getTestProgress('multiple_choice', testId, questionId);
+    
+    return `
+        <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
+            <h4>Question ${question.question_id}</h4>
+            <p class="question-text">${question.question}</p>
+            <div class="answer-options">
+                ${question.options.map((option, optionIndex) => `
+                    <label class="radio-option">
+                        <input type="radio" name="question_${questionId}" value="${optionIndex}" 
+                               ${savedAnswer === String(optionIndex) ? 'checked' : ''} data-question-id="${questionId}">
+                        <span class="radio-custom"></span>
+                        ${String.fromCharCode(65 + optionIndex)}) ${option}
+                    </label>
+                `).join('')}
             </div>
-        `;
-    });
-    
-    return html;
+        </div>
+    `;
 }
 
 // Render input questions for page
-function renderInputQuestionsForPage(questions, testId) {
-    console.log(`[DEBUG] renderInputQuestionsForPage called with ${questions.length} questions, testId: ${testId}`);
-    console.log(`[DEBUG] Questions data:`, questions);
-    let html = '';
+function renderInputQuestionsForPage(question, testId) {
+    console.log(`[DEBUG] renderInputQuestionsForPage called with question:`, question, 'testId:', testId);
     
-    questions.forEach((question, index) => {
-        console.log(`[DEBUG] Rendering input question ${index + 1}:`, question);
-        console.log(`[DEBUG] Question properties:`, Object.keys(question));
-        
-        const questionId = question.question_id || index;
-        const savedAnswer = getTestProgress('input', testId, questionId);
-        
-        // For grouped questions, we now have correct_answers array
-        const correctAnswersText = question.correct_answers ? 
-            `(Correct answers: ${question.correct_answers.join(', ')})` : '';
-        
-        const questionHtml = `
-            <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-                <h4>Question ${index + 1}</h4>
-                <p class="question-text">${question.question}</p>
+    const questionId = question.question_id;
+    const savedAnswer = getTestProgress('input', testId, questionId);
+    
+                return `
+                <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
+                    <h4>Question ${question.question_id}</h4>
+                    <p class="question-text">${question.question}</p>
 
-                <div class="input-question">
-                    <input type="text" 
-                           id="input_${questionId}" 
-                           placeholder="Enter your answer" 
-                           value="${savedAnswer || ''}"
-                           data-question-id="${questionId}">
+                    <div class="input-question">
+                        <input type="text" 
+                               id="input_${questionId}" 
+                               placeholder="Enter your answer" 
+                               value="${savedAnswer || ''}"
+                               data-question-id="${questionId}">
+                    </div>
                 </div>
-            </div>
-        `;
-        
-        console.log(`[DEBUG] Generated HTML for question ${index + 1}:`, questionHtml);
-        html += questionHtml;
-    });
-    
-    console.log(`[DEBUG] Final HTML for all questions:`, html);
-    return html;
+            `;
 }
 
 // Render matching type questions for page
 
 
 // Set up event listeners for the test page
-function setupTestPageEventListeners(testType, testId, studentId) {
-    console.log(`[DEBUG] setupTestPageEventListeners called with testType: ${testType}, testId: ${testId}, studentId: ${studentId}`);
+function setupTestPageEventListeners(testType, testId) {
+    console.log(`[DEBUG] setupTestPageEventListeners called with testType: ${testType}, testId: ${testId}`);
     
     // Add event listeners for different question types
     if (testType === 'true-false' || testType === 'multiple-choice') {
@@ -10214,8 +10040,8 @@ function loadSavedProgressForPage(testType, testId) {
 }
 
 // Submit test from the test page
-async function submitTestFromPage(testType, testId, studentId) {
-    console.log(`[DEBUG] submitTestFromPage called with testType: ${testType}, testId: ${testId}, studentId: ${studentId}`);
+async function submitTestFromPage(testType, testId) {
+    console.log(`[DEBUG] submitTestFromPage called with testType: ${testType}, testId: ${testId}`);
     
     try {
         // Check if all questions are answered
@@ -10249,7 +10075,7 @@ async function submitTestFromPage(testType, testId, studentId) {
         }
         
         // Submit test
-        const result = await submitTest(testType, testId, studentId);
+        const result = await submitTest(testType, testId);
         console.log('[DEBUG] Test submission result:', result);
         
         if (result.success) {
@@ -10336,25 +10162,12 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
     const resultsSummary = document.createElement('div');
     resultsSummary.className = 'results-summary';
     
-    // Group questions by question_id first (same logic as displayTestOnPage)
-    const groupedQuestions = {};
-    questions.forEach(question => {
-        const questionId = question.question_id;
-        if (!groupedQuestions[questionId]) {
-            groupedQuestions[questionId] = {
-                question_id: questionId,
-                question: question.question,
-                correct_answers: []
-            };
-        }
-        groupedQuestions[questionId].correct_answers.push(question.correct_answer);
-    });
+    // Backend now provides consistent data structure - no grouping needed
+    const processedQuestions = questions;
     
-    const processedQuestions = Object.values(groupedQuestions);
-    
-    // Calculate score using grouped questions for consistency
+    // Calculate score using consistent question structure
     const score = calculateTestScore(processedQuestions, studentAnswers, testType);
-    const totalQuestions = testInfo.num_questions; // Use logical question count from test info
+    const totalQuestions = processedQuestions.length; // Use actual question count for consistency
     const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
 
     const questionsReview = document.createElement('div');
@@ -10380,7 +10193,7 @@ function displayTestResultsOnPage(testInfo, questions, testType, studentAnswers)
         const questionReview = document.createElement('div');
         questionReview.className = 'question-review';
         
-        const studentAnswer = studentAnswers[question.question_id] || studentAnswers[question.id] || 'No answer';
+        const studentAnswer = studentAnswers[question.question_id] || 'No answer';
         const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
         
         console.log(`[DEBUG] Question ${logicalIndex + 1} - Student answer: ${studentAnswer}, Correct: ${isCorrect}`);
@@ -10551,16 +10364,22 @@ function getCurrentStudentId() {
     console.log('[DEBUG] getCurrentStudentId called');
     
     try {
-        const currentUser = JSON.parse(localStorage.getItem('user_session'));
-        if (currentUser && currentUser.user && currentUser.user.student_id) {
-            console.log(`[DEBUG] Found student ID: ${currentUser.user.student_id}`);
-            return currentUser.user.student_id;
+        // Use JWT token instead of localStorage
+        if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+            console.warn('[WARN] No valid JWT token found');
+            return null;
+        }
+        
+        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+        if (decoded && decoded.sub) {
+            console.log(`[DEBUG] Found student ID from JWT: ${decoded.sub}`);
+            return decoded.sub;
         } else {
-            console.warn('[WARN] No student ID found in user session');
+            console.warn('[WARN] No student ID found in JWT token');
             return null;
         }
     } catch (error) {
-        console.error('[ERROR] Error getting current student ID:', error);
+        console.error('[ERROR] Error getting current student ID from JWT:', error);
         return null;
     }
 }
@@ -10601,19 +10420,10 @@ function calculateTestScore(questions, answers, testType) {
     console.log(`[DEBUG] calculateTestScore called with ${questions.length} questions, testType: ${testType}`);
     
     let score = 0;
-    const processedQuestions = new Set(); // Track unique questions
     
     questions.forEach((question, index) => {
-        // For grouped questions, use question_id instead of question.id
-        const questionId = question.question_id || question.id;
-        
-        // Skip if we already processed this question
-        if (processedQuestions.has(questionId)) {
-            console.log(`[DEBUG] Skipping duplicate question ${questionId}`);
-            return;
-        }
-        
-        processedQuestions.add(questionId);
+        // Use question_id consistently
+        const questionId = question.question_id;
         const studentAnswer = answers[questionId];
         const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
         
@@ -10624,9 +10434,11 @@ function calculateTestScore(questions, answers, testType) {
         console.log(`[DEBUG] Question ${questionId}: answer=${studentAnswer}, correct=${isCorrect}, running score=${score}`);
     });
     
-    console.log(`[DEBUG] Final test score: ${score}/${processedQuestions.size}`);
+    console.log(`[DEBUG] Final test score: ${score}/${questions.length}`);
     return score;
 }
+
+
 
 function checkAnswerCorrectness(question, studentAnswer, testType) {
     console.log(`[DEBUG] checkAnswerCorrectness called for question:`, question, 'studentAnswer:', studentAnswer, 'testType:', testType);
@@ -10729,7 +10541,7 @@ function clearTestDataAndReturnToCabinet() {
     setTimeout(() => {
         if (currentStudentId) {
             console.log('[DEBUG] Refreshing test results for student:', currentStudentId);
-            loadStudentTestResults(currentStudentId);
+            loadStudentTestResults();
         }
     }, 200); // Slightly longer delay to ensure navigation is complete
 }
@@ -10857,7 +10669,9 @@ async function loadTeacherGradesClasses(teacherId, containerId) {
   }
 
   try {
-    const response = await fetch(`/.netlify/functions/get-teacher-grades-classes?teacherId=${teacherId}`);
+    const response = await window.tokenManager.makeAuthenticatedRequest(
+      '/.netlify/functions/get-teacher-grades-classes'
+    );
     const data = await response.json();
     
     if (!data.success) {
@@ -11840,4 +11654,4 @@ function populateInputFromExcel(excelData) {
     reattachFormEventListeners('input');
 }
 
-// ===== END EXCEL UPLOAD SYSTEM =====
+

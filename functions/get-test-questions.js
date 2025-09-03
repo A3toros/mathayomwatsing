@@ -63,8 +63,8 @@ exports.handler = async function(event, context) {
           testInfo = mcTestInfo[0];
         }
 
-        // Get questions
-        questions = await sql`
+        // Get questions and restructure for consistency
+        const mcQuestions = await sql`
           SELECT 
             question_id,
             question,
@@ -79,7 +79,16 @@ exports.handler = async function(event, context) {
           WHERE test_id = ${test_id}
           ORDER BY question_id
         `;
-        console.log('Multiple choice questions query result:', questions);
+        
+        // Restructure to consistent format with options array
+        questions = mcQuestions.map(q => ({
+          question_id: q.question_id,
+          question: q.question,
+          correct_answer: q.correct_answer,
+          options: [q.option_a, q.option_b, q.option_c, q.option_d, q.option_e, q.option_f].filter(Boolean)
+        }));
+        
+        console.log('Multiple choice questions restructured:', questions);
         break;
 
       case 'true_false':
@@ -91,7 +100,7 @@ exports.handler = async function(event, context) {
           testInfo = tfTestInfo[0];
         }
 
-        // Get questions
+        // Get questions - no restructuring needed, already consistent
         questions = await sql`
           SELECT 
             question_id,
@@ -112,8 +121,8 @@ exports.handler = async function(event, context) {
           testInfo = inputTestInfo[0];
         }
 
-        // Get questions
-        questions = await sql`
+        // Get raw questions with multiple rows per question_id
+        const rawInputQuestions = await sql`
           SELECT 
             question_id,
             question,
@@ -122,6 +131,23 @@ exports.handler = async function(event, context) {
           WHERE test_id = ${test_id}
           ORDER BY question_id
         `;
+        
+        // Group questions by question_id and create correct_answers arrays
+        const inputGrouped = new Map();
+        rawInputQuestions.forEach(row => {
+          if (!inputGrouped.has(row.question_id)) {
+            inputGrouped.set(row.question_id, {
+              question_id: row.question_id,
+              question: row.question,
+              correct_answers: []
+            });
+          }
+          inputGrouped.get(row.question_id).correct_answers.push(row.correct_answer);
+        });
+        
+        // Convert to ordered array
+        questions = Array.from(inputGrouped.values()).sort((a, b) => a.question_id - b.question_id);
+        console.log('Input questions grouped:', questions);
         break;
 
       case 'matching_type':

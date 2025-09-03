@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   // Enable CORS
@@ -25,15 +26,27 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    const { teacherId } = event.queryStringParameters || {};
+    // Validate JWT token and extract teacher information
+    const result = validateToken(event);
     
-    if (!teacherId) {
+    if (!result.success) {
       return {
-        statusCode: 400,
+        statusCode: result.statusCode || 401,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: false, message: 'Teacher ID is required' })
+        body: JSON.stringify({ success: false, message: result.error })
       };
     }
+
+    const userInfo = result.user;
+    if (userInfo.role !== 'teacher') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, message: 'Access denied. Teacher role required.' })
+      };
+    }
+
+    const teacherId = userInfo.teacher_id;
 
     const sql = neon(process.env.NEON_DATABASE_URL);
     

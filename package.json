@@ -12,7 +12,9 @@
     "@neondatabase/serverless": "^0.9.5",
     "cloudinary": "^1.41.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "jsonwebtoken": "^9.0.0",
+    "jwt-decode": "^4.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^23.3.1"

@@ -1,11 +1,13 @@
 const { neon } = require('@neondatabase/serverless');
+const jwt = require('jsonwebtoken');
 
 exports.handler = async function(event, context) {
-  // Enable CORS
+  // Enable CORS with Authorization header support
   const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Origin': 'https://yourdomain.com',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -25,19 +27,98 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // Parse request body
-    const { test_id, test_name, studentId, grade, class: className, number, name, surname, nickname, score, maxScore, answers } = JSON.parse(event.body);
-
-    // Validate required fields
-    if (!test_id || !test_name || !studentId || !grade || !className || !number || !name || !surname || !nickname || !score || !maxScore || !answers) {
+    // Extract and validate JWT token
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          error: 'Missing required fields: test_id, test_name, studentId, grade, class, number, name, surname, nickname, score, maxScore, answers' 
+        statusCode: 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Authorization header missing or invalid'
         })
       };
     }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Verify JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: false,
+            message: 'Token expired',
+            error: 'TOKEN_EXPIRED'
+          })
+        };
+      } else {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: false,
+            message: 'Invalid token'
+          })
+        };
+      }
+    }
+
+    // Validate role
+    if (decoded.role !== 'student') {
+      return {
+        statusCode: 403,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Access denied. Student role required.'
+        })
+      };
+    }
+
+    // Parse request body (only test_id, test_name, score, maxScore, answers needed)
+    const { test_id, test_name, score, maxScore, answers } = JSON.parse(event.body);
+
+    // Validate required fields
+    if (!test_id || !test_name || !score || !maxScore || !answers) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          error: 'Missing required fields: test_id, test_name, score, maxScore, answers' 
+        })
+      };
+    }
+
+    // Extract student info from JWT token
+    const studentId = decoded.sub;
+    const grade = decoded.grade;
+    const className = decoded.class;
+    const number = decoded.number;
+    const name = decoded.name;
+    const surname = decoded.surname;
+    const nickname = decoded.nickname;
 
     // Connect to database using @neondatabase/serverless
     const sql = neon(process.env.NEON_DATABASE_URL);
@@ -61,10 +142,9 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
         success: true, 
@@ -78,10 +158,9 @@ exports.handler = async function(event, context) {
     
     return {
       statusCode: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
         error: 'Internal server error', 

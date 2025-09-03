@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   // Enable CORS
@@ -25,9 +26,42 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    const { grade, class: className, semester, teacher_id } = event.queryStringParameters || {};
+    // Validate JWT token and extract teacher information
+    const result = validateToken(event);
+    
+    if (!result.success) {
+      return {
+        statusCode: result.statusCode || 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: result.error
+        })
+      };
+    }
 
-    if (!grade || !className || !semester || !teacher_id) {
+    const userInfo = result.user;
+    if (userInfo.role !== 'teacher') {
+      return {
+        statusCode: 403,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Access denied. Teacher role required.'
+        })
+      };
+    }
+
+    const { grade, class: className, semester } = event.queryStringParameters || {};
+    const teacher_id = userInfo.teacher_id;
+
+    if (!grade || !className || !semester) {
       return {
         statusCode: 400,
         headers: {
@@ -36,7 +70,7 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Grade, class, semester, and teacher_id are required'
+          message: 'Grade, class, and semester are required'
         })
       };
     }

@@ -1228,8 +1228,8 @@ class MatchingTestStudent {
         dropZone.style.borderColor = 'rgba(40, 167, 69, 1)'; // Solid green border
       } else {
         // Incorrect placement - blue background and border
-        dropZone.style.background = 'rgba(0, 123, 255, 0.4)'; // Light blue background
-        dropZone.style.borderColor = 'rgba(0, 123, 255, 1)'; // Solid blue border
+        dropZone.style.background = 'rgba(40, 167, 69, 0.4)'; // Light green background
+        dropZone.style.borderColor = 'rgba(40, 167, 69, 1)'; // Solid green border
       }
       
       // ✅ SAFETY CHECK #5: Set text content
