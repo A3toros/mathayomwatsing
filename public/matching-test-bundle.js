@@ -979,16 +979,14 @@
         console.log('📁 Converted file to data URL, length:', dataUrl.length);
         
         // Send as JSON with dataUrl
-        const response = await fetch('/.netlify/functions/upload-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            dataUrl: dataUrl,
-            folder: 'matching_tests'
-          })
-        });
+        response = await window.tokenManager.makeAuthenticatedRequest(
+          '/.netlify/functions/submit-matching-type-test',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(submissionData)
+          }
+        );
         
         const result = await response.json();
         
