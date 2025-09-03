@@ -97,6 +97,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initializeEventListeners();
     
+    // Initialize Excel upload functionality for ALL test types
+    initializeExcelUploadForAllTestTypes();
+    
     // Check if we're forcing logout - prevent automatic session restoration
     if (window.forceLogout || window.preventAutoLogin) {
         handleForceLogout();
