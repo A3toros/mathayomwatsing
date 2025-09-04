@@ -8,6 +8,7 @@ class RoleBasedLoader {
     this.currentRole = null;
     this.loadedFunctions = new Set();
     this.blockedFunctions = new Set();
+    this.initialized = false; // Prevent multiple initializations
     
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
@@ -21,6 +22,12 @@ class RoleBasedLoader {
    * Initialize the role-based loader
    */
   initialize() {
+    // Prevent multiple initializations
+    if (this.initialized) {
+      console.log('[DEBUG] Role-based loader already initialized, skipping...');
+      return;
+    }
+    
     console.log('[DEBUG] Role-based loader initializing...');
     console.log('[DEBUG] Token manager available:', !!window.tokenManager);
     
@@ -32,6 +39,7 @@ class RoleBasedLoader {
       
       if (role) {
         this.currentRole = role;
+        this.initialized = true;
         this.setupRoleBasedAccess();
       } else {
         console.log('[DEBUG] No role found, waiting for role to be set...');
@@ -53,7 +61,20 @@ class RoleBasedLoader {
       this.currentRole = 'student';
     }
 
-    console.log(`Role-based loader initialized for: ${this.currentRole}`);
+    // Check if this is an admin (teacher with teacher_id = 'admin')
+    let isAdmin = false;
+    try {
+      const token = window.tokenManager.getAccessToken();
+      if (token) {
+        const decoded = window.tokenManager.decodeToken(token);
+        isAdmin = this.currentRole === 'teacher' && decoded.teacher_id === 'admin';
+      }
+    } catch (error) {
+      console.warn('Could not decode token for admin check:', error);
+      isAdmin = false;
+    }
+    
+    console.log(`Role-based loader initialized for: ${this.currentRole}${isAdmin ? ' (admin)' : ''}`);
     
     // Load role-specific functions
     this.loadRoleSpecificFunctions();
@@ -108,15 +129,30 @@ class RoleBasedLoader {
    * Setup role-based UI elements
    */
   setupRoleBasedUI() {
+    // Check if this is an admin (teacher with teacher_id = 'admin')
+    let isAdmin = false;
+    try {
+      const token = window.tokenManager.getAccessToken();
+      if (token) {
+        const decoded = window.tokenManager.decodeToken(token);
+        isAdmin = this.currentRole === 'teacher' && decoded.teacher_id === 'admin';
+      }
+    } catch (error) {
+      console.warn('Could not decode token for admin check in UI:', error);
+      isAdmin = false;
+    }
+    
     // Hide teacher elements for students
     if (this.currentRole === 'student') {
       this.hideTeacherElements();
     }
     
-    // Hide student elements for teachers
-    if (this.currentRole === 'teacher') {
+    // Hide student elements for teachers (but not for admins)
+    if (this.currentRole === 'teacher' && !isAdmin) {
       this.hideStudentElements();
     }
+    
+    // Admins can see everything, so no hiding needed
   }
 
   /**
@@ -286,6 +322,7 @@ class RoleBasedLoader {
     
     console.log('[DEBUG] Setting role after login:', role);
     this.currentRole = role;
+    this.initialized = true; // Mark as initialized
     this.setupRoleBasedAccess();
     
     console.log('[DEBUG] Role-based access setup completed successfully for role:', role);

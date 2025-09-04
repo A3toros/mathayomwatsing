@@ -66,7 +66,7 @@ function initializeApplicationSession() {
                     showSection('student-cabinet');
                     // Populate student information from JWT token
                     populateStudentInfo(decoded);
-                } else if (decoded.role === 'admin') {
+                } else if (decoded.role === 'teacher' && decoded.teacher_id === 'admin') {
                     showSection('admin-panel');
                     // Initialize admin panel if needed
                 }
@@ -4289,7 +4289,7 @@ async function loadTeacherGradesAndClasses(testType, testId) {
         const url = `/.netlify/functions/get-teacher-subjects?teacher_id=${teacherId}`;
         console.log('Fetching from URL:', url);
         
-        const response = await fetch(url);
+        const response = await window.tokenManager.makeAuthenticatedRequest(url);
         console.log('Response received:', response);
         console.log('Response status:', response.status);
         console.log('Response ok:', response.ok);
@@ -4709,7 +4709,7 @@ function toggleSubjectDropdown() {
 
 async function loadSubjectsForDropdown() {
     try {
-        const response = await fetch('/.netlify/functions/get-subjects');
+        const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-subjects');
         const data = await response.json();
         
         if (data.success) {
@@ -5231,7 +5231,7 @@ async function determineAndOpenCurrentSemester(grade, classNum) {
     
     try {
         // Get current academic year information
-        const response = await fetch('/.netlify/functions/get-academic-year');
+        const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-academic-year');
         const data = await response.json();
         
         if (data.success && data.academic_years && data.academic_years.length > 0) {
@@ -7216,7 +7216,7 @@ Click "OK" to hide the test or "Cancel" to keep it visible.`)) {
         }
         
         // Proceed with individual assignment removal
-        const response = await fetch('/.netlify/functions/remove-assignment', {
+        const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/remove-assignment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -7350,7 +7350,7 @@ window.debugTestQuestions = async function(testType, testId) {
     console.log(`🔧 DEBUG: Checking ${testType} test ID ${testId}`);
     
     try {
-        const response = await fetch(`/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(`/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -7407,7 +7407,7 @@ window.debugStudentTests = async function(studentId) {
     console.log(`🔧 DEBUG: Checking active tests for student ${studentId}`);
     
     try {
-        const response = await fetch(`/.netlify/functions/get-student-active-tests?student_id=${studentId}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(`/.netlify/functions/get-student-active-tests?student_id=${studentId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -7439,7 +7439,7 @@ window.debugTestCompletion = async function(testType, testId, studentId) {
     console.log(`🔧 DEBUG: Checking completion for ${testType} test ${testId} for student ${studentId}`);
     
     try {
-        const response = await fetch(`/.netlify/functions/check-test-completion?test_type=${testType}&test_id=${testId}&student_id=${studentId}`);
+        const response = await window.tokenManager.makeAuthenticatedRequest(`/.netlify/functions/check-test-completion?test_type=${testType}&test_id=${testId}&student_id=${studentId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -8258,7 +8258,7 @@ function toggleResultsContent() {
 // Enhanced User Management Functions
 async function getAllUsers() {
   try {
-    const response = await fetch('/.netlify/functions/get-all-users');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-users');
     const data = await response.json();
     
     if (data.success) {
@@ -8390,7 +8390,7 @@ function displayUsersTable(users) {
 // Enhanced Teacher Management Functions
 async function getAllTeachers() {
   try {
-    const response = await fetch('/.netlify/functions/get-all-teachers');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-teachers');
     const data = await response.json();
     
     if (data.success) {
@@ -8573,7 +8573,7 @@ function cancelEdit(fieldElement, originalValue, input, saveBtn, cancelBtn) {
 // Update Functions
 async function updateUserField(userId, fieldName, newValue, fieldElement) {
   try {
-    const response = await fetch('/.netlify/functions/update-user', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/update-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8601,7 +8601,7 @@ async function updateUserField(userId, fieldName, newValue, fieldElement) {
 
 async function updateTeacherField(teacherId, fieldName, newValue, fieldElement) {
   try {
-    const response = await fetch('/.netlify/functions/update-teacher', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/update-teacher', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8634,7 +8634,7 @@ async function deleteUser(userId) {
   }
   
   try {
-    const response = await fetch('/.netlify/functions/delete-user', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8661,7 +8661,7 @@ async function deleteTeacher(teacherId) {
   }
   
   try {
-    const response = await fetch('/.netlify/functions/delete-teacher', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-teacher', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8688,7 +8688,7 @@ async function deleteSubject(subjectId) {
   }
   
   try {
-    const response = await fetch('/.netlify/functions/delete-subject', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-subject', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8771,7 +8771,7 @@ async function handleAddUser(event) {
   };
   
   try {
-    const response = await fetch('/.netlify/functions/add-user', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/add-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8803,7 +8803,7 @@ async function handleAddTeacher(event) {
   };
   
   try {
-    const response = await fetch('/.netlify/functions/add-teacher', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/add-teacher', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8828,7 +8828,7 @@ async function handleAddTeacher(event) {
 // Subject Management Functions
 async function getAllSubjects() {
   try {
-    const response = await fetch('/.netlify/functions/get-all-subjects');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-subjects');
     const data = await response.json();
     
     if (data.success) {
@@ -8914,7 +8914,7 @@ async function handleAddSubject(event) {
   };
   
   try {
-    const response = await fetch('/.netlify/functions/add-subject', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/add-subject', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8940,7 +8940,7 @@ async function handleAddSubject(event) {
 async function getAllTests() {
   try {
     console.log('🔧 Getting all tests...');
-    const response = await fetch('/.netlify/functions/get-all-tests');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-tests');
     const data = await response.json();
     
     if (data.success) {
@@ -8958,7 +8958,7 @@ async function getAllTests() {
 async function getTestAssignments() {
   try {
     console.log('🔧 Getting test assignments...');
-    const response = await fetch('/.netlify/functions/get-test-assignments');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-test-assignments');
     const data = await response.json();
     
     if (data.success) {
@@ -8976,7 +8976,7 @@ async function getTestAssignments() {
 async function getTestResults() {
   try {
     console.log('🔧 Getting test results...');
-    const response = await fetch('/.netlify/functions/get-test-results');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-test-results');
     const data = await response.json();
     
     if (data.success) {
@@ -9337,7 +9337,7 @@ async function handlePasswordChange(event) {
   }
   
   try {
-    const response = await fetch('/.netlify/functions/change-student-password', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/change-student-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -9534,7 +9534,7 @@ function navigateBackToCabinet() {
             // Teacher - show teacher cabinet using existing system
             showSection('teacher-cabinet');
             console.log('[DEBUG] Teacher cabinet displayed via showSection');
-        } else if (decoded && decoded.role === 'admin') {
+        } else if (decoded && decoded.role === 'teacher' && decoded.teacher_id === 'admin') {
             // Admin - show admin panel using existing system
             showSection('admin-panel');
             console.log('[DEBUG] Admin panel displayed via showSection');
@@ -10568,7 +10568,7 @@ function initializeTestDeletion() {
 // Load teachers for dropdowns
 async function loadTeachersList() {
   try {
-    const response = await fetch('/.netlify/functions/get-all-teachers');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-teachers');
     const data = await response.json();
     if (data.success) {
       teachersList = data.teachers;
@@ -10584,7 +10584,7 @@ async function loadTeachersList() {
 // Load subjects for dropdowns
 async function loadSubjectsList() {
   try {
-    const response = await fetch('/.netlify/functions/get-all-subjects');
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/get-all-subjects');
     const data = await response.json();
     if (data.success) {
       subjectsList = data.subjects;
@@ -10672,9 +10672,23 @@ async function loadTeacherGradesClasses(teacherId, containerId) {
   }
 
   try {
-    const response = await window.tokenManager.makeAuthenticatedRequest(
-      '/.netlify/functions/get-teacher-grades-classes'
-    );
+    // Check if current user is admin (teacher_id = 'admin')
+    const token = window.tokenManager.getAccessToken();
+    let url = '/.netlify/functions/get-teacher-grades-classes';
+    
+    // If user is admin, add teacher_id as query parameter
+    if (token) {
+      try {
+        const decoded = window.tokenManager.decodeToken(token);
+        if (decoded.teacher_id === 'admin') {
+          url += `?teacher_id=${teacherId}`;
+        }
+      } catch (error) {
+        console.warn('Could not decode token for admin check:', error);
+      }
+    }
+    
+    const response = await window.tokenManager.makeAuthenticatedRequest(url);
     const data = await response.json();
     
     if (!data.success) {
@@ -10793,7 +10807,7 @@ async function handleAssignmentDeletion(event) {
   };
   
   try {
-    const response = await fetch('/.netlify/functions/delete-test-assignments', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-test-assignments', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(deletionData)
@@ -10839,7 +10853,7 @@ async function handleAssignmentDeletion(event) {
   };
   
   try {
-    const response = await fetch('/.netlify/functions/delete-test-data', {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-test-data', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(deletionData)
