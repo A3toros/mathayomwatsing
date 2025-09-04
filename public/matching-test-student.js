@@ -193,10 +193,17 @@ class MatchingTestStudent {
     try {
       console.log('📡 Loading test data for ID:', testId);
       
+      // Check authentication before making request
+      if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
       // Show loading with status updates
       this.showLoading('Connecting to server...');
       
-      const response = await fetch(`/.netlify/functions/get-matching-type-test?test_id=${testId}`);
+      const response = await window.tokenManager.makeAuthenticatedRequest(
+        `/.netlify/functions/get-matching-type-test?test_id=${testId}`
+      );
       const result = await response.json();
       
       if (!result.success) {
@@ -2067,6 +2074,15 @@ class MatchingTestStudent {
     console.log('✅ All word elements reset to original state');
   }
 
+  resetDropzone(blockId) {
+    const dropzone = document.getElementById(`dropZone_${blockId}`);
+    if (dropzone) {
+      dropzone.textContent = '';
+      dropzone.style.background = 'rgb(255, 255, 255)';
+      dropzone.style.borderColor = 'rgba(53, 21, 236, 0.8)';
+    }
+  }
+
   resetAllBlockHighlights() {
     console.log('🔄 Resetting all block highlights...');
     
@@ -2078,8 +2094,8 @@ class MatchingTestStudent {
         blockRect.strokeWidth(0);
       }
       
-      // Also clear word text from dropzones
-      this.highlightBlock(block.id, false, '');
+      // Reset dropzone to original state
+      this.resetDropzone(block.id);
     });
     
     this.stage.batchDraw();
@@ -2105,14 +2121,22 @@ class MatchingTestStudent {
       
       console.log('📦 Submission data prepared:', submissionData);
       
+      // Check authentication before submitting
+      if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
       // Submit to backend
-      const response = await fetch('/.netlify/functions/submit-matching-type-test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(submissionData)
-      });
+      const response = await window.tokenManager.makeAuthenticatedRequest(
+        '/.netlify/functions/submit-matching-type-test',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(submissionData)
+        }
+      );
       
       const result = await response.json();
       
@@ -2131,22 +2155,34 @@ class MatchingTestStudent {
     }
   }
 
-  getStudentData() {
-    // Get student ID from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const studentId = urlParams.get('student_id');
+    getStudentData() {
+    // Check authentication first
+    if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+      throw new Error('Authentication required. Please log in again.');
+    }
     
-    // This would typically come from the student's session
-    // For now, using placeholder data - in production, get from authentication
-    return {
-      grade: 'M1',
-      class: '1/15',
-      number: 1,
-      student_id: studentId || '51706',
-      name: 'Kittikhun',
-      surname: 'Siriwadtanakojaroen',
-      nickname: 'Tong Tong'
-    };
+    try {
+      // Extract student data from JWT token
+      const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+      
+      if (!decoded || !decoded.sub) {
+        throw new Error('Invalid token: No student ID found');
+      }
+      
+      // Return real student data from JWT token
+      return {
+        student_id: decoded.sub,
+        name: decoded.name || 'Student',
+        surname: decoded.surname || 'Name',
+        nickname: decoded.nickname || decoded.name || 'Student',
+        grade: decoded.grade || 'Unknown',
+        class: decoded.class || 'Unknown',
+        number: decoded.number || 1
+      };
+    } catch (error) {
+      console.error('Error extracting student data from JWT:', error);
+      throw new Error('Failed to get student information. Please log in again.');
+    }
   }
 
   prepareAnswers() {

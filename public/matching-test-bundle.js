@@ -2590,11 +2590,14 @@
         // Update loading state for API call
         this.updateLoadingStep('Saving test to database...', 50);
         
-        fetch('/.netlify/functions/save-matching-type-test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
+        window.tokenManager.makeAuthenticatedRequest(
+          '/.netlify/functions/save-matching-type-test',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }
+        )
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
