@@ -2110,6 +2110,15 @@ class MatchingTestStudent {
     
     console.log('📤 Submitting test...');
     
+    // Disable submit button immediately
+    if (this.elements.submitBtn) {
+      this.elements.submitBtn.disabled = true;
+      this.elements.submitBtn.textContent = 'Submitting...';
+    }
+    
+    // Show loading overlay
+    this.showLoading();
+    
     try {
       // Prepare submission data
       const submissionData = {
@@ -2151,6 +2160,16 @@ class MatchingTestStudent {
       
     } catch (error) {
       console.error('❌ Error submitting test:', error);
+      
+      // Re-enable submit button on error
+      if (this.elements.submitBtn) {
+        this.elements.submitBtn.disabled = false;
+        this.elements.submitBtn.textContent = 'Submit Test';
+      }
+      
+      // Hide loading overlay
+      this.hideLoading();
+      
       this.showError(`Failed to submit test: ${error.message}`);
     }
   }

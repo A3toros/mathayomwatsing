@@ -978,13 +978,16 @@
         const dataUrl = await this.fileToDataUrl(file);
         console.log('📁 Converted file to data URL, length:', dataUrl.length);
         
-        // Send as JSON with dataUrl
-        response = await window.tokenManager.makeAuthenticatedRequest(
-          '/.netlify/functions/submit-matching-type-test',
+        // Send as JSON with dataUrl to correct endpoint
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+          '/.netlify/functions/upload-image',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submissionData)
+            body: JSON.stringify({
+              dataUrl: dataUrl,
+              folder: 'matching_tests'
+            })
           }
         );
         
@@ -1021,16 +1024,6 @@
       statusDiv.textContent = message;
       statusDiv.className = `upload-status ${type}`;
       statusDiv.style.display = 'block';
-    }
-
-    // Convert file to data URL for upload
-    fileToDataUrl(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
     }
 
     // Convert file to data URL for upload
@@ -2484,14 +2477,11 @@
       const nameInput = (typeof document !== 'undefined') ? document.getElementById('matchingTestName') : null;
       const testName = (nameInput && nameInput.value && nameInput.value.trim()) ? nameInput.value.trim() : defaultName;
 
-          // Resolve teacher_id from session
-      if (!currentUser || !currentUser.teacher_id) {
+      // Get teacher_id from JWT authentication
+      const teacherId = getCurrentTeacherId();
+      if (!teacherId) {
         console.error('No valid teacher session found in createTest, redirecting to login');
         alert('Missing teacher session. Please sign in again.');
-        // Clear any invalid session data
-        if (typeof clearLocalStorage === 'function') {
-          clearLocalStorage();
-        }
         // Redirect to login
         if (typeof showSection === 'function') {
           showSection('login-section');
@@ -2500,8 +2490,6 @@
         }
         return;
       }
-      
-      const teacherId = currentUser.teacher_id;
 
       // Ensure words array mapped by block id
       const questions = this.blocks.map((block) => {

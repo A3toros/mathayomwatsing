@@ -9,13 +9,11 @@ class RoleBasedLoader {
     this.loadedFunctions = new Set();
     this.blockedFunctions = new Set();
     this.initialized = false; // Prevent multiple initializations
+    this.retryCount = 0; // Track retry attempts
+    this.maxRetries = 20; // Maximum retries (10 seconds with 500ms intervals)
     
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.initialize());
-    } else {
-      this.initialize();
-    }
+    // Don't auto-initialize - wait for login
+    // The role-based loader will be initialized via setupAccessAfterLogin() after successful login
   }
 
   /**
@@ -28,7 +26,17 @@ class RoleBasedLoader {
       return;
     }
     
-    console.log('[DEBUG] Role-based loader initializing...');
+    // Check retry limit
+    if (this.retryCount >= this.maxRetries) {
+      console.warn('[DEBUG] Max retries reached, stopping role-based loader initialization');
+      return;
+    }
+    
+    this.retryCount++;
+    // Only log every 5th attempt to reduce console spam
+    if (this.retryCount % 5 === 1 || this.retryCount === this.maxRetries) {
+      console.log(`[DEBUG] Role-based loader initializing... (attempt ${this.retryCount}/${this.maxRetries})`);
+    }
     console.log('[DEBUG] Token manager available:', !!window.tokenManager);
     
     // Get role from token manager
@@ -40,15 +48,16 @@ class RoleBasedLoader {
       if (role) {
         this.currentRole = role;
         this.initialized = true;
+        this.retryCount = 0; // Reset retry counter on success
         this.setupRoleBasedAccess();
       } else {
         console.log('[DEBUG] No role found, waiting for role to be set...');
-        setTimeout(() => this.initialize(), 100);
+        setTimeout(() => this.initialize(), 500);
       }
     } else {
       console.log('[DEBUG] Token manager not available or not authenticated, waiting...');
       // Wait for token manager to be available and authenticated
-      setTimeout(() => this.initialize(), 100);
+      setTimeout(() => this.initialize(), 500);
     }
   }
 
@@ -300,6 +309,7 @@ class RoleBasedLoader {
    */
   setupAccessAfterLogin() {
     console.log('[DEBUG] Setting up role-based access after login...');
+    console.log('[DEBUG] Role-based loader will now initialize (no more retry loop before login)');
     
     // Validate token manager availability
     if (!window.tokenManager) {
@@ -323,6 +333,7 @@ class RoleBasedLoader {
     console.log('[DEBUG] Setting role after login:', role);
     this.currentRole = role;
     this.initialized = true; // Mark as initialized
+    this.retryCount = 0; // Reset retry counter on successful login
     this.setupRoleBasedAccess();
     
     console.log('[DEBUG] Role-based access setup completed successfully for role:', role);

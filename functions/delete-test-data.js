@@ -403,9 +403,53 @@ exports.handler = async function(event, context) {
         return result.rowCount;
       };
 
+      // Helper function to delete from main test tables with date and teacher filtering
+      const deleteFromMainTestTable = async (tableName) => {
+        console.log(`Deleting from ${tableName} with date and teacher filter...`);
+        let result;
+        
+        if (tableName === 'multiple_choice_tests') {
+          result = await sql`
+            DELETE FROM multiple_choice_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDate}
+          `;
+        } else if (tableName === 'true_false_tests') {
+          result = await sql`
+            DELETE FROM true_false_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDate}
+          `;
+        } else if (tableName === 'input_tests') {
+          result = await sql`
+            DELETE FROM input_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDate}
+          `;
+        } else if (tableName === 'matching_type_tests') {
+          result = await sql`
+            DELETE FROM matching_type_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDate}
+          `;
+        } else {
+          throw new Error(`Unsupported table name: ${tableName}`);
+        }
+        
+        console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
+        return result.rowCount;
+      };
+
       // 1. DELETE MULTIPLE CHOICE TEST DATA
       console.log('=== Starting Multiple Choice Test Deletion ===');
       deletionSummary.multipleChoice = {};
+      
+      // Delete results FIRST (has created_at column AND test_id column, so can filter by date AND teacher)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.multipleChoice.results = await deleteFromResultsTable(
+        'multiple_choice_test_results', 
+        'multiple_choice_tests'
+      );
       
       // Delete questions (no created_at column, so no date filtering)
       deletionSummary.multipleChoice.questions = await deleteFromTableWithTeacher(
@@ -413,17 +457,21 @@ exports.handler = async function(event, context) {
         'multiple_choice_tests'
       );
       
-      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
-      deletionSummary.multipleChoice.results = await deleteFromResultsTable(
-        'multiple_choice_test_results', 
-        'multiple_choice_tests'
-      );
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.multipleChoice.tests = await deleteFromMainTestTable('multiple_choice_tests');
       
-      totalDeleted += deletionSummary.multipleChoice.questions + deletionSummary.multipleChoice.results;
+      totalDeleted += deletionSummary.multipleChoice.questions + deletionSummary.multipleChoice.results + deletionSummary.multipleChoice.tests;
 
       // 2. DELETE TRUE/FALSE TEST DATA
       console.log('=== Starting True/False Test Deletion ===');
       deletionSummary.trueFalse = {};
+      
+      // Delete results FIRST (has created_at column AND test_id column, so can filter by date AND teacher)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.trueFalse.results = await deleteFromResultsTable(
+        'true_false_test_results', 
+        'true_false_tests'
+      );
       
       // Delete questions (no created_at column, so no date filtering)
       deletionSummary.trueFalse.questions = await deleteFromTableWithTeacher(
@@ -431,17 +479,21 @@ exports.handler = async function(event, context) {
         'true_false_tests'
       );
       
-      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
-      deletionSummary.trueFalse.results = await deleteFromResultsTable(
-        'true_false_test_results', 
-        'true_false_tests'
-      );
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.trueFalse.tests = await deleteFromMainTestTable('true_false_tests');
       
-      totalDeleted += deletionSummary.trueFalse.questions + deletionSummary.trueFalse.results;
+      totalDeleted += deletionSummary.trueFalse.questions + deletionSummary.trueFalse.results + deletionSummary.trueFalse.tests;
 
       // 3. DELETE INPUT TEST DATA
       console.log('=== Starting Input Test Deletion ===');
       deletionSummary.input = {};
+      
+      // Delete results FIRST (has created_at column AND test_id column, so can filter by date AND teacher)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.input.results = await deleteFromResultsTable(
+        'input_test_results', 
+        'input_tests'
+      );
       
       // Delete questions (no created_at column, so no date filtering)
       deletionSummary.input.questions = await deleteFromTableWithTeacher(
@@ -449,19 +501,23 @@ exports.handler = async function(event, context) {
         'input_tests'
       );
       
-      // Delete results (has created_at column AND test_id column, so can filter by date AND teacher)
-      deletionSummary.input.results = await deleteFromResultsTable(
-        'input_test_results', 
-        'input_tests'
-      );
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.input.tests = await deleteFromMainTestTable('input_tests');
       
-      totalDeleted += deletionSummary.input.questions + deletionSummary.input.results;
+      totalDeleted += deletionSummary.input.questions + deletionSummary.input.results + deletionSummary.input.tests;
 
       // 4. DELETE MATCHING TYPE TEST DATA
       console.log('=== Starting Matching Type Test Deletion ===');
       deletionSummary.matching = {};
       
-      // Delete arrows first (due to foreign key constraints, has created_at column)
+      // Delete results FIRST (has test_id AND created_at, so can filter by both)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.matching.results = await deleteFromResultsTable(
+        'matching_type_test_results', 
+        'matching_type_tests'
+      );
+      
+      // Delete arrows (due to foreign key constraints, has created_at column)
       // Since arrows have created_at, we can filter by date AND teacher
       const deleteMatchingArrows = async () => {
         console.log('Deleting matching type test arrows with date and teacher filter...');
@@ -501,13 +557,10 @@ exports.handler = async function(event, context) {
       
       deletionSummary.matching.questions = await deleteMatchingQuestions();
       
-      // Delete results (has test_id AND created_at, so can filter by both)
-      deletionSummary.matching.results = await deleteFromResultsTable(
-        'matching_type_test_results', 
-        'matching_type_tests'
-      );
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.matching.tests = await deleteFromMainTestTable('matching_type_tests');
       
-      totalDeleted += deletionSummary.matching.arrows + deletionSummary.matching.questions + deletionSummary.matching.results;
+      totalDeleted += deletionSummary.matching.arrows + deletionSummary.matching.questions + deletionSummary.matching.results + deletionSummary.matching.tests;
 
       // Delete Cloudinary images for matching type tests before deleting the tests themselves
       console.log('=== Starting Cloudinary Image Deletion ===');
@@ -576,7 +629,7 @@ exports.handler = async function(event, context) {
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: true,
-          message: `Successfully deleted ${totalDeleted} test records and assignments`,
+          message: `Successfully deleted ${totalDeleted} test records, questions, results, and assignments`,
           deletedCount: totalDeleted,
           summary: deletionSummary
         })

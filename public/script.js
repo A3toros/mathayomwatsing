@@ -1259,6 +1259,9 @@ function closeTestDetailsModal() {
 // Global loading state to prevent multiple simultaneous calls
 let isLoadingTestResults = false;
 
+// Global loading state for test saving
+let isSavingTest = false;
+
 // Load test results for student
 async function loadStudentTestResults() {
     // Prevent multiple simultaneous calls
@@ -3546,6 +3549,21 @@ function createMultipleChoiceQuestions(testName, numQuestions, numOptions, exist
 }
 // Save multiple choice test
 async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
+    // Prevent multiple simultaneous saves
+    if (isSavingTest) {
+        console.log('saveMultipleChoiceTest already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isSavingTest = true;
+    
+    // Disable save button and show loading
+    const saveButton = document.querySelector('button[onclick*="saveMultipleChoiceTest"]');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<div class="loading-spinner"></div> Saving...';
+    }
+    
     try {
         console.log('=== saveMultipleChoiceTest called ===');
         
@@ -3660,7 +3678,7 @@ async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
             console.log('Test saved with ID:', result.test_id);
             
             // Clear ONLY test form data, NOT user session data
-            clearTestLocalStorage();
+            clearTestCreationState();
             
             // Show test assignment interface with test type and ID
             showTestAssignment('multipleChoice', result.test_id);
@@ -3670,11 +3688,36 @@ async function saveMultipleChoiceTest(testName, numQuestions, numOptions) {
     } catch (error) {
         console.error('Error saving multiple choice test:', error);
         alert('Error saving test. Please try again.');
+    } finally {
+        // Reset loading state
+        isSavingTest = false;
+        
+        // Re-enable save button
+        const saveButton = document.querySelector('button[onclick*="saveMultipleChoiceTest"]');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save Test';
+        }
     }
 }
 
 // Save true/false test
 async function saveTrueFalseTest(testName, numQuestions) {
+    // Prevent multiple simultaneous saves
+    if (isSavingTest) {
+        console.log('saveTrueFalseTest already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isSavingTest = true;
+    
+    // Disable save button and show loading
+    const saveButton = document.querySelector('button[onclick*="saveTrueFalseTest"]');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<div class="loading-spinner"></div> Saving...';
+    }
+    
     try {
         // Ensure numQuestions is a number
         const numQuestionsInt = parseInt(numQuestions);
@@ -3743,7 +3786,7 @@ async function saveTrueFalseTest(testName, numQuestions) {
             alert('True/False test saved successfully!');
             
             // Clear ONLY test form data, NOT user session data
-            clearTestLocalStorage();
+            clearTestCreationState();
             
             // Show test assignment interface with test type and ID
             showTestAssignment('trueFalse', result.test_id);
@@ -3753,11 +3796,36 @@ async function saveTrueFalseTest(testName, numQuestions) {
     } catch (error) {
         console.error('Error saving true/false test:', error);
         alert('Error saving test: ' + error.message);
+    } finally {
+        // Reset loading state
+        isSavingTest = false;
+        
+        // Re-enable save button
+        const saveButton = document.querySelector('button[onclick*="saveTrueFalseTest"]');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save Test';
+        }
     }
 }
 
 // Save input test
 async function saveInputTest(testName, numQuestions) {
+    // Prevent multiple simultaneous saves
+    if (isSavingTest) {
+        console.log('saveInputTest already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isSavingTest = true;
+    
+    // Disable save button and show loading
+    const saveButton = document.querySelector('button[onclick*="saveInputTest"]');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<div class="loading-spinner"></div> Saving...';
+    }
+    
     console.log('🔍 saveInputTest called with:', { testName, numQuestions });
     
     // Save form data before submitting
@@ -3868,7 +3936,7 @@ async function saveInputTest(testName, numQuestions) {
             alert('Input test saved successfully!');
             
             // Clear ONLY test form data, NOT user session data
-            clearTestLocalStorage();
+            clearTestCreationState();
             
             // Show test assignment interface with test type and ID
             showTestAssignment('input', result.test_id);
@@ -3879,6 +3947,16 @@ async function saveInputTest(testName, numQuestions) {
     } catch (error) {
         console.error('🔍 Error in saveInputTest:', error);
         alert('Error saving test. Please try again.');
+    } finally {
+        // Reset loading state
+        isSavingTest = false;
+        
+        // Re-enable save button
+        const saveButton = document.querySelector('button[onclick*="saveInputTest"]');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save Test';
+        }
     }
 }
 
@@ -4263,6 +4341,17 @@ function showTestAssignment(testType, testId) {
     const assignmentSection = document.getElementById('testAssignmentSection');
     assignmentSection.style.display = 'block';
     
+    // Show loading message in the assignment container (don't overwrite the entire section)
+    const assignmentContainer = document.getElementById('assignmentGradesContainer');
+    if (assignmentContainer) {
+        assignmentContainer.innerHTML = `
+            <div class="loading-tests">
+                <div class="loading-spinner"></div>
+                <p>Loading assignment interface...</p>
+            </div>
+        `;
+    }
+    
     // NEW: Reset Excel upload state when moving to assignment
     resetExcelUploadState();
     
@@ -4303,19 +4392,24 @@ async function loadTeacherGradesAndClasses(testType, testId) {
         } else {
             console.log('No teacher subjects found');
             console.log('Data structure:', data);
-            document.getElementById('assignmentGradesContainer').innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <h5>No Subjects Assigned</h5>
-                    <p>You need to assign subjects to grades and classes before you can create tests.</p>
-                    <button class="btn btn-primary" onclick="showSubjectSelectionPrompt()">Assign Subjects Now</button>
-                    <button class="btn btn-secondary" onclick="resetTestCreation()" style="margin-left: 10px;">Cancel Test Creation</button>
-                </div>
-            `;
+            const container = document.getElementById('assignmentGradesContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <h5>No Subjects Assigned</h5>
+                        <p>You need to assign subjects to grades and classes before you can create tests.</p>
+                        <button class="btn btn-primary" onclick="showSubjectSelectionPrompt()">Assign Subjects Now</button>
+                        <button class="btn btn-secondary" onclick="resetTestCreation()" style="margin-left: 10px;">Cancel Test Creation</button>
+                    </div>
+                `;
+            }
         }
     } catch (error) {
         console.error('Error loading teacher grades and classes:', error);
-        document.getElementById('assignmentGradesContainer').innerHTML = 
-            '<p>Error loading available grades and classes.</p>';
+        const container = document.getElementById('assignmentGradesContainer');
+        if (container) {
+            container.innerHTML = '<p>Error loading available grades and classes.</p>';
+        }
     }
 }
 
@@ -4333,6 +4427,10 @@ function displayTestAssignmentOptions(subjects, testType, testId) {
     console.log('displayTestAssignmentOptions called with:', { subjects, testType, testId });
     
     const container = document.getElementById('assignmentGradesContainer');
+    if (!container) {
+        console.error('assignmentGradesContainer element not found');
+        return;
+    }
     container.innerHTML = '';
     
     const title = document.createElement('h5');
@@ -5835,7 +5933,7 @@ function logout() {
     clearUserSessionData();
     
     // Clear test progress to prevent cross-student data leakage
-    clearTestLocalStorage();
+    window.clearTestLocalStorage();
     
     // Reset global variables (legacy variables removed - JWT system handles session)
     // currentUser = null; - REMOVED
