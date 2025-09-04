@@ -1,10 +1,11 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
   };
 
@@ -25,9 +26,24 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    const { teacher_id, subjects } = JSON.parse(event.body);
+    // Validate JWT token and extract teacher information
+    const result = validateToken(event);
+    
+    if (!result.success) {
+      return {
+        statusCode: result.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: result.message || 'Authentication failed'
+        })
+      };
+    }
 
-    if (!teacher_id || !subjects || !Array.isArray(subjects)) {
+    const { subjects } = JSON.parse(event.body);
+    const teacher_id = result.user.teacher_id;
+
+    if (!subjects || !Array.isArray(subjects)) {
       return {
         statusCode: 400,
         headers: {
@@ -36,7 +52,7 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Teacher ID and subjects array are required'
+          message: 'Subjects array is required'
         })
       };
     }
