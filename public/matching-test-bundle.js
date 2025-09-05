@@ -2466,7 +2466,7 @@
       console.log('Matching test data:', testData);
     }
 
-      createTest() {
+      async createTest() {
       // IMMEDIATE FEEDBACK: Show loading state
       this.updateCreateTestButtonState('loading');
       this.showTestCreationLoadingOverlay();
@@ -2478,7 +2478,7 @@
       const testName = (nameInput && nameInput.value && nameInput.value.trim()) ? nameInput.value.trim() : defaultName;
 
       // Get teacher_id from JWT authentication
-      const teacherId = getCurrentTeacherId();
+      const teacherId = await getCurrentTeacherId();
       if (!teacherId) {
         console.error('No valid teacher session found in createTest, redirecting to login');
         alert('Missing teacher session. Please sign in again.');

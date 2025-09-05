@@ -155,6 +155,9 @@ exports.handler = async function(event, context) {
     }
     
     const { startDate, endDate, teacherId, grades, classes, subjectId } = requestData;
+    
+    // Convert end date to include full day (23:59:59) for proper date range comparison
+    const endDateFull = `${endDate} 23:59:59`;
     console.log('Parsed request data:', { startDate, endDate, teacherId, grades, classes, subjectId });
     console.log('DEBUG - Teacher ID details:');
     console.log('  - teacherId value:', teacherId);
@@ -228,42 +231,43 @@ exports.handler = async function(event, context) {
     // Debug: Check what tests exist for this teacher and date range
     console.log('=== DEBUG: Checking existing tests ===');
     console.log('DEBUG - About to run debug queries with:', { teacherId, startDate, endDate });
-    console.log('DEBUG - Date types:', { 
-      startDateType: typeof startDate, 
+        console.log('DEBUG - Date types:', {
+      startDateType: typeof startDate,
       endDateType: typeof endDate,
       startDateValue: startDate,
-      endDateValue: endDate
+      endDateValue: endDate,
+      endDateFullValue: endDateFull
     });
     try {
       const multipleChoiceTests = await sql`
-        SELECT id, title, created_at, teacher_id 
+        SELECT id, test_name, created_at, teacher_id 
         FROM multiple_choice_tests 
         WHERE teacher_id = ${teacherId} 
-        AND created_at BETWEEN ${startDate} AND ${endDate}
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
       `;
       console.log('Multiple Choice Tests found:', multipleChoiceTests.length, multipleChoiceTests);
       
       const trueFalseTests = await sql`
-        SELECT id, title, created_at, teacher_id 
+        SELECT id, test_name, created_at, teacher_id 
         FROM true_false_tests 
         WHERE teacher_id = ${teacherId} 
-        AND created_at BETWEEN ${startDate} AND ${endDate}
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
       `;
       console.log('True/False Tests found:', trueFalseTests.length, trueFalseTests);
       
       const inputTests = await sql`
-        SELECT id, title, created_at, teacher_id 
+        SELECT id, test_name, created_at, teacher_id 
         FROM input_tests 
         WHERE teacher_id = ${teacherId} 
-        AND created_at BETWEEN ${startDate} AND ${endDate}
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
       `;
       console.log('Input Tests found:', inputTests.length, inputTests);
       
       const matchingTests = await sql`
-        SELECT id, title, created_at, teacher_id 
+        SELECT id, test_name, created_at, teacher_id 
         FROM matching_type_tests 
         WHERE teacher_id = ${teacherId} 
-        AND created_at BETWEEN ${startDate} AND ${endDate}
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
       `;
       console.log('Matching Tests found:', matchingTests.length, matchingTests);
       
@@ -277,19 +281,19 @@ exports.handler = async function(event, context) {
       
       // Check all tests for this teacher (any date)
       const allTestsForTeacher = await sql`
-        SELECT 'multiple_choice' as type, id, title, created_at 
+        SELECT 'multiple_choice' as type, id, test_name, created_at 
         FROM multiple_choice_tests 
         WHERE teacher_id = ${teacherId}
         UNION ALL
-        SELECT 'true_false' as type, id, title, created_at 
+        SELECT 'true_false' as type, id, test_name, created_at 
         FROM true_false_tests 
         WHERE teacher_id = ${teacherId}
         UNION ALL
-        SELECT 'input' as type, id, title, created_at 
+        SELECT 'input' as type, id, test_name, created_at 
         FROM input_tests 
         WHERE teacher_id = ${teacherId}
         UNION ALL
-        SELECT 'matching' as type, id, title, created_at 
+        SELECT 'matching' as type, id, test_name, created_at 
         FROM matching_type_tests 
         WHERE teacher_id = ${teacherId}
         ORDER BY created_at DESC
@@ -344,11 +348,12 @@ exports.handler = async function(event, context) {
           throw new Error(`Unsupported table name: ${tableName}`);
         }
         
-        console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
 
       // Helper function to delete from results tables with date filtering
@@ -364,7 +369,7 @@ exports.handler = async function(event, context) {
         if (tableName === 'multiple_choice_test_results') {
           result = await sql`
             DELETE FROM multiple_choice_test_results 
-            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            WHERE created_at BETWEEN ${startDate} AND ${endDateFull}
             AND test_id IN (
               SELECT id FROM multiple_choice_tests 
               WHERE teacher_id = ${teacherId}
@@ -373,7 +378,7 @@ exports.handler = async function(event, context) {
         } else if (tableName === 'true_false_test_results') {
           result = await sql`
             DELETE FROM true_false_test_results 
-            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            WHERE created_at BETWEEN ${startDate} AND ${endDateFull}
             AND test_id IN (
               SELECT id FROM true_false_tests 
               WHERE teacher_id = ${teacherId}
@@ -382,7 +387,7 @@ exports.handler = async function(event, context) {
         } else if (tableName === 'input_test_results') {
           result = await sql`
             DELETE FROM input_test_results 
-            WHERE created_at BETWEEN ${startDate} AND ${endDate}
+            WHERE created_at BETWEEN ${startDate} AND ${endDateFull}
             AND test_id IN (
               SELECT id FROM input_tests 
               WHERE teacher_id = ${teacherId}
@@ -394,18 +399,19 @@ exports.handler = async function(event, context) {
             WHERE test_id IN (
               SELECT id FROM matching_type_tests 
               WHERE teacher_id = ${teacherId}
-              AND created_at BETWEEN ${startDate} AND ${endDate}
+              AND created_at BETWEEN ${startDate} AND ${endDateFull}
             )
           `;
         } else {
           throw new Error(`Unsupported results table name: ${tableName}`);
         }
         
-        console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
 
       // Helper function to delete test assignments with date filtering
@@ -419,7 +425,7 @@ exports.handler = async function(event, context) {
           // All filters applied
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -434,7 +440,7 @@ exports.handler = async function(event, context) {
           // Grades and classes filters
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -448,7 +454,7 @@ exports.handler = async function(event, context) {
           // Grades and subject filters
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -462,7 +468,7 @@ exports.handler = async function(event, context) {
           // Classes and subject filters
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -476,7 +482,7 @@ exports.handler = async function(event, context) {
           // Only grades filter
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -489,7 +495,7 @@ exports.handler = async function(event, context) {
           // Only classes filter
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -502,7 +508,7 @@ exports.handler = async function(event, context) {
           // Only subject filter
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -515,7 +521,7 @@ exports.handler = async function(event, context) {
           // No additional filters
           result = await sql`
             DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDate}
+            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
             AND (
               (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
               OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
@@ -525,11 +531,12 @@ exports.handler = async function(event, context) {
           `;
         }
 
-        console.log(`Deleted ${result.rowCount} test assignments`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} test assignments`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
 
       // Helper function to delete from main test tables with date and teacher filtering
@@ -538,40 +545,61 @@ exports.handler = async function(event, context) {
         let result;
         
         if (tableName === 'multiple_choice_tests') {
+          console.log('DEBUG - About to execute DELETE with:', {
+            teacherId,
+            startDate,
+            endDateFull,
+            teacherIdType: typeof teacherId,
+            startDateType: typeof startDate,
+            endDateFullType: typeof endDateFull
+          });
           result = await sql`
             DELETE FROM multiple_choice_tests 
             WHERE teacher_id = ${teacherId}
-            AND created_at BETWEEN ${startDate} AND ${endDate}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+            RETURNING id, test_name
           `;
+          console.log('DEBUG - DELETE result received:', {
+            result,
+            resultType: typeof result,
+            resultKeys: Object.keys(result || {}),
+            resultLength: result?.length,
+            resultRowCount: result?.rowCount
+          });
         } else if (tableName === 'true_false_tests') {
           result = await sql`
             DELETE FROM true_false_tests 
             WHERE teacher_id = ${teacherId}
-            AND created_at BETWEEN ${startDate} AND ${endDate}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
           `;
         } else if (tableName === 'input_tests') {
           result = await sql`
             DELETE FROM input_tests 
             WHERE teacher_id = ${teacherId}
-            AND created_at BETWEEN ${startDate} AND ${endDate}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
           `;
         } else if (tableName === 'matching_type_tests') {
           result = await sql`
             DELETE FROM matching_type_tests 
             WHERE teacher_id = ${teacherId}
-            AND created_at BETWEEN ${startDate} AND ${endDate}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
           `;
         } else {
           throw new Error(`Unsupported table name: ${tableName}`);
         }
         
-        console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
 
+      // DELETE TEST ASSIGNMENTS FIRST (before deleting tests)
+      console.log('=== Starting Test Assignment Deletion ===');
+      deletionSummary.testAssignments = await deleteTestAssignments();
+      
       // 1. DELETE MULTIPLE CHOICE TEST DATA
       console.log('=== Starting Multiple Choice Test Deletion ===');
       deletionSummary.multipleChoice = {};
@@ -661,15 +689,16 @@ exports.handler = async function(event, context) {
             WHERE mtq.test_id IN (
               SELECT id FROM matching_type_tests 
               WHERE teacher_id = ${teacherId}
-              AND created_at BETWEEN ${startDate} AND ${endDate}
+              AND created_at BETWEEN ${startDate} AND ${endDateFull}
             )
           )
         `;
-        console.log(`Deleted ${result.rowCount} matching type test arrows`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} matching type test arrows`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
       
       deletionSummary.matching.arrows = await deleteMatchingArrows();
@@ -683,14 +712,15 @@ exports.handler = async function(event, context) {
           WHERE mtq.test_id IN (
             SELECT id FROM matching_type_tests 
             WHERE teacher_id = ${teacherId}
-            AND created_at BETWEEN ${startDate} AND ${endDate}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
           )
         `;
-        console.log(`Deleted ${result.rowCount} matching type test questions`);
-        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        const deletedCount = result.rowCount || result.length || 0;
+        console.log(`Deleted ${deletedCount} matching type test questions`);
+        console.log('DEBUG - Full result object:', result);
         console.log('DEBUG - Result keys:', Object.keys(result));
         console.log('DEBUG - Result type:', typeof result);
-        return result.rowCount;
+        return deletedCount;
       };
       
       deletionSummary.matching.questions = await deleteMatchingQuestions();
@@ -709,7 +739,7 @@ exports.handler = async function(event, context) {
         const imageUrlsResult = await sql`
           SELECT image_url FROM matching_type_tests 
           WHERE teacher_id = ${teacherId}
-          AND created_at BETWEEN ${startDate} AND ${endDate}
+          AND created_at BETWEEN ${startDate} AND ${endDateFull}
         `;
         
         console.log(`Found ${imageUrlsResult.length} matching type tests with images to delete`);
@@ -749,9 +779,7 @@ exports.handler = async function(event, context) {
         // Don't fail the entire operation if Cloudinary deletion fails
       }
 
-      // Delete test assignments
-      console.log('=== Starting Test Assignment Deletion ===');
-      deletionSummary.testAssignments = await deleteTestAssignments();
+      // Test assignments already deleted at the beginning
       totalDeleted += deletionSummary.testAssignments;
 
       // Commit transaction

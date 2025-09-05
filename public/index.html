@@ -370,11 +370,11 @@
         <div class="admin-section">
           <h2 class="section-header">
             Database & Schema Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="database-section" class="section-content">
             <div class="debug-buttons">
               <button class="btn btn-debug" onclick="debugFunction('testDbConnection')">Test DB Connection</button>
-              <button class="btn btn-warning" onclick="runDatabaseSchema()">Run Database Schema</button>
             </div>
             <div id="debugFunctionsContainer"></div>
           </div>
@@ -384,13 +384,14 @@
         <div class="admin-section">
           <h2 class="section-header">
             User Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="users-section" class="section-content">
             <div class="section-controls">
               <button class="btn btn-primary" onclick="toggleUsersContent()">Get All Users</button>
               <button class="btn btn-success" onclick="showAddUserForm()">Add New User</button>
             </div>
-            <div id="allUsersContainer"></div>
+            <div id="allUsersContainer" style="display: none;"></div>
             <div id="addUserForm" class="form-section" style="display: none;">
               <h3>Add New User</h3>
               <form id="newUserForm">
@@ -452,13 +453,14 @@
         <div class="admin-section">
           <h2 class="section-header">
             Teacher Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="teachers-section" class="section-content">
             <div class="section-controls">
               <button class="btn btn-primary" onclick="toggleTeachersContent()">Get All Teachers</button>
               <button class="btn btn-success" onclick="showAddTeacherForm()">Add New Teacher</button>
             </div>
-            <div id="allTeachersContainer"></div>
+            <div id="allTeachersContainer" style="display: none;"></div>
             <div id="addTeacherForm" class="form-section" style="display: none;">
               <h3>Add New Teacher</h3>
               <form id="newTeacherForm">
@@ -489,13 +491,14 @@
         <div class="admin-section">
           <h2 class="section-header">
             Subject Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="subjects-section" class="section-content">
             <div class="section-controls">
               <button class="btn btn-primary" onclick="toggleSubjectsContent()">Get All Subjects</button>
               <button class="btn btn-success" onclick="showAddSubjectForm()">Add New Subject</button>
             </div>
-            <div id="allSubjectsContainer"></div>
+            <div id="allSubjectsContainer" style="display: none;"></div>
             <div id="addSubjectForm" class="form-section" style="display: none;">
               <h3>Add New Subject</h3>
               <form id="newSubjectForm">
@@ -518,13 +521,59 @@
         <div class="admin-section">
           <h2 class="section-header">
             Academic Year Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="academic-section" class="section-content">
             <div class="section-controls">
               <button class="btn btn-primary" id="checkAcademicYearBtn">Check Academic Year</button>
+              <button class="btn btn-success" onclick="showAddAcademicYearForm()">Add Academic Year</button>
             </div>
-            <div id="academicYearTable"></div>
+            <div id="academicYearTable" style="display: none;"></div>
             <div id="academicYearContainer"></div>
+            
+            <!-- Add Academic Year Form -->
+            <div id="addAcademicYearForm" class="form-section" style="display: none;">
+              <h3>Add New Academic Year</h3>
+              <form id="newAcademicYearForm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newAcademicYear">Academic Year:</label>
+                    <input type="text" id="newAcademicYear" placeholder="e.g., 2024-2025" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newSemester">Semester:</label>
+                    <select id="newSemester" required>
+                      <option value="">Select Semester</option>
+                      <option value="1">Semester 1</option>
+                      <option value="2">Semester 2</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="newTerm">Term:</label>
+                    <select id="newTerm" required>
+                      <option value="">Select Term</option>
+                      <option value="1">Term 1</option>
+                      <option value="2">Term 2</option>
+                      <option value="3">Term 3</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="newStartDate">Start Date:</label>
+                    <input type="date" id="newStartDate" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newEndDate">End Date:</label>
+                    <input type="date" id="newEndDate" required>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-success">Add Academic Year</button>
+                  <button type="button" class="btn btn-secondary" onclick="hideAddAcademicYearForm()">Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
@@ -532,6 +581,7 @@
         <div class="admin-section">
           <h2 class="section-header">
             Test Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="tests-section" class="section-content">
                           <div class="section-controls">
@@ -549,6 +599,7 @@
         <div class="admin-section">
           <h2 class="section-header">
             Test Deletion Management
+            <span class="toggle-icon">▼</span>
           </h2>
           <div id="test-deletion-section" class="section-content">
             <div class="section-controls">
@@ -652,7 +703,7 @@
 
         <!-- Local Storage & Debug -->
         <div class="admin-section">
-          <h2 class="section-header" onclick="toggleSection('debug-section')">
+          <h2 class="section-header">
             Debug & Local Storage
             <span class="toggle-icon">▼</span>
           </h2>

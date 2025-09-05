@@ -8,9 +8,10 @@ exports.handler = async function(event, context) {
   console.log('Event body preview:', event.body ? event.body.substring(0, 100) + '...' : 'null');
   
   const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -33,12 +34,12 @@ exports.handler = async function(event, context) {
 
     const userInfo = tokenValidation.user;
     
-    // Check if user is admin
-    if (userInfo.role !== 'admin') {
+    // Check if user is admin or teacher
+    if (userInfo.role !== 'admin' && userInfo.role !== 'teacher') {
       return {
         statusCode: 403,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Access denied. Admin role required.' })
+        body: JSON.stringify({ error: 'Access denied. Admin or teacher role required.' })
       };
     }
 

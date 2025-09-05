@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 exports.handler = async function(event, context) {
   // Enable CORS with Authorization header support
   const headers = {
-    'Access-Control-Allow-Origin': 'https://yourdomain.com',
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Credentials': 'true'
@@ -97,8 +97,12 @@ exports.handler = async function(event, context) {
     // Parse request body (only test_id, test_name, score, maxScore, answers needed)
     const { test_id, test_name, score, maxScore, answers } = JSON.parse(event.body);
 
-    // Validate required fields
-    if (!test_id || !test_name || !score || !maxScore || !answers) {
+    // Validate required fields (handle 0 values properly)
+    if (test_id === undefined || test_id === null || 
+        !test_name || 
+        score === undefined || score === null || 
+        maxScore === undefined || maxScore === null || 
+        !answers) {
       return {
         statusCode: 400,
         headers: {
@@ -119,6 +123,14 @@ exports.handler = async function(event, context) {
     const name = decoded.name;
     const surname = decoded.surname;
     const nickname = decoded.nickname;
+
+    // Convert class format for database (1/15 -> 15)
+    let convertedClass;
+    if (className && className.includes('/')) {
+      convertedClass = parseInt(className.split('/')[1]);
+    } else {
+      convertedClass = parseInt(className) || null;
+    }
 
     // Connect to database using @neondatabase/serverless
     const sql = neon(process.env.NEON_DATABASE_URL);
@@ -157,7 +169,7 @@ exports.handler = async function(event, context) {
     const result = await sql`
       INSERT INTO multiple_choice_test_results 
       (test_id, test_name, grade, class, number, student_id, name, surname, nickname, score, max_score, answers, academic_period_id)
-      VALUES (${test_id}, ${test_name}, ${grade}, ${className}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${actualScore}, ${totalQuestions}, ${JSON.stringify(validatedAnswers)}, ${academicPeriodId})
+      VALUES (${test_id}, ${test_name}, ${grade}, ${convertedClass}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${actualScore}, ${totalQuestions}, ${JSON.stringify(validatedAnswers)}, ${academicPeriodId})
       RETURNING id
     `;
 

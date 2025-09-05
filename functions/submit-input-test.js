@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 exports.handler = async function(event, context) {
   // Enable CORS with Authorization header support
   const headers = {
-    'Access-Control-Allow-Origin': 'https://yourdomain.com',
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Credentials': 'true'
@@ -97,8 +97,12 @@ exports.handler = async function(event, context) {
     // Parse request body (only test_id, test_name, score, maxScore, answers needed)
     const { test_id, test_name, score, maxScore, answers } = JSON.parse(event.body);
 
-    // Validate required fields
-    if (!test_id || !test_name || !score || !maxScore || !answers) {
+    // Validate required fields (handle 0 values properly)
+    if (test_id === undefined || test_id === null || 
+        !test_name || 
+        score === undefined || score === null || 
+        maxScore === undefined || maxScore === null || 
+        !answers) {
       return {
         statusCode: 400,
         headers: {

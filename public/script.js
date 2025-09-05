@@ -584,7 +584,7 @@ function initializeEventListeners() {
 
     const checkAcademicYearBtn = document.getElementById('checkAcademicYearBtn');
     if (checkAcademicYearBtn) {
-        checkAcademicYearBtn.addEventListener('click', showAcademicYearEditor);
+        checkAcademicYearBtn.addEventListener('click', toggleAcademicYearContent);
     }
 }
 
@@ -1625,7 +1625,7 @@ async function submitTest(testType, testId) {
         // Get test information to get test_name
         let testInfo;
         try {
-            const testResponse = await fetch(
+            const testResponse = await window.tokenManager.makeAuthenticatedRequest(
                 `/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`
             );
             const testData = await testResponse.json();
@@ -1636,8 +1636,9 @@ async function submitTest(testType, testId) {
             }
         } catch (error) {
             console.error('Error getting test info:', error);
-            // Use fallback test name if we can't get it
-            testInfo = { test_name: `Test ${testId}` };
+            // Use fallback test name if we can't get it - include num_questions
+            const questions = await getTestQuestions(testType, testId);
+            testInfo = { test_name: `Test ${testId}`, num_questions: questions.length };
         }
 
        // Calculate score properly using the existing function
@@ -6559,13 +6560,16 @@ async function displayAllSubjects(subjects) {
 
 async function loadAcademicYear() {
     // Check if user session is still valid using JWT
-    const teacherId = await getCurrentTeacherId();
-    if (!teacherId) {
-        console.error('No valid teacher session found in loadAcademicYear, redirecting to login');
-        // Redirect to login
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        console.error('No valid session found in loadAcademicYear, redirecting to login');
         showSection('login-section');
         return;
     }
+    
+    // Admin users can check academic year without teacher_id
+    const userInfo = JSON.parse(atob(token.split('.')[1]));
+    console.log('Loading academic year for user role:', userInfo.role);
     
     try {
         const response = await window.tokenManager.makeAuthenticatedRequest(
@@ -6581,17 +6585,132 @@ async function loadAcademicYear() {
     }
 }
 
-async function displayAcademicYear(academicYears) {
-    // Check if user session is still valid using JWT
-    const teacherId = await getCurrentTeacherId();
-    if (!teacherId) {
-        console.error('No valid teacher session found in displayAcademicYear, redirecting to login');
-        // Redirect to login
-        showSection('login-section');
+// Academic Year Form Functions
+function showAddAcademicYearForm() {
+    const form = document.getElementById('addAcademicYearForm');
+    if (form) {
+        form.style.display = 'block';
+        // Set default dates (current academic year)
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // January = 0
+        
+        // Auto-select academic year based on current date
+        const academicYearSelect = document.getElementById('newAcademicYear');
+        if (currentMonth >= 7) { // July onwards = new academic year
+            academicYearSelect.value = `${currentYear}-${currentYear + 1}`;
+        } else { // January-June = previous academic year
+            academicYearSelect.value = `${currentYear - 1}-${currentYear}`;
+        }
+    }
+}
+
+function hideAddAcademicYearForm() {
+    const form = document.getElementById('addAcademicYearForm');
+    if (form) {
+        form.style.display = 'none';
+        // Reset form
+        document.getElementById('newAcademicYearForm').reset();
+    }
+}
+
+// Show/Hide Academic Year Form Functions
+function showAddAcademicYearForm() {
+    console.log('🔧 showAddAcademicYearForm called');
+    const form = document.getElementById('addAcademicYearForm');
+    if (form) {
+        form.style.display = 'block';
+        // Set default dates
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        document.getElementById('newStartDate').value = `${currentYear}-01-01`;
+        document.getElementById('newEndDate').value = `${currentYear}-12-31`;
+        console.log('✅ Academic year form shown');
+    } else {
+        console.error('❌ Academic year form not found');
+    }
+}
+
+function hideAddAcademicYearForm() {
+    const form = document.getElementById('addAcademicYearForm');
+    if (form) {
+        form.style.display = 'none';
+        document.getElementById('newAcademicYearForm').reset();
+    }
+}
+
+// Make functions globally available
+window.showAddAcademicYearForm = showAddAcademicYearForm;
+window.hideAddAcademicYearForm = hideAddAcademicYearForm;
+
+// Add Academic Year Form Handler
+async function handleAddAcademicYear(event) {
+    event.preventDefault();
+    
+    const academicYear = document.getElementById('newAcademicYear').value.trim();
+    const semester = document.getElementById('newSemester').value;
+    const term = document.getElementById('newTerm').value;
+    const startDate = document.getElementById('newStartDate').value;
+    const endDate = document.getElementById('newEndDate').value;
+    
+    // Validate inputs
+    if (!academicYear || !semester || !term || !startDate || !endDate) {
+        alert('Please fill in all fields');
         return;
     }
     
-    const container = document.getElementById('academicYearContainer');
+    // Validate academic year format (optional)
+    const academicYearPattern = /^\d{4}-\d{4}$/;
+    if (!academicYearPattern.test(academicYear)) {
+        alert('Academic Year should be in format: YYYY-YYYY (e.g., 2024-2025)');
+        return;
+    }
+    
+    // Validate date range
+    if (new Date(startDate) >= new Date(endDate)) {
+        alert('End date must be after start date');
+        return;
+    }
+    
+    try {
+        const response = await window.tokenManager.makeAuthenticatedRequest(
+            '/.netlify/functions/edit-academic-year',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'add',
+                    academic_year: academicYear,
+                    semester: parseInt(semester),
+                    term: parseInt(term),
+                    start_date: startDate,
+                    end_date: endDate
+                })
+            }
+        );
+        
+        const data = await response.json();
+        
+        if (data.success || response.ok) {
+            alert('Academic year added successfully!');
+            hideAddAcademicYearForm();
+            // Refresh the academic year table
+            loadAcademicYear();
+        } else {
+            alert(`Failed to add academic year: ${data.error || data.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error adding academic year:', error);
+        alert('Failed to add academic year. Please try again.');
+    }
+}
+
+async function displayAcademicYear(academicYears) {
+    // Admin users can display academic year without teacher_id check
+    
+    const container = document.getElementById('academicYearTable');
     if (!container) return;
     
     container.innerHTML = `
@@ -6944,30 +7063,6 @@ function testLocalStorage() {
     }
 }
 
-// Run database schema function
-async function runDatabaseSchema() {
-    try {
-        console.log('Running database schema...');
-        
-        const response = await fetch('/.netlify/functions/run-schema', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification(`Database schema executed successfully! ${result.statements_executed} statements processed.`, 'success');
-            console.log('Schema execution result:', result);
-        } else {
-            showNotification('Error running schema: ' + result.error, 'error');
-            console.error('Schema execution error:', result);
-        }
-    } catch (error) {
-        console.error('Error running schema:', error);
-        showNotification('Error running schema: ' + error.message, 'error');
-    }
-}
 
 // Initialize active tests functionality
 function initializeActiveTests() {
@@ -7974,8 +8069,18 @@ function restoreInputData(formData) {
 // ===== ADMIN CABINET FUNCTIONS =====
 
 // Admin Cabinet Functions
+let toggleDebounce = {};
+
 function toggleSection(sectionId) {
   console.log(`🔧 toggleSection called with sectionId: ${sectionId}`);
+  
+  // Prevent rapid successive calls (debounce)
+  const now = Date.now();
+  if (toggleDebounce[sectionId] && (now - toggleDebounce[sectionId] < 300)) {
+    console.log(`🔧 Ignoring rapid successive call for ${sectionId}`);
+    return;
+  }
+  toggleDebounce[sectionId] = now;
   
   const section = document.getElementById(sectionId);
   if (!section) {
@@ -8146,6 +8251,12 @@ function addClickListeners() {
     const headerText = header.textContent.trim();
     console.log(`🔧 Processing header ${index + 1}:`, headerText);
     
+    // Skip if already has our event listener
+    if (header.dataset.listenerAdded === 'true') {
+      console.log(`🔧 Skipping header ${headerText} - listener already added`);
+      return;
+    }
+    
     // Remove existing onclick to avoid conflicts
     const oldOnclick = header.getAttribute('onclick');
     if (oldOnclick) {
@@ -8153,8 +8264,12 @@ function addClickListeners() {
     }
     header.removeAttribute('onclick');
     
-    // Add event listener
-    header.addEventListener('click', function(e) {
+    // Add event listener with multiple event types for debugging
+    const clickHandler = function(e) {
+      console.log(`🔧 CLICK EVENT FIRED for header: ${headerText}`);
+      console.log(`🔧 Event target:`, e.target);
+      console.log(`🔧 Current target:`, e.currentTarget);
+      
       e.preventDefault();
       e.stopPropagation();
       console.log(`🔧 Click event triggered for header: ${headerText}`);
@@ -8169,12 +8284,25 @@ function addClickListeners() {
       }, 200);
       
       toggleSection(sectionId);
+    };
+    
+    // Try multiple event types
+    header.addEventListener('click', clickHandler);
+    header.addEventListener('mousedown', function(e) {
+      console.log(`🔧 MOUSEDOWN detected on header: ${headerText}`);
+    });
+    header.addEventListener('mouseup', function(e) {
+      console.log(`🔧 MOUSEUP detected on header: ${headerText}`);
     });
     
-    // Add visual feedback
+    // Mark as having listener added
+    header.dataset.listenerAdded = 'true';
+    
+    // Add visual feedback and ensure clickability
     header.style.cursor = 'pointer';
     header.style.position = 'relative';
-    header.style.zIndex = '100';
+    header.style.zIndex = '1000'; // Higher z-index to ensure it's on top
+    header.style.pointerEvents = 'auto'; // Ensure pointer events work
     
     console.log(`✅ Added click listener to header: ${headerText}`);
   });
@@ -8191,6 +8319,33 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('🔧 Admin panel detected, setting up section toggles...');
       testToggleSection();
       addClickListeners();
+      addKeyboardAccessibility();
+      
+      // Force direct click handlers as backup
+      setTimeout(() => {
+        console.log('🔧 Adding direct click handlers as backup...');
+        document.querySelectorAll('.section-header').forEach((header, index) => {
+          header.onclick = function(e) {
+            console.log(`🔧 DIRECT ONCLICK fired for header ${index + 1}`);
+            e.preventDefault();
+            e.stopPropagation();
+            const sectionId = this.nextElementSibling.id;
+            console.log(`🔧 Direct click - Section ID: ${sectionId}`);
+            toggleSection(sectionId);
+          };
+          console.log(`🔧 Added direct onclick to header ${index + 1}`);
+        });
+        
+        // Add global click detector to see what's intercepting clicks
+        document.addEventListener('click', function(e) {
+          console.log(`🔧 GLOBAL CLICK detected on:`, e.target);
+          console.log(`🔧 Element classes:`, e.target.className);
+          console.log(`🔧 Element tag:`, e.target.tagName);
+          console.log(`🔧 Element position:`, e.target.getBoundingClientRect());
+        }, true); // Use capture phase to catch all clicks
+        
+        console.log('🔧 Added global click detector');
+      }, 1000);
     }
   }, 200);
 });
@@ -8238,8 +8393,12 @@ function toggleUsersContent() {
     return;
   }
   
-  if (container.style.display === 'none' || container.style.display === '') {
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
     // Show content
+    container.style.display = 'block';
     getAllUsers();
     button.textContent = 'Hide Users ▼';
     button.classList.add('active');
@@ -8265,8 +8424,12 @@ function toggleTeachersContent() {
     return;
   }
   
-  if (container.style.display === 'none' || container.style.display === '') {
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
     // Show content
+    container.style.display = 'block';
     getAllTeachers();
     button.textContent = 'Hide Teachers ▼';
     button.classList.add('active');
@@ -8292,8 +8455,12 @@ function toggleSubjectsContent() {
     return;
   }
   
-  if (container.style.display === 'none' || container.style.display === '') {
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
     // Show content
+    container.style.display = 'block';
     getAllSubjects();
     button.textContent = 'Hide Subjects ▼';
     button.classList.add('active');
@@ -8306,12 +8473,8 @@ function toggleSubjectsContent() {
 }
 
 function toggleTestsContent() {
-  console.log('🔧 toggleTestsContent called');
   const container = document.getElementById('testsContainer');
   const button = document.querySelector('button[onclick="toggleTestsContent()"]');
-  
-  console.log('🔧 Container found:', container);
-  console.log('🔧 Button found:', button);
   
   if (!container) {
     console.error('❌ testsContainer not found');
@@ -8323,8 +8486,12 @@ function toggleTestsContent() {
     return;
   }
   
-  if (container.style.display === 'none' || container.style.display === '') {
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
     // Show content
+    container.style.display = 'block';
     getAllTests();
     button.textContent = 'Hide Tests ▼';
     button.classList.add('active');
@@ -8337,12 +8504,8 @@ function toggleTestsContent() {
 }
 
 function toggleAssignmentsContent() {
-  console.log('🔧 toggleAssignmentsContent called');
   const container = document.getElementById('assignmentsContainer');
   const button = document.querySelector('button[onclick="toggleAssignmentsContent()"]');
-  
-  console.log('🔧 Container found:', container);
-  console.log('🔧 Button found:', button);
   
   if (!container) {
     console.error('❌ assignmentsContainer not found');
@@ -8354,8 +8517,12 @@ function toggleAssignmentsContent() {
     return;
   }
   
-  if (container.style.display === 'none' || container.style.display === '') {
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
     // Show content
+    container.style.display = 'block';
     getTestAssignments();
     button.textContent = 'Hide Assignments ▼';
     button.classList.add('active');
@@ -8397,6 +8564,37 @@ function toggleResultsContent() {
   }
 }
 
+function toggleAcademicYearContent() {
+  const container = document.getElementById('academicYearTable');
+  const button = document.getElementById('checkAcademicYearBtn');
+  
+  if (!container) {
+    console.error('❌ academicYearTable not found');
+    return;
+  }
+  
+  if (!button) {
+    console.error('❌ checkAcademicYearBtn not found');
+    return;
+  }
+  
+  const computedDisplay = window.getComputedStyle(container).display;
+  const isHidden = container.style.display === 'none' || computedDisplay === 'none';
+  
+  if (isHidden) {
+    // Show content
+    container.style.display = 'block';
+    loadAcademicYear();
+    button.textContent = 'Hide Academic Year ▼';
+    button.classList.add('active');
+  } else {
+    // Hide content
+    container.style.display = 'none';
+    button.textContent = 'Check Academic Year ▶';
+    button.classList.remove('active');
+  }
+}
+
 // Enhanced User Management Functions
 async function getAllUsers() {
   try {
@@ -8404,7 +8602,8 @@ async function getAllUsers() {
     const data = await response.json();
     
     if (data.success) {
-      displayUsersTable(data.users);
+      const container = document.getElementById('allUsersContainer');
+      displayUsersTable(data.users, container);
     } else {
       console.error('Failed to get users:', data.message);
       // Fallback to sample data for testing
@@ -8468,7 +8667,8 @@ async function getAllTeachers() {
     const data = await response.json();
     
     if (data.success) {
-      displayTeachersTable(data.teachers);
+      const container = document.getElementById('allTeachersContainer');
+      displayTeachersTable(data.teachers, container);
     } else {
       console.error('Failed to get teachers:', data.message);
       // Fallback to sample data for testing
@@ -8757,6 +8957,11 @@ document.addEventListener('DOMContentLoaded', function() {
   if (newSubjectForm) {
     newSubjectForm.addEventListener('submit', handleAddSubject);
   }
+  
+  const newAcademicYearForm = document.getElementById('newAcademicYearForm');
+  if (newAcademicYearForm) {
+    newAcademicYearForm.addEventListener('submit', handleAddAcademicYear);
+  }
 
   // Add deletion form submit listeners
   const assignmentForm = document.getElementById('assignmentDeletionFormElement');
@@ -8863,7 +9068,8 @@ async function getAllSubjects() {
     const data = await response.json();
     
     if (data.success) {
-      displaySubjectsTable(data.subjects);
+      const container = document.getElementById('allSubjectsContainer');
+      displaySubjectsTable(data.subjects, container);
     } else {
       console.error('Failed to get subjects:', data.message);
       // Fallback to sample data for testing
@@ -9878,7 +10084,7 @@ function setupTestPageEventListeners(testType, testId) {
     console.log(`[DEBUG] setupTestPageEventListeners called with testType: ${testType}, testId: ${testId}`);
     
     // Add event listeners for different question types
-    if (testType === 'true-false' || testType === 'multiple-choice') {
+    if (testType === 'true_false' || testType === 'multiple_choice') {
         const radioButtons = document.querySelectorAll('input[type="radio"]');
         console.log(`[DEBUG] Found ${radioButtons.length} radio buttons for event listeners`);
         
@@ -10005,7 +10211,7 @@ function loadSavedProgressForPage(testType, testId) {
             const answer = progress[questionId];
             console.log(`[DEBUG] Restoring answer for question ${questionId}: ${answer}`);
             
-            if (testType === 'true-false' || testType === 'multiple-choice') {
+            if (testType === 'true_false' || testType === 'multiple_choice') {
                 const radio = document.querySelector(`input[name="question_${questionId}"][value="${answer}"]`);
                 if (radio) {
                     radio.checked = true;
@@ -10297,7 +10503,7 @@ function getAnsweredQuestionsCountForPage(testType) {
     
     let answeredCount = 0;
     
-    if (testType === 'true-false' || testType === 'multiple-choice') {
+    if (testType === 'true_false' || testType === 'multiple_choice') {
         const answeredRadios = document.querySelectorAll('input[type="radio"]:checked');
         answeredCount = answeredRadios.length;
         console.log(`[DEBUG] Found ${answeredCount} answered radio button questions`);
@@ -10333,8 +10539,8 @@ function getCurrentTestType() {
     if (testPage && testPage.style.display !== 'none') {
         // Look for clues in the DOM to determine test type
         if (document.querySelector('input[type="radio"]')) {
-            console.log('[DEBUG] Detected test type: radio-based (true-false or multiple-choice)');
-            return document.querySelector('input[type="radio"]').name.startsWith('question_') ? 'true-false' : 'multiple-choice';
+            console.log('[DEBUG] Detected test type: radio-based (true_false or multiple_choice)');
+            return document.querySelector('input[type="radio"]').name.startsWith('question_') ? 'true_false' : 'multiple_choice';
         } else if (document.querySelector('input[type="text"]')) {
             console.log('[DEBUG] Detected test type: input');
             return 'input';
@@ -10440,13 +10646,15 @@ function checkAnswerCorrectness(question, studentAnswer, testType) {
     let isCorrect = false;
     
     switch (testType) {
-        case 'true-false':
-            // Use correct_answer (not correctAnswer)
-            isCorrect = studentAnswer === question.correct_answer;
+        case 'true_false':
+            // Convert string answer to boolean for comparison
+            const booleanAnswer = studentAnswer === 'true';
+            isCorrect = booleanAnswer === question.correct_answer;
             break;
-        case 'multiple-choice':
-            // Use correct_answer (not correctAnswer)
-            isCorrect = parseInt(studentAnswer) === question.correct_answer;
+        case 'multiple_choice':
+            // Convert integer answer to letter for comparison with database
+            const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer)); // 0→A, 1→B, 2→C
+            isCorrect = letterAnswer === question.correct_answer;
             break;
         case 'input':
             // For grouped questions, check against all correct answers
@@ -10474,13 +10682,14 @@ function getCorrectAnswer(question, testType) {
     let correctAnswer = '';
     
     switch (testType) {
-        case 'true-false':
+        case 'true_false':
             correctAnswer = question.correct_answer ? 'True' : 'False'; // Fix: use correct_answer
             break;
-        case 'multiple-choice':
-            // Fix: construct option key from correct_answer (integer)
-            const optionKey = `option_${String.fromCharCode(97 + question.correct_answer)}`; // a, b, c, d
-            correctAnswer = question[optionKey] || `Option ${question.correct_answer + 1}`;
+        case 'multiple_choice':
+            // Database stores letters (A,B,C), convert to option key
+            const letterIndex = question.correct_answer.charCodeAt(0) - 65; // A→0, B→1, C→2
+            const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
+            correctAnswer = question[optionKey] || `Option ${question.correct_answer}`;
             break;
         case 'input':
             // For grouped questions, show all correct answers

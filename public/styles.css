@@ -4344,7 +4344,7 @@ textarea:focus {
 }
 
 .section-content.collapsed {
-  display: none !important;
+  display: none;
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;

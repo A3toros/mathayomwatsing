@@ -7,7 +7,7 @@ exports.handler = async function(event, context) {
   
   // CORS headers with Authorization support
   const headers = {
-    'Access-Control-Allow-Origin': 'https://yourdomain.com',
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Credentials': 'true'
