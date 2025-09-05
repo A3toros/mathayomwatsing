@@ -6,8 +6,8 @@ exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -18,10 +18,13 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'GET') {
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
@@ -59,28 +62,71 @@ exports.handler = async function(event, context) {
         })
       };
     }
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
-    // Query the database for all teachers
-    const teachers = await sql`
-      SELECT teacher_id, username
-      FROM teachers 
-      ORDER BY username
+
+    const { subject } = JSON.parse(event.body);
+
+    // Validate required fields
+    if (!subject) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Subject name is required'
+        })
+      };
+    }
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Check if subject already exists
+    const existingSubject = await sql`
+      SELECT subject FROM subjects 
+      WHERE subject = ${subject}
+    `;
+
+    if (existingSubject.length > 0) {
+      return {
+        statusCode: 409,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Subject with this name already exists'
+        })
+      };
+    }
+
+    // Insert new subject
+    const result = await sql`
+      INSERT INTO subjects (subject)
+      VALUES (${subject})
+      RETURNING subject_id
     `;
 
     return {
-      statusCode: 200,
+      statusCode: 201,
       headers: {
         ...headers,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         success: true,
-        teachers: teachers
+        message: 'Subject created successfully',
+        subject: {
+          subject_id: result[0].subject_id,
+          subject
+        }
       })
     };
+
   } catch (error) {
-    console.error('Get all teachers error:', error);
+    console.error('Add subject error:', error);
     
     return {
       statusCode: 500,
@@ -90,7 +136,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: false,
-        message: 'Failed to retrieve teachers',
+        message: 'Failed to create subject',
         error: error.message
       })
     };

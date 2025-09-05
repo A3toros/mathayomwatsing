@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   console.log('=== get-test-questions function called ===');
@@ -31,6 +32,27 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user has admin or student role
+    if (userInfo.role !== 'admin' && userInfo.role !== 'student') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Access denied. Admin or student role required.' })
+      };
+    }
+
     const { test_type, test_id } = event.queryStringParameters || {};
     
     console.log('Extracted params - test_type:', test_type, 'test_id:', test_id);
@@ -47,6 +69,7 @@ exports.handler = async function(event, context) {
     console.log('Connecting to database...');
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection established');
+
 
     let questions = [];
     let testInfo = {};
@@ -131,6 +154,7 @@ exports.handler = async function(event, context) {
           WHERE test_id = ${test_id}
           ORDER BY question_id
         `;
+        
         
         // Group questions by question_id and create correct_answers arrays
         const inputGrouped = new Map();

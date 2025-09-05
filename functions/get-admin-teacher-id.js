@@ -18,10 +18,13 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'GET') {
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
@@ -59,14 +62,47 @@ exports.handler = async function(event, context) {
         })
       };
     }
-            const sql = neon(process.env.NEON_DATABASE_URL);
+
+    const { username } = JSON.parse(event.body);
+
+    if (!username) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Username is required'
+        })
+      };
+    }
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
     
-    // Query the database for all teachers
+    // Query the database for teacher_id by username
     const teachers = await sql`
-      SELECT teacher_id, username
+      SELECT teacher_id
       FROM teachers 
-      ORDER BY username
+      WHERE username = ${username}
     `;
+
+    if (teachers.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Teacher not found'
+        })
+      };
+    }
+
+    const teacher = teachers[0];
 
     return {
       statusCode: 200,
@@ -76,11 +112,12 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: true,
-        teachers: teachers
+        teacher_id: teacher.teacher_id,
+        username: username
       })
     };
   } catch (error) {
-    console.error('Get all teachers error:', error);
+    console.error('Get admin teacher ID error:', error);
     
     return {
       statusCode: 500,
@@ -90,9 +127,10 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: false,
-        message: 'Failed to retrieve teachers',
+        message: 'Failed to retrieve teacher ID',
         error: error.message
       })
     };
   }
 };
+

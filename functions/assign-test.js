@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   // CORS headers
@@ -27,6 +28,27 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin or teacher
+    if (userInfo.role !== 'admin' && userInfo.role !== 'teacher') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Access denied. Admin or teacher role required.' })
+      };
+    }
+
     const { teacher_id, test_type, test_id, assignments } = JSON.parse(event.body);
 
     // Validate input

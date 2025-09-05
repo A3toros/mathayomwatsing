@@ -6,8 +6,8 @@ exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -18,10 +18,13 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'GET') {
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
@@ -59,28 +62,70 @@ exports.handler = async function(event, context) {
         })
       };
     }
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
-    // Query the database for all teachers
-    const teachers = await sql`
-      SELECT teacher_id, username
-      FROM teachers 
-      ORDER BY username
+
+    const { teacher_id, username, password } = JSON.parse(event.body);
+
+    // Validate required fields
+    if (!teacher_id || !username || !password) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'All fields are required'
+        })
+      };
+    }
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Check if teacher already exists
+    const existingTeacher = await sql`
+      SELECT teacher_id FROM teachers 
+      WHERE teacher_id = ${teacher_id}
+    `;
+
+    if (existingTeacher.length > 0) {
+      return {
+        statusCode: 409,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Teacher with this ID already exists'
+        })
+      };
+    }
+
+    // Insert new teacher
+    await sql`
+      INSERT INTO teachers (teacher_id, username, password)
+      VALUES (${teacher_id}, ${username}, ${password})
     `;
 
     return {
-      statusCode: 200,
+      statusCode: 201,
       headers: {
         ...headers,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         success: true,
-        teachers: teachers
+        message: 'Teacher created successfully',
+        teacher: {
+          teacher_id,
+          username
+        }
       })
     };
+
   } catch (error) {
-    console.error('Get all teachers error:', error);
+    console.error('Add teacher error:', error);
     
     return {
       statusCode: 500,
@@ -90,7 +135,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: false,
-        message: 'Failed to retrieve teachers',
+        message: 'Failed to create teacher',
         error: error.message
       })
     };

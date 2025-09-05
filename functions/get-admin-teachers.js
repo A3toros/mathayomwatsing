@@ -6,8 +6,8 @@ exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -21,7 +21,10 @@ exports.handler = async function(event, context) {
   if (event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
@@ -59,9 +62,10 @@ exports.handler = async function(event, context) {
         })
       };
     }
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
-    // Query the database for all teachers
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Get all teachers for admin panel dropdown
     const teachers = await sql`
       SELECT teacher_id, username
       FROM teachers 
@@ -79,8 +83,9 @@ exports.handler = async function(event, context) {
         teachers: teachers
       })
     };
+
   } catch (error) {
-    console.error('Get all teachers error:', error);
+    console.error('Get admin teachers error:', error);
     
     return {
       statusCode: 500,

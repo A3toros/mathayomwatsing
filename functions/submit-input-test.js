@@ -132,11 +132,32 @@ exports.handler = async function(event, context) {
     
     const academicPeriodId = currentPeriod.length > 0 ? currentPeriod[0].id : null;
 
-    // Insert test result - FIXED: Use correct table name for input tests
+    // Validate answers on backend
+    const correctAnswers = await sql`
+      SELECT question_id, correct_answer 
+      FROM input_test_questions 
+      WHERE test_id = ${test_id}
+    `;
+
+    let actualScore = 0;
+    const validatedAnswers = answers.map(answer => {
+      const correct = correctAnswers.find(ca => ca.question_id === answer.question_id);
+      const isCorrect = correct && answer.user_answer.toLowerCase().trim() === correct.correct_answer.toLowerCase().trim();
+      if (isCorrect) actualScore++;
+      
+      return {
+        ...answer,
+        is_correct: isCorrect
+      };
+    });
+
+    const totalQuestions = correctAnswers.length;
+
+    // Insert test result with validated score
     const result = await sql`
       INSERT INTO input_test_results 
       (test_id, test_name, student_id, grade, class, number, name, surname, nickname, score, max_score, answers, academic_period_id)
-      VALUES (${test_id}, ${test_name}, ${studentId}, ${grade}, ${className}, ${number}, ${name}, ${surname}, ${nickname}, ${score}, ${maxScore}, ${JSON.stringify(answers)}, ${academicPeriodId})
+      VALUES (${test_id}, ${test_name}, ${studentId}, ${grade}, ${className}, ${number}, ${name}, ${surname}, ${nickname}, ${actualScore}, ${totalQuestions}, ${JSON.stringify(validatedAnswers)}, ${academicPeriodId})
       RETURNING id
     `;
 
@@ -148,8 +169,11 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({ 
         success: true, 
-        id: result[0].id,
-        message: 'Input test result saved successfully' 
+        result_id: result[0].id,
+        score: actualScore,
+        max_score: totalQuestions,
+        percentage_score: Math.round((actualScore / totalQuestions) * 100),
+        message: 'Input test submitted successfully' 
       })
     };
 

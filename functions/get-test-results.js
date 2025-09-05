@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 require('dotenv').config();
 
 // ⚠️ CRITICAL REMINDER: We get teacher_id from test_results tables, NOT from test tables!
@@ -41,6 +42,27 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin
+    if (userInfo.role !== 'admin') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Access denied. Admin role required.' })
+      };
+    }
+
     const sql = neon(process.env.NEON_DATABASE_URL);
     
     console.log('🔍 Starting to fetch test results...');

@@ -1,4 +1,6 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
+require('dotenv').config();
 
 exports.handler = async function(event, context) {
   // CORS headers
@@ -27,16 +29,28 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    const { action, academic_year_id, academic_year, semester, term, start_date, end_date, admin_secret } = JSON.parse(event.body);
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
 
-    // Verify admin secret
-    if (admin_secret !== process.env.ADMIN_SECRET_CODE) {
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin
+    if (userInfo.role !== 'admin') {
       return {
         statusCode: 403,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Unauthorized' })
+        body: JSON.stringify({ error: 'Access denied. Admin role required.' })
       };
     }
+
+    const { action, academic_year_id, academic_year, semester, term, start_date, end_date } = JSON.parse(event.body);
 
     // Validate input
     if (!action || !['add', 'edit', 'delete'].includes(action)) {

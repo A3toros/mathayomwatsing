@@ -72,8 +72,8 @@ exports.handler = async function(event, context) {
     const accessToken = jwt.sign(
       {
         sub: admin.username, // Using username as admin ID
-        role: 'teacher', // Admin appears as teacher to backend
-        teacher_id: 'admin', // Special admin teacher_id
+        role: 'admin', // Admin has dedicated admin role
+        admin_id: 1, // Admin ID for database queries
         username: admin.username
       },
       process.env.JWT_SECRET,
@@ -83,8 +83,8 @@ exports.handler = async function(event, context) {
     const refreshToken = jwt.sign(
       {
         sub: admin.username,
-        role: 'teacher', // Admin appears as teacher to backend
-        teacher_id: 'admin', // Special admin teacher_id
+        role: 'admin', // Admin has dedicated admin role
+        admin_id: 1, // Admin ID for database queries
         type: 'refresh'
       },
       process.env.JWT_REFRESH_SECRET,
@@ -104,11 +104,11 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({
         success: true,
         message: 'Login successful',
-        role: 'teacher', // Admin appears as teacher to frontend
+        role: 'admin', // Admin has dedicated admin role
         accessToken: accessToken,
         admin: {
           username: admin.username,
-          teacher_id: 'admin' // Special admin teacher_id
+          admin_id: 1 // Admin ID for database queries
         }
       })
     };

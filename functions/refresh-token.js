@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { neon } = require('@neondatabase/serverless');
 
 exports.handler = async function(event, context) {
   // Enable CORS with Authorization header support
@@ -79,22 +80,48 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // For students, fetch fresh data from database
+    let userData = {
+      sub: decoded.sub,
+      role: decoded.role
+    };
+
+    if (decoded.role === 'student') {
+      try {
+        const sql = neon(process.env.NEON_DATABASE_URL);
+        const students = await sql`
+          SELECT student_id, name, surname, nickname, grade, class, number
+          FROM users 
+          WHERE student_id = ${decoded.sub}
+        `;
+        
+        if (students.length > 0) {
+          const student = students[0];
+          userData = {
+            sub: student.student_id,
+            role: 'student',
+            name: student.name,
+            surname: student.surname,
+            nickname: student.nickname,
+            grade: student.grade,
+            class: student.class,
+            number: student.number
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching student data during refresh:', error);
+        // Fall back to basic data if database query fails
+      }
+    } else if (decoded.role === 'teacher') {
+      // For teachers, include username if available
+      userData.username = decoded.username;
+    } else if (decoded.role === 'admin') {
+      // For admins, include username if available
+      userData.username = decoded.username;
+    }
+
     // Generate new access token
-    const newAccessToken = jwt.sign(
-      {
-        sub: decoded.sub,
-        role: decoded.role,
-        name: decoded.name,
-        surname: decoded.surname,
-        nickname: decoded.nickname,
-        grade: decoded.grade,
-        class: decoded.class,
-        number: decoded.number,
-        username: decoded.username
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '30m' }
-    );
+    const newAccessToken = jwt.sign(userData, process.env.JWT_SECRET, { expiresIn: '30m' });
 
     return {
       statusCode: 200,

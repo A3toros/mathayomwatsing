@@ -860,8 +860,9 @@
   .matching-test__results-container {
     padding: 20px 15px;
     margin: 10px;
-    max-width: calc(100vw - 70px); /* Fix: Account for all padding (20px section + 20px margin + 30px padding) */
+    width: 100%;
     box-sizing: border-box;
+    /* Remove max-width calculation - let it naturally fit within parent's padding */
   }
   
   .matching-test__results-section {

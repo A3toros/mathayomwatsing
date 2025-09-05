@@ -26,7 +26,7 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // Validate JWT token and extract teacher information
+    // Validate JWT token and extract user information
     const result = validateToken(event);
     
     if (!result.success) {
@@ -40,8 +40,36 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // Check if user is teacher or admin
+    if (result.user.role !== 'teacher' && result.user.role !== 'admin') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'Access denied. Teacher or admin role required.'
+        })
+      };
+    }
+
     const { subjects } = JSON.parse(event.body);
-    const teacher_id = result.user.teacher_id;
+    
+    // Handle admin vs regular teacher
+    let teacher_id;
+    if (result.user.role === 'admin') {
+      // Admin can save subjects for any teacher - get from request body
+      teacher_id = JSON.parse(event.body).teacher_id;
+      if (!teacher_id) {
+        return {
+          statusCode: 400,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: false, message: 'teacher_id required for admin users' })
+        };
+      }
+    } else {
+      // Regular teacher uses their own ID
+      teacher_id = result.user.teacher_id;
+    }
 
     if (!subjects || !Array.isArray(subjects)) {
       return {

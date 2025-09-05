@@ -6,8 +6,8 @@ exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -18,10 +18,13 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'GET') {
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
@@ -59,13 +62,50 @@ exports.handler = async function(event, context) {
         })
       };
     }
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
-    // Query the database for all teachers
-    const teachers = await sql`
-      SELECT teacher_id, username
-      FROM teachers 
-      ORDER BY username
+
+    const { teacherId } = JSON.parse(event.body);
+
+    // Validate required fields
+    if (!teacherId) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'teacherId is required'
+        })
+      };
+    }
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Check if teacher exists
+    const existingTeacher = await sql`
+      SELECT teacher_id FROM teachers 
+      WHERE teacher_id = ${teacherId}
+    `;
+
+    if (existingTeacher.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Teacher not found'
+        })
+      };
+    }
+
+    // Delete teacher
+    await sql`
+      DELETE FROM teachers 
+      WHERE teacher_id = ${teacherId}
     `;
 
     return {
@@ -76,11 +116,13 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: true,
-        teachers: teachers
+        message: 'Teacher deleted successfully',
+        teacherId
       })
     };
+
   } catch (error) {
-    console.error('Get all teachers error:', error);
+    console.error('Delete teacher error:', error);
     
     return {
       statusCode: 500,
@@ -90,7 +132,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: false,
-        message: 'Failed to retrieve teachers',
+        message: 'Failed to delete teacher',
         error: error.message
       })
     };

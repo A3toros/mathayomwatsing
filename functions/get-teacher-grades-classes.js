@@ -38,17 +38,19 @@ exports.handler = async function(event, context) {
     }
 
     const userInfo = result.user;
-    if (userInfo.role !== 'teacher') {
+    
+    // Check if user is teacher or admin
+    if (userInfo.role !== 'teacher' && userInfo.role !== 'admin') {
       return {
         statusCode: 403,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: false, message: 'Access denied. Teacher role required.' })
+        body: JSON.stringify({ success: false, message: 'Access denied. Teacher or admin role required.' })
       };
     }
 
     // Handle admin vs regular teacher
     let teacherId;
-    if (userInfo.teacher_id === 'admin') {
+    if (userInfo.role === 'admin') {
       // Admin can query any teacher - get from query parameter
       teacherId = event.queryStringParameters?.teacher_id;
       if (!teacherId) {

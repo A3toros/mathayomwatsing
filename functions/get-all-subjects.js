@@ -1,4 +1,6 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
+require('dotenv').config();
 
 exports.handler = async function(event, context) {
   // Enable CORS
@@ -25,7 +27,40 @@ exports.handler = async function(event, context) {
   }
 
   try {
-            const sql = neon(process.env.NEON_DATABASE_URL);
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: tokenValidation.error
+        })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin
+    if (userInfo.role !== 'admin') {
+      return {
+        statusCode: 403,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Access denied. Admin role required.'
+        })
+      };
+    }
+
+    const sql = neon(process.env.NEON_DATABASE_URL);
     
     // Query the database for all subjects
     const subjects = await sql`

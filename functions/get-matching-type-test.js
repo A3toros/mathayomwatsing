@@ -28,6 +28,20 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Extract and validate JWT token
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return {
+        statusCode: 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Authorization token required' })
+      };
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log('JWT token extracted, length:', token.length);
+
     const { test_id } = event.queryStringParameters || {};
     
     console.log('Requested test ID:', test_id);

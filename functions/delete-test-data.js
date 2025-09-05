@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 const cloudinary = require('cloudinary').v2;
 
 // Configure Cloudinary
@@ -45,6 +46,11 @@ const deleteCloudinaryImage = async (imageUrl) => {
 };
 
 exports.handler = async function(event, context) {
+  console.log('=== DELETE TEST DATA FUNCTION CALLED ===');
+  console.log('Event method:', event.httpMethod);
+  console.log('Event body:', event.body);
+  console.log('DEBUG - Function entry point reached');
+  
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -74,15 +80,41 @@ exports.handler = async function(event, context) {
     };
   }
 
+  console.log('DEBUG - Checking HTTP method:', event.httpMethod);
+  
   if (event.httpMethod !== 'DELETE') {
+    console.log('DEBUG - Method not DELETE, returning 405');
     return {
       statusCode: 405,
       headers,
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
+  
+  console.log('DEBUG - Method is DELETE, proceeding with deletion');
 
   try {
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin
+    if (userInfo.role !== 'admin') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Access denied. Admin role required.' })
+      };
+    }
+
     console.log('=== DELETE TEST DATA FUNCTION STARTED ===');
     console.log('Event method:', event.httpMethod);
     console.log('Event body:', event.body);
@@ -124,9 +156,20 @@ exports.handler = async function(event, context) {
     
     const { startDate, endDate, teacherId, grades, classes, subjectId } = requestData;
     console.log('Parsed request data:', { startDate, endDate, teacherId, grades, classes, subjectId });
+    console.log('DEBUG - Teacher ID details:');
+    console.log('  - teacherId value:', teacherId);
+    console.log('  - teacherId type:', typeof teacherId);
+    console.log('  - teacherId length:', teacherId ? teacherId.length : 'null/undefined');
+    console.log('  - teacherId === "":', teacherId === "");
+    console.log('  - teacherId === null:', teacherId === null);
+    console.log('  - teacherId === undefined:', teacherId === undefined);
 
     if (!startDate || !endDate || !teacherId) {
       console.log('Validation failed: missing required fields');
+      console.log('DEBUG - Validation details:');
+      console.log('  - startDate valid:', !!startDate);
+      console.log('  - endDate valid:', !!endDate);
+      console.log('  - teacherId valid:', !!teacherId);
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -181,6 +224,83 @@ exports.handler = async function(event, context) {
     console.log('Starting database transaction...');
     await sql`BEGIN`;
     console.log('Transaction started');
+    
+    // Debug: Check what tests exist for this teacher and date range
+    console.log('=== DEBUG: Checking existing tests ===');
+    console.log('DEBUG - About to run debug queries with:', { teacherId, startDate, endDate });
+    console.log('DEBUG - Date types:', { 
+      startDateType: typeof startDate, 
+      endDateType: typeof endDate,
+      startDateValue: startDate,
+      endDateValue: endDate
+    });
+    try {
+      const multipleChoiceTests = await sql`
+        SELECT id, title, created_at, teacher_id 
+        FROM multiple_choice_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDate}
+      `;
+      console.log('Multiple Choice Tests found:', multipleChoiceTests.length, multipleChoiceTests);
+      
+      const trueFalseTests = await sql`
+        SELECT id, title, created_at, teacher_id 
+        FROM true_false_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDate}
+      `;
+      console.log('True/False Tests found:', trueFalseTests.length, trueFalseTests);
+      
+      const inputTests = await sql`
+        SELECT id, title, created_at, teacher_id 
+        FROM input_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDate}
+      `;
+      console.log('Input Tests found:', inputTests.length, inputTests);
+      
+      const matchingTests = await sql`
+        SELECT id, title, created_at, teacher_id 
+        FROM matching_type_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDate}
+      `;
+      console.log('Matching Tests found:', matchingTests.length, matchingTests);
+      
+      // Check if teacher exists at all
+      const teacherCheck = await sql`
+        SELECT teacher_id, username 
+        FROM teachers 
+        WHERE teacher_id = ${teacherId}
+      `;
+      console.log('Teacher exists:', teacherCheck.length > 0, teacherCheck);
+      
+      // Check all tests for this teacher (any date)
+      const allTestsForTeacher = await sql`
+        SELECT 'multiple_choice' as type, id, title, created_at 
+        FROM multiple_choice_tests 
+        WHERE teacher_id = ${teacherId}
+        UNION ALL
+        SELECT 'true_false' as type, id, title, created_at 
+        FROM true_false_tests 
+        WHERE teacher_id = ${teacherId}
+        UNION ALL
+        SELECT 'input' as type, id, title, created_at 
+        FROM input_tests 
+        WHERE teacher_id = ${teacherId}
+        UNION ALL
+        SELECT 'matching' as type, id, title, created_at 
+        FROM matching_type_tests 
+        WHERE teacher_id = ${teacherId}
+        ORDER BY created_at DESC
+      `;
+      console.log('All tests for teacher (any date):', allTestsForTeacher.length, allTestsForTeacher);
+      
+    } catch (debugError) {
+      console.error('Debug query error:', debugError);
+      console.error('Debug error stack:', debugError.stack);
+    }
+    console.log('=== DEBUG: Debug queries completed ===');
 
     try {
       let totalDeleted = 0;
@@ -225,6 +345,9 @@ exports.handler = async function(event, context) {
         }
         
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
 
@@ -268,10 +391,10 @@ exports.handler = async function(event, context) {
         } else if (tableName === 'matching_type_test_results') {
           result = await sql`
             DELETE FROM matching_type_test_results 
-            WHERE created_at BETWEEN ${startDate} AND ${endDate}
-            AND test_id IN (
+            WHERE test_id IN (
               SELECT id FROM matching_type_tests 
               WHERE teacher_id = ${teacherId}
+              AND created_at BETWEEN ${startDate} AND ${endDate}
             )
           `;
         } else {
@@ -279,6 +402,9 @@ exports.handler = async function(event, context) {
         }
         
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
 
@@ -400,6 +526,9 @@ exports.handler = async function(event, context) {
         }
 
         console.log(`Deleted ${result.rowCount} test assignments`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
 
@@ -437,6 +566,9 @@ exports.handler = async function(event, context) {
         }
         
         console.log(`Deleted ${result.rowCount} rows from ${tableName}`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
 
@@ -524,34 +656,40 @@ exports.handler = async function(event, context) {
         // Use neon's template literal syntax for safe SQL execution
         const result = await sql`
           DELETE FROM matching_type_test_arrows mta
-          WHERE mta.created_at BETWEEN ${startDate} AND ${endDate}
-          AND mta.question_id IN (
+          WHERE mta.question_id IN (
             SELECT mtq.id FROM matching_type_test_questions mtq
             WHERE mtq.test_id IN (
               SELECT id FROM matching_type_tests 
               WHERE teacher_id = ${teacherId}
+              AND created_at BETWEEN ${startDate} AND ${endDate}
             )
           )
         `;
         console.log(`Deleted ${result.rowCount} matching type test arrows`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
       
       deletionSummary.matching.arrows = await deleteMatchingArrows();
       
-      // Delete questions (has created_at column, so can filter by date)
+      // Delete questions (filter by test creation date, not question creation date)
       const deleteMatchingQuestions = async () => {
         console.log('Deleting matching type test questions with date and teacher filter...');
         // Use neon's template literal syntax for safe SQL execution
         const result = await sql`
           DELETE FROM matching_type_test_questions mtq
-          WHERE mtq.created_at BETWEEN ${startDate} AND ${endDate}
-          AND mtq.test_id IN (
+          WHERE mtq.test_id IN (
             SELECT id FROM matching_type_tests 
             WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDate}
           )
         `;
         console.log(`Deleted ${result.rowCount} matching type test questions`);
+        console.log('DEBUG - Full result object:', JSON.stringify(result, null, 2));
+        console.log('DEBUG - Result keys:', Object.keys(result));
+        console.log('DEBUG - Result type:', typeof result);
         return result.rowCount;
       };
       

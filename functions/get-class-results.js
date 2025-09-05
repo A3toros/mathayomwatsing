@@ -44,7 +44,9 @@ exports.handler = async function(event, context) {
     }
 
     const userInfo = result.user;
-    if (userInfo.role !== 'teacher') {
+    
+    // Check if user is teacher or admin
+    if (userInfo.role !== 'teacher' && userInfo.role !== 'admin') {
       return {
         statusCode: 403,
         headers: {
@@ -53,13 +55,35 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Access denied. Teacher role required.'
+          message: 'Access denied. Teacher or admin role required.'
         })
       };
     }
 
     const { grade, class: className, semester } = event.queryStringParameters || {};
-    const teacher_id = userInfo.teacher_id;
+    
+    // Handle admin vs regular teacher
+    let teacher_id;
+    if (userInfo.role === 'admin') {
+      // Admin can query any teacher - get from query parameter
+      teacher_id = event.queryStringParameters?.teacher_id;
+      if (!teacher_id) {
+        return {
+          statusCode: 400,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: false,
+            message: 'teacher_id query parameter required for admin users'
+          })
+        };
+      }
+    } else {
+      // Regular teacher uses their own ID
+      teacher_id = userInfo.teacher_id;
+    }
 
     if (!grade || !className || !semester) {
       return {

@@ -103,12 +103,9 @@ exports.handler = async function(event, context) {
     if (decoded.role === 'student') {
       userInfo.student_id = decoded.sub;
     } else if (decoded.role === 'teacher') {
-      // Check if this is an admin (has teacher_id: 'admin')
-      if (decoded.teacher_id === 'admin') {
-        userInfo.teacher_id = 'admin'; // Special admin teacher_id
-      } else {
-        userInfo.teacher_id = decoded.sub; // Regular teacher
-      }
+      userInfo.teacher_id = decoded.sub; // Regular teacher
+    } else if (decoded.role === 'admin') {
+      userInfo.admin_id = decoded.admin_id; // Admin ID
     }
 
     // Remove undefined values
@@ -187,12 +184,9 @@ function validateToken(event) {
     if (decoded.role === 'student') {
       userInfo.student_id = decoded.sub;
     } else if (decoded.role === 'teacher') {
-      // Check if this is an admin (has teacher_id: 'admin')
-      if (decoded.teacher_id === 'admin') {
-        userInfo.teacher_id = 'admin'; // Special admin teacher_id
-      } else {
-        userInfo.teacher_id = decoded.sub; // Regular teacher
-      }
+      userInfo.teacher_id = decoded.sub; // Regular teacher
+    } else if (decoded.role === 'admin') {
+      userInfo.admin_id = decoded.admin_id; // Admin ID
     }
 
     return {

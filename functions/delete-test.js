@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
   console.log('=== delete-test function called ===');
@@ -30,6 +31,27 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    // Validate admin token
+    const tokenValidation = validateToken(event);
+    if (!tokenValidation.success) {
+      return {
+        statusCode: tokenValidation.statusCode || 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: tokenValidation.error })
+      };
+    }
+
+    const userInfo = tokenValidation.user;
+    
+    // Check if user is admin
+    if (userInfo.role !== 'admin') {
+      return {
+        statusCode: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Access denied. Admin role required.' })
+      };
+    }
+
     const { teacher_id, test_type, test_id } = JSON.parse(event.body) || {};
     
     console.log('Extracted params - teacher_id:', teacher_id, 'test_type:', test_type, 'test_id:', test_id);

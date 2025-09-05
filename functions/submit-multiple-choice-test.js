@@ -132,11 +132,32 @@ exports.handler = async function(event, context) {
     
     const academicPeriodId = currentPeriod.length > 0 ? currentPeriod[0].id : null;
 
-    // Insert test result
+    // Validate answers on backend
+    const correctAnswers = await sql`
+      SELECT question_id, correct_answer 
+      FROM multiple_choice_test_questions 
+      WHERE test_id = ${test_id}
+    `;
+
+    let actualScore = 0;
+    const validatedAnswers = answers.map(answer => {
+      const correct = correctAnswers.find(ca => ca.question_id === answer.question_id);
+      const isCorrect = correct && answer.selected_answer === correct.correct_answer;
+      if (isCorrect) actualScore++;
+      
+      return {
+        ...answer,
+        is_correct: isCorrect
+      };
+    });
+
+    const totalQuestions = correctAnswers.length;
+
+    // Insert test result with validated score
     const result = await sql`
       INSERT INTO multiple_choice_test_results 
       (test_id, test_name, grade, class, number, student_id, name, surname, nickname, score, max_score, answers, academic_period_id)
-      VALUES (${test_id}, ${test_name}, ${grade}, ${className}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${score}, ${maxScore}, ${JSON.stringify(answers)}, ${academicPeriodId})
+      VALUES (${test_id}, ${test_name}, ${grade}, ${className}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${actualScore}, ${totalQuestions}, ${JSON.stringify(validatedAnswers)}, ${academicPeriodId})
       RETURNING id
     `;
 
@@ -148,8 +169,11 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({ 
         success: true, 
-        id: result[0].id,
-        message: 'Multiple choice test result saved successfully' 
+        result_id: result[0].id,
+        score: actualScore,
+        max_score: totalQuestions,
+        percentage_score: Math.round((actualScore / totalQuestions) * 100),
+        message: 'Multiple choice test submitted successfully' 
       })
     };
 
