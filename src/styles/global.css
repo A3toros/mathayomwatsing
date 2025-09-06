@@ -3344,12 +3344,25 @@ tr:hover td {
   border-radius: var(--border-radius);
   padding: var(--space-md);
   border: 1px solid var(--border-color);
+  text-align: center;
 }
 
 .answer-options p {
   margin: var(--space-sm) 0;
   color: var(--text-light);
 }
+
+.radio-option {
+  display: block;
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm);
+}
+
+.radio-option input[type="radio"] {
+  transform: scale(1.5);
+  margin-right: var(--space-sm);
+}
+
 
 .correct-answer {
   color: var(--success-color) !important;

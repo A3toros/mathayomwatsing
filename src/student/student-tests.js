@@ -351,6 +351,12 @@ function clearTestDataAndReturnToCabinet() {
         console.log('[DEBUG] Test data cleared for:', { currentTestType, currentTestId, currentStudentId });
     }
     
+    // Clear test page DOM content to prevent flash of previous test data
+    const testPage = document.getElementById('test-page');
+    if (testPage) {
+        testPage.innerHTML = '';
+    }
+    
     // Navigate back to cabinet
     navigateBackToCabinet();
     
