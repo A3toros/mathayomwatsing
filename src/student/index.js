@@ -71,6 +71,16 @@ function initializeStudentApp() {
   console.log('🎓 Setting up back to cabinet button listeners...');
   setupBackToCabinetListeners();
   
+  // Set up password change form listener
+  console.log('🎓 Setting up password change form listener...');
+  const passwordForm = document.getElementById('changePasswordForm');
+  if (passwordForm) {
+    passwordForm.addEventListener('submit', handlePasswordChange);
+    console.log('🎓 Password change form listener added');
+  } else {
+    console.warn('🎓 Password change form not found');
+  }
+  
   // Load student data
   console.log('🎓 Loading student data...');
   loadStudentData()
@@ -81,6 +91,7 @@ function initializeStudentApp() {
   window.showChangePasswordTab = showChangePasswordTab;
   window.hideChangePasswordTab = hideChangePasswordTab;
   window.navigateBackToCabinet = navigateBackToCabinet;
+  window.handlePasswordChange = handlePasswordChange;
   
   // Import and expose additional student functions
   Promise.all([
@@ -188,6 +199,82 @@ function hideChangePasswordTab() {
   const form = document.getElementById('changePasswordForm');
   if (form) {
     form.reset();
+  }
+}
+
+/**
+ * Handle password change form submission
+ */
+async function handlePasswordChange(event) {
+  event.preventDefault();
+  
+  const currentPassword = document.getElementById('currentPassword').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  
+  // Validation
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    showNotification('Please fill in all fields', 'error');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    showNotification('New passwords do not match', 'error');
+    return;
+  }
+  
+  if (newPassword.length < 3) {
+    showNotification('New password must be at least 3 characters long', 'error');
+    return;
+  }
+  
+  // Get current user from JWT token
+  if (!window.tokenManager || !window.tokenManager.isAuthenticated()) {
+    showNotification('Session expired. Please login again.', 'error');
+    return;
+  }
+  
+  const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
+  if (!decoded || !decoded.sub) {
+    showNotification('Invalid session. Please login again.', 'error');
+    return;
+  }
+  
+  const studentId = decoded.sub;
+  
+  // Show confirmation dialog
+  if (!confirm('Are you sure you want to change your password?')) {
+    return;
+  }
+  
+  try {
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/change-student-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        studentId: studentId,
+        currentPassword: currentPassword,
+        newPassword: newPassword
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification('Password changed successfully!', 'success');
+      
+      // Password updated successfully - JWT token remains valid
+      
+      // Return to cabinet
+      hideChangePasswordTab();
+    } else {
+      showNotification(data.message || 'Failed to change password', 'error');
+    }
+  } catch (error) {
+    console.error('Password change error:', error);
+    showNotification('Failed to change password. Please try again.', 'error');
   }
 }
 

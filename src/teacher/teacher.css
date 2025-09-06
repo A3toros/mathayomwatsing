@@ -18,6 +18,7 @@
   background: none;
   -webkit-text-fill-color: white;
   color: white;
+  font-size: 2rem;
   margin-bottom: var(--space-md);
   position: relative;
   z-index: 1;
@@ -448,6 +449,16 @@
 }
 
 @media (max-width: 480px) {
+  .teacher-header {
+    padding: var(--space-md);
+    margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
+  }
+  
+  .teacher-header h1 {
+    font-size: 16px !important;
+    margin-bottom: var(--space-sm);
+  }
+  
   .subject-selection {
     padding: var(--space-lg);
   }

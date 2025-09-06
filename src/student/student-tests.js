@@ -581,25 +581,27 @@ async function displayStudentActiveTests(tests) {
     };
 
     const renderItem = (test) => {
-        return `
-            <div class="student-active-item ${test.isCompleted ? 'completed' : ''}" data-test-id="${test.test_id}" data-test-type="${test.test_type}">
-                <div class="student-active-info">
-                    <span class="student-test-name">${test.test_name}</span>
-                    <span class="dot">·</span>
-                    <span class="student-subject">${test.subject_name}</span>
-                    <span class="dot">·</span>
-                    <span class="student-teacher">${test.teacher_name}</span>
-                    <span class="dot">·</span>
-                    <span class="student-question-count">${test.num_questions || 0} questions</span>
-                </div>
-                <div class="student-active-actions">
-                    ${test.isCompleted ?
-                        '<span class="student-completed-text">Completed</span>' :
-                        `<button class="btn btn-primary btn-sm start-test-btn" type="button" onclick="navigateToTest('${test.test_type}', ${test.test_id})">Start</button>`
-                    }
-                </div>
-            </div>
-        `;
+        // Use string concatenation instead of template literals for better mobile compatibility
+        const completedClass = test.isCompleted ? 'completed' : '';
+        const questionCount = test.num_questions || 0;
+        const actionButton = test.isCompleted ?
+            '<span class="student-completed-text">Completed</span>' :
+            '<button class="btn btn-primary btn-sm start-test-btn" type="button" onclick="navigateToTest(\'' + test.test_type + '\', ' + test.test_id + ')">Start</button>';
+        
+        return '<div class="student-active-item ' + completedClass + '" data-test-id="' + test.test_id + '" data-test-type="' + test.test_type + '">' +
+            '<div class="student-active-info">' +
+                '<span class="student-test-name">' + test.test_name + '</span>' +
+                '<span class="dot">·</span>' +
+                '<span class="student-subject">' + test.subject_name + '</span>' +
+                '<span class="dot">·</span>' +
+                '<span class="student-teacher">' + test.teacher_name + '</span>' +
+                '<span class="dot">·</span>' +
+                '<span class="student-question-count">' + questionCount + ' questions</span>' +
+            '</div>' +
+            '<div class="student-active-actions">' +
+                actionButton +
+            '</div>' +
+        '</div>';
     };
 
     let html = '<div class="student-active-list">';
@@ -633,33 +635,31 @@ async function displayStudentActiveTests(tests) {
     const dash = c * (1 - pct / 100);
     const msgClass = averagePct == null ? 'neutral' : (pct <= 50 ? 'low' : (pct <= 70 ? 'mid' : 'high'));
     
-    const avgWidgetHtml = `
-        <div class="avg-score-widget">
-            <div class="avg-title">Average score</div>
-            <svg class="avg-circle" width="140" height="140" viewBox="0 0 140 140" aria-label="Average score">
-                <defs>
-                    <linearGradient id="avgViolet" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#8a2be2"/>
-                        <stop offset="100%" stop-color="#a855f7"/>
-                    </linearGradient>
-                    <linearGradient id="avgFillPB" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#8a2be2"/>
-                        <stop offset="100%" stop-color="#3b82f6"/>
-                    </linearGradient>
-                </defs>
-                
-                <circle cx="70" cy="70" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-                <circle cx="70" cy="70" r="50" fill="none" stroke="url(#avgFillPB)" stroke-width="8" 
-                        stroke-dasharray="${c}" stroke-dashoffset="${dash}" 
-                        transform="rotate(-90 70 70)"/>
-            </svg>
-            <div class="avg-text">
-                <span class="avg-number">${pct}</span>
-                <span class="avg-percent">%</span>
-            </div>
-            <div class="avg-message">${getAvgMessage(averagePct)}</div>
-        </div>
-    `;
+    // Use string concatenation instead of template literals for better mobile compatibility
+    const avgWidgetHtml = '<div class="avg-score-widget">' +
+        '<div class="avg-title">Average score</div>' +
+        '<svg class="avg-circle" width="140" height="140" viewBox="0 0 140 140" aria-label="Average score">' +
+            '<defs>' +
+                '<linearGradient id="avgViolet" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                    '<stop offset="0%" stop-color="#8a2be2"/>' +
+                    '<stop offset="100%" stop-color="#a855f7"/>' +
+                '</linearGradient>' +
+                '<linearGradient id="avgFillPB" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                    '<stop offset="0%" stop-color="#8a2be2"/>' +
+                    '<stop offset="100%" stop-color="#3b82f6"/>' +
+                '</linearGradient>' +
+            '</defs>' +
+            '<circle cx="70" cy="70" r="50" fill="none" stroke="#e5e7eb" stroke-width="8"/>' +
+            '<circle cx="70" cy="70" r="50" fill="none" stroke="url(#avgFillPB)" stroke-width="8" ' +
+                'stroke-dasharray="' + c + '" stroke-dashoffset="' + dash + '" ' +
+                'transform="rotate(-90 70 70)"/>' +
+        '</svg>' +
+        '<div class="avg-text">' +
+            '<span class="avg-number">' + pct + '</span>' +
+            '<span class="avg-percent">%</span>' +
+        '</div>' +
+        '<div class="avg-message">' + getAvgMessage(averagePct) + '</div>' +
+    '</div>';
     
     // Add average score widget to HTML before setting innerHTML
     html += avgWidgetHtml;
@@ -1276,7 +1276,6 @@ async function loadTestForPage(testType, testId) {
         }
         
         // Debug: Check if test page is still visible after loading
-        const testPage = document.getElementById('test-page');
         if (testPage) {
             console.log('[DEBUG] After test load - Test page visibility:', {
                 display: testPage.style.display,

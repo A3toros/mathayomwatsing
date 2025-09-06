@@ -3,6 +3,102 @@
    Student Cabinet, Active Tests, Subject Tabs, Test Taking Interface
    ============================================================================= */
 
+/* Outer Container - Slight padding to not touch screen edge */
+.test-page-section {
+  padding: var(--space-lg) 2%;
+}
+
+/* Test Question Containers */
+.question-container {
+  background: white;
+  padding: 2% 4%;
+  margin: 0;
+  border-radius: 0;
+  border: 2px solid var(--border-color);
+  box-shadow: none;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Container Merging - Make outer and inner containers appear as one */
+.questions-container > .question-container {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+.questions-container > .question-container:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.question-container h4 {
+  color: var(--secondary-color);
+  margin: 0 0 2% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2%;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  text-align: center;
+}
+
+.question-number {
+  background: var(--primary-color);
+  color: white;
+  padding: 1.5% 2%;
+  border-radius: 50%;
+  font-size: var(--text-sm);
+  min-width: 2.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.question-text {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  margin-bottom: 2%;
+  color: var(--text-main);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Mobile responsive styles for question containers */
+@media (max-width: 480px) {
+  .test-page-section {
+    padding: var(--space-md) 2%;
+  }
+  
+  .question-container {
+    padding: 3% 4%;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .question-container h4 {
+    font-size: var(--text-lg);
+    margin: 0 0 3% 0;
+    flex-direction: column;
+    gap: 1%;
+  }
+  
+  .question-number {
+    padding: 2% 3%;
+    font-size: var(--text-xs);
+    min-width: 2rem;
+  }
+  
+  .question-text {
+    font-size: var(--text-base);
+    margin-bottom: 3%;
+    line-height: 1.4;
+  }
+}
+
 /* Student Header - Separate from general header rules */
 .student-header {
   display: flex;
@@ -2027,6 +2123,7 @@
     flex-shrink: 0 !important;
     display: flex !important;
     justify-content: flex-end !important;
+    align-items: center !important;
     position: relative !important;
     flex-wrap: nowrap !important;
   }
@@ -2050,6 +2147,7 @@
     box-sizing: border-box !important;
     overflow: hidden !important;
     transform: none !important;
+    align-self: center !important;
   }
   
   /* Hamburger Menu Lines */
@@ -2068,15 +2166,15 @@
   }
   
   #student-cabinet #studentMenuBtn::before {
-    top: 12px;
+    top: 8px;
   }
   
   #student-cabinet #studentMenuBtn::after {
-    bottom: 12px;
+    bottom: 8px;
   }
   
   #student-cabinet #studentMenuBtn span.hamburger-line {
-    top: 50%;
+    top: 16px;
     transform: translate(-50%, -50%);
   }
   
@@ -2119,11 +2217,16 @@
   }
   
   #student-cabinet #studentMenuBtn::before {
-    top: 10px;
+    top: 7px;
   }
   
   #student-cabinet #studentMenuBtn::after {
-    bottom: 10px;
+    bottom: 7px;
+  }
+  
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    top: 15px;
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -2155,11 +2258,16 @@
   }
   
   #student-cabinet #studentMenuBtn::before {
-    top: 9px;
+    top: 6px;
   }
   
   #student-cabinet #studentMenuBtn::after {
-    bottom: 9px;
+    bottom: 6px;
+  }
+  
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    top: 12px;
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -2192,11 +2300,16 @@
   }
   
   #student-cabinet #studentMenuBtn::before {
-    top: 8px;
+    top: 5px;
   }
   
   #student-cabinet #studentMenuBtn::after {
-    bottom: 8px;
+    bottom: 5px;
+  }
+  
+  #student-cabinet #studentMenuBtn span.hamburger-line {
+    top:10px;
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -2509,7 +2622,7 @@
   }
   
   .question-review {
-    padding: var(--space-sm);
+    padding: 4px;
     margin-bottom: var(--space-xs);
   }
   
