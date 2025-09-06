@@ -6,7 +6,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: './index.html',
+      input: {
+        main: './index.html',
+        matching: './matching-test-student.html'
+      },
       output: {
         // Manual chunk splitting for role-based lazy loading
         manualChunks: {

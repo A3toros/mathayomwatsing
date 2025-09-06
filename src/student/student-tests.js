@@ -127,6 +127,12 @@ function showTestResults(testType, testId, studentAnswers) {
 async function loadTestResultsForPage(testType, testId, studentAnswers) {
     console.log(`[DEBUG] loadTestResultsForPage called with testType: ${testType}, testId: ${testId}, studentAnswers:`, studentAnswers);
     
+    // Start loading animation
+    const resultsPage = document.getElementById('test-results-page');
+    if (resultsPage && window.GSAPAnimations) {
+        window.GSAPAnimations.animateLoading(resultsPage);
+    }
+    
     try {
         // Get test info
         const testInfo = await getTestInfo(testType, testId);
@@ -138,7 +144,17 @@ async function loadTestResultsForPage(testType, testId, studentAnswers) {
         
         // Display results
         displayTestResultsOnPage(testInfo, questions, testType, studentAnswers);
+        
+        // Stop loading animation
+        if (resultsPage && window.GSAPAnimations) {
+            window.GSAPAnimations.stopLoading(resultsPage);
+        }
     } catch (error) {
+        // Stop loading animation on error
+        if (resultsPage && window.GSAPAnimations) {
+            window.GSAPAnimations.stopLoading(resultsPage);
+        }
+        
         console.error('[ERROR] Failed to load test results for page:', error);
         alert('Failed to load test results: ' + error.message);
     }
@@ -338,12 +354,15 @@ function clearTestDataAndReturnToCabinet() {
     // Navigate back to cabinet
     navigateBackToCabinet();
     
-    // Refresh the test results/score table after returning to cabinet
+    // Refresh the test results/score table and active tests (including average score circle) after returning to cabinet
     setTimeout(() => {
         if (currentStudentId) {
-            console.log('[DEBUG] Refreshing test results for student:', currentStudentId);
+            console.log('[DEBUG] Refreshing test results and active tests for student:', currentStudentId);
             if (typeof window.loadStudentTestResults === 'function') {
                 window.loadStudentTestResults();
+            }
+            if (typeof window.loadStudentActiveTests === 'function') {
+                window.loadStudentActiveTests();
             }
         }
         // Reset the flag after completion
@@ -608,11 +627,11 @@ async function displayStudentActiveTests(tests) {
     }
 
     // Always add average score widget at the end, regardless of whether there are active tests
-    const pct = averagePct != null ? Math.min(100, Math.max(0, averagePct)) : null;
+    const pct = averagePct != null ? Math.min(100, Math.max(0, averagePct)) : 0;
     const r = 50; // outer radius
     const c = 2 * Math.PI * r; // circumference for outer ring
-    const dash = pct == null ? 0 : c * (1 - pct / 100);
-    const msgClass = pct == null ? 'neutral' : (pct <= 50 ? 'low' : (pct <= 70 ? 'mid' : 'high'));
+    const dash = c * (1 - pct / 100);
+    const msgClass = averagePct == null ? 'neutral' : (pct <= 50 ? 'low' : (pct <= 70 ? 'mid' : 'high'));
     
     const avgWidgetHtml = `
         <div class="avg-score-widget">
@@ -635,10 +654,10 @@ async function displayStudentActiveTests(tests) {
                         transform="rotate(-90 70 70)"/>
             </svg>
             <div class="avg-text">
-                <span class="avg-number">${pct != null ? pct : '?'}</span>
+                <span class="avg-number">${pct}</span>
                 <span class="avg-percent">%</span>
             </div>
-            <div class="avg-message">${getAvgMessage(pct)}</div>
+            <div class="avg-message">${getAvgMessage(averagePct)}</div>
         </div>
     `;
     
@@ -1233,6 +1252,12 @@ function navigateToTest(testType, testId) {
 async function loadTestForPage(testType, testId) {
     console.log(`[DEBUG] loadTestForPage called with testType: ${testType}, testId: ${testId}`);
     
+    // Start loading animation
+    const testPage = document.getElementById('test-page');
+    if (testPage && window.GSAPAnimations) {
+        window.GSAPAnimations.animateLoading(testPage);
+    }
+    
     try {
         // Get test info
         const testInfo = await getTestInfo(testType, testId);
@@ -1244,6 +1269,11 @@ async function loadTestForPage(testType, testId) {
         
         // Display the test
         displayTestOnPage(testInfo, questions, testType, testId);
+        
+        // Stop loading animation
+        if (testPage && window.GSAPAnimations) {
+            window.GSAPAnimations.stopLoading(testPage);
+        }
         
         // Debug: Check if test page is still visible after loading
         const testPage = document.getElementById('test-page');
@@ -1264,6 +1294,11 @@ async function loadTestForPage(testType, testId) {
             testId: testId
         });
     } catch (error) {
+        // Stop loading animation on error
+        if (testPage && window.GSAPAnimations) {
+            window.GSAPAnimations.stopLoading(testPage);
+        }
+        
         // Check if this is an intentional redirection error
         if (error.message === 'Redirection initiated - should not continue') {
             console.log('[DEBUG] Redirection completed successfully - this is expected behavior');

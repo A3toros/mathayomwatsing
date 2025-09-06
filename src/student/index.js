@@ -105,6 +105,16 @@ function initializeStudentApp() {
     window.loadStudentTestResults = studentResults.loadStudentTestResults;
     
     console.log('🎓 All student functions exposed globally');
+    
+    // Now that functions are loaded, call them
+    console.log('🎓 Loading student active tests and results...');
+    if (typeof window.loadStudentActiveTests === 'function') {
+      window.loadStudentActiveTests();
+    }
+    
+    if (typeof window.loadStudentTestResults === 'function') {
+      window.loadStudentTestResults();
+    }
   });
   
   // Populate student info from JWT token
@@ -130,21 +140,7 @@ function initializeStudentApp() {
       console.log('🎓 Populating student info directly...');
       populateStudentInfoDirectly(studentData);
       
-      // Load active tests and results after a short delay to ensure functions are available
-      setTimeout(() => {
-        console.log('🎓 Loading student active tests and results...');
-        if (typeof window.loadStudentActiveTests === 'function') {
-          window.loadStudentActiveTests();
-        } else {
-          console.warn('🎓 loadStudentActiveTests not available yet');
-        }
-        
-        if (typeof window.loadStudentTestResults === 'function') {
-          window.loadStudentTestResults();
-        } else {
-          console.warn('🎓 loadStudentTestResults not available yet');
-        }
-      }, 100);
+      // Student data loading is now handled in the Promise.then() block above
     } else {
       console.error('🎓 Invalid JWT token or not a student');
     }
