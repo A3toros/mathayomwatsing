@@ -8,11 +8,14 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="module" crossorigin src="/assets/index-0Ajc7_ic.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/shared-BQ7KWafL.js">
-  <link rel="modulepreload" crossorigin href="/assets/student-BklnzfRq.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-CjmTT7sT.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- JWT System -->
+  <!-- Standalone modules -->
+  <script type="module" crossorigin src="/assets/index-DgFYxbef.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/shared-C67Vj5xU.js">
+  <link rel="modulepreload" crossorigin href="/assets/student-Ct4ADLrt.js">
+  <link rel="stylesheet" crossorigin href="/assets/student-CL-H7xC1.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-Dq0DFOIP.css">
 </head>
 <body>
   <div class="container">
@@ -172,14 +175,16 @@
                     </div>
                     <!-- NEW: Excel upload button with hint -->
                     <div class="form-actions">
-                      <button class="btn btn-primary" onclick="handleMultipleChoiceSubmit()">Create Questions</button>
+                      <button class="btn btn-primary" id="mcSubmitBtn">Create Questions</button>
                       <button class="btn excel-upload-btn" data-test-type="multiple-choice" style="display: none;">
                         <i class="fas fa-file-excel"></i>
                         Upload
                       </button>
                       <div class="excel-hint" data-test-type="multiple-choice" style="display: none;">
                         <i class="fas fa-info-circle"></i>
-                        <span class="hint-text">Format: Question | Correct Answer | Option A | Option B | Option C | Option D</span>
+                        <span class="hint-text">Format: Question | Answer (A-F) | Option A | Option B | Option C | Option D<br>
+                        Example: What is 2+2? | A | 4 | 5 | 6 | 7<br>
+                        Note: Headers are optional</span>
                       </div>
                       <button class="btn btn-warning" id="cancelTestCreationMC">Cancel Test Creation</button>
                     </div>
@@ -210,7 +215,9 @@
                       </button>
                       <div class="excel-hint" data-test-type="true-false" style="display: none;">
                         <i class="fas fa-info-circle"></i>
-                        <span class="hint-text">Format: Question | True/False</span>
+                        <span class="hint-text">Format: Question | Answer (true/false)<br>
+                        Example: The Earth is round | true<br>
+                        Note: Headers are optional</span>
                       </div>
                       <button class="btn btn-warning" id="cancelTestCreationTF">Cancel Test Creation</button>
                     </div>
@@ -240,7 +247,9 @@
                       </button>
                       <div class="excel-hint" data-test-type="input" style="display: none;">
                         <i class="fas fa-info-circle"></i>
-                        <span class="hint-text">Format: Question | Answer 1 | Answer 2 (optional) | Answer 3 (optional)</span>
+                        <span class="hint-text">Format: Question | Answer 1 | Answer 2 (optional) | Answer 3 (optional)<br>
+                        Example: What is the capital of France? | Paris | Paris, France | The capital of France is Paris<br>
+                        Note: Headers are optional</span>
                       </div>
                       <button class="btn btn-warning" id="cancelTestCreationInput">Cancel Test Creation</button>
                     </div>

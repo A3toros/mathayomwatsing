@@ -21,9 +21,7 @@ export default defineConfig({
           // Student chunk (lazy loaded for students only)
           'student': [
             'src/student/index.js',
-            'src/student/student.js',
-            'src/student/student-tests.js', 
-            'src/student/student-results.js'
+            'src/student/student.js'
           ],
           // Teacher chunk (lazy loaded for teachers only)
           'teacher': [
@@ -48,5 +46,11 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true
+  },
+  define: {
+    'process.env.NODE_ENV': '"production"'
+  },
+  esbuild: {
+    target: 'es2020'
   }
 })

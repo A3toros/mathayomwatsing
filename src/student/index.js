@@ -9,8 +9,6 @@ import {
 } from '../shared/index.js'
 
 // Import student-specific functions
-import { loadStudentActiveTests } from './student-tests.js'
-import { loadStudentTestResults } from './student-results.js'
 import { loadStudentData } from './student.js'
 
 // Import student-specific CSS
@@ -83,35 +81,30 @@ function initializeStudentApp() {
   window.showChangePasswordTab = showChangePasswordTab;
   window.hideChangePasswordTab = hideChangePasswordTab;
   window.navigateBackToCabinet = navigateBackToCabinet;
-  window.loadStudentActiveTests = loadStudentActiveTests;
-  window.loadStudentTestResults = loadStudentTestResults;
   
   // Import and expose additional student functions
-  import('./student-tests.js').then(({ 
-    navigateToTest, 
-    hideTestSections,
-    showTestResults,
-    loadTestResultsForPage,
-    displayTestResultsOnPage,
-    setupTestResultsPageEventListeners,
-    checkAnswerCorrectness,
-    getCorrectAnswer,
-    clearTestDataAndReturnToCabinet,
-    navigateToTestResults,
-    markTestCompletedInUI
-  }) => {
-    window.navigateToTest = navigateToTest;
-    window.hideTestSections = hideTestSections;
-    window.showTestResults = showTestResults;
-    window.loadTestResultsForPage = loadTestResultsForPage;
-    window.displayTestResultsOnPage = displayTestResultsOnPage;
-    window.setupTestResultsPageEventListeners = setupTestResultsPageEventListeners;
-    window.checkAnswerCorrectness = checkAnswerCorrectness;
-    window.getCorrectAnswer = getCorrectAnswer;
-    window.markTestCompletedInUI = markTestCompletedInUI;
-    window.clearTestDataAndReturnToCabinet = clearTestDataAndReturnToCabinet;
-    window.navigateToTestResults = navigateToTestResults;
-    console.log('🎓 All student test functions exposed globally');
+  Promise.all([
+    import('./student-tests.js'),
+    import('./student-results.js')
+  ]).then(([studentTests, studentResults]) => {
+    // Expose student-tests functions
+    window.navigateToTest = studentTests.navigateToTest;
+    window.hideTestSections = studentTests.hideTestSections;
+    window.showTestResults = studentTests.showTestResults;
+    window.loadTestResultsForPage = studentTests.loadTestResultsForPage;
+    window.displayTestResultsOnPage = studentTests.displayTestResultsOnPage;
+    window.setupTestResultsPageEventListeners = studentTests.setupTestResultsPageEventListeners;
+    window.checkAnswerCorrectness = studentTests.checkAnswerCorrectness;
+    window.getCorrectAnswer = studentTests.getCorrectAnswer;
+    window.markTestCompletedInUI = studentTests.markTestCompletedInUI;
+    window.clearTestDataAndReturnToCabinet = studentTests.clearTestDataAndReturnToCabinet;
+    window.navigateToTestResults = studentTests.navigateToTestResults;
+    window.loadStudentActiveTests = studentTests.loadStudentActiveTests;
+    
+    // Expose student-results functions
+    window.loadStudentTestResults = studentResults.loadStudentTestResults;
+    
+    console.log('🎓 All student functions exposed globally');
   });
   
   // Populate student info from JWT token
