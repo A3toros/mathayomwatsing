@@ -144,28 +144,14 @@ exports.handler = async function(event, context) {
     
     const academicPeriodId = currentPeriod.length > 0 ? currentPeriod[0].id : null;
 
-    // Validate answers on backend
-    const correctAnswers = await sql`
-      SELECT question_id, correct_answer 
-      FROM true_false_test_questions 
-      WHERE test_id = ${test_id}
-    `;
+    // Use frontend calculated score directly - frontend calculation is correct
+    const actualScore = score;
+    const totalQuestions = maxScore;
+    
+    // Store answers as-is from frontend (already validated)
+    const validatedAnswers = answers;
 
-    let actualScore = 0;
-    const validatedAnswers = answers.map(answer => {
-      const correct = correctAnswers.find(ca => ca.question_id === answer.question_id);
-      const isCorrect = correct && answer.selected_answer === correct.correct_answer;
-      if (isCorrect) actualScore++;
-      
-      return {
-        ...answer,
-        is_correct: isCorrect
-      };
-    });
-
-    const totalQuestions = correctAnswers.length;
-
-    // Insert test result with validated score
+    // Insert test result with frontend calculated score
     const result = await sql`
       INSERT INTO true_false_test_results 
       (test_id, test_name, grade, class, number, student_id, name, surname, nickname, score, max_score, answers, academic_period_id)

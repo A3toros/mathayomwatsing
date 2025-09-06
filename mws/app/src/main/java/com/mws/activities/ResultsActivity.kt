@@ -66,15 +66,14 @@ class ResultsActivity : AppCompatActivity() {
             // TODO: Get actual test data from intent
             // For now, use sample data
             testInfo = TestInfo(
-                id = bundle.getString("test_id", "sample_test"),
-                name = bundle.getString("test_name", "Sample Test"),
-                type = bundle.getString("test_type", "multiple-choice"),
-                subject = bundle.getString("test_subject", "Sample Subject"),
-                grade = bundle.getString("test_grade", "Grade 10"),
-                className = bundle.getString("test_class", "Class A"),
-                teacherName = bundle.getString("test_teacher", "Sample Teacher"),
-                questionCount = bundle.getInt("num_questions", 10),
-                timeLimit = bundle.getInt("duration_minutes", 30)
+                testId = bundle.getString("test_id", "sample_test") ?: "sample_test",
+                testName = bundle.getString("test_name", "Sample Test") ?: "Sample Test",
+                testType = bundle.getString("test_type", "multiple-choice") ?: "multiple-choice",
+                subjectName = bundle.getString("test_subject", "Sample Subject") ?: "Sample Subject",
+                grade = bundle.getString("test_grade", "Grade 10") ?: "Grade 10",
+                className = bundle.getString("test_class", "Class A") ?: "Class A",
+                numQuestions = bundle.getInt("num_questions", 10),
+                createdAt = bundle.getString("created_at", "") ?: ""
             )
             
             // Sample questions and answers for development

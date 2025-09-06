@@ -270,14 +270,17 @@ exports.handler = async function(event, context) {
         }
         
         activeTests.push({
-          assignment_id: assignment.assignment_id,
-          test_type: assignment.test_type,
           test_id: assignment.test_id,
-          assigned_at: assignment.assigned_at,
           test_name: testInfo.test_name || 'Unknown Test',
+          test_type: assignment.test_type,
           num_questions: testInfo.num_questions || 0,
+          created_at: assignment.assigned_at,
+          assigned_at: assignment.assigned_at,
+          subject_name: subjectName || 'Unknown Subject',
+          grade: assignmentGrade,
+          class: assignmentClass,
           teacher_name: teacherName || 'Unknown Teacher',
-          subject_name: subjectName || 'Unknown Subject'
+          assignment_id: assignment.assignment_id
         });
         
         console.log('Added test to activeTests:', activeTests[activeTests.length - 1]);

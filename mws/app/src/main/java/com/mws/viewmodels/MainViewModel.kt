@@ -209,7 +209,14 @@ class MainViewModel(
                 subject = "Mathematics",
                 teacherName = "Mr. Smith",
                 dueDate = "2024-12-15",
-                status = "active"
+                status = "active",
+                testId = "1",
+                testName = "Mathematics Quiz - Chapter 5",
+                testType = "multiple-choice",
+                numQuestions = 10,
+                grade = "10",
+                className = "A",
+                assignedAt = "2024-12-10"
             ),
             ActiveTest(
                 id = "2",
@@ -218,7 +225,14 @@ class MainViewModel(
                 subject = "Science",
                 teacherName = "Ms. Johnson",
                 dueDate = "2024-12-20",
-                status = "active"
+                status = "active",
+                testId = "2",
+                testName = "Science Test - Biology",
+                testType = "true-false",
+                numQuestions = 15,
+                grade = "10",
+                className = "A",
+                assignedAt = "2024-12-15"
             ),
             ActiveTest(
                 id = "3",
@@ -227,7 +241,14 @@ class MainViewModel(
                 subject = "English",
                 teacherName = "Mrs. Davis",
                 dueDate = "2024-12-25",
-                status = "active"
+                status = "active",
+                testId = "3",
+                testName = "English Essay - Shakespeare",
+                testType = "input",
+                numQuestions = 5,
+                grade = "10",
+                className = "A",
+                assignedAt = "2024-12-20"
             )
         )
     }

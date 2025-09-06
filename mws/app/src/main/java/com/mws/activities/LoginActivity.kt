@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -26,7 +25,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var studentIdEditText: EditText
     private lateinit var passwordEditText: EditText
     private lateinit var loginButton: Button
-    private lateinit var progressBar: ProgressBar
+    private lateinit var loadingView: View
 
 
     private lateinit var loginViewModel: LoginViewModel
@@ -65,8 +64,7 @@ class LoginActivity : AppCompatActivity() {
         studentIdEditText = findViewById(R.id.et_student_id)
         passwordEditText = findViewById(R.id.et_password)
         loginButton = findViewById(R.id.btn_login)
-        progressBar = findViewById(R.id.loading_view)
-
+        loadingView = findViewById(R.id.loading_view)
     }
 
     private fun setupObservers() {
@@ -118,7 +116,7 @@ class LoginActivity : AppCompatActivity() {
 
 
     private fun showLoading(show: Boolean) {
-        progressBar.visibility = if (show) View.VISIBLE else View.GONE
+        loadingView.visibility = if (show) View.VISIBLE else View.GONE
         loginButton.isEnabled = !show
         studentIdEditText.isEnabled = !show
         passwordEditText.isEnabled = !show

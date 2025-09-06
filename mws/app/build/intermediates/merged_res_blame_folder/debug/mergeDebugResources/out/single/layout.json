@@ -1,0 +1,54 @@
+[
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/dialog_change_password.xml",
+        "source": "com.mws.app-main-63:/layout/dialog_change_password.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/dialog_edit_profile.xml",
+        "source": "com.mws.app-main-63:/layout/dialog_edit_profile.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/item_question.xml",
+        "source": "com.mws.app-main-63:/layout/item_question.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/nav_header.xml",
+        "source": "com.mws.app-main-63:/layout/nav_header.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/activity_profile.xml",
+        "source": "com.mws.app-main-63:/layout/activity_profile.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/item_question_result.xml",
+        "source": "com.mws.app-main-63:/layout/item_question_result.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/activity_results.xml",
+        "source": "com.mws.app-main-63:/layout/activity_results.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/activity_login.xml",
+        "source": "com.mws.app-main-63:/layout/activity_login.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/dialog_security_warning.xml",
+        "source": "com.mws.app-main-63:/layout/dialog_security_warning.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/item_active_test.xml",
+        "source": "com.mws.app-main-63:/layout/item_active_test.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/item_score_table.xml",
+        "source": "com.mws.app-main-63:/layout/item_score_table.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/activity_test.xml",
+        "source": "com.mws.app-main-63:/layout/activity_test.xml"
+    },
+    {
+        "merged": "com.mws.app-mergeDebugResources-60:/layout/activity_main.xml",
+        "source": "com.mws.app-main-63:/layout/activity_main.xml"
+    }
+]

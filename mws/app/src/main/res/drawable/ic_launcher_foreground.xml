@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Background circle with padding for better scaling -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    
+    <!-- Torch base - scaled down -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M54,25 L51,25 L51,28 L57,28 L57,25 Z"/>
+    
+    <!-- Torch flame - scaled down -->
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M54,22 C52.5,22 52,22.5 52,23.5 C52,24.5 52.5,25 54,25 C55.5,25 56,24.5 56,23.5 C56,22.5 55.5,22 54,22 Z"/>
+    
+    <!-- Radiating beams - simplified and scaled -->
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M54,22 L48,20 L48,24 L54,25 Z"/>
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M54,22 L60,20 L60,24 L54,25 Z"/>
+    
+    <!-- Singha (mythical lion) - scaled down -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,40 C50,40 47,43 47,47 C47,51 50,54 54,54 C58,54 61,51 61,47 C61,43 58,40 54,40 Z"/>
+    
+    <!-- Lion head details - scaled down -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,42 C51,42 49,44 49,47 C49,50 51,52 54,52 C57,52 59,50 59,47 C59,44 57,42 54,42 Z"/>
+    
+    <!-- Banner base - scaled down -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M35,65 L73,65 L73,68 L35,68 Z"/>
+    
+    <!-- Banner curved ends - scaled down -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M35,65 Q35,66.5 37,66.5 L71,66.5 Q73,66.5 73,65 Z"/>
+</vector>

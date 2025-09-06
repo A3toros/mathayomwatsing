@@ -118,6 +118,7 @@ exports.handler = async function(event, context) {
           u.grade as student_grade,
           u.class as student_class,
           u.number as student_number,
+          u.nickname as student_nickname,
           mct.test_name
         FROM multiple_choice_test_results tr
         LEFT JOIN users u ON tr.student_id = u.student_id
@@ -145,6 +146,7 @@ exports.handler = async function(event, context) {
           u.grade as student_grade,
           u.class as student_class,
           u.number as student_number,
+          u.nickname as student_nickname,
           tft.test_name
         FROM true_false_test_results tr
         LEFT JOIN users u ON tr.student_id = u.student_id
@@ -172,6 +174,7 @@ exports.handler = async function(event, context) {
           u.grade as student_grade,
           u.class as student_class,
           u.number as student_number,
+          u.nickname as student_nickname,
           it.test_name
         FROM input_test_results tr
         LEFT JOIN users u ON tr.student_id = u.student_id
@@ -201,6 +204,7 @@ exports.handler = async function(event, context) {
           u.grade as student_grade,
           u.class as student_class,
           u.number as student_number,
+          u.nickname as student_nickname,
           mtt.test_name
         FROM matching_type_test_results tr
         LEFT JOIN users u ON tr.student_id = u.student_id

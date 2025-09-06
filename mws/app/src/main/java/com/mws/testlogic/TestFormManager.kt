@@ -305,63 +305,9 @@ class TestFormManager(context: Context) {
      * Gets test progress for a specific question
      * Converted from getTestProgress() in script.js
      */
-    fun getTestProgress(testType: String, testId: String, questionId: String): String? {
+    fun getTestProgressForQuestion(testType: String, testId: String, questionId: String): String? {
         val progress = getTestProgress(testType, testId)
         return progress[questionId]
-    }
-
-    /**
-     * Clears test progress for a specific test
-     * Converted from clearTestProgress() in script.js
-     */
-    fun clearTestProgress(testType: String, testId: String) {
-        val progressKey = "$KEY_TEST_PROGRESS:$testType:$testId"
-        sharedPreferences.edit()
-            .remove(progressKey)
-            .remove("$progressKey:timestamp")
-            .apply()
-    }
-
-    /**
-     * Saves form data for a specific form
-     * Converted from saveFormData() in script.js
-     */
-    fun saveFormData(formId: String, formData: Map<String, String>) {
-        val formKey = "$KEY_FORM_DATA:$formId"
-        val formJson = gson.toJson(formData)
-        
-        sharedPreferences.edit()
-            .putString(formKey, formJson)
-            .putLong("$formKey:timestamp", System.currentTimeMillis())
-            .apply()
-    }
-
-    /**
-     * Gets form data for a specific form
-     * Converted from restoreFormData() in script.js
-     */
-    fun getFormData(formId: String): Map<String, String> {
-        val formKey = "$KEY_FORM_DATA:$formId"
-        val formJson = sharedPreferences.getString(formKey, "{}")
-        
-        return try {
-            val type = object : TypeToken<Map<String, String>>() {}.type
-            gson.fromJson(formJson, type) ?: emptyMap()
-        } catch (e: Exception) {
-            emptyMap()
-        }
-    }
-
-    /**
-     * Clears form data for a specific form
-     * Converted from clearFormData() in script.js
-     */
-    fun clearFormData(formId: String) {
-        val formKey = "$KEY_FORM_DATA:$formId"
-        sharedPreferences.edit()
-            .remove(formKey)
-            .remove("$formKey:timestamp")
-            .apply()
     }
 
     /**

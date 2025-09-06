@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Block all cleartext traffic by default -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">mathayomwatsing.netlify.app</domain>
+    </domain-config>
+    
+    <!-- Global policy: NO cleartext traffic allowed -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Debug configuration for development (remove in production) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

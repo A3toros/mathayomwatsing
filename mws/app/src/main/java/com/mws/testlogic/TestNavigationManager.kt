@@ -277,7 +277,7 @@ class TestNavigationManager(
             QuestionSummary(
                 index = index,
                 questionId = questionId,
-                questionText = question.question,
+                questionText = question.question ?: "",
                 isAnswered = answer != null,
                 isCurrentQuestion = index == currentQuestionIndex
             )

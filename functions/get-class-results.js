@@ -65,21 +65,9 @@ exports.handler = async function(event, context) {
     // Handle admin vs regular teacher
     let teacher_id;
     if (userInfo.role === 'admin') {
-      // Admin can query any teacher - get from query parameter
-      teacher_id = event.queryStringParameters?.teacher_id;
-      if (!teacher_id) {
-        return {
-          statusCode: 400,
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            success: false,
-            message: 'teacher_id query parameter required for admin users'
-          })
-        };
-      }
+      // Admin can access all data - no teacher_id required
+      // If teacher_id is provided, filter by that teacher, otherwise show all
+      teacher_id = event.queryStringParameters?.teacher_id || null;
     } else {
       // Regular teacher uses their own ID
       teacher_id = userInfo.teacher_id;
@@ -213,19 +201,181 @@ exports.handler = async function(event, context) {
     console.log('Selected academic period details:', academicPeriods[0]);
     
     // Get teacher subjects for this grade and class
-    const teacherSubjects = await sql`
-      SELECT ts.subject_id, s.subject
-      FROM teacher_subjects ts
-      JOIN subjects s ON ts.subject_id = s.subject_id
-      WHERE ts.teacher_id = ${teacher_id}
-      AND ts.grade = ${assignmentGrade}
-      AND ts.class = ${assignmentClass}
-    `;
+    console.log('Looking for teacher subjects with:', {
+      teacher_id,
+      assignmentGrade,
+      assignmentClass,
+      originalGrade: grade,
+      originalClass: className
+    });
+    
+    // Try converted format first (1, 15)
+    let teacherSubjects;
+    if (userInfo.role === 'admin' && teacher_id === null) {
+      // Admin gets all subjects for this grade/class
+      teacherSubjects = await sql`
+        SELECT ts.subject_id, s.subject
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+        WHERE ts.grade = ${assignmentGrade}
+        AND ts.class = ${assignmentClass}
+      `;
+    } else {
+      // Teacher gets only their subjects
+      teacherSubjects = await sql`
+        SELECT ts.subject_id, s.subject
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+        WHERE ts.teacher_id = ${teacher_id}
+        AND ts.grade = ${assignmentGrade}
+        AND ts.class = ${assignmentClass}
+      `;
+    }
 
-    console.log('Found teacher subjects:', teacherSubjects);
+    console.log('Found teacher subjects with converted format:', teacherSubjects);
+    
+    // If no results, try original format (M1, 1/15)
+    if (teacherSubjects.length === 0) {
+      console.log('No results with converted format, trying original format...');
+      if (userInfo.role === 'admin' && teacher_id === null) {
+        // Admin gets all subjects for this grade/class
+        teacherSubjects = await sql`
+          SELECT ts.subject_id, s.subject
+          FROM teacher_subjects ts
+          JOIN subjects s ON ts.subject_id = s.subject_id
+          WHERE ts.grade = ${grade}
+          AND ts.class = ${className}
+        `;
+      } else {
+        // Teacher gets only their subjects
+        teacherSubjects = await sql`
+          SELECT ts.subject_id, s.subject
+          FROM teacher_subjects ts
+          JOIN subjects s ON ts.subject_id = s.subject_id
+          WHERE ts.teacher_id = ${teacher_id}
+          AND ts.grade = ${grade}
+          AND ts.class = ${className}
+        `;
+      }
+      
+      console.log('Found teacher subjects with original format:', teacherSubjects);
+      
+      // If we found results with original format, we need to use original format for assignments too
+      if (teacherSubjects.length > 0) {
+        assignmentGrade = grade;
+        assignmentClass = className;
+        console.log('Using original format for assignments:', { assignmentGrade, assignmentClass });
+      }
+    }
+    
+    // Debug: Check all teacher subjects for this teacher
+    let allTeacherSubjects;
+    if (userInfo.role === 'admin' && teacher_id === null) {
+      // Admin gets all subjects
+      allTeacherSubjects = await sql`
+        SELECT ts.teacher_id, ts.subject_id, ts.grade, ts.class, s.subject
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+      `;
+    } else {
+      // Teacher gets only their subjects
+      allTeacherSubjects = await sql`
+        SELECT ts.teacher_id, ts.subject_id, ts.grade, ts.class, s.subject
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+        WHERE ts.teacher_id = ${teacher_id}
+      `;
+    }
+    console.log('All subjects for this teacher:', allTeacherSubjects);
     
     if (teacherSubjects.length === 0) {
       console.log('No teacher subjects found for grade:', assignmentGrade, 'class:', assignmentClass);
+      console.log('Falling back to show ALL test results for this grade/class (simplified view)');
+      
+      // Fallback: Show all test results for this grade/class regardless of subject assignments
+      const allStudents = await sql`
+        SELECT student_id, name, surname, nickname, number
+        FROM users 
+        WHERE grade = ${grade} AND class = ${className}
+        ORDER BY CAST(number AS INTEGER)
+      `;
+      
+      // Get all test results for this grade/class
+      const fallbackMcResults = await sql`
+        SELECT mctr.student_id, mctr.name, mctr.surname, mctr.nickname, mctr.score, mctr.max_score, mctr.test_name, mctr.number, 'multiple_choice' as test_type
+        FROM multiple_choice_test_results mctr
+        WHERE mctr.grade = ${grade} AND mctr.class = ${className}
+        AND mctr.academic_period_id = ${academicPeriods[0].id}
+        ORDER BY mctr.number
+      `;
+      
+      const fallbackTfResults = await sql`
+        SELECT tftr.student_id, tftr.name, tftr.surname, tftr.nickname, tftr.score, tftr.max_score, tftr.test_name, tftr.number, 'true_false' as test_type
+        FROM true_false_test_results tftr
+        WHERE tftr.grade = ${grade} AND tftr.class = ${className}
+        AND tftr.academic_period_id = ${academicPeriods[0].id}
+        ORDER BY tftr.number
+      `;
+      
+      const fallbackInputResults = await sql`
+        SELECT itr.student_id, itr.name, itr.surname, itr.nickname, itr.score, itr.max_score, itr.test_name, itr.number, 'input' as test_type
+        FROM input_test_results itr
+        WHERE itr.grade = ${grade} AND itr.class = ${className}
+        AND itr.academic_period_id = ${academicPeriods[0].id}
+        ORDER BY itr.number
+      `;
+      
+      const fallbackMatchingResults = await sql`
+        SELECT mtr.student_id, mtr.name, mtr.surname, mtr.nickname, mtr.score, mtr.max_score, mtr.test_name, mtr.number, 'matching_type' as test_type
+        FROM matching_type_test_results mtr
+        WHERE mtr.grade = ${grade} AND mtr.class = ${className}
+        AND mtr.academic_period_id = ${academicPeriods[0].id}
+        ORDER BY mtr.number
+      `;
+      
+      const allFallbackResults = [
+        ...fallbackMcResults,
+        ...fallbackTfResults,
+        ...fallbackInputResults,
+        ...fallbackMatchingResults
+      ];
+      
+      console.log(`Fallback found ${allFallbackResults.length} test results total`);
+      
+      if (allFallbackResults.length > 0) {
+        // Create a simple results structure
+        const fallbackResults = {
+          class: allStudents.map(student => {
+            const studentResults = allFallbackResults.filter(r => r.student_id === student.student_id);
+            const studentData = {
+              ...student,
+              has_results: studentResults.length > 0
+            };
+            
+            // Add test results as properties
+            studentResults.forEach((result, index) => {
+              studentData[`test_${index + 1}`] = `${result.score}/${result.max_score}`;
+            });
+            
+            return studentData;
+          })
+        };
+        
+        return {
+          statusCode: 200,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: true,
+            results: fallbackResults,
+            subjects: [{ subject: 'All Tests' }],
+            message: `Found ${allFallbackResults.length} test results (fallback mode - no subject assignments)`
+          })
+        };
+      }
+      
       return {
         statusCode: 200,
         headers: {
@@ -236,7 +386,7 @@ exports.handler = async function(event, context) {
           success: true,
           results: {},
           subjects: [],
-          message: 'No teacher subjects found for this grade and class'
+          message: 'No teacher subjects found and no test results available for this grade and class'
         })
       };
     }
@@ -313,6 +463,14 @@ exports.handler = async function(event, context) {
       `;
       
       console.log(`Found ${allTestAssignments.length} total test assignments for class ${assignmentGrade}/${assignmentClass}:`, allTestAssignments);
+      
+      // Debug: Check ALL test assignments in the system
+      const allSystemAssignments = await sql`
+        SELECT ta.test_type, ta.test_id, ta.subject_id, ta.grade, ta.class
+        FROM test_assignments ta
+        ORDER BY ta.grade, ta.class
+      `;
+      console.log('All test assignments in system:', allSystemAssignments);
       
       // Filter assignments for this specific subject
       const subjectTestAssignments = allTestAssignments.filter(ta => ta.subject_id === singleSubject.subject_id);
@@ -499,6 +657,16 @@ exports.handler = async function(event, context) {
         `;
         
         console.log(`Found ${allTestAssignments.length} total test assignments for class ${assignmentGrade}/${assignmentClass}:`, allTestAssignments);
+        
+        // Debug: Check ALL test assignments in the system (for multi-subject case too)
+        if (allTestAssignments.length === 0) {
+          const allSystemAssignments = await sql`
+            SELECT ta.test_type, ta.test_id, ta.subject_id, ta.grade, ta.class
+            FROM test_assignments ta
+            ORDER BY ta.grade, ta.class
+          `;
+          console.log('All test assignments in system (multi-subject debug):', allSystemAssignments);
+        }
         
         // Filter assignments for this specific subject
         const subjectTestAssignments = allTestAssignments.filter(ta => ta.subject_id === subject.subject_id);

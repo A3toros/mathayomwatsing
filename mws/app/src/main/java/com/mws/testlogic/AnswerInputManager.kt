@@ -87,15 +87,15 @@ class AnswerInputManager(
             val answer = currentAnswers[questionId]
             
             if (answer != null) {
-                val isValid = AnswerValidator.validateAnswerFormat(question.questionType, answer)
+                val isValid = AnswerValidator.validateAnswerFormat(question.questionType ?: "", answer)
                 val errorMessage = if (!isValid) {
-                    AnswerValidator.getValidationErrorMessage(question.questionType, answer)
+                    AnswerValidator.getValidationErrorMessage(question.questionType ?: "", answer)
                 } else null
                 
                 validationResults.add(
                     QuestionValidationResult(
                         questionId = questionId,
-                        questionText = question.question,
+                        questionText = question.question ?: "",
                         userAnswer = answer,
                         isValid = isValid,
                         errorMessage = errorMessage
@@ -108,7 +108,7 @@ class AnswerInputManager(
                 validationResults.add(
                     QuestionValidationResult(
                         questionId = questionId,
-                        questionText = question.question,
+                        questionText = question.question ?: "",
                         userAnswer = null,
                         isValid = false,
                         errorMessage = "No answer provided"

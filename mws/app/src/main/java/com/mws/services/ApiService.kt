@@ -31,6 +31,15 @@ interface ApiService {
     suspend fun getAllTests(): Response<ActiveTestsResponse>
 
     /**
+     * Get active tests assigned to a specific student
+     * Endpoint: /.netlify/functions/get-student-active-tests
+     */
+    @GET("get-student-active-tests")
+    suspend fun getStudentActiveTests(
+        @Query("student_id") studentId: String
+    ): Response<ActiveTestsResponse>
+
+    /**
      * Get test questions and information
      * Endpoint: /.netlify/functions/get-test-questions
      */

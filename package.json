@@ -4,8 +4,10 @@
   "description": "School Testing Website with Neon DB and Netlify",
   "main": "index.js",
   "scripts": {
-    "dev": "netlify dev",
-    "build": "echo 'Build complete'",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "netlify-dev": "netlify dev",
     "test": "echo 'No tests specified'"
   },
   "dependencies": {
@@ -17,7 +19,8 @@
     "jwt-decode": "^4.0.0"
   },
   "devDependencies": {
-    "netlify-cli": "^23.3.1"
+    "netlify-cli": "^23.3.1",
+    "vite": "^5.0.0"
   },
   "keywords": [
     "school",

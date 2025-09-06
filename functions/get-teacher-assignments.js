@@ -63,21 +63,9 @@ exports.handler = async function(event, context) {
     // Handle admin vs regular teacher
     let teacher_id;
     if (userInfo.role === 'admin') {
-      // Admin can query any teacher - get from query parameter
-      teacher_id = event.queryStringParameters?.teacher_id;
-      if (!teacher_id) {
-        return {
-          statusCode: 400,
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            success: false,
-            message: 'teacher_id query parameter required for admin users'
-          })
-        };
-      }
+      // Admin can access all assignments - no teacher_id required
+      // If teacher_id is provided, filter by that teacher, otherwise show all
+      teacher_id = event.queryStringParameters?.teacher_id || null;
     } else {
       // Regular teacher uses their own ID
       teacher_id = userInfo.teacher_id;
@@ -88,11 +76,21 @@ exports.handler = async function(event, context) {
     const sql = neon(process.env.NEON_DATABASE_URL);
     
     // Get all grades and classes where this teacher has subjects assigned
-    const assignments = await sql`
-      SELECT DISTINCT ts.grade, ts.class
-      FROM teacher_subjects ts
-      WHERE ts.teacher_id = ${teacher_id}
-    `;
+    let assignments;
+    if (userInfo.role === 'admin' && teacher_id === null) {
+      // Admin gets all grades/classes from all teachers
+      assignments = await sql`
+        SELECT DISTINCT ts.grade, ts.class, ts.teacher_id
+        FROM teacher_subjects ts
+      `;
+    } else {
+      // Teacher gets only their grades/classes
+      assignments = await sql`
+        SELECT DISTINCT ts.grade, ts.class
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = ${teacher_id}
+      `;
+    }
     
     console.log('Raw assignments from DB:', assignments);
     

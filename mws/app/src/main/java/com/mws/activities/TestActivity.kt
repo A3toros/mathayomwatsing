@@ -348,15 +348,14 @@ class TestActivity : AppCompatActivity() {
 
     private fun getSampleTestInfo(testId: String, testType: String): TestInfo {
         return TestInfo(
-            id = testId,
-            name = "Sample Test - $testType",
-            type = testType,
-            subject = "Sample Subject",
+            testId = testId,
+            testName = "Sample Test - $testType",
+            testType = testType,
+            subjectName = "Sample Subject",
             grade = "10",
             className = "A",
-            teacherName = "Sample Teacher",
-            questionCount = 10,
-            timeLimit = 30
+            numQuestions = 10,
+            createdAt = ""
         )
     }
 

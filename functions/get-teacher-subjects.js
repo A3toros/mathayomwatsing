@@ -63,21 +63,9 @@ exports.handler = async function(event, context) {
     // Handle admin vs regular teacher
     let teacher_id;
     if (userInfo.role === 'admin') {
-      // Admin can query any teacher - get from query parameter
-      teacher_id = event.queryStringParameters?.teacher_id;
-      if (!teacher_id) {
-        return {
-          statusCode: 400,
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            success: false,
-            message: 'teacher_id query parameter required for admin users'
-          })
-        };
-      }
+      // Admin can access all subjects - no teacher_id required
+      // If teacher_id is provided, filter by that teacher, otherwise show all
+      teacher_id = event.queryStringParameters?.teacher_id || null;
     } else {
       // Regular teacher uses their own ID
       teacher_id = userInfo.teacher_id;
@@ -86,13 +74,25 @@ exports.handler = async function(event, context) {
             const sql = neon(process.env.NEON_DATABASE_URL);
     
     // Query the database for teacher subjects
-    const teacherSubjects = await sql`
-      SELECT ts.subject_id, ts.grade, ts.class, s.subject
-      FROM teacher_subjects ts
-      JOIN subjects s ON ts.subject_id = s.subject_id
-      WHERE ts.teacher_id = ${teacher_id}
-      ORDER BY s.subject, ts.grade, ts.class
-    `;
+    let teacherSubjects;
+    if (userInfo.role === 'admin' && teacher_id === null) {
+      // Admin gets all subjects from all teachers
+      teacherSubjects = await sql`
+        SELECT ts.subject_id, ts.grade, ts.class, s.subject, ts.teacher_id
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+        ORDER BY s.subject, ts.grade, ts.class
+      `;
+    } else {
+      // Teacher gets only their subjects
+      teacherSubjects = await sql`
+        SELECT ts.subject_id, ts.grade, ts.class, s.subject
+        FROM teacher_subjects ts
+        JOIN subjects s ON ts.subject_id = s.subject_id
+        WHERE ts.teacher_id = ${teacher_id}
+        ORDER BY s.subject, ts.grade, ts.class
+      `;
+    }
 
     // Group subjects by subject_id
     const subjectsMap = new Map();

@@ -100,7 +100,9 @@ exports.handler = async function(event, context) {
 
     const { 
       test_id, 
-      answers
+      answers,
+      score,
+      maxScore
     } = JSON.parse(event.body);
     
     console.log('Parsed request data:', {
@@ -293,15 +295,20 @@ exports.handler = async function(event, context) {
       totalQuestions
     });
     
-    // Calculate final score - simple scoring without arrow weighting
-    const score = Math.round((correctMatches / totalQuestions) * 100);
-    const finalScore = score;
+    // Use frontend calculated score if provided, otherwise calculate here
+    let finalScore, finalMaxScore;
     
-    console.log('🔍 Score calculation details:');
-    console.log('  - correctMatches:', correctMatches);
-    console.log('  - totalQuestions:', totalQuestions);
-    console.log('  - Final score (correctMatches/totalQuestions):', finalScore);
-    console.log('  - Simple scoring - no arrow weighting');
+    if (score !== undefined && maxScore !== undefined) {
+      // Frontend provided score - use it directly
+      finalScore = score;
+      finalMaxScore = maxScore;
+      console.log('🔍 Using frontend calculated score:', { score: finalScore, maxScore: finalMaxScore });
+    } else {
+      // Legacy calculation for standalone matching test submissions
+      finalScore = correctMatches; // Store raw score (number of correct matches)
+      finalMaxScore = totalQuestions; // Store total questions as max score
+      console.log('🔍 Using backend calculated score:', { correctMatches, totalQuestions });
+    }
     
     // Store results in database
     console.log('Storing results in database...');
@@ -315,8 +322,8 @@ exports.handler = async function(event, context) {
       name: student_data.name,
       surname: student_data.surname,
       nickname: student_data.nickname,
-      score: correctMatches, // Store raw score (number of correct matches)
-      max_score: totalQuestions, // Store total questions as max score
+      score: finalScore,
+      max_score: finalMaxScore,
       answers: JSON.stringify(answerValidation),
       academic_period_id: academic_period_id
     };
@@ -351,7 +358,7 @@ exports.handler = async function(event, context) {
         result_id: resultId,
         score: correctMatches, // Raw score (correct matches)
         max_score: totalQuestions, // Total questions
-        percentage_score: finalScore, // Percentage score for frontend display
+        percentage_score: Math.round((correctMatches / totalQuestions) * 100), // Calculate actual percentage
         correct_matches: correctMatches,
         total_questions: totalQuestions,
         // Arrow compliance data removed
