@@ -56,12 +56,12 @@ exports.handler = async function(event, context) {
     
     console.log('Extracted params - teacher_id:', teacher_id, 'test_type:', test_type, 'test_id:', test_id);
 
-    if (!teacher_id || !test_type || !test_id) {
+    if (!test_type || !test_id) {
       console.log('Missing required parameters');
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Teacher ID, test type, and test ID are required' })
+        body: JSON.stringify({ error: 'Test type and test ID are required' })
       };
     }
 
@@ -69,48 +69,60 @@ exports.handler = async function(event, context) {
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection established');
 
-    // Verify teacher owns this test
-    let testOwnership = false;
-    switch (test_type) {
-      case 'multiple_choice':
-        const mcTest = await sql`
-          SELECT id FROM multiple_choice_tests 
-          WHERE id = ${test_id} AND teacher_id = ${teacher_id}
-        `;
-        testOwnership = mcTest.length > 0;
-        break;
-
-      case 'true_false':
-        const tfTest = await sql`
-          SELECT id FROM true_false_tests 
-          WHERE id = ${test_id} AND teacher_id = ${teacher_id}
-        `;
-        testOwnership = tfTest.length > 0;
-        break;
-
-      case 'input':
-        const inputTest = await sql`
-          SELECT id FROM input_tests 
-          WHERE id = ${test_id} AND teacher_id = ${teacher_id}
-        `;
-        testOwnership = inputTest.length > 0;
-        break;
-
-      default:
+    // For admin users, skip teacher ownership verification entirely
+    // For non-admin users, verify teacher owns this test
+    if (userInfo.role !== 'admin') {
+      if (!teacher_id) {
+        console.log('Teacher ID required for non-admin users');
         return {
           statusCode: 400,
           headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Invalid test type' })
+          body: JSON.stringify({ error: 'Teacher ID is required for non-admin users' })
         };
-    }
+      }
 
-    if (!testOwnership) {
-      console.log('Teacher does not own this test');
-      return {
-        statusCode: 403,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'You do not have permission to delete this test' })
-      };
+      let testOwnership = false;
+      switch (test_type) {
+        case 'multiple_choice':
+          const mcTest = await sql`
+            SELECT id FROM multiple_choice_tests 
+            WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+          `;
+          testOwnership = mcTest.length > 0;
+          break;
+
+        case 'true_false':
+          const tfTest = await sql`
+            SELECT id FROM true_false_tests 
+            WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+          `;
+          testOwnership = tfTest.length > 0;
+          break;
+
+        case 'input':
+          const inputTest = await sql`
+            SELECT id FROM input_tests 
+            WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+          `;
+          testOwnership = inputTest.length > 0;
+          break;
+
+        default:
+          return {
+            statusCode: 400,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: 'Invalid test type' })
+          };
+      }
+
+      if (!testOwnership) {
+        console.log('Teacher does not own this test');
+        return {
+          statusCode: 403,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'You do not have permission to delete this test' })
+        };
+      }
     }
 
     console.log('Starting test deletion process...');
@@ -119,21 +131,55 @@ exports.handler = async function(event, context) {
     await sql`BEGIN`;
 
     try {
-      // For all test types, just remove assignments
-      // This makes the test invisible to students while preserving all data
+      // 1. DELETE ASSIGNMENTS FIRST (makes test invisible to students immediately)
       await sql`DELETE FROM test_assignments WHERE test_id = ${test_id} AND test_type = ${test_type}`;
+      
+      // 2. DELETE TEST RESULTS
+      if (test_type === 'multiple_choice') {
+        await sql`DELETE FROM multiple_choice_test_results WHERE test_id = ${test_id}`;
+      } else if (test_type === 'true_false') {
+        await sql`DELETE FROM true_false_test_results WHERE test_id = ${test_id}`;
+      } else if (test_type === 'input') {
+        await sql`DELETE FROM input_test_results WHERE test_id = ${test_id}`;
+      } else if (test_type === 'matching_type') {
+        await sql`DELETE FROM matching_type_test_results WHERE test_id = ${test_id}`;
+      }
+      
+      // 3. DELETE TEST QUESTIONS
+      if (test_type === 'multiple_choice') {
+        await sql`DELETE FROM multiple_choice_test_questions WHERE test_id = ${test_id}`;
+      } else if (test_type === 'true_false') {
+        await sql`DELETE FROM true_false_test_questions WHERE test_id = ${test_id}`;
+      } else if (test_type === 'input') {
+        await sql`DELETE FROM input_test_questions WHERE test_id = ${test_id}`;
+      } else if (test_type === 'matching_type') {
+        // Delete arrows first due to foreign key constraint
+        await sql`DELETE FROM matching_type_test_arrows WHERE question_id IN (SELECT id FROM matching_type_test_questions WHERE test_id = ${test_id})`;
+        await sql`DELETE FROM matching_type_test_questions WHERE test_id = ${test_id}`;
+      }
+      
+      // 4. DELETE MAIN TEST RECORD LAST
+      if (test_type === 'multiple_choice') {
+        await sql`DELETE FROM multiple_choice_tests WHERE id = ${test_id}`;
+      } else if (test_type === 'true_false') {
+        await sql`DELETE FROM true_false_tests WHERE id = ${test_id}`;
+      } else if (test_type === 'input') {
+        await sql`DELETE FROM input_tests WHERE id = ${test_id}`;
+      } else if (test_type === 'matching_type') {
+        await sql`DELETE FROM matching_type_tests WHERE id = ${test_id}`;
+      }
 
       // Commit transaction
       await sql`COMMIT`;
       
-      console.log('Test assignments removed successfully - test is now hidden from students');
+      console.log('Test and all related data deleted successfully');
 
       return {
         statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: true,
-          message: 'Test assignments removed successfully - test is now hidden from students',
+          message: 'Test and all related data deleted successfully',
           test_type: test_type,
           test_id: test_id
         })

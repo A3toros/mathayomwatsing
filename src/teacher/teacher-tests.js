@@ -75,6 +75,9 @@ async function returnToMainCabinet() {
         // Refresh active tests data in background (so new test appears when they click Active Tests)
         await refreshActiveTestsData();
         
+        // Clear form fields from DOM after successful test creation and assignment
+        clearAllTestFormFields();
+        
         // Show success message in the main cabinet
         showTestCreationSuccessMessage();
         
@@ -3998,7 +4001,7 @@ function populateInputFromExcel(excelData) {
                 removeBtn.type = 'button';
                 removeBtn.className = 'btn btn-sm btn-outline-danger remove-answer-btn';
                 removeBtn.textContent = 'Remove';
-                removeBtn.onclick = () => removeAnswerField(answerInput);
+                removeBtn.onclick = () => removeAnswerField(answerDiv);
                 answerDiv.appendChild(removeBtn);
             }
             
@@ -4012,7 +4015,7 @@ function populateInputFromExcel(excelData) {
         addAnswerBtn.type = 'button';
         addAnswerBtn.className = 'btn btn-sm btn-outline-primary add-answer-btn';
         addAnswerBtn.textContent = 'Add Answer';
-        addAnswerBtn.onclick = () => addAnswerField(answersContainer, index + 1);
+        addAnswerBtn.onclick = () => addAnswerField(index + 1);
         questionDiv.appendChild(addAnswerBtn);
         
         container.appendChild(questionDiv);

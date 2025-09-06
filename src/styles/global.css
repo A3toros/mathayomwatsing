@@ -926,6 +926,27 @@ textarea:focus {
   100% { transform: rotate(360deg); }
 }
 
+/* Loading Circle Styles */
+.loading-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-circle .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 .loading-tests p {
   font-size: var(--text-lg);
   margin-top: var(--space-md);

@@ -338,15 +338,47 @@ function animateMessage(message, type = 'success') {
 
 // Animate loading states
 function animateLoading(element) {
+    // Create loading circle if it doesn't exist
+    let loadingCircle = element.querySelector('.loading-circle');
+    if (!loadingCircle) {
+        loadingCircle = document.createElement('div');
+        loadingCircle.className = 'loading-circle';
+        loadingCircle.innerHTML = `
+            <div class="spinner"></div>
+        `;
+        element.appendChild(loadingCircle);
+    }
+    
+    // Show loading circle
+    gsap.set(loadingCircle, { 
+        display: 'flex',
+        opacity: 1
+    });
+    
+    // Animate the main element with higher opacity
     gsap.to(element, {
-        opacity: 0.6,
-        scale: 0.98,
+        opacity: 0.1,
+        scale: 0.9,
         duration: 0.3,
         ease: "power2.out"
     });
 }
 
 function stopLoading(element) {
+    // Hide loading circle
+    const loadingCircle = element.querySelector('.loading-circle');
+    if (loadingCircle) {
+        gsap.to(loadingCircle, {
+            opacity: 0,
+            duration: 0.3,
+            ease: "power2.out",
+            onComplete: () => {
+                gsap.set(loadingCircle, { display: 'none' });
+            }
+        });
+    }
+    
+    // Restore main element
     gsap.to(element, {
         opacity: 1,
         scale: 1,

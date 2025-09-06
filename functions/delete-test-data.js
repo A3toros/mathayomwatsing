@@ -414,122 +414,34 @@ exports.handler = async function(event, context) {
         return deletedCount;
       };
 
-      // Helper function to delete test assignments with date filtering
+      // Helper function to delete test assignments - simplified to use test IDs only
       const deleteTestAssignments = async () => {
         console.log('Deleting test assignments...');
         
-        // Build the query with proper parameter binding
-        let result;
-        
-        if (grades && grades.length > 0 && classes && classes.length > 0 && subjectId) {
-          // All filters applied
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.grade = ANY(${grades})
-            AND ta.class = ANY(${classes})
-            AND ta.subject_id = ${subjectId}
-          `;
-        } else if (grades && grades.length > 0 && classes && classes.length > 0) {
-          // Grades and classes filters
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.grade = ANY(${grades})
-            AND ta.class = ANY(${classes})
-          `;
-        } else if (grades && grades.length > 0 && subjectId) {
-          // Grades and subject filters
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.grade = ANY(${grades})
-            AND ta.subject_id = ${subjectId}
-          `;
-        } else if (classes && classes.length > 0 && subjectId) {
-          // Classes and subject filters
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.class = ANY(${classes})
-            AND ta.subject_id = ${subjectId}
-          `;
-        } else if (grades && grades.length > 0) {
-          // Only grades filter
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.grade = ANY(${grades})
-          `;
-        } else if (classes && classes.length > 0) {
-          // Only classes filter
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.class = ANY(${classes})
-          `;
-        } else if (subjectId) {
-          // Only subject filter
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-            AND ta.subject_id = ${subjectId}
-          `;
-        } else {
-          // No additional filters
-          result = await sql`
-            DELETE FROM test_assignments ta
-            WHERE ta.assigned_at BETWEEN ${startDate} AND ${endDateFull}
-            AND (
-              (ta.test_type = 'multiple_choice' AND EXISTS (SELECT 1 FROM multiple_choice_tests mct WHERE mct.id = ta.test_id AND mct.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'true_false' AND EXISTS (SELECT 1 FROM true_false_tests tft WHERE tft.id = ta.test_id AND tft.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'input' AND EXISTS (SELECT 1 FROM input_tests it WHERE it.id = ta.test_id AND it.teacher_id = ${teacherId}))
-              OR (ta.test_type = 'matching_type' AND EXISTS (SELECT 1 FROM matching_type_tests mtt WHERE mtt.id = ta.test_id AND mtt.teacher_id = ${teacherId}))
-            )
-          `;
-        }
+        // Delete assignments for tests that will be deleted (based on test ID only)
+        const result = await sql`
+          DELETE FROM test_assignments ta
+          WHERE ta.test_id IN (
+            SELECT id FROM multiple_choice_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          OR ta.test_id IN (
+            SELECT id FROM true_false_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          OR ta.test_id IN (
+            SELECT id FROM input_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          OR ta.test_id IN (
+            SELECT id FROM matching_type_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+        `;
 
         const deletedCount = result.rowCount || result.length || 0;
         console.log(`Deleted ${deletedCount} test assignments`);

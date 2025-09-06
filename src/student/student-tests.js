@@ -1439,6 +1439,24 @@ function renderQuestionsForPage(questions, testType, testId) {
         questionElement.dataset.questionIndex = index;
         questionElement.dataset.questionId = question.id || question.question_id;
         
+        // Check if question is answered for styling
+        const questionId = question.question_id;
+        let isAnswered = false;
+        if (testType === 'input') {
+            const savedAnswer = getTestProgress('input', testId, questionId);
+            isAnswered = savedAnswer && savedAnswer.trim() !== '';
+        } else if (testType === 'true_false') {
+            const savedAnswer = getTestProgress('true_false', testId, questionId);
+            isAnswered = savedAnswer !== null && savedAnswer !== undefined;
+        } else if (testType === 'multiple_choice') {
+            const savedAnswer = getTestProgress('multiple_choice', testId, questionId);
+            isAnswered = savedAnswer !== null && savedAnswer !== undefined;
+        }
+        
+        if (isAnswered) {
+            questionElement.classList.add('answered');
+        }
+        
         // Render based on question type
         let renderedHtml = '';
         switch (testType) {
@@ -1471,15 +1489,13 @@ function renderQuestionsForPage(questions, testType, testId) {
         if (!renderedHtml || renderedHtml.trim() === '') {
             console.warn(`[WARN] Rendering failed for question ${index + 1}, using fallback HTML`);
             renderedHtml = `
-                <div class="question-container" data-question-id="${question.question_id || index}">
-                    <h4>Question ${index + 1}</h4>
-                    <p class="question-text">${question.question || 'Question text not available'}</p>
-                    <div class="input-question">
-                        <input type="text" 
-                               id="input_${question.question_id || index}" 
-                               placeholder="Enter your answer" 
-                               data-question-id="${question.question_id || index}">
-                    </div>
+                <h4>Question ${index + 1}</h4>
+                <p class="question-text">${question.question || 'Question text not available'}</p>
+                <div class="input-question">
+                    <input type="text" 
+                           id="input_${question.question_id || index}" 
+                           placeholder="Enter your answer" 
+                           data-question-id="${question.question_id || index}">
                 </div>
             `;
         }
@@ -1504,23 +1520,21 @@ function renderTrueFalseQuestionsForPage(question, testId) {
     const savedAnswer = getTestProgress('true_false', testId, questionId);
     
     return `
-        <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-            <h4>Question ${question.question_id}</h4>
-            <p class="question-text">${question.question}</p>
-            <div class="answer-options">
-                <label class="radio-option">
-                    <input type="radio" name="question_${questionId}" value="true" 
-                           ${savedAnswer === 'true' ? 'checked' : ''} data-question-id="${questionId}">
-                    <span class="radio-custom"></span>
-                    True
-                </label>
-                <label class="radio-option">
-                    <input type="radio" name="question_${questionId}" value="false" 
-                           ${savedAnswer === 'false' ? 'checked' : ''} data-question-id="${questionId}">
-                    <span class="radio-custom"></span>
-                    False
-                </label>
-            </div>
+        <h4>Question ${question.question_id}</h4>
+        <p class="question-text">${question.question}</p>
+        <div class="answer-options">
+            <label class="radio-option">
+                <input type="radio" name="question_${questionId}" value="true" 
+                       ${savedAnswer === 'true' ? 'checked' : ''} data-question-id="${questionId}">
+                <span class="radio-custom"></span>
+                True
+            </label>
+            <label class="radio-option">
+                <input type="radio" name="question_${questionId}" value="false" 
+                       ${savedAnswer === 'false' ? 'checked' : ''} data-question-id="${questionId}">
+                <span class="radio-custom"></span>
+                False
+            </label>
         </div>
     `;
 }
@@ -1533,19 +1547,17 @@ function renderMultipleChoiceQuestionsForPage(question, testId) {
     const savedAnswer = getTestProgress('multiple_choice', testId, questionId);
     
     return `
-        <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-            <h4>Question ${question.question_id}</h4>
-            <p class="question-text">${question.question}</p>
-            <div class="answer-options">
-                ${question.options.map((option, optionIndex) => `
-                    <label class="radio-option">
-                        <input type="radio" name="question_${questionId}" value="${optionIndex}" 
-                               ${savedAnswer === String(optionIndex) ? 'checked' : ''} data-question-id="${questionId}">
-                        <span class="radio-custom"></span>
-                        ${String.fromCharCode(65 + optionIndex)}) ${option}
-                    </label>
-                `).join('')}
-            </div>
+        <h4>Question ${question.question_id}</h4>
+        <p class="question-text">${question.question}</p>
+        <div class="answer-options">
+            ${question.options.map((option, optionIndex) => `
+                <label class="radio-option">
+                    <input type="radio" name="question_${questionId}" value="${optionIndex}" 
+                           ${savedAnswer === String(optionIndex) ? 'checked' : ''} data-question-id="${questionId}">
+                    <span class="radio-custom"></span>
+                    ${String.fromCharCode(65 + optionIndex)}) ${option}
+                </label>
+            `).join('')}
         </div>
     `;
 }
@@ -1558,16 +1570,14 @@ function renderInputQuestionsForPage(question, testId) {
     const savedAnswer = getTestProgress('input', testId, questionId);
     
     return `
-        <div class="question-container ${savedAnswer ? 'answered' : ''}" data-question-id="${questionId}">
-            <h4>Question ${question.question_id}</h4>
-            <p class="question-text">${question.question}</p>
-            <div class="input-question">
-                <input type="text" 
-                       id="input_${questionId}" 
-                       placeholder="Enter your answer" 
-                       value="${savedAnswer || ''}"
-                       data-question-id="${questionId}">
-            </div>
+        <h4>Question ${question.question_id}</h4>
+        <p class="question-text">${question.question}</p>
+        <div class="input-question">
+            <input type="text" 
+                   id="input_${questionId}" 
+                   placeholder="Enter your answer" 
+                   value="${savedAnswer || ''}"
+                   data-question-id="${questionId}">
         </div>
     `;
 }
@@ -1819,16 +1829,24 @@ function getAnsweredQuestionsCountForPage(testType) {
     let answeredCount = 0;
     
     if (testType === 'true_false' || testType === 'multiple_choice') {
-        const radioButtons = document.querySelectorAll('input[type="radio"]:checked');
-        answeredCount = radioButtons.length;
+        // Only count radio buttons within the test page section
+        const testPageSection = document.querySelector('.test-page-section');
+        if (testPageSection) {
+            const radioButtons = testPageSection.querySelectorAll('input[type="radio"]:checked');
+            answeredCount = radioButtons.length;
+        }
         console.log(`[DEBUG] Found ${answeredCount} checked radio buttons`);
     } else if (testType === 'input') {
-        const inputFields = document.querySelectorAll('input[type="text"]');
-        inputFields.forEach(input => {
-            if (input.value && input.value.trim() !== '') {
-                answeredCount++;
-            }
-        });
+        // Only count input fields within the test page section
+        const testPageSection = document.querySelector('.test-page-section');
+        if (testPageSection) {
+            const inputFields = testPageSection.querySelectorAll('input[type="text"]');
+            inputFields.forEach(input => {
+                if (input.value && input.value.trim() !== '') {
+                    answeredCount++;
+                }
+            });
+        }
         console.log(`[DEBUG] Found ${answeredCount} filled input fields`);
     }
     

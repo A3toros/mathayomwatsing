@@ -51,7 +51,8 @@ import {
   handleAssignmentDeletion,
   handleTestDataDeletion,
   getSelectedGradesClasses,
-  hideAssignmentDeletionForm
+  hideAssignmentDeletionForm,
+  deleteTest
 } from './admin-panel.js'
 
 import { testLocalStorage } from '../shared/debug.js'
@@ -115,6 +116,7 @@ function initializeAdminApp() {
   window.testLocalStorage = testLocalStorage;
   window.clearAllLocalStorage = clearAllLocalStorage;
   window.exportLocalStorage = exportLocalStorage;
+  window.deleteTest = deleteTest;
 }
 
 // Admin - Main Entry Point

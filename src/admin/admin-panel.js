@@ -837,6 +837,9 @@ function manualToggleTest() {
   }
 }
 
+// Export deleteTest function
+export { deleteTest };
+
 // Admin test management functions (copied from old script.js)
 async function getAllTests() {
   try {
@@ -916,6 +919,8 @@ function displayTestsTable(tests) {
           <th>Test Name</th>
           <th>Type</th>
           <th>Questions</th>
+          <th>Teacher</th>
+          <th>Classes</th>
           <th>Created</th>
           <th>Actions</th>
         </tr>
@@ -923,14 +928,15 @@ function displayTestsTable(tests) {
       <tbody>
         ${tests.map(test => `
           <tr>
-            <td>${test.id}</td>
+            <td>${test.test_id}</td>
             <td>${test.test_name}</td>
             <td>${test.test_type.replace('_', ' ')}</td>
             <td>${test.num_questions || test.num_blocks || 0}</td>
+            <td>${test.teacher_name || 'Unknown'}</td>
+            <td>${test.classes || 'Not Assigned'}</td>
             <td>${new Date(test.created_at).toLocaleDateString()}</td>
             <td>
-              <button class="btn btn-sm btn-primary" onclick="editTest(${test.id})">Edit</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteTest(${test.id})">Delete</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteTest(${test.test_id}, '${test.test_type}')">Delete</button>
             </td>
           </tr>
         `).join('')}
@@ -1027,4 +1033,48 @@ function displayTestResultsTable(results) {
       </tbody>
     </table>
   `;
+}
+
+// Delete test function
+async function deleteTest(testId, testType) {
+  // Get test details for confirmation
+  const testName = document.querySelector(`tr:has(button[onclick*="${testId}"]) td:nth-child(2)`).textContent;
+  
+  if (!confirm(`Are you sure you want to delete this test?\n\nTest: ${testName}\nType: ${testType.replace('_', ' ')}\nID: ${testId}\n\nThis action cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    // Get current admin token
+    const token = window.tokenManager.getAccessToken();
+    const decoded = window.tokenManager.decodeToken(token);
+    
+    if (!decoded || decoded.role !== 'admin') {
+      alert('Error: Admin session required');
+      return;
+    }
+    
+    // Call backend delete function - no teacher_id needed for admin users
+    const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/delete-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        test_type: testType,
+        test_id: testId
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      alert(`Test deleted successfully: ${result.message}`);
+      // Refresh the tests table
+      getAllTests();
+    } else {
+      alert(`Error deleting test: ${result.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error deleting test:', error);
+    alert('Error deleting test. Please try again.');
+  }
 }

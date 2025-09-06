@@ -209,7 +209,7 @@ exports.handler = async function(event, context) {
       const tableCheck = await sql`SELECT COUNT(*) as count FROM multiple_choice_tests`;
       console.log('🔍 Multiple choice tests table count:', tableCheck[0]?.count);
       
-      // Try the complex query first (with assignments and subjects)
+      // Group tests by test_id and aggregate classes
       try {
         multipleChoiceTests = await sql`
           SELECT 
@@ -218,30 +218,35 @@ exports.handler = async function(event, context) {
             mct.test_name,
             mct.num_questions,
             mct.created_at,
-            COALESCE(s.subject, 'Not Assigned') as subject_name,
-            COALESCE(ta.grade::text, 'Not Assigned') as grade,
-            COALESCE(ta.class::text, 'Not Assigned') as class
+            mct.teacher_id,
+            t.username as teacher_name,
+            STRING_AGG(DISTINCT CONCAT(ta.grade, '/', ta.class), ', ') as classes,
+            STRING_AGG(DISTINCT s.subject, ', ') as subjects
           FROM multiple_choice_tests mct
+          LEFT JOIN teachers t ON mct.teacher_id = t.teacher_id
           LEFT JOIN test_assignments ta ON ta.test_id = mct.id AND ta.test_type = 'multiple_choice'
           LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          GROUP BY mct.id, mct.test_name, mct.num_questions, mct.created_at, mct.teacher_id, t.username
           ORDER BY mct.created_at DESC
         `;
-        console.log('🔍 Complex query successful, found:', multipleChoiceTests.length);
+        console.log('🔍 Grouped query successful, found:', multipleChoiceTests.length);
       } catch (error) {
-        console.log('⚠️ Complex query failed, trying simple query...');
+        console.log('⚠️ Grouped query failed, trying simple query...');
         // Fallback to simple query without joins
         multipleChoiceTests = await sql`
           SELECT 
             'multiple_choice' as test_type,
-            id as test_id,
-            test_name,
-            num_questions,
-            created_at,
-            'Not Assigned' as subject_name,
-            'Not Assigned' as grade,
-            'Not Assigned' as class
-          FROM multiple_choice_tests
-          ORDER BY created_at DESC
+            mct.id as test_id,
+            mct.test_name,
+            mct.num_questions,
+            mct.created_at,
+            mct.teacher_id,
+            t.username as teacher_name,
+            'Not Assigned' as classes,
+            'Not Assigned' as subjects
+          FROM multiple_choice_tests mct
+          LEFT JOIN teachers t ON mct.teacher_id = t.teacher_id
+          ORDER BY mct.created_at DESC
         `;
         console.log('🔍 Simple query successful, found:', multipleChoiceTests.length);
       }
@@ -260,7 +265,7 @@ exports.handler = async function(event, context) {
       const tableCheck = await sql`SELECT COUNT(*) as count FROM true_false_tests`;
       console.log('🔍 True/false tests table count:', tableCheck[0]?.count);
       
-      // Try the complex query first (with assignments and subjects)
+      // Group tests by test_id and aggregate classes
       try {
         trueFalseTests = await sql`
           SELECT 
@@ -269,30 +274,35 @@ exports.handler = async function(event, context) {
             tft.test_name,
             tft.num_questions,
             tft.created_at,
-            COALESCE(s.subject, 'Not Assigned') as subject_name,
-            COALESCE(ta.grade::text, 'Not Assigned') as grade,
-            COALESCE(ta.class::text, 'Not Assigned') as class
+            tft.teacher_id,
+            t.username as teacher_name,
+            STRING_AGG(DISTINCT CONCAT(ta.grade, '/', ta.class), ', ') as classes,
+            STRING_AGG(DISTINCT s.subject, ', ') as subjects
           FROM true_false_tests tft
+          LEFT JOIN teachers t ON tft.teacher_id = t.teacher_id
           LEFT JOIN test_assignments ta ON ta.test_id = tft.id AND ta.test_type = 'true_false'
           LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          GROUP BY tft.id, tft.test_name, tft.num_questions, tft.created_at, tft.teacher_id, t.username
           ORDER BY tft.created_at DESC
         `;
-        console.log('🔍 Complex query successful, found:', trueFalseTests.length);
+        console.log('🔍 Grouped query successful, found:', trueFalseTests.length);
       } catch (error) {
-        console.log('⚠️ Complex query failed, trying simple query...');
+        console.log('⚠️ Grouped query failed, trying simple query...');
         // Fallback to simple query without joins
         trueFalseTests = await sql`
           SELECT 
             'true_false' as test_type,
-            id as test_id,
-            test_name,
-            num_questions,
-            created_at,
-            'Not Assigned' as subject_name,
-            'Not Assigned' as grade,
-            'Not Assigned' as class
-          FROM true_false_tests
-          ORDER BY created_at DESC
+            tft.id as test_id,
+            tft.test_name,
+            tft.num_questions,
+            tft.created_at,
+            tft.teacher_id,
+            t.username as teacher_name,
+            'Not Assigned' as classes,
+            'Not Assigned' as subjects
+          FROM true_false_tests tft
+          LEFT JOIN teachers t ON tft.teacher_id = t.teacher_id
+          ORDER BY tft.created_at DESC
         `;
         console.log('🔍 Simple query successful, found:', trueFalseTests.length);
       }
@@ -311,7 +321,7 @@ exports.handler = async function(event, context) {
       const tableCheck = await sql`SELECT COUNT(*) as count FROM input_tests`;
       console.log('🔍 Input tests table count:', tableCheck[0]?.count);
       
-      // Try the complex query first (with assignments and subjects)
+      // Group tests by test_id and aggregate classes
       try {
         inputTests = await sql`
           SELECT 
@@ -320,29 +330,35 @@ exports.handler = async function(event, context) {
             it.test_name,
             it.num_questions,
             it.created_at,
-            COALESCE(s.subject, 'Not Assigned') as subject_name,
-            COALESCE(ta.grade::text, 'Not Assigned') as grade,
-            COALESCE(ta.class::text, 'Not Assigned') as class
+            it.teacher_id,
+            t.username as teacher_name,
+            STRING_AGG(DISTINCT CONCAT(ta.grade, '/', ta.class), ', ') as classes,
+            STRING_AGG(DISTINCT s.subject, ', ') as subjects
           FROM input_tests it
+          LEFT JOIN teachers t ON it.teacher_id = t.teacher_id
           LEFT JOIN test_assignments ta ON ta.test_id = it.id AND ta.test_type = 'input'
           LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          GROUP BY it.id, it.test_name, it.num_questions, it.created_at, it.teacher_id, t.username
           ORDER BY it.created_at DESC
         `;
-        console.log('🔍 Complex query successful, found:', inputTests.length);
+        console.log('🔍 Grouped query successful, found:', inputTests.length);
       } catch (error) {
-        console.log('⚠️ Complex query failed, trying simple query...');
+        console.log('⚠️ Grouped query failed, trying simple query...');
         // Fallback to simple query without joins
         inputTests = await sql`
           SELECT 
             'input' as test_type,
-            id as test_id,
-            test_name,
-            num_questions,
-            created_at,
-            'Not Assigned' as subject_name,
-            'Not Assigned' as grade,
-            'Not Assigned' as class
-          FROM input_tests
+            it.id as test_id,
+            it.test_name,
+            it.num_questions,
+            it.created_at,
+            it.teacher_id,
+            t.username as teacher_name,
+            'Not Assigned' as classes,
+            'Not Assigned' as subjects
+          FROM input_tests it
+          LEFT JOIN teachers t ON it.teacher_id = t.teacher_id
+          ORDER BY it.created_at DESC
         `;
         console.log('🔍 Simple query successful, found:', inputTests.length);
       }
@@ -363,7 +379,7 @@ exports.handler = async function(event, context) {
       const tableCheck = await sql`SELECT COUNT(*) as count FROM matching_type_tests`;
       console.log('🔍 Matching type tests table count:', tableCheck[0]?.count);
       
-      // Try the complex query first (with assignments and subjects)
+      // Group tests by test_id and aggregate classes
       try {
         matchingTypeTests = await sql`
           SELECT 
@@ -372,30 +388,35 @@ exports.handler = async function(event, context) {
             mtt.test_name,
             mtt.num_blocks as num_questions,
             mtt.created_at,
-            COALESCE(s.subject, 'Not Assigned') as subject_name,
-            COALESCE(ta.grade::text, 'Not Assigned') as grade,
-            COALESCE(ta.class::text, 'Not Assigned') as class
+            mtt.teacher_id,
+            t.username as teacher_name,
+            STRING_AGG(DISTINCT CONCAT(ta.grade, '/', ta.class), ', ') as classes,
+            STRING_AGG(DISTINCT s.subject, ', ') as subjects
           FROM matching_type_tests mtt
+          LEFT JOIN teachers t ON mtt.teacher_id = t.teacher_id
           LEFT JOIN test_assignments ta ON ta.test_id = mtt.id AND ta.test_type = 'matching_type'
           LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          GROUP BY mtt.id, mtt.test_name, mtt.num_blocks, mtt.created_at, mtt.teacher_id, t.username
           ORDER BY mtt.created_at DESC
         `;
-        console.log('🔍 Complex query successful, found:', matchingTypeTests.length);
+        console.log('🔍 Grouped query successful, found:', matchingTypeTests.length);
       } catch (error) {
-        console.log('⚠️ Complex query failed, trying simple query...');
+        console.log('⚠️ Grouped query failed, trying simple query...');
         // Fallback to simple query without joins
         matchingTypeTests = await sql`
           SELECT 
             'matching_type' as test_type,
-            id as test_id,
-            test_name,
-            num_blocks as num_questions,
-            created_at,
-            'Not Assigned' as subject_name,
-            'Not Assigned' as grade,
-            'Not Assigned' as class
-          FROM matching_type_tests
-          ORDER BY created_at DESC
+            mtt.id as test_id,
+            mtt.test_name,
+            mtt.num_blocks as num_questions,
+            mtt.created_at,
+            mtt.teacher_id,
+            t.username as teacher_name,
+            'Not Assigned' as classes,
+            'Not Assigned' as subjects
+          FROM matching_type_tests mtt
+          LEFT JOIN teachers t ON mtt.teacher_id = t.teacher_id
+          ORDER BY mtt.created_at DESC
         `;
         console.log('🔍 Simple query successful, found:', matchingTypeTests.length);
       }
