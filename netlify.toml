@@ -5,7 +5,7 @@
 
 [dev]
   functions = "functions"
-  publish = "public"
+  publish = "dist"
   port = 8888
 
 [[redirects]]
