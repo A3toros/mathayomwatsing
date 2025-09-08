@@ -735,12 +735,10 @@ async function handleUnifiedLogin(e) {
             if (await handleLoginResponse(response, 'admin', data)) return;
         }
 
-        // Try teacher login
-        if (username === 'Alex' || username === 'Charlie') {
-            const response = await teacherLogin(credentials);
-            const data = await response.json();
-            if (await handleLoginResponse(response, 'teacher', data)) return;
-        }
+       // Try teacher login - allow any teacher in database
+        const teacherResponse = await teacherLogin(credentials);
+        const teacherData = await teacherResponse.json();
+        if (await handleLoginResponse(teacherResponse, 'teacher', teacherData)) return;
 
         // Try student login
         if (/^\d+$/.test(username)) {
