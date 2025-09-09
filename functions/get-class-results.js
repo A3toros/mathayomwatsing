@@ -304,7 +304,7 @@ exports.handler = async function(event, context) {
       const fallbackMcResults = await sql`
         SELECT mctr.student_id, mctr.name, mctr.surname, mctr.nickname, mctr.score, mctr.max_score, mctr.test_name, mctr.number, 'multiple_choice' as test_type
         FROM multiple_choice_test_results mctr
-        WHERE mctr.grade = ${assignmentGrade} AND mctr.class = ${assignmentClass}
+        WHERE mctr.grade = ${grade} AND mctr.class = ${assignmentClass}
         AND mctr.academic_period_id = ${academicPeriods[0].id}
         ORDER BY mctr.number
       `;
@@ -312,7 +312,7 @@ exports.handler = async function(event, context) {
       const fallbackTfResults = await sql`
         SELECT tftr.student_id, tftr.name, tftr.surname, tftr.nickname, tftr.score, tftr.max_score, tftr.test_name, tftr.number, 'true_false' as test_type
         FROM true_false_test_results tftr
-        WHERE tftr.grade = ${assignmentGrade} AND tftr.class = ${assignmentClass}
+        WHERE tftr.grade = ${grade} AND tftr.class = ${assignmentClass}
         AND tftr.academic_period_id = ${academicPeriods[0].id}
         ORDER BY tftr.number
       `;
@@ -320,7 +320,7 @@ exports.handler = async function(event, context) {
       const fallbackInputResults = await sql`
         SELECT itr.student_id, itr.name, itr.surname, itr.nickname, itr.score, itr.max_score, itr.test_name, itr.number, 'input' as test_type
         FROM input_test_results itr
-        WHERE itr.grade = ${assignmentGrade} AND itr.class = ${assignmentClass}
+        WHERE itr.grade = ${grade} AND itr.class = ${assignmentClass}
         AND itr.academic_period_id = ${academicPeriods[0].id}
         ORDER BY itr.number
       `;
@@ -328,7 +328,7 @@ exports.handler = async function(event, context) {
       const fallbackMatchingResults = await sql`
         SELECT mtr.student_id, mtr.name, mtr.surname, mtr.nickname, mtr.score, mtr.max_score, mtr.test_name, mtr.number, 'matching_type' as test_type
         FROM matching_type_test_results mtr
-        WHERE mtr.grade = ${assignmentGrade} AND mtr.class = ${assignmentClass}
+        WHERE mtr.grade = ${grade} AND mtr.class = ${assignmentClass}
         AND mtr.academic_period_id = ${academicPeriods[0].id}
         ORDER BY mtr.number
       `;
@@ -502,7 +502,7 @@ exports.handler = async function(event, context) {
         allMcResults = await sql`
           SELECT mctr.student_id, mctr.name, mctr.surname, mctr.nickname, mctr.score, mctr.max_score, mctr.test_name, mctr.created_at, mctr.number, 'multiple_choice' as test_type
           FROM multiple_choice_test_results mctr
-          WHERE mctr.grade = ${assignmentGrade} 
+          WHERE mctr.grade = ${grade} 
           AND mctr.class = ${assignmentClass}
           AND mctr.academic_period_id = ${academicPeriodId}
           AND mctr.test_id = ANY(${mcTestIds})
@@ -514,7 +514,7 @@ exports.handler = async function(event, context) {
         allTfResults = await sql`
           SELECT tftr.student_id, tftr.name, tftr.surname, tftr.nickname, tftr.score, tftr.max_score, tftr.test_name, tftr.created_at, tftr.number, 'true_false' as test_type
           FROM true_false_test_results tftr
-          WHERE tftr.grade = ${assignmentGrade} 
+          WHERE tftr.grade = ${grade} 
           AND tftr.class = ${assignmentClass}
           AND tftr.academic_period_id = ${academicPeriodId}
           AND tftr.test_id = ANY(${tfTestIds})
@@ -526,7 +526,7 @@ exports.handler = async function(event, context) {
         allInputResults = await sql`
           SELECT itr.student_id, itr.name, itr.surname, itr.nickname, itr.score, itr.max_score, itr.test_name, itr.created_at, itr.number, 'input' as test_type
           FROM input_test_results itr
-          WHERE itr.grade = ${assignmentGrade} 
+          WHERE itr.grade = ${grade} 
           AND itr.class = ${assignmentClass}
           AND itr.academic_period_id = ${academicPeriodId}
           AND itr.test_id = ANY(${inputTestIds})
@@ -538,7 +538,7 @@ exports.handler = async function(event, context) {
         allMatchingResults = await sql`
           SELECT mttr.student_id, mttr.name, mttr.surname, mttr.nickname, mttr.score, mttr.max_score, mttr.test_name, mttr.created_at, mttr.number, 'matching_type' as test_type
           FROM matching_type_test_results mttr
-          WHERE mttr.grade = ${assignmentGrade} 
+          WHERE mttr.grade = ${grade} 
           AND mttr.class = ${assignmentClass}
           AND mttr.academic_period_id = ${academicPeriodId}
           AND mttr.test_id = ANY(${matchingTestIds})
@@ -698,7 +698,7 @@ exports.handler = async function(event, context) {
           subjectMcResults = await sql`
             SELECT mctr.student_id, mctr.name, mctr.surname, mctr.nickname, mctr.score, mctr.max_score, mctr.test_name, mctr.created_at, mctr.number, 'multiple_choice' as test_type
             FROM multiple_choice_test_results mctr
-            WHERE mctr.grade = ${assignmentGrade} 
+            WHERE mctr.grade = ${grade} 
             AND mctr.class = ${assignmentClass}
             AND mctr.academic_period_id = ${academicPeriodId}
             AND mctr.test_id = ANY(${mcTestIds})
@@ -710,7 +710,7 @@ exports.handler = async function(event, context) {
           subjectTfResults = await sql`
             SELECT tftr.student_id, tftr.name, tftr.surname, tftr.nickname, tftr.score, tftr.max_score, tftr.test_name, tftr.created_at, tftr.number, 'true_false' as test_type
             FROM true_false_test_results tftr
-            WHERE tftr.grade = ${assignmentGrade} 
+            WHERE tftr.grade = ${grade} 
             AND tftr.class = ${assignmentClass}
             AND tftr.academic_period_id = ${academicPeriodId}
             AND tftr.test_id = ANY(${tfTestIds})
@@ -722,7 +722,7 @@ exports.handler = async function(event, context) {
           subjectInputResults = await sql`
             SELECT itr.student_id, itr.name, itr.surname, itr.nickname, itr.score, itr.max_score, itr.test_name, itr.created_at, itr.number, 'input' as test_type
             FROM input_test_results itr
-            WHERE itr.grade = ${assignmentGrade} 
+            WHERE itr.grade = ${grade} 
             AND itr.class = ${assignmentClass}
             AND itr.academic_period_id = ${academicPeriodId}
             AND itr.test_id = ANY(${inputTestIds})
@@ -734,7 +734,7 @@ exports.handler = async function(event, context) {
           subjectMatchingResults = await sql`
             SELECT mttr.student_id, mttr.name, mttr.surname, mttr.nickname, mttr.score, mttr.max_score, mttr.test_name, mttr.created_at, mttr.number, 'matching_type' as test_type
             FROM matching_type_test_results mttr
-            WHERE mttr.grade = ${assignmentGrade} 
+            WHERE mttr.grade = ${grade} 
             AND mttr.class = ${assignmentClass}
             AND mttr.academic_period_id = ${academicPeriodId}
             AND mttr.test_id = ANY(${matchingTestIds})
