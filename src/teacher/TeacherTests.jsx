@@ -831,6 +831,13 @@ const TeacherTests = () => {
       // Handle matching tests differently
       if (testType === 'matching') {
         console.log('🎯 Processing matching test...');
+        console.log('🔄 Setting isAssigningTest to true for matching test...');
+        setIsAssigningTest(true);
+        console.log('🔄 isAssigningTest set to true, overlay should show');
+        
+        // Small delay to ensure state update renders
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // For matching tests, use the special matching test data from formData
         const matchingTestData = formData.matchingTestData;
         console.log('🔍 Matching test data from formData:', matchingTestData);
@@ -915,12 +922,20 @@ const TeacherTests = () => {
           console.error('❌ Failed to create matching test:', response.message);
           showNotification('Error creating and assigning matching test: ' + response.message, 'error');
         }
+        setIsAssigningTest(false);
         return;
       }
 
       // Handle word matching tests
       if (testType === 'wordMatching') {
         console.log('🎯 Processing word matching test...');
+        console.log('🔄 Setting isAssigningTest to true for word matching test...');
+        setIsAssigningTest(true);
+        console.log('🔄 isAssigningTest set to true, overlay should show');
+        
+        // Small delay to ensure state update renders
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const wordMatchingData = formData.wordMatchingData;
         console.log('🔍 Word matching test data from formData:', wordMatchingData);
         
@@ -972,12 +987,20 @@ const TeacherTests = () => {
           console.error('❌ Failed to create word matching test:', response.message);
           showNotification('Error creating and assigning word matching test: ' + response.message, 'error');
         }
+        setIsAssigningTest(false);
         return;
       }
 
       // Handle drawing tests
       if (testType === 'drawing') {
         console.log('🎯 Processing drawing test...');
+        console.log('🔄 Setting isAssigningTest to true for drawing test...');
+        setIsAssigningTest(true);
+        console.log('🔄 isAssigningTest set to true, overlay should show');
+        
+        // Small delay to ensure state update renders
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const drawingData = formData.drawingData;
         console.log('🔍 Drawing test data from formData:', drawingData);
         
@@ -1023,6 +1046,7 @@ const TeacherTests = () => {
           console.error('❌ Failed to create drawing test:', response.message);
           showNotification('Error creating and assigning drawing test: ' + response.message, 'error');
         }
+        setIsAssigningTest(false);
         return;
       }
 
