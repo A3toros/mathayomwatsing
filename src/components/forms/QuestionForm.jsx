@@ -489,7 +489,7 @@ export const QuestionForm = ({ testType, onTestSaved, onTestAssigned }) => {
           }),
           // For true/false questions, use 'correctAnswer'
           ...(currentTestType === 'true-false' && { 
-            correctAnswer: q.correct_answer 
+            correctAnswer: q.correct_answer ? 'true' : 'false'
           })
         }))
       }));

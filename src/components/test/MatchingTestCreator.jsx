@@ -15,7 +15,6 @@ import { useAuth } from '../../contexts/AuthContext';
 
 // ✅ REUSE EXISTING UTILITIES
 import { validateForm, formatFormData, resetForm } from '../../utils/formHelpers';
-import { calculateScore, formatScore } from '../../utils/scoreCalculation';
 import { validateInput } from '../../utils/validation';
 
 // ✅ NEW CUSTOM HOOKS

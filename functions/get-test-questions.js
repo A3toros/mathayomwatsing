@@ -53,16 +53,16 @@ exports.handler = async function(event, context) {
       };
     }
 
-    const { test_id } = event.queryStringParameters || {};
+    const { test_id, test_type } = event.queryStringParameters || {};
     
-    console.log('Extracted params - test_id:', test_id);
+    console.log('Extracted params - test_id:', test_id, 'test_type:', test_type);
 
-    if (!test_id) {
+    if (!test_id || !test_type) {
       console.log('Missing required parameters');
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Test ID is required' })
+        body: JSON.stringify({ error: 'Test ID and test type are required' })
       };
     }
 
@@ -73,12 +73,9 @@ exports.handler = async function(event, context) {
 
     let questions = [];
     let testInfo = {};
-    let test_type = '';
 
-    // Check which table contains the test_id
-    const mcTest = await sql`SELECT id FROM multiple_choice_tests WHERE id = ${test_id}`;
-    if (mcTest.length > 0) {
-      test_type = 'multiple_choice';
+    // Use the test_type parameter to determine which table to query
+    if (test_type === 'multiple_choice') {
       console.log('Processing multiple choice test...');
       // Get test info
       const mcTestInfo = await sql`
@@ -106,19 +103,22 @@ exports.handler = async function(event, context) {
         ORDER BY question_id
       `;
       
-      // Restructure to consistent format with options array
+      // Restructure to consistent format with options array AND preserve individual option fields
       questions = mcQuestions.map(q => ({
         question_id: q.question_id,
         question: q.question,
         correct_answer: q.correct_answer,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        option_e: q.option_e,
+        option_f: q.option_f,
         options: [q.option_a, q.option_b, q.option_c, q.option_d, q.option_e, q.option_f].filter(Boolean)
       }));
       
       console.log('Multiple choice questions restructured:', questions);
-    } else {
-      const tfTest = await sql`SELECT id FROM true_false_tests WHERE id = ${test_id}`;
-      if (tfTest.length > 0) {
-        test_type = 'true_false';
+    } else if (test_type === 'true_false') {
         // Get test info
         const tfTestInfo = await sql`
           SELECT test_name, num_questions, teacher_id, subject_id, created_at FROM true_false_tests WHERE id = ${test_id}
@@ -137,10 +137,7 @@ exports.handler = async function(event, context) {
           WHERE test_id = ${test_id}
           ORDER BY question_id
         `;
-      } else {
-        const inputTest = await sql`SELECT id FROM input_tests WHERE id = ${test_id}`;
-        if (inputTest.length > 0) {
-          test_type = 'input';
+      } else if (test_type === 'input') {
           // Get test info
           const inputTestInfo = await sql`
             SELECT test_name, num_questions, teacher_id, subject_id, created_at FROM input_tests WHERE id = ${test_id}
@@ -167,10 +164,7 @@ exports.handler = async function(event, context) {
             correct_answers: row.correct_answers || []
           }));
           console.log('Input questions grouped:', questions);
-        } else {
-          const matchingTest = await sql`SELECT id FROM matching_type_tests WHERE id = ${test_id}`;
-          if (matchingTest.length > 0) {
-            test_type = 'matching_type';
+        } else if (test_type === 'matching_type') {
             // Get test info
             const mtInfo = await sql`
               SELECT test_name, num_blocks, created_at, image_url FROM matching_type_tests WHERE id = ${test_id}
@@ -249,10 +243,7 @@ exports.handler = async function(event, context) {
             } else {
               questions = [];
             }
-          } else {
-            const wordMatchingTest = await sql`SELECT id FROM word_matching_tests WHERE id = ${test_id}`;
-            if (wordMatchingTest.length > 0) {
-              test_type = 'word_matching';
+          } else if (test_type === 'word_matching') {
               // Get test info
               const wmtInfo = await sql`
                 SELECT test_name, num_questions, interaction_type, created_at FROM word_matching_tests WHERE id = ${test_id}
@@ -280,10 +271,7 @@ exports.handler = async function(event, context) {
               }));
               
               console.log('Word matching questions processed:', questions);
-            } else {
-              const drawingTest = await sql`SELECT id FROM drawing_tests WHERE id = ${test_id}`;
-              if (drawingTest.length > 0) {
-                test_type = 'drawing';
+            } else if (test_type === 'drawing') {
                 // Get test info
                 const drawingTestInfo = await sql`
                   SELECT test_name, num_questions, passing_score, created_at, teacher_id, subject_id FROM drawing_tests WHERE id = ${test_id}
@@ -317,18 +305,13 @@ exports.handler = async function(event, context) {
                 }));
                 
                 console.log('Drawing questions processed:', questions);
-              } else {
-                return {
-                  statusCode: 404,
-                  headers: { ...headers, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ error: 'Test not found' })
-                };
-              }
+            } else {
+              return {
+                statusCode: 400,
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ error: `Unsupported test type: ${test_type}` })
+              };
             }
-          }
-        }
-      }
-    }
 
     console.log('Final response data:');
     console.log('- testInfo:', testInfo);

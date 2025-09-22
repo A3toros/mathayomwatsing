@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { testService } from '../services/testService';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getCachedData, setCachedData, CACHE_TTL, clearTestData } from '../utils/cacheUtils';
+import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
 // TEST CONTEXT - React Context for Test State Management
 // ✅ COMPLETED: All test functionality from legacy src/ converted to React
@@ -434,71 +435,11 @@ export const TestProvider = ({ children }) => {
     return { ...studentAnswers };
   };
 
-  // Calculate test score
-  const calculateTestScore = (questions, answers, testType) => {
-    try {
-      let correctCount = 0;
-      
-      if (!questions || !Array.isArray(questions)) {
-        console.warn('Invalid questions array for score calculation');
-        return 0;
-      }
-      
-      questions.forEach(question => {
-        const questionId = question.question_id || question.id;
-        const userAnswer = answers[questionId];
-        if (userAnswer && checkAnswerCorrectness(question, userAnswer, testType)) {
-          correctCount++;
-        }
-      });
-      
-      return correctCount;
-    } catch (error) {
-      console.error('Error calculating test score:', error);
-      return 0;
-    }
-  };
 
-  // Check if answer is correct
-  const isAnswerCorrect = (questionId, userAnswer, correctAnswer) => {
-    return userAnswer === correctAnswer;
-  };
 
-  // Check answer correctness with question object
-  const checkAnswerCorrectness = (question, userAnswer, testType) => {
-    try {
-      if (!question || !userAnswer) return false;
-      
-      const correctAnswer = question.correct_answer;
-      if (!correctAnswer) return false;
-      
-      switch (testType) {
-        case 'true_false':
-          return String(userAnswer).toLowerCase() === String(correctAnswer).toLowerCase();
-        case 'multiple_choice':
-          return String(userAnswer).toUpperCase() === String(correctAnswer).toUpperCase();
-        case 'input':
-          return String(userAnswer).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase();
-        case 'matching_type':
-          // For matching tests, compare the structure
-          return JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
-        case 'word_matching':
-          // For word matching tests, compare the structure
-          return JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
-        case 'drawing':
-          // For drawing tests, we don't have a "correct" answer, so we'll return true if there's a drawing
-          return userAnswer && userAnswer !== 'No answer';
-        default:
-          return userAnswer === correctAnswer;
-      }
-    } catch (error) {
-      console.error('Error checking answer correctness:', error);
-      return false;
-    }
-  };
 
   // Format student answer for display
-  const formatStudentAnswerForDisplay = (answer, testType) => {
+  const formatStudentAnswerForDisplay = (answer, testType, question = null) => {
     try {
       if (!answer) return 'No answer';
       
@@ -506,6 +447,16 @@ export const TestProvider = ({ children }) => {
         case 'true_false':
           return answer ? 'True' : 'False';
         case 'multiple_choice':
+          // If question is provided, try to get actual option text
+          if (question && typeof answer === 'string' && !isNaN(parseInt(answer))) {
+            const letterIndex = parseInt(answer);
+            const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
+            const optionText = question[optionKey];
+            if (optionText) {
+              return optionText;
+            }
+          }
+          // Fallback to letter format
           return String(answer).toUpperCase();
         case 'input':
           return String(answer);
@@ -534,46 +485,6 @@ export const TestProvider = ({ children }) => {
     }
   };
 
-  // Get correct answer for display
-  const getCorrectAnswer = (question, testType) => {
-    try {
-      if (!question) return 'Not available';
-      
-      const correctAnswer = question.correct_answer;
-      if (!correctAnswer) return 'Not specified';
-      
-      switch (testType) {
-        case 'true_false':
-          return correctAnswer ? 'True' : 'False';
-        case 'multiple_choice':
-          return String(correctAnswer).toUpperCase();
-        case 'input':
-          return String(correctAnswer);
-        case 'matching_type':
-          if (typeof correctAnswer === 'object') {
-            return Object.entries(correctAnswer)
-              .map(([key, value]) => `${key} → ${value}`)
-              .join(', ');
-          }
-          return String(correctAnswer);
-        case 'word_matching':
-          if (typeof correctAnswer === 'object') {
-            return Object.entries(correctAnswer)
-              .map(([key, value]) => `${key} → ${value}`)
-              .join(', ');
-          }
-          return String(correctAnswer);
-        case 'drawing':
-          // For drawing tests, there's no "correct" answer
-          return 'Drawing submitted';
-        default:
-          return String(correctAnswer);
-      }
-    } catch (error) {
-      console.error('Error getting correct answer:', error);
-      return 'Error displaying correct answer';
-    }
-  };
 
   // Transform answers for submission
   const transformAnswersForSubmission = (answers, testType) => {
@@ -1721,7 +1632,6 @@ Completed: ${new Date(testResults.timestamp).toLocaleString()}`;
     // Utility Functions
     collectTestAnswers,
     calculateTestScore,
-    isAnswerCorrect,
     checkAnswerCorrectness,
     formatStudentAnswerForDisplay,
     getCorrectAnswer,

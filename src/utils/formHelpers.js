@@ -52,6 +52,7 @@
 // ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
 
 import { TEST_TYPES } from '../shared/shared-index.jsx';
+import { checkAnswerCorrectness, isAnswerCorrect } from './scoreCalculation';
 
 // NEW: Enhanced form validation for new form structure
 export const validateForm = (formData, validationRules) => {
@@ -423,12 +424,8 @@ export const restoreInputData = (formData) => {
   console.log('✅ Finished restoring input data');
 };
 
-// Enhanced isAnswerCorrect from legacy code
-export const isAnswerCorrect = (questionId, userAnswer, correctAnswers) => {
-  console.log(`Checking answer for question ${questionId}: ${userAnswer}`);
-  const correctAnswer = correctAnswers[questionId];
-  return userAnswer === correctAnswer;
-};
+// Enhanced isAnswerCorrect from legacy code - renamed to avoid conflict
+// ✅ REMOVED: Duplicate function - use isAnswerCorrect from scoreCalculation.js instead
 
 // Enhanced calculateScore from legacy code
 export const calculateScore = (answers, correctAnswers) => {
@@ -463,77 +460,7 @@ export const transformAnswersForSubmission = (answers, testType) => {
   }
 };
 
-// Enhanced checkAnswerCorrectness from legacy code
-export const checkAnswerCorrectness = (question, studentAnswer, testType) => {
-  console.log(`[DEBUG] checkAnswerCorrectness called for question:`, question, 'studentAnswer:', studentAnswer, 'testType:', testType);
-  
-  if (!studentAnswer || studentAnswer === '') {
-    console.log('[DEBUG] No student answer provided');
-    return false;
-  }
-  
-  let isCorrect = false;
-  
-  switch (testType) {
-    case TEST_TYPES.TRUE_FALSE:
-      // Convert string answer to boolean for comparison
-      const booleanAnswer = studentAnswer === 'true';
-      isCorrect = booleanAnswer === question.correct_answer;
-      break;
-    case TEST_TYPES.MULTIPLE_CHOICE:
-      // Convert integer answer to letter for comparison with database
-      const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer)); // 0→A, 1→B, 2→C
-      isCorrect = letterAnswer === question.correct_answer;
-      break;
-    case TEST_TYPES.INPUT:
-      // For grouped questions, check against all correct answers
-      if (question.correct_answers && Array.isArray(question.correct_answers)) {
-        isCorrect = question.correct_answers.some(correctAnswer => 
-          studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-        );
-      } else {
-        // Fallback for old format - use correct_answer (not correctAnswer)
-        isCorrect = studentAnswer.toLowerCase().trim() === question.correct_answer.toLowerCase().trim();
-      }
-      break;
-    case TEST_TYPES.MATCHING:
-      // For matching tests, compare the matching pairs
-      if (question.correct_matches && typeof question.correct_matches === 'object') {
-        const studentMatches = JSON.parse(studentAnswer || '{}');
-        isCorrect = JSON.stringify(studentMatches) === JSON.stringify(question.correct_matches);
-      }
-      break;
-    default:
-      console.warn(`[WARN] Unknown test type for answer checking: ${testType}`);
-      isCorrect = false;
-  }
-  
-  console.log(`[DEBUG] Answer correctness: ${isCorrect}`);
-  return isCorrect;
-};
 
-// Enhanced calculateTestScore from legacy code
-export const calculateTestScore = (questions, answers, testType) => {
-  console.log(`[DEBUG] calculateTestScore called with ${questions.length} questions, testType: ${testType}`);
-  
-  let score = 0;
-  
-  questions.forEach((question, index) => {
-    // Use question_id consistently
-    const questionId = question.question_id;
-    const studentAnswer = answers[questionId];
-    const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
-    
-    if (isCorrect) {
-      score++;
-    }
-    
-    console.log(`[DEBUG] Question ${questionId}: answer=${studentAnswer}, correct=${isCorrect}, running score=${score}`);
-  });
-  
-  console.log(`[DEBUG] Final test score: ${score}/${questions.length}`);
-  return score;
-};
 
 // Enhanced clearAllLocalStorage from legacy code
 export const clearAllLocalStorage = (showNotification) => {
@@ -685,12 +612,9 @@ export default {
   checkInputElements,
   restoreTrueFalseData,
   restoreInputData,
-  isAnswerCorrect,
   calculateScore,
   validateAnswer,
   transformAnswersForSubmission,
-  checkAnswerCorrectness,
-  calculateTestScore,
   clearAllLocalStorage,
   exportLocalStorage,
   sendRequest,

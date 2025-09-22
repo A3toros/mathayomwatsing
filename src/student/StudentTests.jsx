@@ -11,6 +11,7 @@ import TestDetailsModal from '@/components/test/TestDetailsModal';
 import ProgressTracker from '@/components/test/ProgressTracker';
 import { testService } from '@/services/testService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG, TEST_TYPES } from '@/shared/shared-index';
+import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
 // STUDENT TESTS - React Component for Student Test Taking - ENHANCED FOR NEW STRUCTURE
 // ✅ COMPLETED: All student test functionality from legacy src/ converted to React
@@ -556,97 +557,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     }
   }, [currentTest, testInfo, questions, studentAnswers, markCompleted, clearTestProgress]);
   
-  // Enhanced calculateTestScore from legacy code
-  const calculateTestScore = useCallback((questions, answers, testType) => {
-    console.log('🎓 Calculating test score...');
-    let correctAnswers = 0;
-    
-    questions.forEach((question, index) => {
-      const studentAnswer = answers[index];
-      const correctAnswer = getCorrectAnswer(question, testType);
-      
-      if (isAnswerCorrect(question, studentAnswer, correctAnswer, testType)) {
-        correctAnswers++;
-      }
-    });
-    
-    console.log('🎓 Score calculated:', correctAnswers, 'out of', questions.length);
-    return correctAnswers;
-  }, []);
   
-  // Enhanced isAnswerCorrect from legacy code
-  const isAnswerCorrect = useCallback((question, studentAnswer, correctAnswer, testType) => {
-    if (!studentAnswer || !correctAnswer) return false;
-    
-    switch (testType) {
-      case TEST_TYPES.TRUE_FALSE:
-        return studentAnswer.toLowerCase() === correctAnswer.toLowerCase();
-      case TEST_TYPES.MULTIPLE_CHOICE:
-        // Convert student answer index to letter for comparison
-        const studentAnswerLetter = String.fromCharCode(65 + parseInt(studentAnswer));
-        // Extract the letter from correct answer (e.g., "Option A" -> "A")
-        const correctAnswerLetter = correctAnswer.includes('Option ') 
-          ? correctAnswer.replace('Option ', '') 
-          : correctAnswer;
-        return studentAnswerLetter === correctAnswerLetter;
-      case TEST_TYPES.INPUT:
-        // For input questions, check against all correct answers
-        const correctAnswers = question.correct_answers || [];
-        return correctAnswers.some(correctAnswer => 
-          studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-        );
-      case TEST_TYPES.MATCHING:
-        return JSON.stringify(studentAnswer) === JSON.stringify(correctAnswer);
-      case TEST_TYPES.WORD_MATCHING:
-        return JSON.stringify(studentAnswer) === JSON.stringify(correctAnswer);
-      case TEST_TYPES.DRAWING:
-        // For drawing tests, any drawing submission is considered correct
-        // (since there's no "correct" drawing, we just check if they submitted something)
-        return studentAnswer && studentAnswer.trim() !== '';
-      default:
-        return false;
-    }
-  }, []);
   
-  // Enhanced getCorrectAnswer from legacy code
-  const getCorrectAnswer = useCallback((question, testType) => {
-    console.log('🎓 Getting correct answer for question:', question, 'testType:', testType);
-    
-    let correctAnswer = '';
-    
-    switch (testType) {
-      case TEST_TYPES.TRUE_FALSE:
-        correctAnswer = question.correct_answer ? 'True' : 'False';
-        break;
-      case TEST_TYPES.MULTIPLE_CHOICE:
-        // Database stores letters (A,B,C), convert to option key
-        const letterIndex = question.correct_answer.charCodeAt(0) - 65; // A→0, B→1, C→2
-        const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
-        correctAnswer = question[optionKey] || `Option ${question.correct_answer}`;
-        break;
-      case TEST_TYPES.INPUT:
-        // For grouped questions, show all correct answers
-        if (question.correct_answers && Array.isArray(question.correct_answers)) {
-          correctAnswer = question.correct_answers.join(', ');
-        } else {
-          // Fallback for old format
-          correctAnswer = question.correct_answer || 'Unknown';
-        }
-        break;
-      case TEST_TYPES.MATCHING:
-        correctAnswer = question.correct_answer || question.answer;
-        break;
-      case TEST_TYPES.DRAWING:
-        // For drawing tests, there's no "correct" answer - just show that drawing is required
-        correctAnswer = 'Drawing required';
-        break;
-      default:
-        correctAnswer = 'Unknown';
-    }
-    
-    console.log('🎓 Correct answer:', correctAnswer);
-    return correctAnswer;
-  }, []);
   
   // Enhanced collectTestAnswers from legacy code
   const collectAnswers = useCallback(() => {
@@ -711,15 +623,39 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   }, []);
   
   // Enhanced formatStudentAnswerForDisplay from legacy code
-  const formatStudentAnswerForDisplay = useCallback((studentAnswer, testType) => {
-    console.log('🎓 Formatting student answer for display:', studentAnswer, 'testType:', testType);
+  const formatStudentAnswerForDisplay = useCallback((studentAnswer, testType, question = null) => {
+    console.log('🎓 Formatting student answer for display:', studentAnswer, 'testType:', testType, 'question:', question);
     
     switch (testType) {
       case TEST_TYPES.MULTIPLE_CHOICE:
-        // Convert integer answer to letter for display (0→A, 1→B, 2→C, etc.)
-        const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer));
-        console.log('🎓 Converted', studentAnswer, 'to', letterAnswer);
-        return letterAnswer;
+        // Handle different input types
+        if (studentAnswer.toString().startsWith('Option ')) {
+          // Already formatted as "Option A", return as is
+          return studentAnswer;
+        } else if (question && typeof studentAnswer === 'string' && !isNaN(parseInt(studentAnswer))) {
+          // Convert integer answer to actual option text if question is provided
+          const letterIndex = parseInt(studentAnswer);
+          const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
+          const optionText = question[optionKey];
+          if (optionText) {
+            console.log('🎓 Converted', studentAnswer, 'to option text:', optionText);
+            return optionText;
+          } else {
+            // Fallback to letter if option text not found
+            const letterAnswer = String.fromCharCode(65 + letterIndex);
+            console.log('🎓 Converted', studentAnswer, 'to', letterAnswer);
+            return letterAnswer;
+          }
+        } else if (typeof studentAnswer === 'string' && isNaN(parseInt(studentAnswer))) {
+          // Already formatted text (like "Good", "Fine"), return as is
+          console.log('🎓 Already formatted text:', studentAnswer);
+          return studentAnswer;
+        } else {
+          // Convert integer answer to letter for display (0→A, 1→B, 2→C, etc.)
+          const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer));
+          console.log('🎓 Converted', studentAnswer, 'to', letterAnswer);
+          return letterAnswer;
+        }
       case TEST_TYPES.TRUE_FALSE:
         // Convert boolean to string for display
         return studentAnswer === 'true' ? 'True' : 'False';
@@ -741,11 +677,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     }
   }, []);
   
-  // Enhanced checkAnswerCorrectness from legacy code
-  const checkAnswerCorrectness = useCallback((question, studentAnswer, testType) => {
-    console.log('🎓 Checking answer correctness:', question, studentAnswer, testType);
-    return isAnswerCorrect(question, studentAnswer, getCorrectAnswer(question, testType), testType);
-  }, [isAnswerCorrect, getCorrectAnswer]);
   
   // Show notification helper
   const showNotification = useCallback((message, type) => {
@@ -1109,9 +1040,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     const answersObject = {};
     studentAnswers.forEach((answer, index) => {
       if (questions[index]) {
-        answersObject[questions[index].question_id || questions[index].id || index] = answer;
+        const questionId = questions[index].question_id || questions[index].id || index;
+        answersObject[String(questionId)] = answer;
+        console.log('🔍 Converting answer:', { index, questionId, answer, question: questions[index] });
       }
     });
+    
+    console.log('🔍 Final answersObject:', answersObject);
+    console.log('🔍 Questions structure:', questions.map(q => ({ id: q.question_id, correct_answer: q.correct_answer })));
     
     return (
       <TestResultsDisplay
@@ -1120,7 +1056,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         testType={currentTest.test_type}
         studentAnswers={answersObject}
         onBackToCabinet={goBack}
-        calculateTestScore={calculateTestScore}
         checkAnswerCorrectness={checkAnswerCorrectness}
         formatStudentAnswerForDisplay={formatStudentAnswerForDisplay}
         getCorrectAnswer={getCorrectAnswer}

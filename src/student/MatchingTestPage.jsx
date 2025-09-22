@@ -279,7 +279,8 @@ const MatchingTestPage = () => {
     
     // Use the result data from the component directly (like regular tests)
     const score = parseInt(result) || 0;
-    const maxScore = testData?.num_questions || 0;
+    // For matching tests, the maxScore should be the number of blocks/words
+    const maxScore = testData?.blocks?.length || testData?.words?.length || 0;
     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
     
     const testResultsData = {
@@ -387,7 +388,7 @@ const MatchingTestPage = () => {
   // Show test results if test is completed
   if (showResults && testResults) {
     return (
-      <div className="bg-gray-50">
+      <div className="bg-gray-50 overflow-y-auto min-h-screen">
         <TestResults
           testResults={testResults}
           onBackToCabinet={handleBackToCabinet}

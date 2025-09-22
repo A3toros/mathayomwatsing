@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import { calculateTestScore } from '../../utils/scoreCalculation';
 
 const TestResultsDisplay = ({ 
   testInfo, 
@@ -8,7 +9,6 @@ const TestResultsDisplay = ({
   testType, 
   studentAnswers, 
   onBackToCabinet,
-  calculateTestScore,
   checkAnswerCorrectness,
   formatStudentAnswerForDisplay,
   getCorrectAnswer
@@ -20,7 +20,7 @@ const TestResultsDisplay = ({
   useEffect(() => {
     const calculateResults = () => {
       try {
-        const calculatedScore = calculateTestScore(questions, studentAnswers, testType);
+        const calculatedScore = calculateTestScore(questions, studentAnswers, testType).score;
         const totalQuestions = testInfo?.num_questions || questions?.length || 0;
         const calculatedPercentage = totalQuestions > 0 ? Math.round((calculatedScore / totalQuestions) * 100) : 0;
         
@@ -113,7 +113,9 @@ const TestResultsDisplay = ({
             <div className="space-y-4">
               {questions.map((question, index) => {
                 const studentAnswer = studentAnswers[String(question.question_id)] || 'No answer';
+                console.log('🔍 TestResultsDisplay - Question', index + 1, ':', { question, studentAnswer, testType });
                 const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
+                console.log('🔍 TestResultsDisplay - isCorrect result:', isCorrect);
                 
                 return (
                   <div 
@@ -145,7 +147,7 @@ const TestResultsDisplay = ({
                         <span className={`font-medium ${
                           isCorrect ? 'text-green-700' : 'text-red-700'
                         }`}>
-                          {formatStudentAnswerForDisplay(studentAnswer, testType)}
+                          {formatStudentAnswerForDisplay(studentAnswer, testType, question)}
                         </span>
                       </p>
                       
@@ -153,7 +155,7 @@ const TestResultsDisplay = ({
                         <p className="correct-answer">
                           <strong className="text-gray-600">Correct Answer:</strong>{' '}
                           <span className="text-green-700 font-medium">
-                            {getCorrectAnswer(question, testType)}
+                            {formatStudentAnswerForDisplay(getCorrectAnswer(question, testType), testType)}
                           </span>
                         </p>
                       )}

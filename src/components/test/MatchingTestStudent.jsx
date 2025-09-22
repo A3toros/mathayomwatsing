@@ -15,7 +15,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAntiCheating } from '../../hooks/useAntiCheating';
 
 // ✅ REUSE EXISTING UTILITIES
-import { calculateScore, formatScore } from '../../utils/scoreCalculation';
 import { coordinateUtils } from '../../utils/coordinateUtils';
 
 const MatchingTestStudent = ({

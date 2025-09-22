@@ -86,17 +86,17 @@ const ProgressTracker = ({
       </div>
 
       {/* Question Counter */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="text-center p-3 bg-blue-50 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">{answeredCount}</div>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+        <div className="text-center p-2 sm:p-3 bg-blue-50 rounded-lg">
+          <div className="text-lg sm:text-2xl font-bold text-blue-600">{answeredCount}</div>
           <div className="text-xs text-blue-600">Answered</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 rounded-lg">
-          <div className="text-2xl font-bold text-gray-600">{remainingQuestions}</div>
+        <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg">
+          <div className="text-lg sm:text-2xl font-bold text-gray-600">{remainingQuestions}</div>
           <div className="text-xs text-gray-600">Remaining</div>
         </div>
-        <div className="text-center p-3 bg-purple-50 rounded-lg">
-          <div className="text-2xl font-bold text-purple-600">{totalQuestions}</div>
+        <div className="text-center p-2 sm:p-3 bg-purple-50 rounded-lg">
+          <div className="text-lg sm:text-2xl font-bold text-purple-600">{totalQuestions}</div>
           <div className="text-xs text-purple-600">Total</div>
         </div>
       </div>
@@ -130,46 +130,35 @@ const ProgressTracker = ({
         )}
       </div>
 
-      {/* Submit Button */}
-      <div className="flex justify-center">
-        <motion.button
-          onClick={onSubmitTest}
-          disabled={!canSubmit || isSubmitting}
-          className={`px-8 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
-            canSubmit && !isSubmitting
-              ? 'bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
-          whileHover={canSubmit && !isSubmitting ? { scale: 1.05 } : {}}
-          whileTap={canSubmit && !isSubmitting ? { scale: 0.95 } : {}}
-        >
-          {isSubmitting ? (
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Submitting...</span>
-            </div>
-          ) : canSubmit ? (
-            <div className="flex items-center space-x-2">
-              <span>✅</span>
-              <span>Submit Test</span>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <span>⏳</span>
-              <span>Complete {remainingQuestions} more question{remainingQuestions !== 1 ? 's' : ''}</span>
-            </div>
-          )}
-        </motion.button>
-      </div>
-
-      {/* Progress Tips */}
-      {answeredCount < totalQuestions && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="text-sm text-blue-700">
-            <strong>💡 Tip:</strong> Your progress is automatically saved. You can close this test and return later to continue where you left off.
-          </div>
+      {/* Submit Button - Only show when all questions are answered */}
+      {canSubmit && (
+        <div className="flex justify-center">
+          <motion.button
+            onClick={onSubmitTest}
+            disabled={isSubmitting}
+            className={`px-8 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+              !isSubmitting
+                ? 'bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl'
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
+            whileHover={!isSubmitting ? { scale: 1.05 } : {}}
+            whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Submitting...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span>✅</span>
+                <span>Submit Test</span>
+              </div>
+            )}
+          </motion.button>
         </div>
       )}
+
     </div>
   );
 };

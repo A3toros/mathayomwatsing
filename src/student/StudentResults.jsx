@@ -9,6 +9,7 @@ import { testService } from '@/services/testService';
 import { resultService } from '@/services/resultService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
 import { DrawingModal } from '@/components/modals';
+import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
 // STUDENT RESULTS - React Component for Student Test Results
 // ✅ COMPLETED: All student results functionality from legacy src/ converted to React
@@ -153,7 +154,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
       setQuestions(questions);
       
       // Calculate score
-      const score = calculateTestScore(questions, studentAnswers, testType);
+      const score = calculateTestScore(questions, studentAnswers, testType).score;
       const percentage = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
       setScore(score);
       setPercentage(percentage);
@@ -323,71 +324,20 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
     );
   }, [getSubjectAbbreviation, showAll, maxInitial, onToggleShowAll]);
   
-  // Enhanced calculateTestScore from legacy code
-  const calculateTestScore = useCallback((questions, studentAnswers, testType) => {
-    console.log('🎓 Calculating test score...');
-    let correctAnswers = 0;
-    
-    questions.forEach((question, index) => {
-      const studentAnswer = studentAnswers[index];
-      const correctAnswer = getCorrectAnswer(question, testType);
-      
-      if (isAnswerCorrect(question, studentAnswer, correctAnswer, testType)) {
-        correctAnswers++;
-      }
-    });
-    
-    console.log('🎓 Score calculated:', correctAnswers, 'out of', questions.length);
-    return correctAnswers;
-  }, []);
   
-  // Enhanced isAnswerCorrect from legacy code
-  const isAnswerCorrect = useCallback((question, studentAnswer, correctAnswer, testType) => {
-    if (!studentAnswer || !correctAnswer) return false;
-    
-    switch (testType) {
-      case 'true_false':
-        return studentAnswer.toLowerCase() === correctAnswer.toLowerCase();
-      case 'multiple_choice':
-        return studentAnswer === correctAnswer;
-      case 'input':
-        return studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
-      case 'word_matching':
-        return JSON.stringify(studentAnswer) === JSON.stringify(correctAnswer);
-      case 'drawing':
-        // For drawing tests, we don't have a "correct" answer, so we'll return true if there's a drawing
-        return studentAnswer && studentAnswer !== 'No answer';
-      default:
-        return false;
-    }
-  }, []);
   
-  // Enhanced getCorrectAnswer from legacy code
-  const getCorrectAnswer = useCallback((question, testType) => {
-    switch (testType) {
-      case 'true_false':
-        return question.correct_answer || question.answer;
-      case 'multiple_choice':
-        return question.correct_answer || question.answer;
-      case 'input':
-        return question.correct_answer || question.answer;
-      case 'word_matching':
-        return question.correct_answer || question.answer;
-      case 'drawing':
-        // For drawing tests, there's no "correct" answer
-        return 'Drawing submitted';
-      default:
-        return question.correct_answer || question.answer;
-    }
-  }, []);
   
   // Enhanced formatStudentAnswerForDisplay from legacy code
   const formatAnswer = useCallback((answer, testType) => {
+    console.log('🔍 formatAnswer called with:', { answer, testType, answerType: typeof answer });
     if (!answer) return 'No answer';
     
     switch (testType) {
       case 'true_false':
-        return answer.charAt(0).toUpperCase() + answer.slice(1).toLowerCase();
+        // Handle both boolean and string answers
+        const boolAnswer = typeof answer === 'boolean' ? answer : answer === 'true';
+        console.log('🔍 Boolean answer processed:', boolAnswer);
+        return boolAnswer ? 'True' : 'False';
       case 'multiple_choice':
         return answer.toUpperCase();
       case 'input':
@@ -446,7 +396,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
             {questions.map((question, index) => {
               const studentAnswer = studentAnswers[index];
               const correctAnswer = getCorrectAnswer(question, testType);
-              const isCorrect = isAnswerCorrect(question, studentAnswer, correctAnswer, testType);
+              const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
               
               return (
                 <div key={index} className={`border rounded-lg p-4 ${isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
@@ -476,7 +426,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
         </div>
       </div>
     );
-  }, [testInfo, questions, studentAnswers, testType, score, percentage, getCorrectAnswer, isAnswerCorrect, formatAnswer]);
+  }, [testInfo, questions, studentAnswers, testType, score, percentage, getCorrectAnswer, checkAnswerCorrectness, formatAnswer]);
   
   // Enhanced displayStudentTestResults from legacy code
   const renderResultsHistory = useCallback(() => {

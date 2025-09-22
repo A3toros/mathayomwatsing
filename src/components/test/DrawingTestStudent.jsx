@@ -115,6 +115,22 @@ const DrawingCanvas = ({
     }
   };
 
+  // Touch event handlers for mobile devices
+  const handleTouchStart = (e) => {
+    e.evt.preventDefault(); // Prevent default touch behavior
+    handleMouseDown(e);
+  };
+
+  const handleTouchMove = (e) => {
+    e.evt.preventDefault(); // Prevent default touch behavior
+    handleMouseMove(e);
+  };
+
+  const handleTouchEnd = (e) => {
+    e.evt.preventDefault(); // Prevent default touch behavior
+    handleMouseUp();
+  };
+
 
 
   // Calculate responsive dimensions
@@ -159,6 +175,9 @@ const DrawingCanvas = ({
             onMouseDown={handleMouseDown}
             onMousemove={handleMouseMove}
             onMouseup={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             onWheel={handleWheel || (() => {})}
             onDragStart={() => {
               console.log('🎯 Drag started');
@@ -958,7 +977,7 @@ const DrawingTestStudent = ({
 
       {/* Drawing Canvas */}
       <Card className="p-1 sm:p-2">
-        <div className="w-full overflow-hidden drawing-canvas-container relative">
+        <div className="w-full overflow-hidden drawing-canvas-container relative" style={{ touchAction: 'none' }}>
             <DrawingCanvas
               width={canvasSize.width}
               height={canvasSize.height}

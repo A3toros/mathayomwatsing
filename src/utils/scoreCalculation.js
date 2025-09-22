@@ -63,30 +63,35 @@ export const calculateScore = (answers, correctAnswers) => {
   return score;
 };
 
-// Enhanced calculateTestScore from legacy code - ENHANCED FOR NEW SCORING STRUCTURE
+// Enhanced calculateTestScore from legacy code
 export const calculateTestScore = (questions, answers, testType) => {
-  console.log(`[DEBUG] calculateTestScore called with ${questions.length} questions, testType: ${testType}`);
-  
-  let score = 0;
+  if (!questions || !Array.isArray(questions) || questions.length === 0) {
+    return { score: 0, total: 0, percentage: 0 };
+  }
+
+
+  let correctCount = 0;
   
   questions.forEach((question, index) => {
-    // Use question_id consistently
-    const questionId = question.question_id;
-    const studentAnswer = answers[questionId];
-    const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
+    const studentAnswer = Array.isArray(answers) 
+      ? answers[index] 
+      : answers[String(question.question_id || question.id || index)];
     
-    if (isCorrect) {
-      // NEW: Enhanced scoring with question points
-      const points = question.points || 1;
-      score += points;
+    if (studentAnswer !== null && studentAnswer !== undefined) {
+      const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
+      if (isCorrect) {
+        correctCount++;
+      }
     }
-    
-    console.log(`[DEBUG] Question ${questionId}: answer=${studentAnswer}, correct=${isCorrect}, points=${question.points || 1}, running score=${score}`);
   });
   
-  console.log(`[DEBUG] Final test score: ${score}/${questions.length}`);
-  return score;
+  return {
+    score: correctCount,
+    total: questions.length,
+    percentage: Math.round((correctCount / questions.length) * 100)
+  };
 };
+
 
 // Enhanced calculatePercentage from legacy code
 export const calculatePercentage = (score, totalQuestions) => {
@@ -289,6 +294,57 @@ const isAnswerCorrect = (questionId, userAnswer, correctAnswers) => {
   return userAnswer === correctAnswer;
 };
 
+// Helper function for getting correct answer for display
+const getCorrectAnswer = (question, testType) => {
+  console.log('🎓 Getting correct answer for question:', question, 'testType:', testType);
+  
+  let correctAnswer = '';
+  
+  switch (testType) {
+    case TEST_TYPES.TRUE_FALSE:
+      // Convert boolean to string for consistent formatting
+      correctAnswer = question.correct_answer ? 'true' : 'false';
+      console.log('🎓 TRUE_FALSE correct_answer from question:', correctAnswer, typeof correctAnswer);
+      break;
+    case TEST_TYPES.MULTIPLE_CHOICE:
+      // Database stores letters (A,B,C), convert to option key and get actual text
+      const letterIndex = question.correct_answer.charCodeAt(0) - 65; // A→0, B→1, C→2
+      const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
+      const optionText = question[optionKey];
+      if (optionText) {
+        correctAnswer = optionText;
+      } else {
+        // Fallback if option text not found
+        correctAnswer = `Option ${question.correct_answer}`;
+      }
+      break;
+    case TEST_TYPES.INPUT:
+      // For grouped questions, show all correct answers
+      if (question.correct_answers && Array.isArray(question.correct_answers)) {
+        correctAnswer = question.correct_answers.join(', ');
+      } else {
+        // Fallback for old format
+        correctAnswer = question.correct_answer || 'Unknown';
+      }
+      break;
+    case TEST_TYPES.MATCHING:
+      correctAnswer = question.correct_answer || question.answer;
+      break;
+    case TEST_TYPES.WORD_MATCHING:
+      correctAnswer = question.correct_answer || question.answer;
+      break;
+    case TEST_TYPES.DRAWING:
+      // For drawing tests, there's no "correct" answer - just show that drawing is required
+      correctAnswer = 'Drawing required';
+      break;
+    default:
+      correctAnswer = 'Unknown';
+  }
+  
+  console.log('🎓 Correct answer:', correctAnswer);
+  return correctAnswer;
+};
+
 // Helper function for answer correctness checking (from formHelpers)
 const checkAnswerCorrectness = (question, studentAnswer, testType) => {
   console.log(`[DEBUG] checkAnswerCorrectness called for question:`, question, 'studentAnswer:', studentAnswer, 'testType:', testType);
@@ -302,8 +358,8 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
   
   switch (testType) {
     case TEST_TYPES.TRUE_FALSE:
-      // Convert string answer to boolean for comparison
-      const booleanAnswer = studentAnswer === 'true';
+      // Convert string answer to boolean for comparison (case insensitive)
+      const booleanAnswer = studentAnswer.toLowerCase() === 'true';
       isCorrect = booleanAnswer === question.correct_answer;
       break;
     case TEST_TYPES.MULTIPLE_CHOICE:
@@ -312,11 +368,20 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
       isCorrect = letterAnswer === question.correct_answer;
       break;
     case TEST_TYPES.INPUT:
-      // For grouped questions, check against all correct answers
+      // For grouped questions, check against all correct answers with garbage trimming
       if (question.correct_answers && Array.isArray(question.correct_answers)) {
-        isCorrect = question.correct_answers.some(correctAnswer => 
-          studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-        );
+        const trimmedStudentAnswer = studentAnswer
+          .replace(/[.,/*';:!@#$%^&*()_+=\[\]{}|\\:";'<>?,.\s-]+/g, '') // Remove punctuation, spaces, and hyphens
+          .toLowerCase()
+          .trim();
+        
+        isCorrect = question.correct_answers.some(correctAnswer => {
+          const trimmedCorrectAnswer = correctAnswer
+            .replace(/[.,/*';:!@#$%^&*()_+=\[\]{}|\\:";'<>?,.\s-]+/g, '') // Remove punctuation, spaces, and hyphens
+            .toLowerCase()
+            .trim();
+          return trimmedStudentAnswer === trimmedCorrectAnswer;
+        });
       } else {
         // Fallback for old format - use correct_answer (not correctAnswer)
         isCorrect = studentAnswer.toLowerCase().trim() === question.correct_answer.toLowerCase().trim();
@@ -324,10 +389,22 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
       break;
     case TEST_TYPES.MATCHING:
       // For matching tests, compare the matching pairs
-      if (question.correct_matches && typeof question.correct_matches === 'object') {
-        const studentMatches = JSON.parse(studentAnswer || '{}');
-        isCorrect = JSON.stringify(studentMatches) === JSON.stringify(question.correct_matches);
+      if (question.correct_answer && typeof question.correct_answer === 'object') {
+        const studentMatches = typeof studentAnswer === 'string' ? JSON.parse(studentAnswer || '{}') : studentAnswer;
+        isCorrect = JSON.stringify(studentMatches) === JSON.stringify(question.correct_answer);
       }
+      break;
+    case TEST_TYPES.WORD_MATCHING:
+      // For word matching tests, compare the word pair connections
+      if (question.correct_answer && typeof question.correct_answer === 'object') {
+        const studentMatches = typeof studentAnswer === 'string' ? JSON.parse(studentAnswer || '{}') : studentAnswer;
+        isCorrect = JSON.stringify(studentMatches) === JSON.stringify(question.correct_answer);
+      }
+      break;
+    case TEST_TYPES.DRAWING:
+      // Drawing tests are not auto-scored
+      console.warn('Drawing tests should not be auto-scored!');
+      isCorrect = false;
       break;
     default:
       console.warn(`[WARN] Unknown test type for answer checking: ${testType}`);
@@ -411,6 +488,9 @@ export const calculateScoreBreakdown = (questions, answers, testType) => {
   
   return breakdown;
 };
+
+// Export the helper functions
+export { checkAnswerCorrectness, getCorrectAnswer, isAnswerCorrect };
 
 export default {
   calculateScore,

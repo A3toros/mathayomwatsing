@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { calculateTestScore } from '../utils/scoreCalculation';
 
 // TEST SERVICE - Test service for all test-related API calls
 // ⚠️  IMPORTANT: Always consult with Legacy_src/ before making any changes!
@@ -227,7 +228,7 @@ export const testService = {
         maxScore = null;
       } else {
         // Other test types can be auto-scored
-        score = this.calculateTestScore(questions, answers, testType);
+        score = calculateTestScore(questions, answers, testType).score;
         maxScore = testInfo.num_questions;
       }
 
@@ -523,26 +524,6 @@ export const testService = {
   },
 
   // Helper functions from legacy code
-  calculateTestScore(questions, answers, testType) {
-    let score = 0;
-    
-    // Handle array-based answers from frontend submission
-    if (Array.isArray(answers)) {
-      for (let i = 0; i < questions.length && i < answers.length; i++) {
-        const question = questions[i];
-        const userAnswer = answers[i];
-        if (userAnswer && this.isAnswerCorrect(i, userAnswer, question, testType)) {
-          score++;
-        }
-      }
-    } else {
-      // Fallback for unexpected format
-      console.warn('Unexpected answer format in calculateTestScore:', typeof answers);
-      return 0;
-    }
-    
-    return score;
-  },
 
   isAnswerCorrect(questionId, userAnswer, question, testType) {
     switch (testType) {

@@ -238,7 +238,7 @@ const WordMatchingPage = () => {
   // Show test results if available
   if (showResults && testResults) {
     return (
-      <div className="bg-gray-50">
+      <div className="bg-gray-50 overflow-y-auto min-h-screen">
         <TestResults
           testResults={testResults}
           onBackToCabinet={() => {

@@ -2038,7 +2038,7 @@ const TeacherTests = () => {
       } else if (type === 'trueFalse') {
         questions[i] = {
           question: '',
-          correctAnswer: 'true'
+          correctAnswer: ''
         };
       } else if (type === 'input') {
         questions[i] = {
@@ -2704,7 +2704,7 @@ const TeacherTests = () => {
                     </div>
                               ) : testType === 'trueFalse' ? (
                     <select
-                                  value={formData.questions[questionId]?.correctAnswer || 'true'}
+                                  value={formData.questions[questionId]?.correctAnswer || ''}
                                   onChange={(e) => handleQuestionChange(questionId, 'correctAnswer', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
