@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/bg_dialog_security">
+
+    <!-- Warning Icon and Title -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <ImageView
+            android:id="@+id/ivWarningIcon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_warning"
+            android:layout_marginEnd="16dp"
+            android:contentDescription="Warning icon" />
+
+        <TextView
+            android:id="@+id/tvWarningTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="⚠️ Security Warning"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/warning_yellow" />
+
+    </LinearLayout>
+
+    <!-- Warning Count -->
+    <TextView
+        android:id="@+id/tvWarningCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Warning 1 of 3"
+        android:textSize="14sp"
+        android:textColor="@color/warning_yellow"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_warning_count"
+        android:padding="8dp" />
+
+    <!-- Warning Message -->
+    <TextView
+        android:id="@+id/tvWarningMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="You minimized the app during the test. This is considered suspicious behavior."
+        android:textSize="16sp"
+        android:textColor="@color/text_primary"
+        android:lineSpacingExtra="4dp"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btnAcknowledge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="I Understand"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_button_secondary"
+            android:textColor="@color/text_primary"
+            android:minWidth="120dp" />
+
+        <Button
+            android:id="@+id/btnContinue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Continue Test"
+            android:background="@drawable/bg_button_primary"
+            android:textColor="@color/white"
+            android:minWidth="120dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

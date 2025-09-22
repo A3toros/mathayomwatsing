@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <!-- Primary Colors -->
+    <color name="primary">#2196F3</color>
+    <color name="primary_dark">#1976D2</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="primary_container">#E3F2FD</color>
+    <color name="on_primary_container">#1976D2</color>
+    
+    <!-- Secondary Colors -->
+    <color name="secondary">#FF9800</color>
+    <color name="secondary_dark">#F57C00</color>
+    <color name="secondary_light">#FFE0B2</color>
+    <color name="secondary_container">#FFF3E0</color>
+    <color name="on_secondary_container">#F57C00</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="error">#F44336</color>
+    <color name="info">#2196F3</color>
+    
+    <!-- Warning Colors for Security -->
+    <color name="warning_yellow">#FFC107</color>
+    <color name="warning_yellow_light">#FFF8E1</color>
+    <color name="warning_orange">#FF9800</color>
+    <color name="warning_red">#F44336</color>
+    
+    <!-- Additional Colors -->
+    <color name="gray_light">#E0E0E0</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_tertiary">#9E9E9E</color>
+    <color name="text_hint">#BDBDBD</color>
+    
+    <!-- Background Colors -->
+    <color name="background">#FAFAFA</color>
+    <color name="on_background">#212121</color>
+    <color name="background_light">#FAFAFA</color>
+    <color name="background_primary">#FFFFFF</color>
+    <color name="background_secondary">#F8FAFC</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    
+    <!-- Surface Colors -->
+    <color name="surface">#FFFFFF</color>
+    <color name="on_surface">#212121</color>
+    
+    <!-- Profile Colors -->
+    <color name="profile_placeholder">#E0E0E0</color>
+    
+    <!-- Divider Colors -->
+    <color name="divider">#E0E0E0</color>
+    
+    <!-- Error Container Colors -->
+    <color name="error_container">#FFEBEE</color>
+    <color name="on_error_container">#C62828</color>
+    
+    <!-- Overlay Colors -->
+    <color name="overlay_medium">#00000040</color>
+    
+    <!-- Text Inverse -->
+    <color name="text_inverse">#FFFFFF</color>
+    
+</resources>
