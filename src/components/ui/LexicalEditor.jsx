@@ -134,9 +134,21 @@ const ToolbarPlugin = () => {
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        selection.getNodes().forEach((node) => {
-          if (node.getType() === 'paragraph' || node.getType() === 'heading') {
-            node.setStyle(`font-size: ${size}px`);
+        // Apply font size to selected text by updating text nodes
+        const nodes = selection.getNodes();
+        nodes.forEach((node) => {
+          if ($isTextNode(node)) {
+            const currentStyle = node.getStyle();
+            
+            // Remove existing font-size and add new one
+            const cleanedStyle = currentStyle 
+              ? currentStyle.replace(/font-size:\s*\d+px;?\s*/g, '').trim()
+              : '';
+            const newStyle = cleanedStyle 
+              ? `${cleanedStyle}; font-size: ${size}px;`
+              : `font-size: ${size}px;`;
+            
+            node.setStyle(newStyle);
           }
         });
       }

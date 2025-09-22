@@ -235,9 +235,12 @@ const DrawingTestCreator = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Canvas Dimensions
                   </label>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Canvas is the actual drawing area, viewport is the initial display size
+                  </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">Base Width</label>
+                      <label className="block text-xs text-gray-600 mb-1">Viewport Width</label>
                       <input
                         type="number"
                         value={question.canvas_width}
@@ -248,7 +251,7 @@ const DrawingTestCreator = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">Base Height</label>
+                      <label className="block text-xs text-gray-600 mb-1">Viewport Height</label>
                       <input
                         type="number"
                         value={question.canvas_height}
@@ -259,7 +262,7 @@ const DrawingTestCreator = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">Max Width</label>
+                      <label className="block text-xs text-gray-600 mb-1">Canvas Width</label>
                       <input
                         type="number"
                         value={question.max_canvas_width}
@@ -270,7 +273,7 @@ const DrawingTestCreator = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">Max Height</label>
+                      <label className="block text-xs text-gray-600 mb-1">Canvas Height</label>
                       <input
                         type="number"
                         value={question.max_canvas_height}

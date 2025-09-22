@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { Stage, Layer, Line } from 'react-konva';
+import { Stage, Layer, Line, Rect } from 'react-konva';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
@@ -22,6 +22,11 @@ const DrawingModal = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const stageRef = useRef(null);
+  
+  // Two-finger gesture state
+  const [lastTouchDistance, setLastTouchDistance] = useState(null);
+  const [lastTouchCenter, setLastTouchCenter] = useState(null);
+  const [isTwoFingerGesture, setIsTwoFingerGesture] = useState(false);
 
   useEffect(() => {
     if (isOpen && drawing) {
@@ -157,25 +162,27 @@ const DrawingModal = ({
       setDrawingData(parsedDrawingData);
       console.log('🎨 DrawingModal - Final drawing data:', parsedDrawingData);
       
-      // Set canvas size from drawing data or use defaults
-      if (drawing.canvas_width && drawing.canvas_height) {
-        setCanvasSize({
-          width: drawing.canvas_width,
-          height: drawing.canvas_height
-        });
-        console.log('🎨 DrawingModal - Using canvas size from drawing data:', drawing.canvas_width, 'x', drawing.canvas_height);
-        console.log('🎨 DrawingModal - Image resolution:', drawing.canvas_width * drawing.canvas_height, 'pixels');
-        console.log('🎨 DrawingModal - Aspect ratio:', (drawing.canvas_width / drawing.canvas_height).toFixed(2));
-      } else {
-        // Simple approach: Use maximum canvas size to show all lines
-        setCanvasSize({
-          width: 1536,
-          height: 2048
-        });
-        console.log('🎨 DrawingModal - Using maximum canvas size to show all lines');
-        console.log('🎨 DrawingModal - Image resolution:', 1536 * 2048, 'pixels');
-        console.log('🎨 DrawingModal - This will display all drawing lines to the teacher');
-      }
+      // Set canvas size using large canvas approach
+      const actualCanvasWidth = drawing?.max_canvas_width || 1536;
+      const actualCanvasHeight = drawing?.max_canvas_height || 2048;
+      const viewportWidth = drawing?.canvas_width || 600;
+      const viewportHeight = drawing?.canvas_height || 800;
+      
+      setCanvasSize({
+        width: actualCanvasWidth,   // 1536 - actual canvas
+        height: actualCanvasHeight  // 2048 - actual canvas
+      });
+      
+      // Start at 25% zoom to see the full canvas
+      const initialZoom = 0.25;
+      
+      setZoom(initialZoom);
+      
+      console.log('🎨 DrawingModal - Canvas size set:', actualCanvasWidth, 'x', actualCanvasHeight);
+      console.log('🎨 DrawingModal - Viewport size:', viewportWidth, 'x', viewportHeight);
+      console.log('🎨 DrawingModal - Initial zoom:', initialZoom.toFixed(2));
+      console.log('🎨 DrawingModal - Image resolution:', actualCanvasWidth * actualCanvasHeight, 'pixels');
+      console.log('🎨 DrawingModal - Aspect ratio:', (actualCanvasWidth / actualCanvasHeight).toFixed(2));
     }
   }, [isOpen, drawing]);
 
@@ -261,6 +268,114 @@ const DrawingModal = ({
     setIsDragging(false);
   };
 
+  // Two-finger gesture functions
+  const getTouchDistance = (touches) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
+
+  const getTouchCenter = (touches) => {
+    if (touches.length < 2) return null;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    
+    if (touches.length === 2) {
+      // Two-finger gesture - start zoom/pan
+      setIsTwoFingerGesture(true);
+      setLastTouchDistance(getTouchDistance(touches));
+      setLastTouchCenter(getTouchCenter(touches));
+      setIsDragging(false); // Stop any dragging
+    } else if (touches.length === 1) {
+      // Single finger - normal drag
+      setIsTwoFingerGesture(false);
+      handleMouseDown(e);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    
+    if (touches.length === 2 && isTwoFingerGesture) {
+      // Two-finger gesture - handle zoom and pan
+      const stage = stageRef.current;
+      const currentDistance = getTouchDistance(touches);
+      const currentCenter = getTouchCenter(touches);
+      
+      if (lastTouchDistance && lastTouchCenter && stage) {
+        // Calculate zoom
+        const scaleChange = currentDistance / lastTouchDistance;
+        const oldScale = stage.scaleX();
+        const newScale = oldScale * scaleChange;
+        
+        // Apply zoom limits (0.25x to 1.0x for large canvas)
+        const maxCanvasWidth = drawing?.max_canvas_width || 1536;
+        const maxCanvasHeight = drawing?.max_canvas_height || 2048;
+        const maxZoomX = maxCanvasWidth / canvasSize.width;
+        const maxZoomY = maxCanvasHeight / canvasSize.height;
+        const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
+        const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
+        
+        // Calculate pan
+        const deltaX = currentCenter.x - lastTouchCenter.x;
+        const deltaY = currentCenter.y - lastTouchCenter.y;
+        
+        // Apply transformations
+        const currentPos = stage.position();
+        const newPos = {
+          x: currentPos.x + deltaX,
+          y: currentPos.y + deltaY
+        };
+        
+        stage.scale({ x: clampedScale, y: clampedScale });
+        stage.position(newPos);
+        stage.batchDraw();
+        
+        setZoom(clampedScale);
+        
+        console.log('🎨 DrawingModal - Two-finger gesture - Scale:', clampedScale.toFixed(2), 'Pan:', deltaX.toFixed(1), deltaY.toFixed(1));
+      }
+      
+      setLastTouchDistance(currentDistance);
+      setLastTouchCenter(currentCenter);
+    } else if (touches.length === 1 && !isTwoFingerGesture) {
+      // Single finger - normal drag
+      handleMouseMove(e);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    
+    if (touches.length === 0) {
+      // All fingers lifted
+      setIsTwoFingerGesture(false);
+      setLastTouchDistance(null);
+      setLastTouchCenter(null);
+      handleMouseUp();
+    } else if (touches.length === 1) {
+      // One finger remaining - switch to single finger mode
+      setIsTwoFingerGesture(false);
+      setLastTouchDistance(null);
+      setLastTouchCenter(null);
+    }
+  };
+
   // Constrain pan position to keep canvas visible
   const constrainPanPosition = (stage) => {
     const scale = stage.scaleX();
@@ -295,10 +410,18 @@ const DrawingModal = ({
 
   const handleDownload = () => {
     if (stageRef.current) {
+      // Export at the scaled size (what teacher actually sees)
+      const scaledWidth = Math.round(canvasSize.width * zoom);
+      const scaledHeight = Math.round(canvasSize.height * zoom);
+      
       const dataURL = stageRef.current.toDataURL({
         mimeType: 'image/png',
         quality: 1,
-        pixelRatio: 2
+        pixelRatio: 1,
+        x: 0,
+        y: 0,
+        width: scaledWidth,
+        height: scaledHeight
       });
       
       const link = document.createElement('a');
@@ -307,6 +430,12 @@ const DrawingModal = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      console.log('🎨 DrawingModal - PNG exported at scaled size:', {
+        originalSize: `${canvasSize.width}x${canvasSize.height}`,
+        scaledSize: `${scaledWidth}x${scaledHeight}`,
+        zoom: zoom.toFixed(2)
+      });
     }
   };
 
@@ -426,7 +555,11 @@ const DrawingModal = ({
                   <div
                     style={{
                       transform: `rotate(${rotation}deg) translate(${position.x}px, ${position.y}px)`,
-                      transformOrigin: 'center center'
+                      transformOrigin: 'center center',
+                      width: `${canvasSize.width * zoom}px`,
+                      height: `${canvasSize.height * zoom}px`,
+                      maxWidth: '100%',
+                      maxHeight: '100%'
                     }}
                   >
                     <Stage
@@ -437,13 +570,16 @@ const DrawingModal = ({
                       scaleY={zoom}
                       onDragMove={handleDragMove}
                       onDragEnd={() => constrainPanPosition(stageRef.current)}
+                      onTouchStart={handleTouchStart}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
                       onWheel={(e) => {
                         e.evt.preventDefault();
                         const maxCanvasWidth = drawing?.max_canvas_width || 1536;
                         const maxCanvasHeight = drawing?.max_canvas_height || 2048;
                         const maxZoomX = maxCanvasWidth / canvasSize.width;
                         const maxZoomY = maxCanvasHeight / canvasSize.height;
-                        const maxZoom = Math.min(maxZoomX, maxZoomY, 5);
+                        const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x (no upscaling)
                         
                         const oldZoom = zoom;
                         const newZoom = e.evt.deltaY > 0 
@@ -474,6 +610,16 @@ const DrawingModal = ({
                       }}
                     >
                       <Layer>
+                        {/* White background for PNG export */}
+                        <Rect
+                          x={0}
+                          y={0}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          fill="white"
+                          stroke="white"
+                          strokeWidth={0}
+                        />
                         {drawingData.map((line, index) => {
                           // Each line should be an array of points
                           if (Array.isArray(line) && line.length > 0) {

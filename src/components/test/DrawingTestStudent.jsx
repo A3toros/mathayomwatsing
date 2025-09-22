@@ -115,20 +115,118 @@ const DrawingCanvas = ({
     }
   };
 
-  // Touch event handlers for mobile devices
+  // Two-finger gesture state
+  const [lastTouchDistance, setLastTouchDistance] = useState(null);
+  const [lastTouchCenter, setLastTouchCenter] = useState(null);
+  const [isTwoFingerGesture, setIsTwoFingerGesture] = useState(false);
+
+  const getTouchDistance = (touches) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
+
+  const getTouchCenter = (touches) => {
+    if (touches.length < 2) return null;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  // Touch event handlers for mobile devices with two-finger gesture support
   const handleTouchStart = (e) => {
     e.evt.preventDefault(); // Prevent default touch behavior
-    handleMouseDown(e);
+    const touches = e.evt.touches;
+    
+    if (touches.length === 2) {
+      // Two-finger gesture - start zoom/pan
+      setIsTwoFingerGesture(true);
+      setLastTouchDistance(getTouchDistance(touches));
+      setLastTouchCenter(getTouchCenter(touches));
+      setIsDrawing(false); // Stop any drawing
+    } else if (touches.length === 1) {
+      // Single finger - normal drawing
+      setIsTwoFingerGesture(false);
+      handleMouseDown(e);
+    }
   };
 
   const handleTouchMove = (e) => {
     e.evt.preventDefault(); // Prevent default touch behavior
-    handleMouseMove(e);
+    const touches = e.evt.touches;
+    
+    if (touches.length === 2 && isTwoFingerGesture) {
+      // Two-finger gesture - handle zoom and pan
+      const stage = stageRef.current;
+      const currentDistance = getTouchDistance(touches);
+      const currentCenter = getTouchCenter(touches);
+      
+      if (lastTouchDistance && lastTouchCenter) {
+        // Calculate zoom
+        const scaleChange = currentDistance / lastTouchDistance;
+        const oldScale = stage.scaleX();
+        const newScale = oldScale * scaleChange;
+        
+        // Apply zoom limits (0.25x to 1.0x for large canvas)
+        const maxCanvasWidth = question?.max_canvas_width || 1536;
+        const maxCanvasHeight = question?.max_canvas_height || 2048;
+        const maxZoomX = maxCanvasWidth / canvasSize.width;
+        const maxZoomY = maxCanvasHeight / canvasSize.height;
+        const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
+        const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
+        
+        // Calculate pan
+        const deltaX = currentCenter.x - lastTouchCenter.x;
+        const deltaY = currentCenter.y - lastTouchCenter.y;
+        
+        // Apply transformations
+        const currentPos = stage.position();
+        const newPos = {
+          x: currentPos.x + deltaX,
+          y: currentPos.y + deltaY
+        };
+        
+        stage.scale({ x: clampedScale, y: clampedScale });
+        stage.position(newPos);
+        stage.batchDraw();
+        
+        setZoom(clampedScale);
+        zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+        
+        console.log('🎨 Two-finger gesture - Scale:', clampedScale.toFixed(2), 'Pan:', deltaX.toFixed(1), deltaY.toFixed(1));
+      }
+      
+      setLastTouchDistance(currentDistance);
+      setLastTouchCenter(currentCenter);
+    } else if (touches.length === 1 && !isTwoFingerGesture) {
+      // Single finger - normal drawing
+      handleMouseMove(e);
+    }
   };
 
   const handleTouchEnd = (e) => {
     e.evt.preventDefault(); // Prevent default touch behavior
-    handleMouseUp();
+    const touches = e.evt.touches;
+    
+    if (touches.length === 0) {
+      // All fingers lifted
+      setIsTwoFingerGesture(false);
+      setLastTouchDistance(null);
+      setLastTouchCenter(null);
+      handleMouseUp();
+    } else if (touches.length === 1) {
+      // One finger remaining - switch to single finger mode
+      setIsTwoFingerGesture(false);
+      setLastTouchDistance(null);
+      setLastTouchCenter(null);
+    }
   };
 
 
@@ -168,17 +266,19 @@ const DrawingCanvas = ({
             overflow: 'hidden'
           }}
         >
-          <Stage
-            ref={stageRef}
-            width={responsiveDimensions.width}
-            height={responsiveDimensions.height}
-            onMouseDown={handleMouseDown}
-            onMousemove={handleMouseMove}
-            onMouseup={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onWheel={handleWheel || (() => {})}
+            <Stage
+              ref={stageRef}
+              width={responsiveDimensions.width}
+              height={responsiveDimensions.height}
+              scaleX={isFullscreen ? responsiveDimensions.zoom : zoom}
+              scaleY={isFullscreen ? responsiveDimensions.zoom : zoom}
+              onMouseDown={handleMouseDown}
+              onMousemove={handleMouseMove}
+              onMouseup={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel || (() => {})}
             onDragStart={() => {
               console.log('🎯 Drag started');
               if (currentTool === 'pan') {
@@ -231,8 +331,8 @@ const DrawingCanvas = ({
           <Rect
             x={0}
             y={0}
-            width={width}
-            height={height}
+            width={canvasSize.width}
+            height={canvasSize.height}
             fill="white"
           />
           
@@ -372,6 +472,7 @@ const DrawingCanvas = ({
             console.log('🎨 DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
             
             onZoomChange(newScale);
+            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
           }}
           className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
           title="Zoom In"
@@ -391,6 +492,7 @@ const DrawingCanvas = ({
             console.log('🎨 DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
             
             onZoomChange(newScale);
+            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
           }}
           className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
           title="Zoom Out"
@@ -404,6 +506,7 @@ const DrawingCanvas = ({
             stage.scale({ x: 1, y: 1 });
             stage.position({ x: 0, y: 0 });
             stage.batchDraw();
+            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
             
             console.log('🎨 DrawingTestStudent - Reset zoom:', oldScale.toFixed(2), '-> 1.00');
             console.log('🎨 DrawingTestStudent - Reset effective size:', canvasSize.width, 'x', canvasSize.height);
@@ -583,6 +686,7 @@ const DrawingTestStudent = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const stageRef = useRef(null);
   const [responsiveDimensions, setResponsiveDimensions] = useState({ width: 600, height: 800 });
+  const zoomInitializedRef = useRef(false);
 
   // Colors palette
   const colors = [
@@ -603,21 +707,37 @@ const DrawingTestStudent = ({
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Initialize question data
+  // Initialize question data with large canvas approach
   useEffect(() => {
     if (question) {
-      // Set canvas size from question data
-      const canvasWidth = question.canvas_width || 600;
-      const canvasHeight = question.canvas_height || 800;
+      // Use max_canvas as actual canvas size, canvas as viewport size
+      const actualCanvasWidth = question.max_canvas_width || 1536;
+      const actualCanvasHeight = question.max_canvas_height || 2048;
+      const viewportWidth = question.canvas_width || 600;
+      const viewportHeight = question.canvas_height || 800;
+      
       setCanvasSize({
-        width: canvasWidth,
-        height: canvasHeight
+        width: actualCanvasWidth,   // 1536 - actual canvas
+        height: actualCanvasHeight  // 2048 - actual canvas
       });
       
-      console.log('🎨 DrawingTestStudent - Canvas size set:', canvasWidth, 'x', canvasHeight);
-      console.log('🎨 DrawingTestStudent - Image resolution:', canvasWidth * canvasHeight, 'pixels');
-      console.log('🎨 DrawingTestStudent - Aspect ratio:', (canvasWidth / canvasHeight).toFixed(2));
-      console.log('🎨 DrawingTestStudent - Max canvas size:', question.max_canvas_width || 1536, 'x', question.max_canvas_height || 2048);
+      // Only set initial zoom if it hasn't been initialized yet
+      if (!zoomInitializedRef.current) {
+        const initialZoomX = viewportWidth / actualCanvasWidth;   // 600/1536 = 0.39
+        const initialZoomY = viewportHeight / actualCanvasHeight; // 800/2048 = 0.39
+        const initialZoom = Math.min(initialZoomX, initialZoomY, 1.0);
+        
+        setZoom(initialZoom);
+        zoomInitializedRef.current = true;
+        
+        console.log('🎨 DrawingTestStudent - Canvas size set:', actualCanvasWidth, 'x', actualCanvasHeight);
+        console.log('🎨 DrawingTestStudent - Viewport size:', viewportWidth, 'x', viewportHeight);
+        console.log('🎨 DrawingTestStudent - Initial zoom:', initialZoom.toFixed(2));
+        console.log('🎨 DrawingTestStudent - Image resolution:', actualCanvasWidth * actualCanvasHeight, 'pixels');
+        console.log('🎨 DrawingTestStudent - Aspect ratio:', (actualCanvasWidth / actualCanvasHeight).toFixed(2));
+      } else {
+        console.log('🎨 DrawingTestStudent - Preserving user zoom:', zoom.toFixed(2));
+      }
       
       // Load existing drawing from student answer
       if (studentAnswer && typeof studentAnswer === 'string') {
@@ -646,25 +766,36 @@ const DrawingTestStudent = ({
   };
 
 
-  // Calculate responsive dimensions for the canvas
+  // Calculate responsive dimensions for the canvas with large canvas approach
   const getResponsiveDimensions = () => {
     if (isFullscreen) {
-      // In fullscreen, use almost the entire screen
+      // In fullscreen, use viewport size with calculated zoom
+      const viewportWidth = question?.canvas_width || 600;
+      const viewportHeight = question?.canvas_height || 800;
+      
+      // Calculate zoom to fit viewport in screen
+      const screenWidth = window.innerWidth - 40; // Margin for UI
+      const screenHeight = window.innerHeight - 40; // Margin for UI
+      
+      const zoomX = screenWidth / viewportWidth;   // 1920/600 = 3.2
+      const zoomY = screenHeight / viewportHeight; // 1080/800 = 1.35
+      const fullscreenZoom = Math.min(zoomX, zoomY, 1.0); // Don't upscale
+      
       return {
-        width: window.innerWidth - 20, // Small margin
-        height: window.innerHeight - 20 // Small margin
+        width: viewportWidth,   // 600 - viewport size
+        height: viewportHeight, // 800 - viewport size
+        zoom: fullscreenZoom    // Calculated zoom
       };
     }
     
-    const containerWidth = window.innerWidth - 16; // Minimal padding
-    const containerHeight = window.innerHeight - 150; // Space for UI elements
-    
-    const maxWidth = Math.min(canvasSize.width, containerWidth);
-    const maxHeight = Math.min(canvasSize.height, containerHeight);
+    // Normal mode - use viewport size
+    const viewportWidth = question?.canvas_width || 600;
+    const viewportHeight = question?.canvas_height || 800;
     
     return {
-      width: Math.max(250, maxWidth), // Minimum 250px width
-      height: Math.max(300, maxHeight) // Minimum 300px height
+      width: viewportWidth,
+      height: viewportHeight,
+      zoom: 1.0
     };
   };
 
@@ -693,12 +824,12 @@ const DrawingTestStudent = ({
     
     const newScale = e.evt.deltaY > 0 ? oldScale * 0.9 : oldScale * 1.1;
     
-    // Calculate maximum zoom based on canvas size and max canvas size
+    // Calculate maximum zoom based on large canvas approach
     const maxCanvasWidth = question?.max_canvas_width || 1536;
     const maxCanvasHeight = question?.max_canvas_height || 2048;
     const maxZoomX = maxCanvasWidth / canvasSize.width;
     const maxZoomY = maxCanvasHeight / canvasSize.height;
-    const maxZoom = Math.min(maxZoomX, maxZoomY, 5); // Cap at 5x for performance
+    const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x (no upscaling)
     
     const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale)); // Minimum 25% zoom
     
@@ -716,6 +847,7 @@ const DrawingTestStudent = ({
     console.log('🎨 DrawingTestStudent - New resolution:', Math.round(canvasSize.width * clampedScale * canvasSize.height * clampedScale), 'pixels');
     
     setZoom(clampedScale);
+    zoomInitializedRef.current = true; // Mark that user has interacted with zoom
   };
 
   // Constrain pan position to keep canvas visible
