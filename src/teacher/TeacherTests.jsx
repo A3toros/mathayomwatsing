@@ -1073,7 +1073,12 @@ const TeacherTests = () => {
       
       console.log('📤 Final test data payload:', testData);
       
+      console.log('🔄 Setting isAssigningTest to true...');
       setIsAssigningTest(true);
+      console.log('🔄 isAssigningTest set to true, overlay should show');
+      
+      // Small delay to ensure state update renders
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Call the combined save + assign API
       console.log('🚀 Calling testService.assignTestToClasses...');
@@ -2886,6 +2891,7 @@ const TeacherTests = () => {
         </div>
 
         {/* Loading Overlay */}
+        {console.log('🔍 Checking isAssigningTest:', isAssigningTest)}
         {isAssigningTest && (
           <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
             <div className="text-center">
