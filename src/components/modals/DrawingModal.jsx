@@ -16,23 +16,143 @@ const DrawingModal = ({
   const [questionsData, setQuestionsData] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [canvasSize, setCanvasSize] = useState({ width: 600, height: 800 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.0); // Start at 100% = 384x512 (4x smaller)
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const stageRef = useRef(null);
+
+  // Clamp position to prevent canvas from going off-screen
+  const clampPosition = (newPos, scale) => {
+    const stage = stageRef.current;
+    if (!stage) return newPos;
+    
+    const stageWidth = stage.width();
+    const stageHeight = stage.height();
+    const canvasWidth = canvasSize.width * scale;
+    const canvasHeight = canvasSize.height * scale;
+
+    // If canvas is smaller than screen → center it
+    const minX = Math.min(0, stageWidth - canvasWidth);
+    const minY = Math.min(0, stageHeight - canvasHeight);
+
+    const maxX = canvasWidth < stageWidth ? (stageWidth - canvasWidth) / 2 : 0;
+    const maxY = canvasHeight < stageHeight ? (stageHeight - canvasHeight) / 2 : 0;
+
+    return {
+      x: Math.min(maxX, Math.max(minX, newPos.x)),
+      y: Math.min(maxY, Math.max(minY, newPos.y)),
+    };
+  };
   
   // Two-finger gesture state
   const [lastTouchDistance, setLastTouchDistance] = useState(null);
   const [lastTouchCenter, setLastTouchCenter] = useState(null);
   const [isTwoFingerGesture, setIsTwoFingerGesture] = useState(false);
+  const [gestureType, setGestureType] = useState(null); // 'zoom' | 'pan' | null
+  const [isGestureActive, setIsGestureActive] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [preFullscreenState, setPreFullscreenState] = useState(null);
+  
+  // Animation throttling
+  let animationId = null;
+  
+  // Device-adaptive thresholds
+  const getDevicePixelRatio = () => window.devicePixelRatio || 1;
+  const isHighDPI = getDevicePixelRatio() > 1.5;
+  
+  const GESTURE_THRESHOLDS = {
+    scaleDelta: isHighDPI ? 0.03 : 0.05, // More sensitive on high-DPI
+    centerDelta: isHighDPI ? 15 : 20,    // Adjusted for pixel density
+    minTouchDistance: 10,                // Minimum distance to register gesture
+  };
+  
+  // Comprehensive cleanup function
+  const resetGestureState = () => {
+    setIsGestureActive(false);
+    setGestureType(null);
+    setLastTouchDistance(null);
+    setLastTouchCenter(null);
+    setIsDragging(false);
+    
+    // Cancel any pending animations
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    
+    // Stop any running Konva animations
+    if (stageRef.current) {
+      stageRef.current.stop();
+    }
+  };
+  
+  // Fullscreen handler with state preservation
+  const handleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // Save current state before entering fullscreen
+      setPreFullscreenState({
+        zoom: zoom,
+        position: { ...position }
+      });
+      
+      // Enter fullscreen
+      const container = document.documentElement;
+      container.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        
+        // Set zoom to 25% to show full canvas
+        const fullscreenZoom = 0.25;
+        setZoom(fullscreenZoom);
+        
+        // Apply zoom and clamp position
+        const stage = stageRef.current;
+        if (stage) {
+          stage.scale({ x: fullscreenZoom, y: fullscreenZoom });
+          const clampedPos = clampPosition({ x: 0, y: 0 }, fullscreenZoom);
+          stage.position(clampedPos);
+          stage.batchDraw();
+          setPosition(clampedPos);
+        }
+        
+        console.log('🎨 Fullscreen - Zoom:', fullscreenZoom.toFixed(2));
+        console.log('🎨 Fullscreen - Position:', clampedPos);
+      });
+    } else {
+      // Exit fullscreen
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        
+        // Restore previous state instead of hard-resetting
+        if (preFullscreenState) {
+          setZoom(preFullscreenState.zoom);
+          setPosition(preFullscreenState.position);
+          setPreFullscreenState(null);
+        } else {
+          // Fallback to default if no previous state
+          setZoom(0.25);
+          setPosition({ x: 0, y: 0 });
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     if (isOpen && drawing) {
-      setZoom(1);
+      // Set initial state: 25% zoom (max resolution 1536x2048), centered
+      const initialScale = 0.25;
+      setZoom(initialScale);
       setRotation(0);
       setPosition({ x: 0, y: 0 });
+      
+      // Apply initial scale to stage
+      const stage = stageRef.current;
+      if (stage) {
+        stage.scale({ x: initialScale, y: initialScale });
+        stage.position({ x: 0, y: 0 });
+        stage.batchDraw();
+      }
       
       // Parse drawing data from answers field
       console.log('🎨 DrawingModal - drawing object:', drawing);
@@ -185,6 +305,13 @@ const DrawingModal = ({
       console.log('🎨 DrawingModal - Aspect ratio:', (actualCanvasWidth / actualCanvasHeight).toFixed(2));
     }
   }, [isOpen, drawing]);
+  
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      resetGestureState();
+    };
+  }, []);
 
   // Ensure first question is displayed when questionsData changes
   useEffect(() => {
@@ -201,45 +328,46 @@ const DrawingModal = ({
   }, [questionsData]);
 
   const handleZoomIn = () => {
-    const maxCanvasWidth = drawing?.max_canvas_width || 1536;
-    const maxCanvasHeight = drawing?.max_canvas_height || 2048;
-    const maxZoomX = maxCanvasWidth / canvasSize.width;
-    const maxZoomY = maxCanvasHeight / canvasSize.height;
-    const maxZoom = Math.min(maxZoomX, maxZoomY, 5); // Cap at 5x for performance
+    const minZoom = 0.25; // 25% = 1536x2048 (max resolution)
+    const maxZoom = 1.0;  // 100% = 384x512 (4x smaller)
     
     setZoom(prev => {
       const newZoom = Math.min(prev * 1.2, maxZoom);
-      const newWidth = Math.round(canvasSize.width * newZoom);
-      const newHeight = Math.round(canvasSize.height * newZoom);
-      const newResolution = newWidth * newHeight;
+      const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
       
-      console.log('🎨 DrawingModal - Zoom In:', prev.toFixed(2), '->', newZoom.toFixed(2));
-      console.log('🎨 DrawingModal - New effective size:', newWidth, 'x', newHeight);
-      console.log('🎨 DrawingModal - New resolution:', newResolution, 'pixels');
-      console.log('🎨 DrawingModal - Max allowed resolution:', maxCanvasWidth * maxCanvasHeight, 'pixels');
-      console.log('🎨 DrawingModal - Within bounds:', newResolution <= (maxCanvasWidth * maxCanvasHeight));
+      // Apply zoom and clamp position
+      const stage = stageRef.current;
+      if (stage) {
+        stage.scale({ x: clampedZoom, y: clampedZoom });
+        const clampedPos = clampPosition(position, clampedZoom);
+        stage.position(clampedPos);
+        stage.batchDraw();
+        setPosition(clampedPos);
+      }
       
-      return newZoom;
+      return clampedZoom;
     });
   };
 
   const handleZoomOut = () => {
-    const maxCanvasWidth = drawing?.max_canvas_width || 1536;
-    const maxCanvasHeight = drawing?.max_canvas_height || 2048;
+    const minZoom = 0.25; // 25% = 1536x2048 (max resolution)
+    const maxZoom = 1.0;  // 100% = 384x512 (4x smaller)
     
     setZoom(prev => {
-      const newZoom = Math.max(prev / 1.2, 0.25); // Minimum 25% zoom
-      const newWidth = Math.round(canvasSize.width * newZoom);
-      const newHeight = Math.round(canvasSize.height * newZoom);
-      const newResolution = newWidth * newHeight;
+      const newZoom = Math.max(prev / 1.2, minZoom);
+      const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
       
-      console.log('🎨 DrawingModal - Zoom Out:', prev.toFixed(2), '->', newZoom.toFixed(2));
-      console.log('🎨 DrawingModal - New effective size:', newWidth, 'x', newHeight);
-      console.log('🎨 DrawingModal - New resolution:', newResolution, 'pixels');
-      console.log('🎨 DrawingModal - Max allowed resolution:', maxCanvasWidth * maxCanvasHeight, 'pixels');
-      console.log('🎨 DrawingModal - Within bounds:', newResolution <= (maxCanvasWidth * maxCanvasHeight));
+      // Apply zoom and clamp position
+      const stage = stageRef.current;
+      if (stage) {
+        stage.scale({ x: clampedZoom, y: clampedZoom });
+        const clampedPos = clampPosition(position, clampedZoom);
+        stage.position(clampedPos);
+        stage.batchDraw();
+        setPosition(clampedPos);
+      }
       
-      return newZoom;
+      return clampedZoom;
     });
   };
 
@@ -295,13 +423,15 @@ const DrawingModal = ({
     
     if (touches.length === 2) {
       // Two-finger gesture - start zoom/pan
-      setIsTwoFingerGesture(true);
+      setIsGestureActive(true);
+      setGestureType(null); // Will be determined in touch move
       setLastTouchDistance(getTouchDistance(touches));
       setLastTouchCenter(getTouchCenter(touches));
       setIsDragging(false); // Stop any dragging
     } else if (touches.length === 1) {
       // Single finger - normal drag
-      setIsTwoFingerGesture(false);
+      setIsGestureActive(false);
+      setGestureType(null);
       handleMouseDown(e);
     }
   };
@@ -310,50 +440,101 @@ const DrawingModal = ({
     e.preventDefault();
     const touches = e.touches;
     
-    if (touches.length === 2 && isTwoFingerGesture) {
-      // Two-finger gesture - handle zoom and pan
+    if (touches.length === 2 && isGestureActive) {
+      // Two-finger gesture - handle zoom and pan with improved logic
       const stage = stageRef.current;
       const currentDistance = getTouchDistance(touches);
       const currentCenter = getTouchCenter(touches);
       
-      if (lastTouchDistance && lastTouchCenter && stage) {
-        // Calculate zoom
-        const scaleChange = currentDistance / lastTouchDistance;
-        const oldScale = stage.scaleX();
-        const newScale = oldScale * scaleChange;
+      if (lastTouchDistance && lastTouchCenter && stage && currentDistance > GESTURE_THRESHOLDS.minTouchDistance) {
+        // Detect if user is zooming or panning (percentage-based thresholds)
+        const scaleDelta = Math.abs(currentDistance / lastTouchDistance - 1);
+        const centerDelta = Math.sqrt(
+          Math.pow(currentCenter.x - lastTouchCenter.x, 2) + 
+          Math.pow(currentCenter.y - lastTouchCenter.y, 2)
+        );
         
-        // Apply zoom limits (0.25x to 1.0x for large canvas)
-        const maxCanvasWidth = drawing?.max_canvas_width || 1536;
-        const maxCanvasHeight = drawing?.max_canvas_height || 2048;
-        const maxZoomX = maxCanvasWidth / canvasSize.width;
-        const maxZoomY = maxCanvasHeight / canvasSize.height;
-        const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
-        const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
-        
-        // Calculate pan
-        const deltaX = currentCenter.x - lastTouchCenter.x;
-        const deltaY = currentCenter.y - lastTouchCenter.y;
-        
-        // Apply transformations
-        const currentPos = stage.position();
-        const newPos = {
-          x: currentPos.x + deltaX,
-          y: currentPos.y + deltaY
-        };
-        
-        stage.scale({ x: clampedScale, y: clampedScale });
-        stage.position(newPos);
-        stage.batchDraw();
-        
-        setZoom(clampedScale);
-        
-        console.log('🎨 DrawingModal - Two-finger gesture - Scale:', clampedScale.toFixed(2), 'Pan:', deltaX.toFixed(1), deltaY.toFixed(1));
+        if (scaleDelta > GESTURE_THRESHOLDS.scaleDelta) {
+          // User is pinching - ZOOM ONLY
+          setGestureType('zoom');
+          
+          const scaleChange = currentDistance / lastTouchDistance;
+          const oldScale = stage.scaleX();
+          const newScale = oldScale * scaleChange;
+          
+          // Apply zoom limits (0.25x to 1.0x for large canvas)
+          const maxCanvasWidth = drawing?.max_canvas_width || 1536;
+          const maxCanvasHeight = drawing?.max_canvas_height || 2048;
+          const maxZoomX = maxCanvasWidth / canvasSize.width;
+          const maxZoomY = maxCanvasHeight / canvasSize.height;
+          const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
+          const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
+          
+          // Zoom towards finger center (natural pinch-to-zoom)
+          const zoomPoint = currentCenter;
+          const mousePointTo = {
+            x: (zoomPoint.x - stage.x()) / oldScale,
+            y: (zoomPoint.y - stage.y()) / oldScale,
+          };
+          
+          const newPos = {
+            x: zoomPoint.x - mousePointTo.x * clampedScale,
+            y: zoomPoint.y - mousePointTo.y * clampedScale,
+          };
+          
+          // Throttled update using requestAnimationFrame
+          const updateStage = () => {
+            stage.scale({ x: clampedScale, y: clampedScale });
+            stage.position(newPos);
+            stage.batchDraw();
+            animationId = null;
+          };
+          
+          if (!animationId) {
+            animationId = requestAnimationFrame(updateStage);
+          }
+          
+          setZoom(clampedScale);
+          setPosition(newPos);
+          
+          console.log('🎨 DrawingModal - Zoom gesture - Scale:', clampedScale.toFixed(2), 'Center:', zoomPoint);
+          
+        } else if (centerDelta > GESTURE_THRESHOLDS.centerDelta) {
+          // User is moving fingers - PAN ONLY
+          setGestureType('pan');
+          
+          const deltaX = currentCenter.x - lastTouchCenter.x;
+          const deltaY = currentCenter.y - lastTouchCenter.y;
+          
+          const currentPos = stage.position();
+          const newPos = {
+            x: currentPos.x + deltaX,
+            y: currentPos.y + deltaY,
+          };
+          
+          // Throttled update using requestAnimationFrame
+          const updateStage = () => {
+            stage.position(newPos);
+            stage.batchDraw();
+            animationId = null;
+          };
+          
+          if (!animationId) {
+            animationId = requestAnimationFrame(updateStage);
+          }
+          
+          setPosition(newPos);
+          
+          console.log('🎨 DrawingModal - Pan gesture - Delta:', deltaX.toFixed(1), deltaY.toFixed(1));
+        }
       }
       
       setLastTouchDistance(currentDistance);
       setLastTouchCenter(currentCenter);
-    } else if (touches.length === 1 && !isTwoFingerGesture) {
+    } else if (touches.length === 1 && !isGestureActive) {
       // Single finger - normal drag
+      setIsGestureActive(false);
+      setGestureType(null);
       handleMouseMove(e);
     }
   };
@@ -363,17 +544,18 @@ const DrawingModal = ({
     const touches = e.touches;
     
     if (touches.length === 0) {
-      // All fingers lifted
-      setIsTwoFingerGesture(false);
-      setLastTouchDistance(null);
-      setLastTouchCenter(null);
+      // All fingers lifted - clean reset
+      resetGestureState();
       handleMouseUp();
     } else if (touches.length === 1) {
       // One finger remaining - switch to single finger mode
-      setIsTwoFingerGesture(false);
+      setIsGestureActive(false);
+      setGestureType(null);
       setLastTouchDistance(null);
       setLastTouchCenter(null);
+      // Continue with single finger drawing if needed
     }
+    // If still 2+ fingers, continue with gesture
   };
 
   // Constrain pan position to keep canvas visible
@@ -551,7 +733,114 @@ const DrawingModal = ({
                     </div>
                     <p className="text-gray-600">No drawing data available</p>
                   </div>
+                ) : isFullscreen ? (
+                  // Fullscreen mode - separate container
+                  <div className="fixed inset-0 bg-black flex items-center justify-center">
+                    <div
+                      style={{
+                        width: `${canvasSize.width * zoom}px`,
+                        height: `${canvasSize.height * zoom}px`,
+                        transform: `translate(${position.x}px, ${position.y}px)`,
+                        transformOrigin: 'center center'
+                      }}
+                    >
+                      <Stage
+                        ref={stageRef}
+                        width={canvasSize.width}
+                        height={canvasSize.height}
+                        scaleX={zoom}
+                        scaleY={zoom}
+                        onDragMove={handleDragMove}
+                        onDragEnd={() => constrainPanPosition(stageRef.current)}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onWheel={(e) => {
+                          e.evt.preventDefault();
+                          const maxCanvasWidth = drawing?.max_canvas_width || 1536;
+                          const maxCanvasHeight = drawing?.max_canvas_height || 2048;
+                          const maxZoomX = maxCanvasWidth / canvasSize.width;
+                          const maxZoomY = maxCanvasHeight / canvasSize.height;
+                          const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x (no upscaling)
+                          
+                          const oldZoom = zoom;
+                          const newZoom = e.evt.deltaY > 0 
+                            ? Math.max(oldZoom * 0.9, 0.25) // Zoom out
+                            : Math.min(oldZoom * 1.1, maxZoom); // Zoom in
+                          
+                          const newWidth = Math.round(canvasSize.width * newZoom);
+                          const newHeight = Math.round(canvasSize.height * newZoom);
+                          
+                          const newPos = {
+                            x: position.x + (canvasSize.width * oldZoom - newWidth) / 2,
+                            y: position.y + (canvasSize.height * oldZoom - newHeight) / 2
+                          };
+                          
+                          setZoom(newZoom);
+                          setPosition(newPos);
+                        }}
+                      >
+                        <Layer>
+                          {/* White background for PNG export */}
+                          <Rect
+                            x={0}
+                            y={0}
+                            width={canvasSize.width}
+                            height={canvasSize.height}
+                            fill="white"
+                            stroke="white"
+                            strokeWidth={0}
+                          />
+                          {drawingData.map((line, index) => {
+                            // Each line should be an array of points
+                            if (Array.isArray(line) && line.length > 0) {
+                              // Find the bounds of all drawing data to scale properly
+                              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                              
+                              line.forEach(point => {
+                                if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+                                  minX = Math.min(minX, point.x);
+                                  minY = Math.min(minY, point.y);
+                                  maxX = Math.max(maxX, point.x);
+                                  maxY = Math.max(maxY, point.y);
+                                }
+                              });
+                              
+                              // Only render if we have valid bounds
+                              if (minX !== Infinity && minY !== Infinity && maxX !== -Infinity && maxY !== -Infinity) {
+                                // Scale points to fit the actual canvas size
+                                const scaleX = canvasSize.width / (questionData?.max_canvas_width || 1536);
+                                const scaleY = canvasSize.height / (questionData?.max_canvas_height || 2048);
+                                
+                                const scaledPoints = line
+                                  .filter(point => point && typeof point.x === 'number' && typeof point.y === 'number')
+                                  .map(point => ({
+                                    x: point.x * scaleX,
+                                    y: point.y * scaleY
+                                  }));
+                                
+                                if (scaledPoints.length > 0) {
+                                  return (
+                                    <Line
+                                      key={index}
+                                      points={scaledPoints.flatMap(p => [p.x, p.y])}
+                                      stroke="black"
+                                      strokeWidth={2}
+                                      lineCap="round"
+                                      lineJoin="round"
+                                    />
+                                  );
+                                }
+                              }
+                            }
+                            return null;
+                          })}
+                        </Layer>
+                      </Stage>
+                    </div>
+                  </div>
                 ) : (
+                  // Normal mode - original container
                   <div
                     style={{
                       transform: `rotate(${rotation}deg) translate(${position.x}px, ${position.y}px)`,
@@ -723,6 +1012,21 @@ const DrawingModal = ({
                   title="Download"
                 >
                   <Download className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={handleFullscreen}
+                  variant="secondary"
+                  size="icon"
+                  className="w-10 h-10"
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <X className="w-4 h-4" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  )}
                 </Button>
               </div>
 

@@ -119,6 +119,42 @@ const DrawingCanvas = ({
   const [lastTouchDistance, setLastTouchDistance] = useState(null);
   const [lastTouchCenter, setLastTouchCenter] = useState(null);
   const [isTwoFingerGesture, setIsTwoFingerGesture] = useState(false);
+  const [gestureType, setGestureType] = useState(null); // 'zoom' | 'pan' | null
+  const [isGestureActive, setIsGestureActive] = useState(false);
+  
+  // Animation throttling
+  let animationId = null;
+  
+  // Device-adaptive thresholds
+  const getDevicePixelRatio = () => window.devicePixelRatio || 1;
+  const isHighDPI = getDevicePixelRatio() > 1.5;
+  
+  const GESTURE_THRESHOLDS = {
+    scaleDelta: isHighDPI ? 0.03 : 0.05, // More sensitive on high-DPI
+    centerDelta: isHighDPI ? 15 : 20,    // Adjusted for pixel density
+    minTouchDistance: 10,                // Minimum distance to register gesture
+  };
+  
+  // Comprehensive cleanup function
+  const resetGestureState = () => {
+    setIsGestureActive(false);
+    setGestureType(null);
+    setLastTouchDistance(null);
+    setLastTouchCenter(null);
+    setIsDrawing(false);
+    setStartPoint(null);
+    
+    // Cancel any pending animations
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    
+    // Stop any running Konva animations
+    if (stageRef.current) {
+      stageRef.current.stop();
+    }
+  };
 
   const getTouchDistance = (touches) => {
     if (touches.length < 2) return 0;
@@ -147,13 +183,15 @@ const DrawingCanvas = ({
     
     if (touches.length === 2) {
       // Two-finger gesture - start zoom/pan
-      setIsTwoFingerGesture(true);
+      setIsGestureActive(true);
+      setGestureType(null); // Will be determined in touch move
       setLastTouchDistance(getTouchDistance(touches));
       setLastTouchCenter(getTouchCenter(touches));
       setIsDrawing(false); // Stop any drawing
     } else if (touches.length === 1) {
       // Single finger - normal drawing
-      setIsTwoFingerGesture(false);
+      setIsGestureActive(false);
+      setGestureType(null);
       handleMouseDown(e);
     }
   };
@@ -162,50 +200,99 @@ const DrawingCanvas = ({
     e.evt.preventDefault(); // Prevent default touch behavior
     const touches = e.evt.touches;
     
-    if (touches.length === 2 && isTwoFingerGesture) {
+    if (touches.length === 2 && isGestureActive) {
       // Two-finger gesture - handle zoom and pan
       const stage = stageRef.current;
       const currentDistance = getTouchDistance(touches);
       const currentCenter = getTouchCenter(touches);
       
-      if (lastTouchDistance && lastTouchCenter) {
-        // Calculate zoom
-        const scaleChange = currentDistance / lastTouchDistance;
-        const oldScale = stage.scaleX();
-        const newScale = oldScale * scaleChange;
+      if (lastTouchDistance && lastTouchCenter && stage && currentDistance > GESTURE_THRESHOLDS.minTouchDistance) {
+        // Detect if user is zooming or panning (percentage-based thresholds)
+        const scaleDelta = Math.abs(currentDistance / lastTouchDistance - 1);
+        const centerDelta = Math.sqrt(
+          Math.pow(currentCenter.x - lastTouchCenter.x, 2) + 
+          Math.pow(currentCenter.y - lastTouchCenter.y, 2)
+        );
         
-        // Apply zoom limits (0.25x to 1.0x for large canvas)
-        const maxCanvasWidth = question?.max_canvas_width || 1536;
-        const maxCanvasHeight = question?.max_canvas_height || 2048;
-        const maxZoomX = maxCanvasWidth / canvasSize.width;
-        const maxZoomY = maxCanvasHeight / canvasSize.height;
-        const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
-        const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
-        
-        // Calculate pan
-        const deltaX = currentCenter.x - lastTouchCenter.x;
-        const deltaY = currentCenter.y - lastTouchCenter.y;
-        
-        // Apply transformations
-        const currentPos = stage.position();
-        const newPos = {
-          x: currentPos.x + deltaX,
-          y: currentPos.y + deltaY
-        };
-        
-        stage.scale({ x: clampedScale, y: clampedScale });
-        stage.position(newPos);
-        stage.batchDraw();
-        
-        setZoom(clampedScale);
-        zoomInitializedRef.current = true; // Mark that user has interacted with zoom
-        
-        console.log('🎨 Two-finger gesture - Scale:', clampedScale.toFixed(2), 'Pan:', deltaX.toFixed(1), deltaY.toFixed(1));
+        if (scaleDelta > GESTURE_THRESHOLDS.scaleDelta) {
+          // User is pinching - ZOOM ONLY
+          setGestureType('zoom');
+          
+          const scaleChange = currentDistance / lastTouchDistance;
+          const oldScale = stage.scaleX();
+          const newScale = oldScale * scaleChange;
+          
+          // Apply zoom limits (0.25x to 1.0x for large canvas)
+          const maxCanvasWidth = question?.max_canvas_width || 1536;
+          const maxCanvasHeight = question?.max_canvas_height || 2048;
+          const maxZoomX = maxCanvasWidth / canvasSize.width;
+          const maxZoomY = maxCanvasHeight / canvasSize.height;
+          const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x
+          const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale));
+          
+          // Zoom towards finger center (natural pinch-to-zoom)
+          const zoomPoint = currentCenter;
+          const mousePointTo = {
+            x: (zoomPoint.x - stage.x()) / oldScale,
+            y: (zoomPoint.y - stage.y()) / oldScale,
+          };
+          
+          const newPos = {
+            x: zoomPoint.x - mousePointTo.x * clampedScale,
+            y: zoomPoint.y - mousePointTo.y * clampedScale,
+          };
+          
+          // Throttled update using requestAnimationFrame
+          const updateStage = () => {
+            stage.scale({ x: clampedScale, y: clampedScale });
+            stage.position(newPos);
+            stage.batchDraw();
+            animationId = null;
+          };
+          
+          if (!animationId) {
+            animationId = requestAnimationFrame(updateStage);
+          }
+          
+          setZoom(clampedScale);
+          setPosition(newPos);
+          zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+          
+          console.log('🎨 DrawingTestStudent - Zoom gesture - Scale:', clampedScale.toFixed(2), 'Center:', zoomPoint);
+          
+        } else if (centerDelta > GESTURE_THRESHOLDS.centerDelta) {
+          // User is moving fingers - PAN ONLY
+          setGestureType('pan');
+          
+          const deltaX = currentCenter.x - lastTouchCenter.x;
+          const deltaY = currentCenter.y - lastTouchCenter.y;
+          
+          const currentPos = stage.position();
+          const newPos = {
+            x: currentPos.x + deltaX,
+            y: currentPos.y + deltaY,
+          };
+          
+          // Throttled update using requestAnimationFrame
+          const updateStage = () => {
+            stage.position(newPos);
+            stage.batchDraw();
+            animationId = null;
+          };
+          
+          if (!animationId) {
+            animationId = requestAnimationFrame(updateStage);
+          }
+          
+          setPosition(newPos);
+          
+          console.log('🎨 DrawingTestStudent - Pan gesture - Delta:', deltaX.toFixed(1), deltaY.toFixed(1));
+        }
       }
       
       setLastTouchDistance(currentDistance);
       setLastTouchCenter(currentCenter);
-    } else if (touches.length === 1 && !isTwoFingerGesture) {
+    } else if (touches.length === 1 && !isGestureActive) {
       // Single finger - normal drawing
       handleMouseMove(e);
     }
@@ -216,17 +303,18 @@ const DrawingCanvas = ({
     const touches = e.evt.touches;
     
     if (touches.length === 0) {
-      // All fingers lifted
-      setIsTwoFingerGesture(false);
-      setLastTouchDistance(null);
-      setLastTouchCenter(null);
+      // All fingers lifted - clean reset
+      resetGestureState();
       handleMouseUp();
     } else if (touches.length === 1) {
       // One finger remaining - switch to single finger mode
-      setIsTwoFingerGesture(false);
+      setIsGestureActive(false);
+      setGestureType(null);
       setLastTouchDistance(null);
       setLastTouchCenter(null);
+      // Continue with single finger drawing if needed
     }
+    // If still 2+ fingers, continue with gesture
   };
 
 
@@ -935,6 +1023,13 @@ const DrawingTestStudent = ({
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+  
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      resetGestureState();
     };
   }, []);
 
