@@ -41,6 +41,7 @@ const TeacherTests = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTest, setIsSavingTest] = useState(false);
   const [isUploadingExcel, setIsUploadingExcel] = useState(false);
+  const [isAssigningTest, setIsAssigningTest] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -1072,6 +1073,8 @@ const TeacherTests = () => {
       
       console.log('📤 Final test data payload:', testData);
       
+      setIsAssigningTest(true);
+      
       // Call the combined save + assign API
       console.log('🚀 Calling testService.assignTestToClasses...');
       const response = await testService.assignTestToClasses(testData);
@@ -1095,6 +1098,8 @@ const TeacherTests = () => {
       console.error('💥 Exception in assignTestToClasses:', error);
       console.error('Error creating and assigning test:', error);
       showNotification('Error creating and assigning test. Please try again.', 'error');
+    } finally {
+      setIsAssigningTest(false);
     }
     
     console.log('🔍 === ASSIGN TEST TO CLASSES DEBUG END ===');
@@ -2879,6 +2884,28 @@ const TeacherTests = () => {
           )}
         </AnimatePresence>
         </div>
+
+        {/* Loading Overlay */}
+        {isAssigningTest && (
+          <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+              <p className="text-blue-600 font-semibold text-lg">Assigning test to classes...</p>
+              <p className="text-gray-500 text-sm mt-1">Please wait while we process your assignment</p>
+            </div>
+          </div>
+        )}
+
+        {/* Save Test Loading Overlay */}
+        {isSavingTest && (
+          <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+              <p className="text-blue-600 font-semibold text-lg">Saving test...</p>
+              <p className="text-gray-500 text-sm mt-1">Please wait while we save your test</p>
+            </div>
+          </div>
+        )}
 
         {/* Notifications */}
         <div className="fixed top-4 right-4 space-y-2 z-50">
