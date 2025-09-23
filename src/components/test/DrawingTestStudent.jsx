@@ -303,9 +303,9 @@ const DrawingCanvas = ({
     const touches = e.evt.touches;
     
     if (touches.length === 0) {
-      // All fingers lifted - clean reset
-      resetGestureState();
-      handleMouseUp();
+      // All fingers lifted - save line first, then clean reset
+      handleMouseUp(); // Save the line first
+      resetGestureState(); // Then reset gesture state
     } else if (touches.length === 1) {
       // One finger remaining - switch to single finger mode
       setIsGestureActive(false);
