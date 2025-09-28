@@ -869,9 +869,6 @@ CREATE INDEX idx_word_matching_results_student ON word_matching_test_results(stu
 CREATE INDEX idx_word_matching_results_class ON word_matching_test_results(grade, class);
 CREATE INDEX idx_word_matching_results_period ON word_matching_test_results(academic_period_id);
 
--- Drawing Test Database Schema
--- Add to existing database_schema_new.sql
-
 -- 1. Main Drawing Tests Table
 CREATE TABLE drawing_tests (
     id SERIAL PRIMARY KEY,
@@ -945,3 +942,259 @@ CREATE INDEX idx_drawing_test_results_test_id ON drawing_test_results(test_id);
 CREATE INDEX idx_drawing_test_results_student_id ON drawing_test_results(student_id);
 CREATE INDEX idx_drawing_test_results_teacher_id ON drawing_test_results(teacher_id);
 CREATE INDEX idx_drawing_test_images_result_id ON drawing_test_images(result_id);
+
+-- ========================================
+-- TIMER SUPPORT: per-test allowed_time (seconds)
+-- ========================================
+ALTER TABLE multiple_choice_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+ALTER TABLE true_false_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+ALTER TABLE input_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+ALTER TABLE matching_type_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+ALTER TABLE word_matching_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+ALTER TABLE drawing_tests ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+-- Question shuffle flag for supported tests
+ALTER TABLE multiple_choice_tests ADD COLUMN IF NOT EXISTS is_shuffled BOOLEAN DEFAULT FALSE;
+ALTER TABLE true_false_tests ADD COLUMN IF NOT EXISTS is_shuffled BOOLEAN DEFAULT FALSE;
+ALTER TABLE input_tests ADD COLUMN IF NOT EXISTS is_shuffled BOOLEAN DEFAULT FALSE;
+-- Optional per-assignment override (uncomment if needed)
+-- ALTER TABLE test_assignments ADD COLUMN IF NOT EXISTS allowed_time INTEGER;
+
+-- ========================================
+-- CLASS SUMMARY VIEW OPTIMIZATION
+-- ========================================
+
+-- Drop the existing table
+DROP TABLE IF EXISTS class_summary_view CASCADE;
+
+-- Create the materialized view that aggregates from actual test results
+CREATE MATERIALIZED VIEW class_summary_view AS
+WITH all_test_results AS (
+    -- Multiple Choice Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM multiple_choice_test_results
+    
+    UNION ALL
+    
+    -- True/False Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM true_false_test_results
+    
+    UNION ALL
+    
+    -- Input Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM input_test_results
+    
+    UNION ALL
+    
+    -- Matching Type Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM matching_type_test_results
+    
+    UNION ALL
+    
+    -- Word Matching Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM word_matching_test_results
+    
+    UNION ALL
+    
+    -- Drawing Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM drawing_test_results
+),
+class_stats AS (
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        
+        -- Student counts
+        COUNT(DISTINCT student_id) as total_students,
+        
+        -- Test counts
+        COUNT(DISTINCT test_id) as total_tests,
+        COUNT(*) as completed_tests,
+        
+        -- Score statistics
+        ROUND(AVG(percentage), 2) as average_class_score,
+        MAX(score) as highest_score,
+        MIN(score) as lowest_score,
+        
+        -- Performance metrics
+        ROUND(
+            (COUNT(CASE WHEN percentage >= 60 THEN 1 END)::DECIMAL / COUNT(*)) * 100, 2
+        ) as pass_rate,
+        
+        -- Cheating incidents
+        COUNT(CASE WHEN caught_cheating = true THEN 1 END) as cheating_incidents,
+        COUNT(CASE WHEN visibility_change_times > 5 THEN 1 END) as high_visibility_change_students,
+        
+        -- Recent activity
+        MAX(submitted_at) as last_test_date,
+        CURRENT_TIMESTAMP as last_updated
+        
+    FROM all_test_results
+    WHERE is_completed = true
+    GROUP BY teacher_id, subject_id, grade, class, academic_period_id
+)
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY teacher_id, subject_id, grade, class, academic_period_id) as id,
+    teacher_id,
+    subject_id,
+    grade,
+    class,
+    academic_period_id,
+    total_students,
+    total_tests,
+    completed_tests,
+    average_class_score,
+    highest_score,
+    lowest_score,
+    pass_rate,
+    cheating_incidents,
+    high_visibility_change_students,
+    last_test_date,
+    last_updated,
+    CURRENT_TIMESTAMP as created_at,
+    CURRENT_TIMESTAMP as updated_at
+FROM class_stats;
+
+-- Create indexes for performance on underlying tables
+CREATE INDEX IF NOT EXISTS idx_mc_results_teacher_grade_class_period 
+ON multiple_choice_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_tf_results_teacher_grade_class_period 
+ON true_false_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_input_results_teacher_grade_class_period 
+ON input_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_matching_results_teacher_grade_class_period 
+ON matching_type_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_word_matching_results_teacher_grade_class_period 
+ON word_matching_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_drawing_results_teacher_grade_class_period 
+ON drawing_test_results(teacher_id, grade, class, academic_period_id);
+
+-- Add indexes for completion status and cheating detection
+CREATE INDEX IF NOT EXISTS idx_mc_results_completed_cheating 
+ON multiple_choice_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_tf_results_completed_cheating 
+ON true_false_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_input_results_completed_cheating 
+ON input_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_matching_results_completed_cheating 
+ON matching_type_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_word_matching_results_completed_cheating 
+ON word_matching_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_drawing_results_completed_cheating 
+ON drawing_test_results(is_completed, caught_cheating, visibility_change_times);
+
+-- Create indexes on the materialized view for fast queries
+CREATE INDEX IF NOT EXISTS idx_class_summary_teacher ON class_summary_view(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_class_summary_subject ON class_summary_view(subject_id);
+CREATE INDEX IF NOT EXISTS idx_class_summary_class ON class_summary_view(grade, class);
+CREATE INDEX IF NOT EXISTS idx_class_summary_period ON class_summary_view(academic_period_id);
+
+-- Refresh the materialized view (run this periodically or after test submissions)
+-- REFRESH MATERIALIZED VIEW class_summary_view;

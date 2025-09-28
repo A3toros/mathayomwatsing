@@ -35,6 +35,7 @@ export const InputQuestion = ({
   testId, 
   testType = 'input',
   mode = 'student', // 'student' or 'teacher'
+  displayNumber,
   onAnswerChange,
   onQuestionChange,
   onAnswerAdd,
@@ -204,19 +205,19 @@ export const InputQuestion = ({
     }
   }, [answer, testType, testId, question?.question_id, mode, setItem, showNotification]);
 
-  // Focus input on mount
-  useEffect(() => {
-    if (inputRef.current && mode === 'student') {
-      inputRef.current.focus();
-    }
-  }, [mode]);
+  // Optional focus on mount (disabled to avoid auto-scrolling page)
+  // useEffect(() => {
+  //   if (inputRef.current && mode === 'student') {
+  //     inputRef.current.focus();
+  //   }
+  // }, [mode]);
 
   // Render student mode
   const renderStudentMode = () => (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-800">
-          Question {question.question_id}
+          Question {typeof displayNumber === 'number' ? displayNumber : question.question_id}
         </h4>
         {isAutoSaving && (
           <div className="flex items-center space-x-1 text-sm text-gray-500">

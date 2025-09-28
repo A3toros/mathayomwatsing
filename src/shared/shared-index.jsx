@@ -130,7 +130,8 @@ export const TEST_TYPES = {
   INPUT: 'input',
   MATCHING: 'matching_type',
   WORD_MATCHING: 'word_matching',
-  DRAWING: 'drawing' // NEW: Add drawing test type
+  DRAWING: 'drawing', // NEW: Add drawing test type
+  FILL_BLANKS: 'fill_blanks' // NEW: Add fill blanks test type
 };
 
 // User Roles

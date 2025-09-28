@@ -137,7 +137,7 @@ exports.handler = async function(event, context) {
       console.log('Querying test results tables directly for student:', student_id);
       
       // Query all test result tables and combine results
-      const [multipleChoiceResults, trueFalseResults, inputResults, matchingResults, wordMatchingResults, drawingResults] = await Promise.all([
+      const [multipleChoiceResults, trueFalseResults, inputResults, matchingResults, wordMatchingResults, drawingResults, fillBlanksResults] = await Promise.all([
         currentPeriodId 
           ? sql`
               SELECT 
@@ -401,6 +401,48 @@ exports.handler = async function(event, context) {
               LEFT JOIN subjects s ON d.subject_id = s.subject_id
               LEFT JOIN teachers t ON d.teacher_id = t.teacher_id
               WHERE d.student_id = ${student_id}
+            `,
+        currentPeriodId 
+          ? sql`
+              SELECT 
+                f.id,
+                f.test_id,
+                'fill_blanks' as test_type,
+                f.test_name,
+                f.score,
+                f.max_score,
+                f.percentage_score as percentage,
+                f.caught_cheating,
+                f.visibility_change_times,
+                true as is_completed,
+                f.created_at as submitted_at,
+                ${currentPeriodId} as academic_period_id,
+                s.subject,
+                CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+              FROM fill_blanks_test_results f
+              LEFT JOIN subjects s ON f.subject_id = s.subject_id
+              LEFT JOIN teachers te ON f.teacher_id = te.teacher_id
+              WHERE f.student_id = ${student_id}
+            `
+          : sql`
+              SELECT 
+                f.id,
+                f.test_id,
+                'fill_blanks' as test_type,
+                f.test_name,
+                f.score,
+                f.max_score,
+                f.percentage_score as percentage,
+                f.caught_cheating,
+                f.visibility_change_times,
+                true as is_completed,
+                f.created_at as submitted_at,
+                s.subject,
+                CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+              FROM fill_blanks_test_results f
+              LEFT JOIN subjects s ON f.subject_id = s.subject_id
+              LEFT JOIN teachers te ON f.teacher_id = te.teacher_id
+              WHERE f.student_id = ${student_id}
             `
       ]);
       
@@ -411,7 +453,8 @@ exports.handler = async function(event, context) {
         ...inputResults,
         ...matchingResults,
         ...wordMatchingResults,
-        ...drawingResults
+        ...drawingResults,
+        ...fillBlanksResults
       ].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
       
       console.log('Student results query successful, found:', results.length, 'results');

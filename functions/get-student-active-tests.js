@@ -234,6 +234,16 @@ exports.handler = async function(event, context) {
           if (drawingTest.length > 0) {
             testInfo = drawingTest[0];
           }
+        } else if (assignment.test_type === 'fill_blanks') {
+          const fillBlanksTest = await sql`
+            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
+            FROM fill_blanks_tests 
+            WHERE id = ${assignment.test_id}
+          `;
+          console.log('Fill blanks test query result:', fillBlanksTest);
+          if (fillBlanksTest.length > 0) {
+            testInfo = fillBlanksTest[0];
+          }
         }
         
         console.log('Test info:', testInfo);
@@ -347,7 +357,8 @@ exports.handler = async function(event, context) {
           true_false: activeTests.filter(t => t.test_type === 'true_false').length,
           input: activeTests.filter(t => t.test_type === 'input').length,
           matching_type: activeTests.filter(t => t.test_type === 'matching_type').length,
-          word_matching: activeTests.filter(t => t.test_type === 'word_matching').length
+          word_matching: activeTests.filter(t => t.test_type === 'word_matching').length,
+          fill_blanks: activeTests.filter(t => t.test_type === 'fill_blanks').length
         }
       },
       final_output: {

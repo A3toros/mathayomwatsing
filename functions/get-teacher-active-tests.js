@@ -381,6 +381,32 @@ exports.handler = async function(event, context) {
         WHERE dt.teacher_id = ${teacher_id} AND ta.is_active = true
         GROUP BY dt.id, dt.test_name, dt.num_questions, dt.created_at, ta.subject_id, s.subject
         
+        UNION ALL
+        
+        SELECT 
+          'fill_blanks' as test_type,
+          fbt.id as test_id,
+          fbt.test_name,
+          fbt.num_questions,
+          fbt.created_at,
+          ta.subject_id,
+          s.subject,
+          COUNT(ta.id) as assignment_count,
+          ARRAY_AGG(
+            JSON_BUILD_OBJECT(
+              'assignment_id', ta.id,
+              'grade', ta.grade,
+              'class', ta.class,
+              'assigned_at', ta.assigned_at,
+              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
+            )
+          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
+        FROM fill_blanks_tests fbt
+        INNER JOIN test_assignments ta ON fbt.id = ta.test_id AND ta.test_type = 'fill_blanks'
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        WHERE fbt.teacher_id = ${teacher_id} AND ta.is_active = true
+        GROUP BY fbt.id, fbt.test_name, fbt.num_questions, fbt.created_at, ta.subject_id, s.subject
+        
         ORDER BY created_at DESC
       `;
     }
@@ -391,8 +417,8 @@ exports.handler = async function(event, context) {
         teacher_id: teacher_id
       },
       query_execution: {
-        query_type: 'UNION ALL of 6 test types with INNER JOIN test_assignments',
-        test_types: ['multiple_choice', 'true_false', 'input', 'matching_type', 'word_matching', 'drawing'],
+        query_type: 'UNION ALL of 7 test types with INNER JOIN test_assignments',
+        test_types: ['multiple_choice', 'true_false', 'input', 'matching_type', 'word_matching', 'drawing', 'fill_blanks'],
         join_strategy: 'INNER JOIN ensures only tests with assignments are returned'
       },
       results_analysis: {
@@ -403,7 +429,8 @@ exports.handler = async function(event, context) {
           input: activeTests.filter(t => t.test_type === 'input').length,
           matching_type: activeTests.filter(t => t.test_type === 'matching_type').length,
           word_matching: activeTests.filter(t => t.test_type === 'word_matching').length,
-          drawing: activeTests.filter(t => t.test_type === 'drawing').length
+          drawing: activeTests.filter(t => t.test_type === 'drawing').length,
+          fill_blanks: activeTests.filter(t => t.test_type === 'fill_blanks').length
         },
         assignment_statistics: {
           total_assignments: activeTests.reduce((sum, test) => sum + test.assignment_count, 0),

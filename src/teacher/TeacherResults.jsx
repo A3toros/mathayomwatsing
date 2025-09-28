@@ -2013,6 +2013,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
           drawing={selectedDrawing}
           isOpen={isDrawingModalOpen}
           onClose={() => setIsDrawingModalOpen(false)}
+          isTeacherView={true}
         />
       )}
     </div>

@@ -49,7 +49,8 @@ export const MultipleChoiceQuestion = ({
   isSaving = false,
   validationErrors = {},
   showCorrectAnswers = false,
-  studentId = null // Add studentId prop for secure caching
+  studentId = null, // Add studentId prop for secure caching
+  displayNumber
 }) => {
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
@@ -230,19 +231,16 @@ export const MultipleChoiceQuestion = ({
     }
   }, [mode, question?.correct_answer]);
 
-  // Validate question (teacher mode)
   const validateQuestion = useCallback((text) => {
-    if (mode !== 'teacher') return;
-    
     if (!text || text.trim().length < 10) {
       setIsValid(false);
       setValidationMessage('Question must be at least 10 characters long');
-      return;
+      return false;
     }
-    
     setIsValid(true);
     setValidationMessage('');
-  }, [mode]);
+    return true;
+  }, []);
 
   // Validate options (teacher mode)
   const validateOptions = useCallback((opts) => {
@@ -295,7 +293,6 @@ export const MultipleChoiceQuestion = ({
     onSave(questionData);
   }, [mode, onSave, question?.question_id, questionText, options, correctAnswer]);
 
-  // Format question text with HTML support
   const formatQuestionText = useCallback((text) => {
     if (!text) return '';
     
@@ -311,7 +308,7 @@ export const MultipleChoiceQuestion = ({
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-800">
-          Question {question?.question_id}
+          Question {typeof displayNumber === 'number' ? displayNumber : question?.question_id}
         </h4>
         <div className="flex items-center space-x-2 text-sm text-gray-500">
           {isAutoSaving && (
@@ -336,47 +333,25 @@ export const MultipleChoiceQuestion = ({
       />
       
       <div className="space-y-3">
-        {options.map((option, index) => {
-          if (!option.trim()) return null;
-          
-          const optionLetter = String.fromCharCode(65 + index);
-          const isSelected = selectedAnswer === String(index);
-          const isCorrect = showCorrectAnswers && correctAnswer === optionLetter;
-          
-          return (
-            <label 
-              key={index}
-              className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
-                isSelected 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200'
-              } ${isCorrect ? 'ring-2 ring-green-400' : ''}`}
-            >
-              <input
-                type="radio"
-                name={`question_${question?.question_id}`}
-                value={index}
-                checked={isSelected}
-                onChange={() => handleAnswerChange(index)}
-                className="sr-only"
-                aria-label={`Option ${optionLetter}: ${option}`}
-              />
-              <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                isSelected 
-                  ? 'border-blue-500 bg-blue-500' 
-                  : 'border-gray-300'
-              }`}>
-                {isSelected && (
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                )}
-              </div>
-              <span className="text-gray-800 font-medium">
-                <span className="font-semibold text-gray-600 mr-2">{optionLetter})</span>
-                {option}
-              </span>
-            </label>
-          );
-        })}
+        {options.map((option, index) => (
+          <label key={index} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${selectedAnswer === String.fromCharCode(65 + index) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+            <input
+              type="radio"
+              name={`mcq_${testId}_${question?.question_id}`}
+              value={String.fromCharCode(65 + index)}
+              checked={selectedAnswer === String.fromCharCode(65 + index)}
+              onChange={(e) => {
+                setSelectedAnswer(e.target.value);
+                if (onAnswerChange) onAnswerChange(question?.question_id, e.target.value);
+              }}
+              className="mr-3"
+            />
+            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600 mr-3">
+              {String.fromCharCode(65 + index)}
+            </div>
+            <span className="flex-1">{option || `Option ${String.fromCharCode(65 + index)}`}</span>
+          </label>
+        ))}
       </div>
       
       {!isValid && validationMessage && (
@@ -514,11 +489,7 @@ export const MultipleChoiceQuestion = ({
     </div>
   );
 
-  return (
-    <div className="multiple-choice-question-container">
-      {mode === 'student' ? renderStudentMode() : renderTeacherMode()}
-    </div>
-  );
+  return mode === 'teacher' ? renderTeacherMode() : renderStudentMode();
 };
 
 export default MultipleChoiceQuestion;

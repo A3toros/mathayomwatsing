@@ -13,3 +13,7 @@ export { default as ProgressTracker } from './ProgressTracker';
 export { default as DrawingTestCreator } from './DrawingTestCreator';
 export { default as DrawingTestStudent } from './DrawingTestStudent';
 
+// NEW: Fill Blanks Test Components
+export { default as FillBlanksTestCreator } from './FillBlanksTestCreator';
+export { default as FillBlanksTestStudent } from './FillBlanksTestStudent';
+

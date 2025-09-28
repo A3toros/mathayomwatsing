@@ -9,6 +9,7 @@ import Card from '../components/ui/Card';
 import MatchingTestCreator from '../components/test/MatchingTestCreator';
 import WordMatchingCreator from '../components/test/WordMatchingCreator';
 import DrawingTestCreator from '../components/test/DrawingTestCreator';
+import FillBlanksTestCreator from '../components/test/FillBlanksTestCreator';
 import * as XLSX from 'xlsx';
 
 // Test type mapping
@@ -18,7 +19,8 @@ const TEST_TYPE_MAP = {
   'input': 'input',
   'matching': 'matching_type',
   'wordMatching': 'word_matching',
-  'drawing': 'drawing'
+  'drawing': 'drawing',
+  'fillBlanks': 'fill_blanks'
 };
 
 const TeacherTests = () => {
@@ -48,7 +50,12 @@ const TeacherTests = () => {
     testName: '',
     numQuestions: 0,
     numOptions: 0,
-    questions: {}
+    questions: {},
+    // Timer fields
+    enableTimer: false,
+    timerMinutes: '',
+    // Shuffle questions
+    isShuffled: false
   });
   
   // Test assignment state
@@ -210,6 +217,9 @@ const TeacherTests = () => {
         formDataToSave.numQuestions = formData.numQuestions || '';
         formDataToSave.numOptions = formData.numOptions || '';
         formDataToSave.questions = formData.questions || {};
+        formDataToSave.enableTimer = !!formData.enableTimer;
+        formDataToSave.timerMinutes = formData.timerMinutes || '';
+        formDataToSave.isShuffled = !!formData.isShuffled;
         break;
         
       case 'assignment':
@@ -342,7 +352,7 @@ const TeacherTests = () => {
     // is implemented through React's state management system
     
     // Set up auto-save for basic form fields
-    const basicFields = ['testName', 'numQuestions', 'numOptions'];
+    const basicFields = ['testName', 'numQuestions', 'numOptions', 'enableTimer', 'timerMinutes', 'isShuffled'];
     basicFields.forEach(fieldName => {
       const element = document.getElementById(fieldName);
       if (element) {
@@ -898,6 +908,7 @@ const TeacherTests = () => {
           image_url: matchingTestData.imageUrl,
           num_blocks: matchingTestData.blocks.length,
           questions: questions,
+          allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
           assignments: assignments
         };
 
@@ -963,6 +974,7 @@ const TeacherTests = () => {
           num_questions: wordMatchingData.wordPairs.length,
           interaction_type: wordMatchingData.interactionType || 'drag',
           questions: questions,
+          allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
           assignments: assignments
         };
 
@@ -1023,6 +1035,7 @@ const TeacherTests = () => {
           num_questions: drawingData.num_questions,
           passing_score: drawingData.passing_score,
           questions: questions,
+          allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
           assignments: assignments
         };
 
@@ -1045,6 +1058,68 @@ const TeacherTests = () => {
         } else {
           console.error('❌ Failed to create drawing test:', response.message);
           showNotification('Error creating and assigning drawing test: ' + response.message, 'error');
+        }
+        setIsAssigningTest(false);
+        return;
+      }
+
+      // Handle fill blanks tests
+      if (testType === 'fillBlanks') {
+        console.log('🎯 Processing fill blanks test...');
+        console.log('🔄 Setting isAssigningTest to true for fill blanks test...');
+        setIsAssigningTest(true);
+        console.log('🔄 isAssigningTest set to true, overlay should show');
+        
+        // Small delay to ensure state update renders
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const fillBlanksData = formData.fillBlanksData;
+        console.log('🔍 Fill blanks test data from formData:', fillBlanksData);
+        
+        if (!fillBlanksData) {
+          console.error('❌ Fill blanks test data not found in formData');
+          showNotification('Fill blanks test data not found. Please recreate the test.', 'error');
+          return;
+        }
+        
+        console.log('✅ Fill blanks test data found, processing...');
+
+        // Use the blanks from fillBlanksData
+        const blanks = fillBlanksData.blanks || [];
+        console.log('📋 Fill blanks questions array:', blanks);
+
+        const testData = {
+          teacher_id: user.teacher_id,
+          test_type: 'fill_blanks',
+          test_name: formData.testName,
+          test_text: fillBlanksData.test_text,
+          num_questions: fillBlanksData.num_questions,
+          num_blanks: fillBlanksData.num_blanks,
+          separate_type: fillBlanksData.separate_type,
+          allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
+          questions: blanks,
+          assignments: assignments
+        };
+
+        console.log('📤 Final fill blanks test data payload:', testData);
+
+        // Call the unified save-test-with-assignments function
+        console.log('🚀 Calling testService.assignTestToClasses...');
+        const response = await testService.assignTestToClasses(testData);
+        console.log('📥 API Response:', response);
+        
+        if (response.success) {
+          console.log('✅ Fill blanks test created and assigned successfully!');
+          showNotification('Fill blanks test created and assigned successfully!', 'success');
+          
+          // Mark assignment as completed
+          setTestAssignmentCompleted(true);
+          
+          // Return to main cabinet
+          returnToMainCabinet();
+        } else {
+          console.error('❌ Failed to create fill blanks test:', response.message);
+          showNotification('Error creating and assigning fill blanks test: ' + response.message, 'error');
         }
         setIsAssigningTest(false);
         return;
@@ -1092,6 +1167,8 @@ const TeacherTests = () => {
         num_questions: formData.numQuestions,
         num_options: formData.numOptions,
         questions: questionsArray,
+        allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
+        is_shuffled: !!formData.isShuffled,
         assignments: assignments
       };
       
@@ -1978,7 +2055,7 @@ const TeacherTests = () => {
 
   // Initialize Excel upload when buttons are rendered
   useEffect(() => {
-    if (formData.numQuestions > 0 && testType && testType !== 'matching' && testType !== 'drawing') {
+    if (formData.numQuestions > 0 && testType && testType !== 'matching' && testType !== 'drawing' && testType !== 'fillBlanks') {
       console.log('🔍 Excel upload buttons rendered, initializing event listeners...');
       // Small delay to ensure DOM is updated
       setTimeout(() => {
@@ -1993,7 +2070,7 @@ const TeacherTests = () => {
     console.log('👨‍🏫 Setting testType to:', type);
     setTestType(type);
     setCurrentStep('formCreation');
-    setFormData({ testName: '', numQuestions: 0, numOptions: 0, questions: {} });
+    setFormData({ testName: '', numQuestions: 0, numOptions: 0, questions: {}, enableTimer: false, timerMinutes: '' });
     saveTestCreationState('formCreation');
     
     // Initialize Excel upload for the new test type
@@ -2278,6 +2355,43 @@ const TeacherTests = () => {
       questions: {}
     });
   }, []);
+
+  // Handle fill blanks test cancel
+  const handleFillBlanksTestCancel = useCallback(() => {
+    console.log('❌ Cancelling fill blanks test creation');
+    setCurrentStep('typeSelection');
+    setFormData({
+      testName: '',
+      numQuestions: 0,
+      numOptions: 0,
+      questions: {}
+    });
+  }, []);
+
+  const handleFillBlanksTestSave = useCallback(async (testData) => {
+    console.log('🎯 [DEBUG] handleFillBlanksTestSave called');
+    console.log('🎯 [DEBUG] Received testData:', testData);
+    
+    setIsSavingTest(true);
+    
+    try {
+      // Store the fill blanks test data
+      setFormData(prev => ({
+        ...prev,
+        fillBlanksData: testData,
+        numQuestions: testData.num_questions || testData.blanks?.length || 0
+      }));
+      
+      // Move to assignment step (like drawing tests)
+      setCurrentStep('testAssignment');
+      showNotification('Fill blanks test created! Now assign it to classes.', 'success');
+    } catch (error) {
+      console.error('❌ Error saving fill blanks test:', error);
+      showNotification('Error saving fill blanks test', 'error');
+    } finally {
+      setIsSavingTest(false);
+    }
+  }, [showNotification]);
     
     return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -2315,7 +2429,8 @@ const TeacherTests = () => {
                   { type: 'input', title: 'Input', description: 'Questions requiring text input', icon: '/pics/input.png' },
                   { type: 'matching', title: 'Matching', description: 'Questions matching items together', icon: '/pics/matching.png' },
                   { type: 'wordMatching', title: 'Word Matching', description: 'Students match word pairs by dragging or drawing arrows', icon: '/pics/matching-words.png' },
-                  { type: 'drawing', title: 'Drawing Test', description: 'Interactive drawing tests with canvas for students', icon: '/pics/drawing.png' }
+                  { type: 'drawing', title: 'Drawing Test', description: 'Interactive drawing tests with canvas for students', icon: '/pics/drawing.png' },
+                  { type: 'fillBlanks', title: 'Fill Blanks', description: 'Rich text with multiple choice blanks', icon: '/pics/fill-blanks.png' }
                 ].map(({ type, title, description, icon }) => (
                   <motion.div
                     key={type}
@@ -2352,7 +2467,7 @@ const TeacherTests = () => {
                     </Button>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'wordMatching' ? 'Word Matching' : 'Matching'} Test</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'fillBlanks' ? 'Fill Blanks' : testType === 'wordMatching' ? 'Word Matching' : 'Matching'} Test</h2>
                     <p className="text-gray-600">Fill in the test details and questions</p>
                   </div>
                 </div>
@@ -2374,7 +2489,7 @@ const TeacherTests = () => {
                     />
                   </div>
         
-        {testType !== 'matching' && testType !== 'wordMatching' && testType !== 'drawing' && (
+        {testType !== 'matching' && testType !== 'wordMatching' && testType !== 'drawing' && testType !== 'fillBlanks' && (
           <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
               <input
@@ -2421,6 +2536,42 @@ const TeacherTests = () => {
             />
           </div>
                   )}
+
+                  {/* Timer settings */}
+                  <div className="flex items-center space-x-4">
+                    <label className="inline-flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={!!formData.enableTimer}
+                        onChange={(e) => handleFormDataChange('enableTimer', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Enable timer for this test</span>
+                    </label>
+                    {formData.enableTimer && (
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm text-gray-700">Time (minutes):</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="1440"
+                          value={formData.timerMinutes}
+                          onChange={(e) => handleFormDataChange('timerMinutes', e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g. 30"
+                        />
+                      </div>
+                    )}
+                    <label className="inline-flex items-center space-x-2 ml-6">
+                      <input
+                        type="checkbox"
+                        checked={!!formData.isShuffled}
+                        onChange={(e) => handleFormDataChange('isShuffled', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Shuffle questions during test</span>
+                    </label>
+                  </div>
         </div>
               </Card>
 
@@ -2478,8 +2629,24 @@ const TeacherTests = () => {
                 </div>
               )}
 
-              {/* Excel Upload Section - Only show for non-matching and non-drawing tests */}
-              {testType !== 'matching' && testType !== 'drawing' && formData.numQuestions > 0 && (
+              {/* Fill Blanks Test Interface */}
+              {testType === 'fillBlanks' && (
+                <div className="fill-blanks-test-section">
+                  {console.log('📝 Rendering FillBlanksTestCreator, testType:', testType)}
+                  <FillBlanksTestCreator
+                    testName={formData.testName}
+                    allowedTime={formData.enableTimer ? parseInt(formData.timerMinutes) || null : null}
+                    onTestSaved={handleFillBlanksTestSave}
+                    onCancel={handleFillBlanksTestCancel}
+                    onBackToCabinet={returnToMainCabinet}
+                    isSaving={isSavingTest}
+                    validationErrors={{}}
+                  />
+                </div>
+              )}
+
+              {/* Excel Upload Section - Only show for non-matching, non-drawing, and non-fill-blanks tests */}
+              {testType !== 'matching' && testType !== 'drawing' && testType !== 'fillBlanks' && formData.numQuestions > 0 && (
                 <Card>
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Excel Upload</h3>
@@ -2622,8 +2789,8 @@ const TeacherTests = () => {
                 </Card>
               )}
 
-              {/* Manual Entry Section - Only show for non-matching and non-drawing tests */}
-              {testType !== 'matching' && testType !== 'drawing' && formData.numQuestions > 0 && (
+              {/* Manual Entry Section - Only show for non-matching, non-drawing, and non-fill-blanks tests */}
+              {testType !== 'matching' && testType !== 'drawing' && testType !== 'fillBlanks' && formData.numQuestions > 0 && (
                 <Card>
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Manual Question Entry</h3>

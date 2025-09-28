@@ -287,6 +287,14 @@ exports.handler = async function(event, context) {
       `;
       console.log('Drawing Tests found:', drawingTests.length, drawingTests);
       
+      const fillBlanksTests = await sql`
+        SELECT id, test_name, created_at, teacher_id 
+        FROM fill_blanks_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
+      `;
+      console.log('Fill Blanks Tests found:', fillBlanksTests.length, fillBlanksTests);
+      
       // Check if teacher exists at all
       const teacherCheck = await sql`
         SELECT teacher_id, username 
@@ -319,6 +327,10 @@ exports.handler = async function(event, context) {
         UNION ALL
         SELECT 'drawing' as type, id, test_name, created_at 
         FROM drawing_tests 
+        WHERE teacher_id = ${teacherId}
+        UNION ALL
+        SELECT 'fill_blanks' as type, id, test_name, created_at 
+        FROM fill_blanks_tests 
         WHERE teacher_id = ${teacherId}
         ORDER BY created_at DESC
       `;
@@ -381,6 +393,14 @@ exports.handler = async function(event, context) {
             DELETE FROM drawing_test_questions 
             WHERE test_id IN (
               SELECT id FROM drawing_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'fill_blanks_test_questions') {
+          result = await sql`
+            DELETE FROM fill_blanks_test_questions 
+            WHERE test_id IN (
+              SELECT id FROM fill_blanks_tests 
               WHERE teacher_id = ${teacherId}
             )
           `;
@@ -460,6 +480,15 @@ exports.handler = async function(event, context) {
               AND created_at BETWEEN ${startDate} AND ${endDateFull}
             )
           `;
+        } else if (tableName === 'fill_blanks_test_results') {
+          result = await sql`
+            DELETE FROM fill_blanks_test_results 
+            WHERE test_id IN (
+              SELECT id FROM fill_blanks_tests 
+              WHERE teacher_id = ${teacherId}
+              AND created_at BETWEEN ${startDate} AND ${endDateFull}
+            )
+          `;
         } else {
           throw new Error(`Unsupported results table name: ${tableName}`);
         }
@@ -506,6 +535,11 @@ exports.handler = async function(event, context) {
           )
           OR ta.test_id IN (
             SELECT id FROM drawing_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          OR ta.test_id IN (
+            SELECT id FROM fill_blanks_tests 
             WHERE teacher_id = ${teacherId}
             AND created_at BETWEEN ${startDate} AND ${endDateFull}
           )
@@ -573,6 +607,12 @@ exports.handler = async function(event, context) {
         } else if (tableName === 'drawing_tests') {
           result = await sql`
             DELETE FROM drawing_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          `;
+        } else if (tableName === 'fill_blanks_tests') {
+          result = await sql`
+            DELETE FROM fill_blanks_tests 
             WHERE teacher_id = ${teacherId}
             AND created_at BETWEEN ${startDate} AND ${endDateFull}
           `;
@@ -789,6 +829,28 @@ exports.handler = async function(event, context) {
       deletionSummary.wordMatching.tests = await deleteFromMainTestTable('word_matching_tests');
       
       totalDeleted += deletionSummary.wordMatching.questions + deletionSummary.wordMatching.results + deletionSummary.wordMatching.tests;
+
+      // 7. DELETE FILL BLANKS TEST DATA
+      console.log('=== Starting Fill Blanks Test Deletion ===');
+      deletionSummary.fillBlanks = {};
+      
+      // Delete results FIRST (has created_at column AND test_id column, so can filter by date AND teacher)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.fillBlanks.results = await deleteFromResultsTable(
+        'fill_blanks_test_results', 
+        'fill_blanks_tests'
+      );
+      
+      // Delete questions (no created_at column, so no date filtering)
+      deletionSummary.fillBlanks.questions = await deleteFromTableWithTeacher(
+        'fill_blanks_test_questions', 
+        'fill_blanks_tests'
+      );
+      
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.fillBlanks.tests = await deleteFromMainTestTable('fill_blanks_tests');
+      
+      totalDeleted += deletionSummary.fillBlanks.questions + deletionSummary.fillBlanks.results + deletionSummary.fillBlanks.tests;
 
       // Delete Cloudinary images for matching type tests before deleting the tests themselves
       console.log('=== Starting Cloudinary Image Deletion ===');

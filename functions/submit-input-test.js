@@ -95,7 +95,7 @@ exports.handler = async function(event, context) {
     }
 
     // Parse request body (only test_id, test_name, score, maxScore, answers needed)
-    const { test_id, test_name, teacher_id, subject_id, score, maxScore, answers, time_taken, started_at, submitted_at, caught_cheating, visibility_change_times, is_completed } = JSON.parse(event.body);
+    const { test_id, test_name, teacher_id, subject_id, score, maxScore, answers, time_taken, started_at, submitted_at, caught_cheating, visibility_change_times, is_completed, answers_by_id, question_order } = JSON.parse(event.body);
 
     // Validate required fields (handle 0 values properly)
     if (test_id === undefined || test_id === null || 
@@ -150,7 +150,7 @@ exports.handler = async function(event, context) {
     const totalQuestions = maxScore;
     
     // Store answers as-is from frontend (already validated)
-    const validatedAnswers = answers;
+    const validatedAnswers = answers_by_id ? { answers_by_id, question_order: question_order || [] } : answers;
 
     // Insert test result with frontend calculated score and new fields
     const result = await sql`

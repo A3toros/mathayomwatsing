@@ -7,6 +7,7 @@ import { Notification } from '../ui/Notification';
 import { QuestionForm } from './QuestionForm';
 import MatchingTestCreator from '../test/MatchingTestCreator';
 import DrawingTestCreator from '../test/DrawingTestCreator';
+import FillBlanksTestCreator from '../test/FillBlanksTestCreator';
 
 // TEST FORM - React Component for Test Creation Forms
 // ✅ COMPLETED: All 20+ functions from teacher-tests.js converted to React
@@ -98,6 +99,14 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
       description: 'Questions with drawing canvas for students',
       icon: '/pics/drawing.png',
       fields: ['questions', 'canvasDimensions']
+    },
+    // NEW: Add fill blanks test type
+    { 
+      id: 'fill_blanks', 
+      name: 'Fill Blanks', 
+      description: 'Rich text with multiple choice blanks',
+      icon: '/pics/fill-blanks.png',
+      fields: ['test_text', 'blanks', 'separate_type']
     }
   ];
 
@@ -593,6 +602,20 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
     />
   );
 
+  const renderFillBlanksTestForm = () => (
+    <FillBlanksTestCreator
+      testName={formData.testName}
+      onTestSaved={(testData) => handleTestCreated('fill_blanks', testData)}
+      onCancel={handleCancel}
+      onBackToCabinet={() => {
+        resetTestCreation();
+        if (onCancel) onCancel();
+      }}
+      isSaving={isLoading}
+      validationErrors={validationErrors}
+    />
+  );
+
   // Render test form
   const renderTestForm = () => {
     if (selectedTestType === 'matching') {
@@ -602,6 +625,11 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
     // NEW: Add drawing test form rendering
     if (selectedTestType === 'drawing') {
       return renderDrawingTestForm();
+    }
+    
+    // NEW: Add fill blanks test form rendering
+    if (selectedTestType === 'fill_blanks') {
+      return renderFillBlanksTestForm();
     }
     
     return (

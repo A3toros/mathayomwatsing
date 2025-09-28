@@ -228,7 +228,9 @@ export const testService = {
         maxScore = null;
       } else {
         // Other test types can be auto-scored
-        score = calculateTestScore(questions, answers, testType).score;
+        // Prefer answers_by_id when provided to avoid issues with shuffled order
+        const answersForScoring = timingData?.answers_by_id ? timingData.answers_by_id : answers;
+        score = calculateTestScore(questions, answersForScoring, testType).score;
         maxScore = testInfo.num_questions;
       }
 
@@ -259,7 +261,10 @@ export const testService = {
         submitted_at: timingData.submitted_at || new Date().toISOString(),
         // Add anti-cheating data
         caught_cheating: timingData.caught_cheating || false,
-        visibility_change_times: timingData.visibility_change_times || 0
+        visibility_change_times: timingData.visibility_change_times || 0,
+        // Include order-agnostic answers mapping for backend storage/scoring
+        answers_by_id: timingData.answers_by_id || null,
+        question_order: timingData.question_order || null
       };
 
       // Submit based on test type
@@ -282,6 +287,9 @@ export const testService = {
           break;
         case 'drawing':
           submitUrl = '/.netlify/functions/submit-drawing-test';
+          break;
+        case 'fill_blanks':
+          submitUrl = '/.netlify/functions/submit-fill-blanks-test';
           break;
         default:
           throw new Error(`Unsupported test type: ${testType}`);

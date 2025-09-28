@@ -155,7 +155,9 @@ const TestResultsDisplay = ({
                         <p className="correct-answer">
                           <strong className="text-gray-600">Correct Answer:</strong>{' '}
                           <span className="text-green-700 font-medium">
-                            {formatStudentAnswerForDisplay(getCorrectAnswer(question, testType), testType)}
+                            {testType === 'multiple_choice'
+                              ? String(question.correct_answer || '').toUpperCase()
+                              : formatStudentAnswerForDisplay(getCorrectAnswer(question, testType), testType, question)}
                           </span>
                         </p>
                       )}

@@ -95,7 +95,7 @@ exports.handler = async function(event, context) {
     }
 
     // Parse request body with new fields
-    const { test_id, test_name, teacher_id, subject_id, score, maxScore, answers, time_taken, started_at, submitted_at, caught_cheating, visibility_change_times, is_completed } = JSON.parse(event.body);
+    const { test_id, test_name, teacher_id, subject_id, score, maxScore, answers, time_taken, started_at, submitted_at, caught_cheating, visibility_change_times, is_completed, answers_by_id, question_order } = JSON.parse(event.body);
     
     // Extract student info from JWT token
     const studentId = decoded.sub;
@@ -159,7 +159,8 @@ exports.handler = async function(event, context) {
     const totalQuestions = maxScore;
     
     // Store answers as-is from frontend (already validated)
-    const validatedAnswers = answers;
+    // Prefer order-agnostic answers_by_id if provided
+    const validatedAnswers = answers_by_id ? { answers_by_id, question_order: question_order || [] } : answers;
 
     // Insert test result with frontend calculated score and new fields
     const result = await sql`

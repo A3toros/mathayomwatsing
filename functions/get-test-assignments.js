@@ -170,6 +170,8 @@ exports.handler = async function(event, context) {
               WHEN ta.test_type = 'input' THEN (SELECT COUNT(*) FROM input_tests WHERE id = ta.test_id)
               WHEN ta.test_type = 'matching_type' THEN (SELECT COUNT(*) FROM matching_type_tests WHERE id = ta.test_id)
               WHEN ta.test_type = 'word_matching' THEN (SELECT COUNT(*) FROM word_matching_tests WHERE id = ta.test_id)
+              WHEN ta.test_type = 'fill_blanks' THEN (SELECT COUNT(*) FROM fill_blanks_tests WHERE id = ta.test_id)
+              WHEN ta.test_type = 'drawing' THEN (SELECT COUNT(*) FROM drawing_tests WHERE id = ta.test_id)
             END as test_exists
           FROM test_assignments ta
           LIMIT 10
@@ -203,6 +205,8 @@ exports.handler = async function(event, context) {
               WHEN ta.test_type = 'input' THEN (SELECT pg_typeof(id) FROM input_tests WHERE id = ta.test_id LIMIT 1)
               WHEN ta.test_type = 'matching_type' THEN (SELECT pg_typeof(id) FROM matching_type_tests WHERE id = ta.test_id LIMIT 1)
               WHEN ta.test_type = 'word_matching' THEN (SELECT pg_typeof(id) FROM word_matching_tests WHERE id = ta.test_id LIMIT 1)
+              WHEN ta.test_type = 'fill_blanks' THEN (SELECT pg_typeof(id) FROM fill_blanks_tests WHERE id = ta.test_id LIMIT 1)
+              WHEN ta.test_type = 'drawing' THEN (SELECT pg_typeof(id) FROM drawing_tests WHERE id = ta.test_id LIMIT 1)
             END as test_table_id_type
           FROM test_assignments ta
           LIMIT 3
@@ -335,13 +339,65 @@ exports.handler = async function(event, context) {
       `;
       console.log('🔍 Word matching query result:', wordMatchingAssignments);
       
+      console.log('🔍 Starting fill blanks query...');
+      const fillBlanksAssignments = await sql`
+        SELECT 
+          ta.id as assignment_id,
+          ta.test_type,
+          ta.test_id,
+          ta.teacher_id,
+          ta.grade,
+          ta.class,
+          ta.subject_id,
+          ta.academic_period_id,
+          ta.assigned_at,
+          ta.due_date,
+          ta.is_active,
+          ta.created_at,
+          ta.updated_at,
+          COALESCE(s.subject, 'Unknown Subject') as subject_name,
+          COALESCE(fbt.test_name, 'Unknown Test') as test_name
+        FROM test_assignments ta
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        LEFT JOIN fill_blanks_tests fbt ON ta.test_id = fbt.id AND ta.test_type = 'fill_blanks'
+        WHERE ta.test_type = 'fill_blanks'
+      `;
+      console.log('🔍 Fill blanks query result:', fillBlanksAssignments);
+      
+      console.log('🔍 Starting drawing query...');
+      const drawingAssignments = await sql`
+        SELECT 
+          ta.id as assignment_id,
+          ta.test_type,
+          ta.test_id,
+          ta.teacher_id,
+          ta.grade,
+          ta.class,
+          ta.subject_id,
+          ta.academic_period_id,
+          ta.assigned_at,
+          ta.due_date,
+          ta.is_active,
+          ta.created_at,
+          ta.updated_at,
+          COALESCE(s.subject, 'Unknown Subject') as subject_name,
+          COALESCE(dt.test_name, 'Unknown Test') as test_name
+        FROM test_assignments ta
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        LEFT JOIN drawing_tests dt ON ta.test_id = dt.id AND ta.test_type = 'drawing'
+        WHERE ta.test_type = 'drawing'
+      `;
+      console.log('🔍 Drawing query result:', drawingAssignments);
+      
       // Combine all assignments
       assignments = [
         ...multipleChoiceAssignments,
         ...trueFalseAssignments,
         ...inputAssignments,
         ...matchingTypeAssignments,
-        ...wordMatchingAssignments
+        ...wordMatchingAssignments,
+        ...fillBlanksAssignments,
+        ...drawingAssignments
       ].sort((a, b) => new Date(b.assigned_at) - new Date(a.assigned_at));
       
       console.log('🔍 Test assignments found:', assignments.length);
@@ -350,6 +406,8 @@ exports.handler = async function(event, context) {
       console.log('🔍 Input assignments:', inputAssignments.length);
       console.log('🔍 Matching type assignments:', matchingTypeAssignments.length);
       console.log('🔍 Word matching assignments:', wordMatchingAssignments.length);
+      console.log('🔍 Fill blanks assignments:', fillBlanksAssignments.length);
+      console.log('🔍 Drawing assignments:', drawingAssignments.length);
       
       if (assignments.length > 0) {
         console.log('🔍 Sample assignment:', assignments[0]);
@@ -399,6 +457,18 @@ exports.handler = async function(event, context) {
           const wordMatchingIds = wordMatchingAssignments.map(a => a.test_id);
           const wordMatchingExists = await sql`SELECT id, test_name FROM word_matching_tests WHERE id = ANY(${wordMatchingIds})`;
           console.log('🔍 Word matching tests that exist:', wordMatchingExists);
+        }
+        
+        if (fillBlanksAssignments.length > 0) {
+          const fillBlanksIds = fillBlanksAssignments.map(a => a.test_id);
+          const fillBlanksExists = await sql`SELECT id, test_name FROM fill_blanks_tests WHERE id = ANY(${fillBlanksIds})`;
+          console.log('🔍 Fill blanks tests that exist:', fillBlanksExists);
+        }
+        
+        if (drawingAssignments.length > 0) {
+          const drawingIds = drawingAssignments.map(a => a.test_id);
+          const drawingExists = await sql`SELECT id, test_name FROM drawing_tests WHERE id = ANY(${drawingIds})`;
+          console.log('🔍 Drawing tests that exist:', drawingExists);
         }
       }
     } catch (error) {

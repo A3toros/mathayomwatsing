@@ -126,6 +126,11 @@ exports.handler = async function(event, context) {
           'word_matching_test_results' as table_name,
           COUNT(*) as count
         FROM word_matching_test_results
+        UNION ALL
+        SELECT 
+          'fill_blanks_test_results' as table_name,
+          COUNT(*) as count
+        FROM fill_blanks_test_results
       `;
       console.log('🔍 All test results count:', resultsCheck);
       
@@ -165,6 +170,11 @@ exports.handler = async function(event, context) {
           'word_matching_tests' as table_name,
           COUNT(*) as count
         FROM word_matching_tests
+        UNION ALL
+        SELECT 
+          'fill_blanks_tests' as table_name,
+          COUNT(*) as count
+        FROM fill_blanks_tests
       `;
       console.log('🔍 Simple test counts (no joins):', simpleCounts);
       
@@ -200,6 +210,12 @@ exports.handler = async function(event, context) {
         if (simpleCounts.find(row => row.table_name === 'word_matching_tests')?.count > 0) {
           const sample = await sql`SELECT id, test_name, num_questions, interaction_type, created_at FROM word_matching_tests LIMIT 2`;
           console.log('🔍 Sample word matching tests:', sample);
+        }
+        
+        // Check fill blanks tests
+        if (simpleCounts.find(row => row.table_name === 'fill_blanks_tests')?.count > 0) {
+          const sample = await sql`SELECT id, test_name, num_blanks, separate_type, created_at FROM fill_blanks_tests LIMIT 2`;
+          console.log('🔍 Sample fill blanks tests:', sample);
         }
       }
     } catch (error) {
@@ -549,6 +565,63 @@ exports.handler = async function(event, context) {
       drawingTests = [];
     }
 
+    // Get fill blanks tests
+    let fillBlanksTests = [];
+    try {
+      const tableCheck = await sql`SELECT COUNT(*) as count FROM fill_blanks_tests`;
+      console.log('🔍 Fill blanks tests table count:', tableCheck[0]?.count);
+      
+      // Group tests by test_id and aggregate classes
+      try {
+        fillBlanksTests = await sql`
+          SELECT 
+            'fill_blanks' as test_type,
+            fbt.id as test_id,
+            fbt.test_name,
+            fbt.num_blanks as num_questions,
+            fbt.created_at,
+            fbt.teacher_id,
+            t.username as teacher_name,
+            STRING_AGG(DISTINCT CONCAT(ta.grade, '/', ta.class), ', ') as classes,
+            STRING_AGG(DISTINCT s.subject, ', ') as subjects
+          FROM fill_blanks_tests fbt
+          LEFT JOIN teachers t ON fbt.teacher_id = t.teacher_id
+          LEFT JOIN test_assignments ta ON ta.test_id = fbt.id AND ta.test_type = 'fill_blanks'
+          LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+          GROUP BY fbt.id, fbt.test_name, fbt.num_blanks, fbt.created_at, fbt.teacher_id, t.username
+          ORDER BY fbt.created_at DESC
+        `;
+        console.log('🔍 Fill blanks grouped query successful, found:', fillBlanksTests.length);
+      } catch (error) {
+        console.log('⚠️ Fill blanks grouped query failed, trying simple query...');
+        // Fallback to simple query without joins
+        fillBlanksTests = await sql`
+          SELECT 
+            'fill_blanks' as test_type,
+            fbt.id as test_id,
+            fbt.test_name,
+            fbt.num_blanks as num_questions,
+            fbt.created_at,
+            fbt.teacher_id,
+            t.username as teacher_name,
+            'Not Assigned' as classes,
+            'Not Assigned' as subjects
+          FROM fill_blanks_tests fbt
+          LEFT JOIN teachers t ON fbt.teacher_id = t.teacher_id
+          ORDER BY fbt.created_at DESC
+        `;
+        console.log('🔍 Fill blanks simple query successful, found:', fillBlanksTests.length);
+      }
+      console.log('🔍 Fill blanks tests found:', fillBlanksTests.length);
+      if (fillBlanksTests.length > 0) {
+        console.log('🔍 Sample fill blanks test:', fillBlanksTests[0]);
+      }
+    } catch (error) {
+      console.log('⚠️ Fill blanks tests query failed:', error.message);
+      console.log('⚠️ Error details:', error);
+      fillBlanksTests = [];
+    }
+
     // Combine all tests
     const allTests = [
       ...multipleChoiceTests,
@@ -556,7 +629,8 @@ exports.handler = async function(event, context) {
       ...inputTests,
       ...matchingTypeTests,
       ...wordMatchingTests,
-      ...drawingTests
+      ...drawingTests,
+      ...fillBlanksTests
     ];
 
     // Sort by creation date (newest first)
@@ -578,7 +652,8 @@ exports.handler = async function(event, context) {
           input: inputTests.length,
           matching_type: matchingTypeTests.length,
           word_matching: wordMatchingTests.length,
-          drawing: drawingTests.length
+          drawing: drawingTests.length,
+          fill_blanks: fillBlanksTests.length
         }
       })
     };

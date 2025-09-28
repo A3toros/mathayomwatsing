@@ -79,7 +79,7 @@ exports.handler = async function(event, context) {
       console.log('Processing multiple choice test...');
       // Get test info
       const mcTestInfo = await sql`
-        SELECT test_name, num_questions, num_options, teacher_id, subject_id, created_at FROM multiple_choice_tests WHERE id = ${test_id}
+        SELECT test_name, num_questions, num_options, teacher_id, subject_id, created_at, allowed_time, is_shuffled FROM multiple_choice_tests WHERE id = ${test_id}
       `;
       console.log('Multiple choice test info query result:', mcTestInfo);
       if (mcTestInfo.length > 0) {
@@ -121,7 +121,7 @@ exports.handler = async function(event, context) {
     } else if (test_type === 'true_false') {
         // Get test info
         const tfTestInfo = await sql`
-          SELECT test_name, num_questions, teacher_id, subject_id, created_at FROM true_false_tests WHERE id = ${test_id}
+          SELECT test_name, num_questions, teacher_id, subject_id, created_at, allowed_time, is_shuffled FROM true_false_tests WHERE id = ${test_id}
         `;
         if (tfTestInfo.length > 0) {
           testInfo = tfTestInfo[0];
@@ -140,7 +140,7 @@ exports.handler = async function(event, context) {
       } else if (test_type === 'input') {
           // Get test info
           const inputTestInfo = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at FROM input_tests WHERE id = ${test_id}
+            SELECT test_name, num_questions, teacher_id, subject_id, created_at, allowed_time, is_shuffled FROM input_tests WHERE id = ${test_id}
           `;
           if (inputTestInfo.length > 0) {
             testInfo = inputTestInfo[0];
@@ -167,7 +167,7 @@ exports.handler = async function(event, context) {
         } else if (test_type === 'matching_type') {
             // Get test info
             const mtInfo = await sql`
-              SELECT test_name, num_blocks, created_at, image_url FROM matching_type_tests WHERE id = ${test_id}
+              SELECT test_name, num_blocks, created_at, image_url, allowed_time FROM matching_type_tests WHERE id = ${test_id}
             `;
             if (mtInfo.length > 0) {
               testInfo = mtInfo[0];
@@ -246,7 +246,7 @@ exports.handler = async function(event, context) {
           } else if (test_type === 'word_matching') {
               // Get test info
               const wmtInfo = await sql`
-                SELECT test_name, num_questions, interaction_type, created_at FROM word_matching_tests WHERE id = ${test_id}
+                SELECT test_name, num_questions, interaction_type, created_at, allowed_time FROM word_matching_tests WHERE id = ${test_id}
               `;
               if (wmtInfo.length > 0) {
                 testInfo = wmtInfo[0];
@@ -274,7 +274,7 @@ exports.handler = async function(event, context) {
             } else if (test_type === 'drawing') {
                 // Get test info
                 const drawingTestInfo = await sql`
-                  SELECT test_name, num_questions, passing_score, created_at, teacher_id, subject_id FROM drawing_tests WHERE id = ${test_id}
+                  SELECT test_name, num_questions, passing_score, created_at, teacher_id, subject_id, allowed_time FROM drawing_tests WHERE id = ${test_id}
                 `;
                 if (drawingTestInfo.length > 0) {
                   testInfo = drawingTestInfo[0];
@@ -305,6 +305,38 @@ exports.handler = async function(event, context) {
                 }));
                 
                 console.log('Drawing questions processed:', questions);
+            } else if (test_type === 'fill_blanks') {
+                // Get test info
+                const fbTestInfo = await sql`
+                  SELECT test_name, test_text, num_questions, num_blanks, separate_type, allowed_time, created_at, teacher_id, subject_id FROM fill_blanks_tests WHERE id = ${test_id}
+                `;
+                if (fbTestInfo.length > 0) {
+                  testInfo = fbTestInfo[0];
+                }
+
+                // Get fill blanks questions
+                const fbQuestions = await sql`
+                  SELECT 
+                    question_id,
+                    question_json,
+                    blank_positions,
+                    blank_options,
+                    correct_answers
+                  FROM fill_blanks_test_questions 
+                  WHERE test_id = ${test_id}
+                  ORDER BY question_id
+                `;
+                
+                // Process fill blanks questions
+                questions = fbQuestions.map(row => ({
+                  question_id: row.question_id,
+                  question_json: row.question_json,
+                  blank_positions: row.blank_positions,
+                  blank_options: row.blank_options,
+                  correct_answers: row.correct_answers
+                }));
+                
+                console.log('Fill blanks questions processed:', questions);
             } else {
               return {
                 statusCode: 400,

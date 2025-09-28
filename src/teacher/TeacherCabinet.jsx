@@ -515,67 +515,56 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         
         const allStudents = Object.values(studentMap);
         
-        // Process the results to calculate average scores per test
-        const testAverages = {};
-        
-        // Get unique tests from the raw results
-        const uniqueTests = new Map();
+        // Build per-test submissions and averages using actual results data
+        const testMap = new Map();
         data.results.forEach(result => {
-          if (!uniqueTests.has(result.test_name)) {
-            uniqueTests.set(result.test_name, {
+          const key = `${result.test_type}:${result.test_id}`;
+          if (!testMap.has(key)) {
+            testMap.set(key, {
+              test_id: result.test_id,
               test_name: result.test_name,
-              test_type: result.test_type
+              test_type: result.test_type,
+              submissions: [],
+              earliestDate: null,
+              average_percentage: 0,
             });
           }
-        });
-        
-        // Initialize test averages
-        uniqueTests.forEach((test, testName) => {
-          testAverages[testName] = {
-            test_name: test.test_name,
-            test_type: test.test_type,
-            average_score: 0,
-            total_students: allStudents.length,
-            students_with_results: 0
-          };
-        });
-        
-        console.log('📊 Found students for performance calculation:', allStudents.length);
-        console.log('📊 Sample student data:', allStudents[0]);
-        console.log('📊 Test averages before calculation:', testAverages);
-        
-        // Calculate averages from all students
-        allStudents.forEach(student => {
-          Object.keys(student).forEach(testKey => {
-            if (testAverages[testKey] && student[testKey] && typeof student[testKey] === 'string' && student[testKey].includes('/')) {
-              const [score, maxScore] = student[testKey].split('/').map(Number);
-              if (!isNaN(score) && !isNaN(maxScore) && maxScore > 0) {
-                testAverages[testKey].average_score += (score / maxScore) * 100;
-                testAverages[testKey].students_with_results += 1;
-              }
-              testAverages[testKey].total_students += 1;
-            }
-          });
-        });
-        
-        // Calculate final averages
-        Object.keys(testAverages).forEach(testKey => {
-          if (testAverages[testKey].students_with_results > 0) {
-            testAverages[testKey].average_score = testAverages[testKey].average_score / testAverages[testKey].students_with_results;
+          const entry = testMap.get(key);
+          const pct = (Number(result.score) / Math.max(1, Number(result.max_score))) * 100;
+          const submittedAt = result.submitted_at || result.created_at;
+          entry.submissions.push({ percentage: pct, submitted_at: submittedAt });
+          if (!entry.earliestDate || (submittedAt && new Date(submittedAt) < new Date(entry.earliestDate))) {
+            entry.earliestDate = submittedAt;
           }
         });
-        
-        console.log('📊 Calculated test averages:', testAverages);
-        
+
+        // Compute averages per test
+        const testsArray = Array.from(testMap.values()).map(t => {
+          const valid = t.submissions.filter(s => !Number.isNaN(s.percentage));
+          const avg = valid.length > 0 ? valid.reduce((sum, s) => sum + s.percentage, 0) / valid.length : 0;
+          return { ...t, average_percentage: avg };
+        });
+
+        // Compute overall class average across all submissions
+        const allSubmissions = testsArray.flatMap(t => t.submissions);
+        const overallAverage = allSubmissions.length > 0
+          ? allSubmissions.reduce((sum, s) => sum + s.percentage, 0) / allSubmissions.length
+          : 0;
+
+        console.log('📊 Computed tests with averages:', testsArray);
+
         setPerformanceData(prev => ({
           ...prev,
-          [classKey]: testAverages
+          [classKey]: {
+            tests: testsArray,
+            overallAverage,
+          }
         }));
       } else {
         console.log('📊 No performance data available for class:', classKey);
         setPerformanceData(prev => ({
           ...prev,
-          [classKey]: {}
+          [classKey]: { tests: [], overallAverage: 0 }
         }));
       }
     } catch (error) {
@@ -583,7 +572,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       console.error('📊 Error details:', error.message);
       setPerformanceData(prev => ({
         ...prev,
-        [classKey]: {}
+        [classKey]: { tests: [], overallAverage: 0 }
       }));
     }
   }, [user]);
@@ -614,8 +603,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       );
     }
     
-    const classData = performanceData[classKey] || {};
-    const tests = Object.values(classData);
+    const classData = performanceData[classKey] || { tests: [], overallAverage: 0 };
+    const tests = classData.tests || [];
     
     if (tests.length === 0) {
       return (
@@ -627,12 +616,11 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
     
     // Calculate overall class performance
-    const overallAverage = tests.length > 0 
-      ? tests.reduce((sum, test) => sum + test.average_score, 0) / tests.length 
-      : 0;
+    const overallAverage = classData.overallAverage || 0;
     
-    // Create semester timeline (16 weeks)
-    const weeks = Array.from({ length: 16 }, (_, i) => `Week ${i + 1}`);
+    // X-axis per test in chronological order by earliest submission date
+    const sortedTests = [...tests].sort((a, b) => new Date(a.earliestDate || 0) - new Date(b.earliestDate || 0));
+    const xLabels = sortedTests.map(t => t.test_name);
     
     return (
       <div className="space-y-4">
@@ -669,46 +657,22 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               );
             })}
 
-            {/* Week labels (show every 4th week) */}
-            {weeks.map((week, index) => {
-              if (index % 4 !== 0) return null;
-              const x = 40 + (index / (weeks.length - 1)) * 320;
+            {/* X labels per test (sparse for readability) */}
+            {xLabels.map((label, index) => {
+              if (index % 2 !== 0) return null;
+              const x = 40 + (index / Math.max(1, (xLabels.length - 1))) * 320;
               return (
-                <text
-                  key={week}
-                  x={x}
-                  y="190"
-                  fontSize="10"
-                  fill="#6B7280"
-                  textAnchor="middle"
-                >
-                  {week}
-                </text>
+                <text key={label} x={x} y="190" fontSize="10" fill="#6B7280" textAnchor="middle">{label}</text>
               );
             })}
 
-            {/* Single performance line */}
+            {/* Average line connecting per-test averages */}
             {(() => {
-              const points = weeks.map((week, weekIndex) => {
-                // Calculate progress based on how many tests have been completed by this week
-                const testsCompletedByWeek = Math.min(tests.length, Math.ceil((weekIndex + 1) / 4) * 2);
-                const progress = testsCompletedByWeek / Math.max(tests.length, 1);
-                
-                // Generate realistic performance curve
-                let score;
-                if (testsCompletedByWeek === 0) {
-                  score = 0; // No tests yet
-                } else {
-                  // Start lower and improve over time, with some variation
-                  const baseScore = overallAverage;
-                  const improvement = Math.min(progress * 20, 15); // Up to 15% improvement
-                  const variation = Math.sin(weekIndex * 0.3) * 5; // Small variation
-                  score = Math.max(0, Math.min(100, baseScore + improvement + variation));
-                }
-                
-                const x = 40 + (weekIndex / (weeks.length - 1)) * 320;
-                const y = 20 + (100 - score) * 1.6;
-                return { x, y, score, weekIndex };
+              const points = sortedTests.map((t, index) => {
+                const avg = Math.max(0, Math.min(100, t.average_percentage || 0));
+                const x = 40 + (index / Math.max(1, (sortedTests.length - 1))) * 320;
+                const y = 20 + (100 - avg) * 1.6;
+                return { x, y, score: avg, index };
               });
 
               const pathData = points
@@ -727,40 +691,24 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     strokeLinejoin="round"
                   />
                   
-                  {/* Points for completed weeks */}
-                  {points.map((point, index) => {
-                    if (point.score === 0) return null; // Don't show points for weeks with no tests
+                  {/* Average points per test */}
+                  {points.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="#3B82F6" stroke="white" strokeWidth="2" />
+                  ))}
+                  
+                  {/* Submission dots per test */}
+                  {sortedTests.map((t, tIndex) => {
+                    const x = 40 + (tIndex / Math.max(1, (sortedTests.length - 1))) * 320;
                     return (
-                      <circle
-                        key={index}
-                        cx={point.x}
-                        cy={point.y}
-                        r="4"
-                        fill="#3B82F6"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
+                      <g key={`subs-${t.test_id}`}>
+                        {t.submissions.map((s, sIdx) => {
+                          const pct = Math.max(0, Math.min(100, s.percentage || 0));
+                          const y = 20 + (100 - pct) * 1.6;
+                          return <circle key={sIdx} cx={x} cy={y} r="3" fill="#10B981" opacity="0.7" />;
+                        })}
+                      </g>
                     );
                   })}
-                  
-                  {/* Current position indicator */}
-                  {(() => {
-                    const currentWeek = Math.min(tests.length * 2, 16); // Estimate current week
-                    const currentPoint = points[Math.min(currentWeek - 1, points.length - 1)];
-                    if (currentPoint && currentPoint.score > 0) {
-                      return (
-                        <circle
-                          cx={currentPoint.x}
-                          cy={currentPoint.y}
-                          r="6"
-                          fill="#EF4444"
-                          stroke="white"
-                          strokeWidth="2"
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
                 </g>
               );
             })()}
@@ -774,14 +722,12 @@ const TeacherCabinet = ({ onBackToLogin }) => {
             <div className="text-sm text-blue-600">Overall Average</div>
           </div>
           <div className="bg-green-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-green-600">{tests.length}</div>
-            <div className="text-sm text-green-600">Tests Completed</div>
+            <div className="text-2xl font-bold text-green-600">{sortedTests.length}</div>
+            <div className="text-sm text-green-600">Tests</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-purple-600">
-              {tests.length > 0 ? Math.ceil(tests.length * 2) : 0}
-            </div>
-            <div className="text-sm text-purple-600">Weeks Progress</div>
+            <div className="text-2xl font-bold text-purple-600">{tests.reduce((sum, t) => sum + (t.submissions?.length || 0), 0)}</div>
+            <div className="text-sm text-purple-600">Submissions</div>
           </div>
         </div>
       </div>

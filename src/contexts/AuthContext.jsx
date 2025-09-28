@@ -328,6 +328,53 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('accessToken', data.accessToken || data.token); // For TokenManager compatibility
         
         // Handle post-login actions
+        // Cleanup old localStorage test keys (> 7 days)
+        try {
+          const now = Date.now();
+          const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            // Only target our app's test-related keys
+            const isTestKey = (
+              key.startsWith('test_progress_') ||
+              key.startsWith('test_timer_') ||
+              key.startsWith('test_shuffle_order_') ||
+              key.startsWith('student_results_table_') ||
+              key.startsWith('anti_cheating_')
+            );
+            if (!isTestKey) continue;
+            try {
+              const raw = localStorage.getItem(key);
+              if (!raw) { keysToRemove.push(key); continue; }
+              // Try parse JSON with timestamp fields we set; if not JSON, use Storage API no-timestamp fallback
+              let createdAt = null;
+              if (raw.startsWith('{') || raw.startsWith('[')) {
+                const parsed = JSON.parse(raw);
+                // Common fields we control
+                const ts = parsed.timestamp || parsed.lastSaved || parsed.lastTickAt || parsed.createdAt || parsed.updatedAt || parsed.startedAt || parsed.started_at;
+                if (ts) {
+                  createdAt = new Date(ts).getTime();
+                }
+              }
+              // Fallback: if no timestamp in value, attempt to use a companion timestamp key if exists
+              if (!createdAt) {
+                const tsKey = `${key}__ts`;
+                const tsVal = localStorage.getItem(tsKey);
+                if (tsVal) createdAt = parseInt(tsVal) || null;
+              }
+              // If we still don't know age, skip deletion to be safe
+              if (!createdAt) continue;
+              if (now - createdAt > sevenDaysMs) keysToRemove.push(key);
+            } catch {}
+          }
+          keysToRemove.forEach(k => {
+            try { localStorage.removeItem(k); } catch {}
+          });
+        } catch (e) {
+          console.warn('LocalStorage cleanup skipped:', e);
+        }
         await handlePostLoginActions(data, userRole);
         
         return true;

@@ -37,6 +37,7 @@ export const TrueFalseQuestion = ({
   testId, 
   testType = 'true_false',
   mode = 'student', // 'student' or 'teacher'
+  displayNumber,
   onAnswerChange,
   onQuestionChange,
   onSave,
@@ -220,7 +221,7 @@ export const TrueFalseQuestion = ({
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-800">
-          Question {question?.question_id}
+          Question {typeof displayNumber === 'number' ? displayNumber : question?.question_id}
         </h4>
         <div className="flex items-center space-x-2 text-sm text-gray-500">
           {isAutoSaving && (

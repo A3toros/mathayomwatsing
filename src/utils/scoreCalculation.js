@@ -337,6 +337,14 @@ const getCorrectAnswer = (question, testType) => {
       // For drawing tests, there's no "correct" answer - just show that drawing is required
       correctAnswer = 'Drawing required';
       break;
+    case TEST_TYPES.FILL_BLANKS:
+      // For fill blanks, get the correct answer from correct_answers array
+      if (question.correct_answers && Array.isArray(question.correct_answers) && question.correct_answers.length > 0) {
+        correctAnswer = question.correct_answers[0];
+      } else {
+        correctAnswer = question.correct_answer || 'Unknown';
+      }
+      break;
     default:
       correctAnswer = 'Unknown';
   }
@@ -363,9 +371,22 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
       isCorrect = booleanAnswer === question.correct_answer;
       break;
     case TEST_TYPES.MULTIPLE_CHOICE:
-      // Convert integer answer to letter for comparison with database
-      const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer)); // 0→A, 1→B, 2→C
-      isCorrect = letterAnswer === question.correct_answer;
+      // Support both letter answers (A, B, C, ...) and numeric indices (0/1-based)
+      let userLetter = '';
+      if (typeof studentAnswer === 'string') {
+        const trimmed = studentAnswer.trim();
+        if (/^[a-z]$/i.test(trimmed)) {
+          userLetter = trimmed.toUpperCase();
+        } else if (/^\d+$/.test(trimmed)) {
+          const n = parseInt(trimmed, 10);
+          const idx = n >= 0 ? n : NaN; // treat as 0-based by default
+          if (!Number.isNaN(idx)) userLetter = String.fromCharCode(65 + idx);
+        }
+      } else if (typeof studentAnswer === 'number') {
+        const idx = studentAnswer;
+        if (!Number.isNaN(idx)) userLetter = String.fromCharCode(65 + idx);
+      }
+      isCorrect = userLetter !== '' && userLetter === String(question.correct_answer || '').toUpperCase();
       break;
     case TEST_TYPES.INPUT:
       // For grouped questions, check against all correct answers with garbage trimming
@@ -405,6 +426,31 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
       // Drawing tests are not auto-scored
       console.warn('Drawing tests should not be auto-scored!');
       isCorrect = false;
+      break;
+    case TEST_TYPES.FILL_BLANKS:
+      // For fill blanks, compare student answer with correct answer for this specific blank
+      const correctAnswer = question.correct_answers && Array.isArray(question.correct_answers) && question.correct_answers.length > 0 
+        ? question.correct_answers[0] 
+        : question.correct_answer;
+        
+      if (correctAnswer && studentAnswer) {
+        // Support both letter answers (A, B, C, ...) and numeric indices
+        let userLetter = '';
+        if (typeof studentAnswer === 'string') {
+          const trimmed = studentAnswer.trim();
+          if (/^[a-z]$/i.test(trimmed)) {
+            userLetter = trimmed.toUpperCase();
+          } else if (/^\d+$/.test(trimmed)) {
+            const n = parseInt(trimmed, 10);
+            const idx = n >= 0 ? n : NaN;
+            if (!Number.isNaN(idx)) userLetter = String.fromCharCode(65 + idx);
+          }
+        } else if (typeof studentAnswer === 'number') {
+          const idx = studentAnswer;
+          if (!Number.isNaN(idx)) userLetter = String.fromCharCode(65 + idx);
+        }
+        isCorrect = userLetter !== '' && userLetter === String(correctAnswer || '').toUpperCase();
+      }
       break;
     default:
       console.warn(`[WARN] Unknown test type for answer checking: ${testType}`);

@@ -61,7 +61,12 @@ exports.handler = async function(event, context) {
       assignments,
       image_url,  // Add image_url for matching tests
       interaction_type,  // Add interaction_type for word matching tests
-      passing_score  // Add passing_score for word matching tests
+      passing_score,  // Add passing_score for word matching tests
+      allowed_time,   // Optional time limit in seconds
+      is_shuffled,    // Optional shuffle flag for MCQ/TF/Input
+      test_text,      // Add test_text for fill_blanks tests
+      num_blanks,     // Add num_blanks for fill_blanks tests
+      separate_type   // Add separate_type for fill_blanks tests
     } = JSON.parse(event.body);
     
     console.log('Parsed request data:', {
@@ -74,7 +79,12 @@ exports.handler = async function(event, context) {
       assignments_count: assignments ? assignments.length : 0,
       image_url: image_url ? 'Present' : 'Not provided',
       interaction_type: interaction_type || 'Not provided',
-      passing_score: passing_score || 'Not provided'
+      passing_score: passing_score || 'Not provided',
+      allowed_time: allowed_time || 'Not provided',
+      is_shuffled: typeof is_shuffled === 'boolean' ? is_shuffled : 'Not provided',
+      test_text: test_text ? 'Present' : 'Not provided',
+      num_blanks: num_blanks || 'Not provided',
+      separate_type: typeof separate_type === 'boolean' ? separate_type : 'Not provided'
     });
 
     // Validate input
@@ -132,8 +142,8 @@ exports.handler = async function(event, context) {
             throw new Error('num_options is required for multiple choice tests');
           }
           const mcResult = await sql`
-            INSERT INTO multiple_choice_tests (teacher_id, subject_id, test_name, num_questions, num_options, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${num_options}, NOW(), NOW())
+            INSERT INTO multiple_choice_tests (teacher_id, subject_id, test_name, num_questions, num_options, allowed_time, is_shuffled, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${num_options}, ${allowed_time || null}, ${is_shuffled === true}, NOW(), NOW())
             RETURNING id
           `;
           testId = mcResult[0].id;
@@ -142,8 +152,8 @@ exports.handler = async function(event, context) {
         case 'true_false':
           testTable = 'true_false_tests';
           const tfResult = await sql`
-            INSERT INTO true_false_tests (teacher_id, subject_id, test_name, num_questions, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, NOW(), NOW())
+            INSERT INTO true_false_tests (teacher_id, subject_id, test_name, num_questions, allowed_time, is_shuffled, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${allowed_time || null}, ${is_shuffled === true}, NOW(), NOW())
             RETURNING id
           `;
           testId = tfResult[0].id;
@@ -152,8 +162,8 @@ exports.handler = async function(event, context) {
         case 'input':
           testTable = 'input_tests';
           const inputResult = await sql`
-            INSERT INTO input_tests (teacher_id, subject_id, test_name, num_questions, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, NOW(), NOW())
+            INSERT INTO input_tests (teacher_id, subject_id, test_name, num_questions, allowed_time, is_shuffled, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${allowed_time || null}, ${is_shuffled === true}, NOW(), NOW())
             RETURNING id
           `;
           testId = inputResult[0].id;
@@ -195,8 +205,8 @@ exports.handler = async function(event, context) {
           }
           
           const matchingResult = await sql`
-            INSERT INTO matching_type_tests (teacher_id, subject_id, test_name, image_url, num_blocks, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${finalImageUrl}, ${num_questions}, NOW(), NOW())
+            INSERT INTO matching_type_tests (teacher_id, subject_id, test_name, image_url, num_blocks, allowed_time, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${finalImageUrl}, ${num_questions}, ${allowed_time || null}, NOW(), NOW())
             RETURNING id
           `;
           testId = matchingResult[0].id;
@@ -206,8 +216,8 @@ exports.handler = async function(event, context) {
           testTable = 'word_matching_tests';
           
           const wordMatchingResult = await sql`
-            INSERT INTO word_matching_tests (teacher_id, subject_id, test_name, num_questions, interaction_type, passing_score, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${interaction_type || 'drag'}, ${passing_score || null}, NOW(), NOW())
+            INSERT INTO word_matching_tests (teacher_id, subject_id, test_name, num_questions, interaction_type, passing_score, allowed_time, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${interaction_type || 'drag'}, ${passing_score || null}, ${allowed_time || null}, NOW(), NOW())
             RETURNING id
           `;
           testId = wordMatchingResult[0].id;
@@ -217,11 +227,21 @@ exports.handler = async function(event, context) {
           testTable = 'drawing_tests';
           
           const drawingResult = await sql`
-            INSERT INTO drawing_tests (teacher_id, subject_id, test_name, num_questions, passing_score, created_at, updated_at)
-            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${passing_score || null}, NOW(), NOW())
+            INSERT INTO drawing_tests (teacher_id, subject_id, test_name, num_questions, passing_score, allowed_time, created_at, updated_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${num_questions}, ${passing_score || null}, ${allowed_time || null}, NOW(), NOW())
             RETURNING id
           `;
           testId = drawingResult[0].id;
+          break;
+
+        case 'fill_blanks':
+          testTable = 'fill_blanks_tests';
+          const fbResult = await sql`
+            INSERT INTO fill_blanks_tests (teacher_id, subject_id, test_name, test_text, num_questions, num_blanks, separate_type, allowed_time, created_at)
+            VALUES (${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${test_text || ''}, ${num_questions}, ${num_blanks || 0}, ${separate_type === true}, ${allowed_time || null}, NOW())
+            RETURNING id
+          `;
+          testId = fbResult[0].id;
           break;
           
         default:
@@ -377,6 +397,22 @@ exports.handler = async function(event, context) {
               )
             `;
             console.log(`Drawing question ${i + 1} inserted`);
+            break;
+
+          case 'fill_blanks':
+            // Insert fill blanks question
+            await sql`
+              INSERT INTO fill_blanks_test_questions (
+                test_id, teacher_id, subject_id, question_id, question_json, 
+                blank_positions, blank_options, correct_answers
+              )
+              VALUES (
+                ${testId}, ${teacher_id}, ${assignments[0].subject_id}, ${question.question_id}, 
+                ${JSON.stringify(question.question_json)}, ${JSON.stringify(question.blank_positions || {})}, 
+                ${JSON.stringify(question.blank_options || [])}, ${JSON.stringify(question.correct_answers || [])}
+              )
+            `;
+            console.log(`Fill blanks question ${i + 1} inserted`);
             break;
         }
         console.log(`Question ${i + 1} inserted successfully`);

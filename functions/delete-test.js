@@ -174,6 +174,14 @@ exports.handler = async function(event, context) {
           testOwnership = drawingTest.length > 0;
           break;
 
+        case 'fill_blanks':
+          const fillBlanksTest = await sql`
+            SELECT id FROM fill_blanks_tests 
+            WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+          `;
+          testOwnership = fillBlanksTest.length > 0;
+          break;
+
         default:
           return {
             statusCode: 400,
@@ -267,6 +275,8 @@ exports.handler = async function(event, context) {
         // Delete drawing test images first due to foreign key constraint
         await sql`DELETE FROM drawing_test_images WHERE result_id IN (SELECT id FROM drawing_test_results WHERE test_id = ${test_id})`;
         await sql`DELETE FROM drawing_test_results WHERE test_id = ${test_id}`;
+      } else if (test_type === 'fill_blanks') {
+        await sql`DELETE FROM fill_blanks_test_results WHERE test_id = ${test_id}`;
       }
       
       // 3. DELETE TEST QUESTIONS
@@ -284,6 +294,8 @@ exports.handler = async function(event, context) {
         await sql`DELETE FROM word_matching_questions WHERE test_id = ${test_id}`;
       } else if (test_type === 'drawing') {
         await sql`DELETE FROM drawing_test_questions WHERE test_id = ${test_id}`;
+      } else if (test_type === 'fill_blanks') {
+        await sql`DELETE FROM fill_blanks_test_questions WHERE test_id = ${test_id}`;
       }
       
       // 4. DELETE MAIN TEST RECORD LAST
@@ -299,6 +311,8 @@ exports.handler = async function(event, context) {
         await sql`DELETE FROM word_matching_tests WHERE id = ${test_id}`;
       } else if (test_type === 'drawing') {
         await sql`DELETE FROM drawing_tests WHERE id = ${test_id}`;
+      } else if (test_type === 'fill_blanks') {
+        await sql`DELETE FROM fill_blanks_tests WHERE id = ${test_id}`;
       }
 
       // Commit transaction

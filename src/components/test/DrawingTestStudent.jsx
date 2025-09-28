@@ -31,6 +31,22 @@ const DrawingCanvas = ({
   const [currentLine, setCurrentLine] = useState([]);
   const [currentShape, setCurrentShape] = useState(null);
   const [startPoint, setStartPoint] = useState(null);
+  const containerRef = useRef(null);
+  const [fitZoom, setFitZoom] = useState(0.25);
+
+  useEffect(() => {
+    const computeFit = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const cw = el.clientWidth || 1;
+      const ch = el.clientHeight || 1;
+      const fit = Math.min(cw / (canvasSize.width || 1), ch / (canvasSize.height || 1));
+      setFitZoom(Math.min(fit, 1.0));
+    };
+    computeFit();
+    window.addEventListener('resize', computeFit);
+    return () => window.removeEventListener('resize', computeFit);
+  }, [canvasSize.width, canvasSize.height, isFullscreen]);
 
   const handleMouseDown = (e) => {
     const stage = stageRef.current;
@@ -254,9 +270,8 @@ const DrawingCanvas = ({
             animationId = requestAnimationFrame(updateStage);
           }
           
-          setZoom(clampedScale);
-          setPosition(newPos);
-          zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+          onZoomChange(clampedScale);
+          // zoomInitializedRef.current = true; // Mark that user has interacted with zoom
           
           console.log('🎨 DrawingTestStudent - Zoom gesture - Scale:', clampedScale.toFixed(2), 'Center:', zoomPoint);
           
@@ -267,11 +282,26 @@ const DrawingCanvas = ({
           const deltaX = currentCenter.x - lastTouchCenter.x;
           const deltaY = currentCenter.y - lastTouchCenter.y;
           
-          const currentPos = stage.position();
-          const newPos = {
-            x: currentPos.x + deltaX,
-            y: currentPos.y + deltaY,
-          };
+          // Only pan if not completely zoomed out; at min zoom keep centered
+          const minZoom = 0.25;
+          const currentScale = stage.scaleX();
+          let newPos;
+          if (currentScale <= minZoom) {
+            const stageWidth = responsiveDimensions.width;
+            const stageHeight = responsiveDimensions.height;
+            const canvasWidth = canvasSize.width * currentScale;
+            const canvasHeight = canvasSize.height * currentScale;
+            newPos = {
+              x: (stageWidth - canvasWidth) / 2,
+              y: (stageHeight - canvasHeight) / 2,
+            };
+          } else {
+            const currentPos = stage.position();
+            newPos = {
+              x: currentPos.x + deltaX,
+              y: currentPos.y + deltaY,
+            };
+          }
           
           // Throttled update using requestAnimationFrame
           const updateStage = () => {
@@ -284,9 +314,9 @@ const DrawingCanvas = ({
             animationId = requestAnimationFrame(updateStage);
           }
           
-          setPosition(newPos);
+          // setPosition(newPos); // keep Konva as source of truth for pan during gesture
           
-          console.log('🎨 DrawingTestStudent - Pan gesture - Delta:', deltaX.toFixed(1), deltaY.toFixed(1));
+          console.log('�� DrawingTestStudent - Pan gesture - Delta:', deltaX.toFixed(1), deltaY.toFixed(1));
         }
       }
       
@@ -354,265 +384,268 @@ const DrawingCanvas = ({
             overflow: 'hidden'
           }}
         >
+            <div ref={containerRef} className="w-full h-full">
             <Stage
               ref={stageRef}
               width={responsiveDimensions.width}
               height={responsiveDimensions.height}
               scaleX={isFullscreen ? responsiveDimensions.zoom : zoom}
               scaleY={isFullscreen ? responsiveDimensions.zoom : zoom}
-              onMouseDown={handleMouseDown}
-              onMousemove={handleMouseMove}
-              onMouseup={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onWheel={handleWheel || (() => {})}
-            onDragStart={() => {
-              console.log('🎯 Drag started');
-              if (currentTool === 'pan') {
-                setIsPanning(true);
-              }
-            }}
-            onDragEnd={() => {
-              console.log('🎯 Drag ended');
-              if (currentTool === 'pan') {
-                setIsPanning(false);
-                // Only constrain if the canvas is way out of bounds
-                if (constrainPanPosition) {
-                  const stage = stageRef.current;
-                  const stageWidth = responsiveDimensions.width;
-                  const stageHeight = responsiveDimensions.height;
-                  const canvasWidth = canvasSize.width * stage.scaleX();
-                  const canvasHeight = canvasSize.height * stage.scaleY();
-                  
-                  // Only constrain if canvas is completely outside view
-                  const currentX = stage.x();
-                  const currentY = stage.y();
-                  
-                  if (currentX > stageWidth || currentX < -canvasWidth || 
-                      currentY > stageHeight || currentY < -canvasHeight) {
-                    constrainPanPosition(stage);
+                onMouseDown={handleMouseDown}
+                onMousemove={handleMouseMove}
+                onMouseup={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onWheel={handleWheel || (() => {})}
+              onDragStart={() => {
+                console.log('🎯 Drag started');
+                if (currentTool === 'pan') {
+                  setIsPanning(true);
+                }
+              }}
+              onDragEnd={() => {
+                console.log('🎯 Drag ended');
+                if (currentTool === 'pan') {
+                  setIsPanning(false);
+                  // Only constrain if the canvas is way out of bounds
+                  if (constrainPanPosition) {
+                    const stage = stageRef.current;
+                    const el = containerRef.current;
+                    const stageWidth = (el?.clientWidth) || responsiveDimensions.width;
+                    const stageHeight = (el?.clientHeight) || responsiveDimensions.height;
+                    const canvasWidth = canvasSize.width * stage.scaleX();
+                    const canvasHeight = canvasSize.height * stage.scaleY();
+                    
+                    // Only constrain if canvas is completely outside view
+                    const currentX = stage.x();
+                    const currentY = stage.y();
+                    
+                    if (currentX > stageWidth || currentX < -canvasWidth || 
+                        currentY > stageHeight || currentY < -canvasHeight) {
+                      constrainPanPosition(stage);
+                    }
                   }
                 }
-              }
-            }}
-              draggable={currentTool === 'pan' && zoom > 0.25}
-            className={`border border-gray-300 rounded-lg shadow-sm ${
-              currentTool === 'pan' ? 'cursor-grab' : 
-              isPanning ? 'cursor-grabbing' : 
-              'cursor-crosshair'
-            }`}
-            style={{
-              maxWidth: '100%',
-              height: 'auto'
-            }}
-            onLoad={() => {
-              console.log('🎨 DrawingTestStudent - Stage loaded with dimensions:', responsiveDimensions.width, 'x', responsiveDimensions.height);
-              console.log('🎨 DrawingTestStudent - Canvas size:', canvasSize.width, 'x', canvasSize.height);
-              console.log('🎨 DrawingTestStudent - Current zoom level:', zoom);
-              console.log('🎨 DrawingTestStudent - Effective display size:', Math.round(canvasSize.width * zoom), 'x', Math.round(canvasSize.height * zoom));
-              console.log('🎨 DrawingTestStudent - Total pixels displayed:', Math.round(canvasSize.width * zoom * canvasSize.height * zoom));
-            }}
-          >
-        <Layer>
-          {/* Background */}
-          <Rect
-            x={0}
-            y={0}
-            width={canvasSize.width}
-            height={canvasSize.height}
-            fill="white"
-          />
-          
-          {/* Existing drawings */}
-          {lines.map((item, i) => {
-            if (Array.isArray(item)) {
-              // It's a line (pencil drawing)
-              return (
-                <Line
-                  key={i}
-                  points={item.flatMap(p => [p.x, p.y])}
-                  stroke={item[0]?.color || '#000000'}
-                  strokeWidth={item[0]?.thickness || 2}
-                  tension={0.5}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              );
-            } else if (item.type === 'line') {
-              // It's a line shape
-              return (
-                <Line
-                  key={i}
-                  points={[item.startX, item.startY, item.endX, item.endY]}
-                  stroke={item.color}
-                  strokeWidth={item.thickness}
-                  lineCap="round"
-                />
-              );
-            } else if (item.type === 'rectangle') {
-              // It's a rectangle
-              const width = Math.abs(item.endX - item.startX);
-              const height = Math.abs(item.endY - item.startY);
-              const x = Math.min(item.startX, item.endX);
-              const y = Math.min(item.startY, item.endY);
-              return (
-                <Rect
-                  key={i}
-                  x={x}
-                  y={y}
-                  width={width}
-                  height={height}
-                  stroke={item.color}
-                  strokeWidth={item.thickness}
-                  fill="transparent"
-                />
-              );
-            } else if (item.type === 'circle') {
-              // It's a circle
-              const radius = Math.sqrt(
-                Math.pow(item.endX - item.startX, 2) + Math.pow(item.endY - item.startY, 2)
-              ) / 2;
-              const centerX = (item.startX + item.endX) / 2;
-              const centerY = (item.startY + item.endY) / 2;
-              return (
-                <Circle
-                  key={i}
-                  x={centerX}
-                  y={centerY}
-                  radius={radius}
-                  stroke={item.color}
-                  strokeWidth={item.thickness}
-                  fill="transparent"
-                />
-              );
-            }
-            return null;
-          })}
-          
-          {/* Current drawing being created */}
-          {currentTool === 'pencil' && (
-            <Line
-              points={currentLine.flatMap(p => [p.x, p.y])}
-              stroke={currentColor}
-              strokeWidth={currentThickness}
-              tension={0.5}
-              lineCap="round"
-              lineJoin="round"
-            />
-          )}
-          
-          {currentShape && currentShape.type === 'line' && (
-            <Line
-              points={[currentShape.startX, currentShape.startY, currentShape.endX, currentShape.endY]}
-              stroke={currentShape.color}
-              strokeWidth={currentShape.thickness}
-              lineCap="round"
-            />
-          )}
-          
-          {currentShape && currentShape.type === 'rectangle' && (
-            <Rect
-              x={Math.min(currentShape.startX, currentShape.endX)}
-              y={Math.min(currentShape.startY, currentShape.endY)}
-              width={Math.abs(currentShape.endX - currentShape.startX)}
-              height={Math.abs(currentShape.endY - currentShape.startY)}
-              stroke={currentShape.color}
-              strokeWidth={currentShape.thickness}
-              fill="transparent"
-            />
-          )}
-          
-          {currentShape && currentShape.type === 'circle' && (
-            <Circle
-              x={(currentShape.startX + currentShape.endX) / 2}
-              y={(currentShape.startY + currentShape.endY) / 2}
-              radius={Math.sqrt(
-                Math.pow(currentShape.endX - currentShape.startX, 2) + 
-                Math.pow(currentShape.endY - currentShape.startY, 2)
-              ) / 2}
-              stroke={currentShape.color}
-              strokeWidth={currentShape.thickness}
-              fill="transparent"
-            />
-          )}
-        </Layer>
-      </Stage>
-      
-      {/* Zoom controls overlay */}
-      <div className="absolute top-2 right-2 flex flex-col gap-1">
-        <button
-          onClick={() => {
-            const stage = stageRef.current;
-            const oldScale = stage.scaleX();
-            const maxCanvasWidth = question?.max_canvas_width || 1536;
-            const maxCanvasHeight = question?.max_canvas_height || 2048;
-            const maxZoomX = maxCanvasWidth / canvasSize.width;
-            const maxZoomY = maxCanvasHeight / canvasSize.height;
-            const maxZoom = Math.min(maxZoomX, maxZoomY, 5);
+              }}
+                draggable={currentTool === 'pan' && zoom > 0.25}
+                className={`border border-gray-300 rounded-lg shadow-sm ${
+                  currentTool === 'pan' ? 'cursor-grab' : 
+                  isPanning ? 'cursor-grabbing' : 
+                  'cursor-crosshair'
+                }`}
+                style={{
+                  maxWidth: '100%',
+                  height: 'auto'
+                }}
+                onLoad={() => {
+                  console.log('�� DrawingTestStudent - Stage loaded with dimensions:', responsiveDimensions.width, 'x', responsiveDimensions.height);
+                  console.log('�� DrawingTestStudent - Canvas size:', canvasSize.width, 'x', canvasSize.height);
+                  console.log('�� DrawingTestStudent - Current zoom level:', zoom);
+                  console.log('�� DrawingTestStudent - Effective display size:', Math.round(canvasSize.width * zoom), 'x', Math.round(canvasSize.height * zoom));
+                  console.log('�� DrawingTestStudent - Total pixels displayed:', Math.round(canvasSize.width * zoom * canvasSize.height * zoom));
+                }}
+              >
+                <Layer>
+                  {/* Background */}
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={canvasSize.width}
+                    height={canvasSize.height}
+                    fill="white"
+                  />
+                  
+                  {/* Existing drawings */}
+                  {lines.map((item, i) => {
+                    if (Array.isArray(item)) {
+                      // It's a line (pencil drawing)
+                      return (
+                        <Line
+                          key={i}
+                          points={item.flatMap(p => [p.x, p.y])}
+                          stroke={item[0]?.color || '#000000'}
+                          strokeWidth={item[0]?.thickness || 2}
+                          tension={0.5}
+                          lineCap="round"
+                          lineJoin="round"
+                        />
+                      );
+                    } else if (item.type === 'line') {
+                      // It's a line shape
+                      return (
+                        <Line
+                          key={i}
+                          points={[item.startX, item.startY, item.endX, item.endY]}
+                          stroke={item.color}
+                          strokeWidth={item.thickness}
+                          lineCap="round"
+                        />
+                      );
+                    } else if (item.type === 'rectangle') {
+                      // It's a rectangle
+                      const width = Math.abs(item.endX - item.startX);
+                      const height = Math.abs(item.endY - item.startY);
+                      const x = Math.min(item.startX, item.endX);
+                      const y = Math.min(item.startY, item.endY);
+                      return (
+                        <Rect
+                          key={i}
+                          x={x}
+                          y={y}
+                          width={width}
+                          height={height}
+                          stroke={item.color}
+                          strokeWidth={item.thickness}
+                          fill="transparent"
+                        />
+                      );
+                    } else if (item.type === 'circle') {
+                      // It's a circle
+                      const radius = Math.sqrt(
+                        Math.pow(item.endX - item.startX, 2) + Math.pow(item.endY - item.startY, 2)
+                      ) / 2;
+                      const centerX = (item.startX + item.endX) / 2;
+                      const centerY = (item.startY + item.endY) / 2;
+                      return (
+                        <Circle
+                          key={i}
+                          x={centerX}
+                          y={centerY}
+                          radius={radius}
+                          stroke={item.color}
+                          strokeWidth={item.thickness}
+                          fill="transparent"
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Current drawing being created */}
+                  {currentTool === 'pencil' && (
+                    <Line
+                      points={currentLine.flatMap(p => [p.x, p.y])}
+                      stroke={currentColor}
+                      strokeWidth={currentThickness}
+                      tension={0.5}
+                      lineCap="round"
+                      lineJoin="round"
+                    />
+                  )}
+                  
+                  {currentShape && currentShape.type === 'line' && (
+                    <Line
+                      points={[currentShape.startX, currentShape.startY, currentShape.endX, currentShape.endY]}
+                      stroke={currentShape.color}
+                      strokeWidth={currentShape.thickness}
+                      lineCap="round"
+                    />
+                  )}
+                  
+                  {currentShape && currentShape.type === 'rectangle' && (
+                    <Rect
+                      x={Math.min(currentShape.startX, currentShape.endX)}
+                      y={Math.min(currentShape.startY, currentShape.endY)}
+                      width={Math.abs(currentShape.endX - currentShape.startX)}
+                      height={Math.abs(currentShape.endY - currentShape.startY)}
+                      stroke={currentShape.color}
+                      strokeWidth={currentShape.thickness}
+                      fill="transparent"
+                    />
+                  )}
+                  
+                  {currentShape && currentShape.type === 'circle' && (
+                    <Circle
+                      x={(currentShape.startX + currentShape.endX) / 2}
+                      y={(currentShape.startY + currentShape.endY) / 2}
+                      radius={Math.sqrt(
+                        Math.pow(currentShape.endX - currentShape.startX, 2) + 
+                        Math.pow(currentShape.endY - currentShape.startY, 2)
+                      ) / 2}
+                      stroke={currentShape.color}
+                      strokeWidth={currentShape.thickness}
+                      fill="transparent"
+                    />
+                  )}
+                </Layer>
+              </Stage>
+            </div>
             
-            const newScale = Math.min(maxZoom, stage.scaleX() * 1.2);
-            stage.scale({ x: newScale, y: newScale });
-            stage.batchDraw();
+            {/* Zoom controls overlay */}
+            <div className="absolute top-2 right-2 flex flex-col gap-1">
+              <button
+                onClick={() => {
+                  const stage = stageRef.current;
+                  const oldScale = stage.scaleX();
+                  const maxCanvasWidth = question?.max_canvas_width || 1536;
+                  const maxCanvasHeight = question?.max_canvas_height || 2048;
+                  const maxZoomX = maxCanvasWidth / canvasSize.width;
+                  const maxZoomY = maxCanvasHeight / canvasSize.height;
+                  const maxZoom = Math.min(maxZoomX, maxZoomY, 5);
+                  
+                  const newScale = Math.min(maxZoom, stage.scaleX() * 1.2);
+                  stage.scale({ x: newScale, y: newScale });
+                  stage.batchDraw();
+                  
+                  console.log('�� DrawingTestStudent - Zoom In button:', oldScale.toFixed(2), '->', newScale.toFixed(2));
+                  console.log('�� DrawingTestStudent - New effective size:', Math.round(canvasSize.width * newScale), 'x', Math.round(canvasSize.height * newScale));
+                  console.log('�� DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
+                  
+                  onZoomChange(newScale);
+                  // zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+                }}
+                className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
+                title="Zoom In"
+              >
+                +
+              </button>
+              <button
+                onClick={() => {
+                  const stage = stageRef.current;
+                  const oldScale = stage.scaleX();
+                  const newScale = Math.max(0.25, stage.scaleX() * 0.8); // Minimum 25% zoom
+                  stage.scale({ x: newScale, y: newScale });
+                  stage.batchDraw();
+                  
+                  console.log('�� DrawingTestStudent - Zoom Out button:', oldScale.toFixed(2), '->', newScale.toFixed(2));
+                  console.log('�� DrawingTestStudent - New effective size:', Math.round(canvasSize.width * newScale), 'x', Math.round(canvasSize.height * newScale));
+                  console.log('�� DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
+                  
+                  onZoomChange(newScale);
+                  // zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+                }}
+                className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
+                title="Zoom Out"
+              >
+                −
+              </button>
+              <button
+                onClick={() => {
+                  const stage = stageRef.current;
+                  const oldScale = stage.scaleX();
+                  stage.scale({ x: 1, y: 1 });
+                  stage.position({ x: 0, y: 0 });
+                  stage.batchDraw();
+                  // zoomInitializedRef.current = true; // Mark that user has interacted with zoom
+                  
+                  console.log('�� DrawingTestStudent - Reset zoom:', oldScale.toFixed(2), '-> 1.00');
+                  console.log('�� DrawingTestStudent - Reset effective size:', canvasSize.width, 'x', canvasSize.height);
+                  console.log('�� DrawingTestStudent - Reset resolution:', canvasSize.width * canvasSize.height, 'pixels');
+                  
+                  onZoomChange(1);
+                }}
+                className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 text-xs"
+                title="Reset Zoom"
+              >
+                1:1
+              </button>
+            </div>
             
-            console.log('🎨 DrawingTestStudent - Zoom In button:', oldScale.toFixed(2), '->', newScale.toFixed(2));
-            console.log('🎨 DrawingTestStudent - New effective size:', Math.round(canvasSize.width * newScale), 'x', Math.round(canvasSize.height * newScale));
-            console.log('🎨 DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
-            
-            onZoomChange(newScale);
-            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
-          }}
-          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
-          title="Zoom In"
-        >
-          +
-        </button>
-        <button
-          onClick={() => {
-            const stage = stageRef.current;
-            const oldScale = stage.scaleX();
-            const newScale = Math.max(0.25, stage.scaleX() * 0.8); // Minimum 25% zoom
-            stage.scale({ x: newScale, y: newScale });
-            stage.batchDraw();
-            
-            console.log('🎨 DrawingTestStudent - Zoom Out button:', oldScale.toFixed(2), '->', newScale.toFixed(2));
-            console.log('🎨 DrawingTestStudent - New effective size:', Math.round(canvasSize.width * newScale), 'x', Math.round(canvasSize.height * newScale));
-            console.log('🎨 DrawingTestStudent - New resolution:', Math.round(canvasSize.width * newScale * canvasSize.height * newScale), 'pixels');
-            
-            onZoomChange(newScale);
-            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
-          }}
-          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 font-bold"
-          title="Zoom Out"
-        >
-          −
-        </button>
-        <button
-          onClick={() => {
-            const stage = stageRef.current;
-            const oldScale = stage.scaleX();
-            stage.scale({ x: 1, y: 1 });
-            stage.position({ x: 0, y: 0 });
-            stage.batchDraw();
-            zoomInitializedRef.current = true; // Mark that user has interacted with zoom
-            
-            console.log('🎨 DrawingTestStudent - Reset zoom:', oldScale.toFixed(2), '-> 1.00');
-            console.log('🎨 DrawingTestStudent - Reset effective size:', canvasSize.width, 'x', canvasSize.height);
-            console.log('🎨 DrawingTestStudent - Reset resolution:', canvasSize.width * canvasSize.height, 'pixels');
-            
-            onZoomChange(1);
-          }}
-          className="w-8 h-8 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-gray-600 text-xs"
-          title="Reset Zoom"
-        >
-          1:1
-        </button>
-      </div>
-      
-      {/* Zoom level indicator */}
-      <div className="absolute bottom-2 left-2 bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-600 shadow-sm">
-        {Math.round(zoom * 100)}%
-      </div>
+            {/* Zoom level indicator */}
+            <div className="absolute bottom-2 left-2 bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-600 shadow-sm">
+              {Math.round(zoom * 100)}%
+            </div>
         </div>
       </div>
     </div>
@@ -773,8 +806,10 @@ const DrawingTestStudent = ({
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const stageRef = useRef(null);
+  const containerRef = useRef(null);
   const [responsiveDimensions, setResponsiveDimensions] = useState({ width: 600, height: 800 });
   const zoomInitializedRef = useRef(false);
+  const [fitZoom, setFitZoom] = useState(0.25);
 
   // Colors palette
   const colors = [
@@ -811,13 +846,19 @@ const DrawingTestStudent = ({
       
       // Only set initial zoom if it hasn't been initialized yet
       if (!zoomInitializedRef.current) {
-        const initialZoomX = viewportWidth / actualCanvasWidth;   // 600/1536 = 0.39
-        const initialZoomY = viewportHeight / actualCanvasHeight; // 800/2048 = 0.39
-        const initialZoom = Math.min(initialZoomX, initialZoomY, 1.0);
-        
+        const initialZoom = 1.0; // Start at 100% zoom (full resolution view)
         setZoom(initialZoom);
         zoomInitializedRef.current = true;
-        
+
+        // Optionally center the canvas within the viewport
+        const offsetX = (viewportWidth - actualCanvasWidth * initialZoom) / 2;
+        const offsetY = (viewportHeight - actualCanvasHeight * initialZoom) / 2;
+        if (!isNaN(offsetX) && !isNaN(offsetY) && stageRef.current) {
+          const newPos = { x: offsetX, y: offsetY };
+          stageRef.current.position(newPos);
+          stageRef.current.batchDraw();
+        }
+
         console.log('🎨 DrawingTestStudent - Canvas size set:', actualCanvasWidth, 'x', actualCanvasHeight);
         console.log('🎨 DrawingTestStudent - Viewport size:', viewportWidth, 'x', viewportHeight);
         console.log('🎨 DrawingTestStudent - Initial zoom:', initialZoom.toFixed(2));
@@ -840,6 +881,21 @@ const DrawingTestStudent = ({
       setIsLoading(false);
     }
   }, [question, studentAnswer]);
+
+  // Compute dynamic fit zoom from the actual container (normal/fullscreen)
+  useEffect(() => {
+    const computeFit = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const cw = el.clientWidth || 1;
+      const ch = el.clientHeight || 1;
+      const fit = Math.min(cw / (canvasSize.width || 1), ch / (canvasSize.height || 1));
+      setFitZoom(Math.min(fit, 1.0));
+    };
+    computeFit();
+    window.addEventListener('resize', computeFit);
+    return () => window.removeEventListener('resize', computeFit);
+  }, [canvasSize.width, canvasSize.height, isFullscreen]);
 
   // Drawing functions
   const handleDrawingChange = (newLines) => {
@@ -919,12 +975,20 @@ const DrawingTestStudent = ({
     const maxZoomY = maxCanvasHeight / canvasSize.height;
     const maxZoom = Math.min(maxZoomX, maxZoomY, 1.0); // Cap at 1.0x (no upscaling)
     
-    const clampedScale = Math.max(0.25, Math.min(maxZoom, newScale)); // Minimum 25% zoom
+    const clampedScale = Math.max(fitZoom, Math.min(maxZoom, newScale));
     
     const newPos = {
       x: pointer.x - mousePointTo.x * clampedScale,
       y: pointer.y - mousePointTo.y * clampedScale,
     };
+
+    // If at fit zoom, center within container
+    if (clampedScale <= fitZoom && containerRef.current) {
+      const cw = containerRef.current.clientWidth || 1;
+      const ch = containerRef.current.clientHeight || 1;
+      newPos.x = (cw - canvasSize.width * clampedScale) / 2;
+      newPos.y = (ch - canvasSize.height * clampedScale) / 2;
+    }
     
     stage.scale({ x: clampedScale, y: clampedScale });
     stage.position(newPos);
@@ -941,13 +1005,14 @@ const DrawingTestStudent = ({
   // Constrain pan position to keep canvas visible
         const constrainPanPosition = (stage) => {
           const scale = stage.scaleX();
-          const stageWidth = responsiveDimensions.width;
-          const stageHeight = responsiveDimensions.height;
+          const el = containerRef.current;
+          const stageWidth = (el?.clientWidth) || responsiveDimensions.width;
+          const stageHeight = (el?.clientHeight) || responsiveDimensions.height;
           const canvasWidth = canvasSize.width * scale;
           const canvasHeight = canvasSize.height * scale;
           
-          // At maximum zoom out (0.25x), NO dragging allowed - always center
-          if (scale <= 0.25) {
+          // At maximum zoom out (fit), NO dragging allowed - always center
+          if (scale <= fitZoom) {
             const centerX = (stageWidth - canvasWidth) / 2;
             const centerY = (stageHeight - canvasHeight) / 2;
             stage.position({ x: centerX, y: centerY });
@@ -1029,7 +1094,7 @@ const DrawingTestStudent = ({
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
-      resetGestureState();
+      if (stageRef.current) stageRef.current.stop();
     };
   }, []);
 

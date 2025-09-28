@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
 import { useTestProgress } from '@/hooks/useTestProgress';
 import { useAntiCheating } from '@/hooks/useAntiCheating';
 import { Button, LoadingSpinner, Notification, PerfectModal } from '@/components/ui/components-ui-index';
-import { TrueFalseQuestion, MultipleChoiceQuestion, InputQuestion, DrawingTestStudent } from '@/components/test/components-test-index';
+import { TrueFalseQuestion, MultipleChoiceQuestion, InputQuestion, DrawingTestStudent, FillBlanksTestStudent } from '@/components/test/components-test-index';
 import TestResultsDisplay from '@/components/test/TestResultsDisplay';
 import TestDetailsModal from '@/components/test/TestDetailsModal';
 import ProgressTracker from '@/components/test/ProgressTracker';
@@ -138,6 +138,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   
   // Local state
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingTestData, setIsLoadingTestData] = useState(false);
+  const [testLoadError, setTestLoadError] = useState('');
   const [isAutoStarting, setIsAutoStarting] = useState(false);
   const [error, setError] = useState('');
   const [notifications, setNotifications] = useState([]);
@@ -151,6 +153,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const [progress, setProgress] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [testStartTime, setTestStartTime] = useState(null);
+  const timerKeyRef = React.useRef(null);
+  const lastTickRef = React.useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
@@ -347,12 +351,30 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   // Enhanced navigateToTest from legacy code
   const startTest = useCallback(async (test) => {
     console.log('🎓 Starting test:', test);
+    let loadStart = Date.now();
+    let timeoutId;
     try {
-      setIsLoading(true);
+      setTestLoadError('');
+      setIsLoadingTestData(true);
+      loadStart = Date.now();
+      const endLoading = () => {
+        const elapsed = Date.now() - loadStart;
+        const minDelay = 250;
+        const remaining = Math.max(0, minDelay - elapsed);
+        setTimeout(() => {
+          setIsLoading(false);
+          setIsLoadingTestData(false);
+        }, remaining);
+      };
+      let timeoutFired = false;
+      timeoutId = setTimeout(() => {
+        timeoutFired = true;
+        setTestLoadError('Loading is taking longer than expected...');
+      }, 15000);
       
       // Check if test is already completed before starting
-      const studentId = user?.student_id || user?.id || '';
-      const completedKey = `test_completed_${studentId}_${test.test_type}_${test.test_id}`;
+      const studentIdStart = user?.student_id || user?.id || '';
+      const completedKey = `test_completed_${studentIdStart}_${test.test_type}_${test.test_id}`;
       const isCompleted = localStorage.getItem(completedKey) === 'true';
       
       if (isCompleted) {
@@ -381,11 +403,45 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       setTestType(test.test_type);
       
       // Load test info and questions
-      const testInfo = await testService.getTestInfo(test.test_type, test.test_id);
-      const questions = await testService.getTestQuestions(test.test_type, test.test_id);
+      const [testInfo, questions] = await Promise.all([
+        testService.getTestInfo(test.test_type, test.test_id),
+        testService.getTestQuestions(test.test_type, test.test_id)
+      ]);
       
       setTestInfo(testInfo);
-      setQuestions(questions);
+      // Deterministic shuffle if enabled
+      let finalQuestions = questions;
+      try {
+        const shuffleEnabled = !!testInfo?.is_shuffled;
+        if (shuffleEnabled) {
+          const studentIdForSeed = user?.student_id || user?.id || 'unknown';
+          const seedStr = `${studentIdForSeed}:${test.test_type}:${test.test_id}`;
+          const seed = Array.from(seedStr).reduce((acc, c) => ((acc << 5) - acc) + c.charCodeAt(0), 0) >>> 0;
+          const orderKey = `test_shuffle_order_${studentIdForSeed}_${test.test_type}_${test.test_id}`;
+          const cachedOrder = localStorage.getItem(orderKey);
+          if (cachedOrder) {
+            const order = JSON.parse(cachedOrder);
+            const byId = new Map(questions.map(q => [q.question_id, q]));
+            finalQuestions = order.map(id => byId.get(id)).filter(Boolean);
+          } else {
+            // Seeded RNG (mulberry32)
+            function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
+            const rng = mulberry32(seed);
+            finalQuestions = [...questions];
+            for (let i = finalQuestions.length - 1; i > 0; i--) {
+              const j = Math.floor(rng() * (i + 1));
+              [finalQuestions[i], finalQuestions[j]] = [finalQuestions[j], finalQuestions[i]];
+            }
+            const order = finalQuestions.map(q => q.question_id);
+            localStorage.setItem(orderKey, JSON.stringify(order));
+          }
+        }
+      } catch (e) {
+        console.error('Shuffle error (ignored):', e);
+      }
+      setQuestions(finalQuestions);
+      // End loading as soon as core data is ready
+      endLoading();
       
       // Initialize student answers
       const savedProgress = getTestProgress(test.test_type, test.test_id);
@@ -393,8 +449,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       
       // Also check individual question keys (for compatibility with individual question saving)
       questions.forEach((question, index) => {
-        const studentId = user?.student_id || user?.id || 'unknown';
-        const individualKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}_${question.question_id}`;
+        const studentIdPerQ = user?.student_id || user?.id || 'unknown';
+        const individualKey = `test_progress_${studentIdPerQ}_${test.test_type}_${test.test_id}_${question.question_id}`;
         const individualAnswer = localStorage.getItem(individualKey);
         console.log(`🔍 Checking individual answer for question ${question.question_id}:`, individualAnswer);
         if (individualAnswer) {
@@ -414,9 +470,35 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       console.log('🔍 Calculated progress:', answeredCount, 'answered out of', questions.length, '=', initialProgress + '%');
       setProgress(initialProgress);
       
-      // Set test timer if available
-      if (testInfo.time_limit) {
-        setTimeRemaining(testInfo.time_limit * 60); // Convert minutes to seconds
+      // Initialize timer from allowed_time with persistent cache
+      const allowedSeconds = Number(testInfo?.allowed_time || 0);
+      const studentIdTimerInit = user?.student_id || user?.id || 'unknown';
+      timerKeyRef.current = `test_timer_${studentIdTimerInit}_${test.test_type}_${test.test_id}`;
+      if (allowedSeconds > 0) {
+        try {
+          const cached = localStorage.getItem(timerKeyRef.current);
+          const now = Date.now();
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const drift = Math.floor((now - new Date(parsed.lastTickAt).getTime()) / 1000);
+            const remaining = Math.max(0, Number(parsed.remainingSeconds || allowedSeconds) - Math.max(0, drift));
+            setTimeRemaining(remaining);
+            lastTickRef.current = now;
+          } else {
+            setTimeRemaining(allowedSeconds);
+            lastTickRef.current = now;
+            localStorage.setItem(timerKeyRef.current, JSON.stringify({
+              remainingSeconds: allowedSeconds,
+              lastTickAt: new Date(now).toISOString(),
+              startedAt: new Date(now).toISOString()
+            }));
+          }
+        } catch (e) {
+          console.error('Timer cache init error:', e);
+          setTimeRemaining(allowedSeconds);
+        }
+      } else {
+        setTimeRemaining(0);
       }
       
       // Set test start time for timing tracking
@@ -436,9 +518,18 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     } catch (error) {
       console.error('🎓 Error starting test:', error);
       showNotification('Failed to start test', 'error');
+      setTestLoadError('Failed to load test data. Please try again.');
     } finally {
-      setIsLoading(false);
+      // Ensure loading is cleared even on errors
+      const elapsed = Date.now() - loadStart;
+      const minDelay = 250;
+      const remaining = Math.max(0, minDelay - elapsed);
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsLoadingTestData(false);
+      }, remaining);
       setIsAutoStarting(false);
+      try { if (timeoutId) clearTimeout(timeoutId); } catch {}
     }
   }, [getTestProgress]);
   
@@ -473,14 +564,25 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       console.log('🛡️ Anti-cheating data for submission:', cheatingData);
       
       // Submit test with timing data and anti-cheating data
+      // Build answers_by_id for order-agnostic scoring
+      const answersById = {};
+      questions.forEach((q, idx) => {
+        answersById[q.question_id] = studentAnswers[idx] ?? '';
+      });
       const result = await testService.submitTest(
         currentTest.test_type,
         currentTest.test_id,
         studentAnswers,
         {
-          time_taken: timeTaken,
+          time_taken: (() => {
+            const allowed = Number(testInfo?.allowed_time || 0);
+            if (allowed > 0) return Math.min(timeTaken, allowed);
+            return timeTaken;
+          })(),
           started_at: startedAt,
           submitted_at: endTime.toISOString(),
+          answers_by_id: answersById,
+          question_order: questions.map(q => q.question_id),
           // Add anti-cheating data
           caught_cheating: cheatingData.caught_cheating,
           visibility_change_times: cheatingData.visibility_change_times
@@ -498,8 +600,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         // Cache the test results immediately after successful submission (except for drawing tests)
         if (currentTest.test_type !== 'drawing') {
           console.log('🎓 Caching test results after submission...');
-          const studentId = user?.student_id || user?.id || 'unknown';
-          const cacheKey = `student_results_table_${studentId}`;
+          const studentIdCache = user?.student_id || user?.id || 'unknown';
+          const cacheKey = `student_results_table_${studentIdCache}`;
           const { setCachedData, CACHE_TTL } = await import('@/utils/cacheUtils');
           setCachedData(cacheKey, result, CACHE_TTL.student_results_table);
           console.log('🎓 Test results cached with key:', cacheKey);
@@ -507,19 +609,26 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           console.log('🎓 Drawing test submitted - not caching results (will appear after teacher grades)');
         }
         
-        // Clear test progress
+        // Clear test progress and timer cache
         console.log('🎓 Clearing test progress...');
         clearTestProgress(currentTest.test_type, currentTest.test_id);
+        try {
+          const studentIdTimer = user?.student_id || user?.id || 'unknown';
+          const timerKey = `test_timer_${studentIdTimer}_${currentTest.test_type}_${currentTest.test_id}`;
+          localStorage.removeItem(timerKey);
+          const shuffleKey = `test_shuffle_order_${studentIdTimer}_${currentTest.test_type}_${currentTest.test_id}`;
+          localStorage.removeItem(shuffleKey);
+        } catch {}
         
         // Clear test progress and anti-cheating data (but keep test_completed keys)
         console.log('🧹 Clearing test progress and anti-cheating data...');
-        const studentId = user?.student_id || user?.id || 'unknown';
+        const studentIdCleanup = user?.student_id || user?.id || 'unknown';
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && (
-            key.startsWith(`test_progress_${studentId}_`) ||
-            key.startsWith(`anti_cheating_${studentId}_`)
+            key.startsWith(`test_progress_${studentIdCleanup}_`) ||
+            key.startsWith(`anti_cheating_${studentIdCleanup}_`)
           )) {
             keysToRemove.push(key);
           }
@@ -671,6 +780,9 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       case TEST_TYPES.DRAWING:
         // For drawing tests, show a simple indicator
         return studentAnswer && studentAnswer.trim() !== '' ? 'Drawing submitted' : 'No drawing';
+      case TEST_TYPES.FILL_BLANKS:
+        // For fill blanks, show the letter answer (A, B, C, etc.)
+        return studentAnswer;
       default:
         console.warn('🎓 Unknown test type for answer formatting:', testType);
         return studentAnswer;
@@ -699,23 +811,33 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     updateProgress();
   }, [updateProgress]);
   
-  // Test timer effect
+  // Test timer effect with persistence
   useEffect(() => {
-    if (timeRemaining > 0 && currentView === 'test') {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Time's up - auto submit
-            handleSubmit();
-            return 0;
+    if (currentView !== 'test') return;
+    const allowedSeconds = Number(testInfo?.allowed_time || 0);
+    if (!allowedSeconds) return; 
+    const interval = setInterval(() => {
+      setTimeRemaining(prev => {
+        const next = Math.max(0, prev - 1);
+        try {
+          const now = Date.now();
+          if (!lastTickRef.current) lastTickRef.current = now;
+          if (timerKeyRef.current) {
+            localStorage.setItem(timerKeyRef.current, JSON.stringify({
+              remainingSeconds: next,
+              lastTickAt: new Date(now).toISOString(),
+              startedAt: testStartTime ? testStartTime.toISOString() : new Date(now - (allowedSeconds - next) * 1000).toISOString()
+            }));
           }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining, currentView, handleSubmit]);
+        } catch {}
+        if (next === 0) {
+          handleSubmit();
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentView, testInfo?.allowed_time, handleSubmit, testStartTime]);
   
   // Enhanced renderQuestionsForPage from legacy code
   const renderQuestion = useCallback((question, questionIndex) => {
@@ -740,6 +862,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             mode="student"
             testId={currentTest?.test_id}
             testType={testType}
+            displayNumber={questionIndex + 1}
           />
         );
       case TEST_TYPES.MULTIPLE_CHOICE:
@@ -752,6 +875,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             mode="student"
             testId={currentTest?.test_id}
             testType={testType}
+            displayNumber={questionIndex + 1}
           />
         );
       case TEST_TYPES.INPUT:
@@ -764,6 +888,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             mode="student"
             testId={currentTest?.test_id}
             testType={testType}
+            displayNumber={questionIndex + 1}
           />
         );
       case TEST_TYPES.MATCHING:
@@ -791,6 +916,40 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             testType={testType}
           />
         );
+      case TEST_TYPES.FILL_BLANKS:
+        // NEW: Add fill blanks test case - only render on first question to avoid duplication
+        if (questionIndex === 0) {
+          return (
+            <FillBlanksTestStudent
+              key={`fill-blanks-${currentTest?.test_id}-${testInfo?.test_name}`}
+              testText={testInfo?.test_text}
+              blanks={(questions || []).map((q, index) => ({
+                id: q.question_id || index + 1,
+                options: q.blank_options || [],
+                correct_answer: q.correct_answers?.[0] || q.correct_answer,
+                question: q.question_json || ''
+              }))}
+              separateType={testInfo?.separate_type}
+              allowedTime={testInfo?.allowed_time}
+              testId={currentTest?.test_id}
+              testName={testInfo?.test_name || currentTest?.test_name}
+              teacherId={testInfo?.teacher_id || currentTest?.teacher_id}
+              subjectId={testInfo?.subject_id || currentTest?.subject_id}
+              onTestComplete={handleSubmit}
+              onAnswerChange={(questionId, answer) => {
+                // Find the question index and update studentAnswers
+                const questionIndex = questions.findIndex(q => q.question_id === questionId);
+                if (questionIndex !== -1) {
+                  const newAnswers = [...studentAnswers];
+                  newAnswers[questionIndex] = answer;
+                  setStudentAnswers(newAnswers);
+                  console.log(`🎓 Fill Blanks answer changed: question ${questionId} = ${answer}`);
+                }
+              }}
+            />
+          );
+        }
+        return null; // Don't render for subsequent questions
       default:
         return <div>Unsupported question type</div>;
     }
@@ -810,11 +969,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             <h2 className="text-2xl font-bold text-gray-900">
               {testInfo.test_name || testInfo.title || 'Test'}
             </h2>
-            {timeRemaining > 0 && (
-              <div className="text-lg font-semibold text-blue-600">
-                Time: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
-              </div>
-            )}
+            {/* Timer moved to ProgressTracker; keep header clean */}
           </div>
           
           {/* Progress Tracker */}
@@ -823,6 +978,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
               answeredCount={getAnsweredCount()}
               totalQuestions={questions.length}
               percentage={Math.round(progress)}
+              timeElapsed={Number(testInfo?.allowed_time || 0) > 0 ? timeRemaining : 0}
               showDetails={true}
             />
           </div>
@@ -901,10 +1057,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Student Tests</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Last updated: {lastUpdated ? lastUpdated.toLocaleString() : 'Never'}
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">Student Test</h1>
+
             </div>
             
             <Button
@@ -944,6 +1098,17 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         {currentView === 'test' && renderTestInterface()}
         {currentView === 'results' && renderTestResults()}
       </div>
+
+      {/* Test data loading overlay */}
+      {currentView === 'test' && isLoadingTestData && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center z-50">
+          <LoadingSpinner size="lg" />
+          <p className="mt-3 text-gray-700">Preparing your test…</p>
+          {testLoadError && (
+            <div className="mt-3 text-sm text-gray-500">{testLoadError}</div>
+          )}
+        </div>
+      )}
       
       {/* Test Details Modal */}
       <TestDetailsModal

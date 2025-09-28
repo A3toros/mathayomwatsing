@@ -377,6 +377,45 @@ exports.handler = async (event, context) => {
         AND d.class = ${parseInt(classNumber)}
         AND d.academic_period_id = ANY(${academicPeriodIds})
       
+      UNION ALL
+      
+      -- Fill Blanks Test Results
+      SELECT 
+        'fill_blanks' as test_type,
+        fb.id,
+        fb.test_id,
+        fb.test_name,
+        fb.teacher_id,
+        fb.subject_id,
+        fb.grade,
+        fb.class,
+        fb.number,
+        fb.student_id,
+        fb.name,
+        fb.surname,
+        fb.nickname,
+        fb.score,
+        fb.max_score,
+        fb.percentage_score as percentage,
+        fb.answers,
+        fb.time_taken,
+        fb.started_at,
+        fb.submitted_at,
+        fb.caught_cheating,
+        fb.visibility_change_times,
+        fb.is_completed,
+        fb.created_at,
+        fb.academic_period_id,
+        s.subject,
+        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+      FROM fill_blanks_test_results fb
+      LEFT JOIN subjects s ON fb.subject_id = s.subject_id
+      LEFT JOIN teachers t ON fb.teacher_id = t.teacher_id
+      WHERE fb.teacher_id = ${actualTeacherId}
+        AND fb.grade = ${parseInt(gradeNumber)}
+        AND fb.class = ${parseInt(classNumber)}
+        AND fb.academic_period_id = ANY(${academicPeriodIds})
+      
       ORDER BY student_id, test_name, created_at DESC
     `;
     
@@ -469,6 +508,20 @@ exports.handler = async (event, context) => {
         FROM drawing_test_results d
         WHERE d.teacher_id = ${actualTeacherId}
         GROUP BY d.test_id, d.test_name, d.academic_period_id, d.grade, d.class
+        
+        UNION ALL
+        
+        SELECT 
+          'fill_blanks' as test_type,
+          fb.test_id,
+          fb.test_name,
+          fb.academic_period_id,
+          fb.grade,
+          fb.class,
+          COUNT(*) as result_count
+        FROM fill_blanks_test_results fb
+        WHERE fb.teacher_id = ${actualTeacherId}
+        GROUP BY fb.test_id, fb.test_name, fb.academic_period_id, fb.grade, fb.class
         
         ORDER BY test_type, test_id
       `;
