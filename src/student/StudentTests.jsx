@@ -930,7 +930,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                 question: q.question_json || ''
               }))}
               separateType={testInfo?.separate_type}
-              allowedTime={testInfo?.allowed_time}
               testId={currentTest?.test_id}
               testName={testInfo?.test_name || currentTest?.test_name}
               teacherId={testInfo?.teacher_id || currentTest?.teacher_id}

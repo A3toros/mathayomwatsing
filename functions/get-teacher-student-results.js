@@ -396,7 +396,7 @@ exports.handler = async (event, context) => {
         fb.nickname,
         fb.score,
         fb.max_score,
-        fb.percentage_score as percentage,
+        fb.percentage,
         fb.answers,
         fb.time_taken,
         fb.started_at,

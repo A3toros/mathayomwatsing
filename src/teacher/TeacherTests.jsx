@@ -2427,10 +2427,10 @@ const TeacherTests = () => {
                   { type: 'multipleChoice', title: 'Multiple Choice', description: 'Questions with multiple answer options', icon: '/pics/multiple-choice.png' },
                   { type: 'trueFalse', title: 'True/False', description: 'Questions with true or false answers', icon: '/pics/true-false.png' },
                   { type: 'input', title: 'Input', description: 'Questions requiring text input', icon: '/pics/input.png' },
-                  { type: 'matching', title: 'Matching', description: 'Questions matching items together', icon: '/pics/matching.png' },
-                  { type: 'wordMatching', title: 'Word Matching', description: 'Students match word pairs by dragging or drawing arrows', icon: '/pics/matching-words.png' },
+                  { type: 'matching', title: 'Picture Matching', description: 'Labeling pictures', icon: '/pics/matching.png' },
+                  { type: 'wordMatching', title: 'Word Matching', description: 'Matching word pairs by dragging or drawing arrows', icon: '/pics/matching-words.png' },
                   { type: 'drawing', title: 'Drawing Test', description: 'Interactive drawing tests with canvas for students', icon: '/pics/drawing.png' },
-                  { type: 'fillBlanks', title: 'Fill Blanks', description: 'Rich text with multiple choice blanks', icon: '/pics/fill-blanks.png' }
+                  { type: 'fillBlanks', title: 'Fill Blanks', description: 'Text with multiple choice blanks', icon: '/pics/fill-blanks.png' }
                 ].map(({ type, title, description, icon }) => (
                   <motion.div
                     key={type}
@@ -2467,7 +2467,7 @@ const TeacherTests = () => {
                     </Button>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'fillBlanks' ? 'Fill Blanks' : testType === 'wordMatching' ? 'Word Matching' : 'Matching'} Test</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'fillBlanks' ? 'Fill Blanks' : testType === 'wordMatching' ? 'Word Matching' : 'Picture Matching'} Test</h2>
                     <p className="text-gray-600">Fill in the test details and questions</p>
                   </div>
                 </div>
@@ -2562,8 +2562,8 @@ const TeacherTests = () => {
                         />
                       </div>
                     )}
-                    {/* Hide shuffle checkbox for drawing and matching type tests */}
-                    {testType !== 'drawing' && testType !== 'matching' && (
+                    {/* Hide shuffle checkbox for drawing, matching, and fill blanks tests */}
+                    {testType !== 'drawing' && testType !== 'matching' && testType !== 'fillBlanks' && (
                       <label className="inline-flex items-center space-x-2 ml-6">
                         <input
                           type="checkbox"
@@ -2582,7 +2582,7 @@ const TeacherTests = () => {
               {testType === 'matching' && (
                 <Card>
                   <div className="space-y-4 text-center">
-                    <h3 className="text-lg font-semibold text-gray-900">Create Matching Test</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Create Picture Matching Test</h3>
                     <p className="text-sm text-gray-600">
                       Upload an image and create interactive matching blocks with words.
                     </p>

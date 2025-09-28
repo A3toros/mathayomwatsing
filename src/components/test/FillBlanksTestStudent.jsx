@@ -10,13 +10,11 @@ import { useAntiCheating } from '../../hooks/useAntiCheating';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { getCachedData, setCachedData, CACHE_TTL, clearTestData } from '../../utils/cacheUtils';
 import PerfectModal from '../ui/PerfectModal';
-import ProgressTracker from './ProgressTracker';
 
 const FillBlanksTestStudent = ({ 
   testText,
   blanks,
   separateType = true, // true = separate mode, false = inline mode
-  allowedTime = null, // Timer in minutes
   testId, 
   testName = 'Unknown Test',
   teacherId = 'Unknown Teacher',
@@ -59,7 +57,6 @@ const FillBlanksTestStudent = ({
   const [showDropdown, setShowDropdown] = useState(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
-  const [timeRemaining, setTimeRemaining] = useState(null);
   
   const { showNotification } = useNotification();
   const { makeAuthenticatedRequest } = useApi();
@@ -293,11 +290,6 @@ const FillBlanksTestStudent = ({
       startTracking();
       console.log('🛡️ Anti-cheating tracking started for fill blanks test');
       
-      // Initialize timer if enabled
-      if (allowedTime) {
-        setTimeRemaining(allowedTime * 60); // Convert minutes to seconds
-      }
-      
       // Load saved progress using cache pattern (following word matching)
       const progressKey = `test_progress_${user.student_id}_fill_blanks_${testId}`;
       const savedProgress = getCachedData(progressKey);
@@ -307,25 +299,7 @@ const FillBlanksTestStudent = ({
         console.log('🎯 Fill blanks test progress restored:', savedProgress);
       }
     }
-  }, [testId, user?.student_id, allowedTime, blanks, startTracking]);
-
-  // Timer countdown effect
-  useEffect(() => {
-    if (timeRemaining && timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Time's up - auto submit
-            handleSubmit();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining]);
+  }, [testId, user?.student_id, blanks, startTracking]);
 
   // Auto-save progress (following word matching pattern)
   useEffect(() => {
@@ -476,18 +450,6 @@ const FillBlanksTestStudent = ({
           </Card.Header>
         )}
         <Card.Body>
-          {/* Progress Tracker with Standard Timer */}
-          <div className="mb-4">
-            <ProgressTracker
-              answeredCount={Object.keys(answers).length}
-              totalQuestions={blanks.length}
-              timeElapsed={timeRemaining || 0}
-              onSubmitTest={handleSubmit}
-              isSubmitting={isSubmitting}
-              canSubmit={Object.keys(answers).length === blanks.length}
-            />
-          </div>
-
           {/* Main Text - Different rendering based on mode */}
           {separateType === true ? (
             <>
