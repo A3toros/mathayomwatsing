@@ -1051,7 +1051,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-y-auto">
       {/* Student Tests Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1092,7 +1092,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       )}
       
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto">
         {/* Only show test list if no currentTest prop is provided */}
         {!propCurrentTest && currentView === 'list' && renderTestList()}
         {currentView === 'test' && renderTestInterface()}

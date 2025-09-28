@@ -54,7 +54,7 @@ const TestResultsDisplay = ({
   const testName = testInfo?.test_name || testInfo?.title || 'Test';
 
   return (
-    <div className="test-results-page max-w-4xl mx-auto p-6">
+    <div className="test-results-page max-w-4xl mx-auto p-6 overflow-y-auto min-h-screen">
       {/* Results Header */}
       <Card className="mb-6">
         <div className="results-header text-center">

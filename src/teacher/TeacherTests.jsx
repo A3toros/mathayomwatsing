@@ -2562,15 +2562,18 @@ const TeacherTests = () => {
                         />
                       </div>
                     )}
-                    <label className="inline-flex items-center space-x-2 ml-6">
-                      <input
-                        type="checkbox"
-                        checked={!!formData.isShuffled}
-                        onChange={(e) => handleFormDataChange('isShuffled', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">Shuffle questions during test</span>
-                    </label>
+                    {/* Hide shuffle checkbox for drawing and matching type tests */}
+                    {testType !== 'drawing' && testType !== 'matching' && (
+                      <label className="inline-flex items-center space-x-2 ml-6">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.isShuffled}
+                          onChange={(e) => handleFormDataChange('isShuffled', e.target.checked)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">Shuffle questions during test</span>
+                      </label>
+                    )}
                   </div>
         </div>
               </Card>

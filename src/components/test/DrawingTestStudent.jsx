@@ -1117,7 +1117,7 @@ const DrawingTestStudent = ({
   }
 
   return (
-    <div className={`drawing-question max-w-6xl mx-auto p-1 sm:p-2 ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : ''}`}>
+    <div className={`drawing-question max-w-6xl mx-auto p-1 sm:p-2 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-y-auto' : ''}`}>
       {/* Question Header - hidden in fullscreen */}
       {!isFullscreen && (
         <div className="mb-4">
@@ -1269,7 +1269,7 @@ const DrawingTestStudent = ({
 
       {/* Drawing Canvas */}
       <Card className="p-1 sm:p-2">
-        <div className="w-full overflow-hidden drawing-canvas-container relative" style={{ touchAction: 'none' }}>
+        <div className="w-full drawing-canvas-container relative">
             <DrawingCanvas
               width={canvasSize.width}
               height={canvasSize.height}
