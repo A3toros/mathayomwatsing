@@ -269,6 +269,17 @@ exports.handler = async function(event, context) {
               options = optionsObj;
             }
             
+            // Auto-fill missing options with underscores based on num_options
+            const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            for (let j = 0; j < num_options; j++) {
+              const letter = optionLetters[j];
+              const optionKey = `option_${letter.toLowerCase()}`;
+              if (!options[optionKey] || options[optionKey].trim() === '') {
+                options[optionKey] = '_';
+                console.log(`Question ${i + 1}: Auto-filled ${optionKey} with "_"`);
+              }
+            }
+            
             // Ensure we have at least 2 options (option_a and option_b are required)
             if (!options.option_a || !options.option_b) {
               throw new Error(`Question ${i + 1} must have at least option_a and option_b`);
@@ -419,10 +430,21 @@ exports.handler = async function(event, context) {
       }
       console.log('All questions inserted successfully');
       
+      // Get current academic period ID (same logic as test results)
+      console.log('Getting current academic period...');
+      const academicPeriod = await sql`
+        SELECT id FROM academic_year 
+        WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
+        ORDER BY created_at DESC LIMIT 1
+      `;
+      
+      const currentAcademicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
+      console.log('Current academic period ID:', currentAcademicPeriodId);
+
       // Insert assignments
       console.log('Inserting assignments...');
       for (const assignment of assignments) {
-        const { grade, class: className, subject_id, academic_period_id, due_date } = assignment;
+        const { grade, class: className, subject_id, due_date } = assignment;
         
         // Set default due date to 7 days from now if not provided
         const defaultDueDate = new Date();
@@ -436,10 +458,10 @@ exports.handler = async function(event, context) {
           )
           VALUES (
             ${test_type}, ${testId}, ${teacher_id}, ${grade}, ${className}, ${subject_id},
-            ${academic_period_id || null}, CURRENT_TIMESTAMP, ${finalDueDate}, true, NOW(), NOW()
+            ${currentAcademicPeriodId}, CURRENT_TIMESTAMP, ${finalDueDate}, true, NOW(), NOW()
           )
         `;
-        console.log(`Assignment created for ${grade}/${className} with subject ${subject_id}, due: ${finalDueDate}`);
+        console.log(`Assignment created for ${grade}/${className} with subject ${subject_id}, academic_period: ${currentAcademicPeriodId}, due: ${finalDueDate}`);
       }
       console.log('All assignments inserted successfully');
       

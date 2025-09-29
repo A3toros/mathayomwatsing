@@ -117,6 +117,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [selectedTest, setSelectedTest] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationData, setConfirmationData] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteData, setDeleteData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [classResults, setClassResults] = useState([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
@@ -353,6 +355,59 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Remove subject from selected list
   const removeSubject = useCallback((index) => {
     setSelectedSubjects(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Delete teacher subject assignment
+  const deleteTeacherSubject = useCallback(async (subjectId, grade, classNumber) => {
+    console.log('👨‍🏫 Deleting teacher subject:', { subjectId, grade, classNumber });
+    
+    try {
+      const requestData = {
+        subjectId,
+        grade,
+        class: classNumber
+      };
+      console.log('👨‍🏫 Sending delete request with data:', requestData);
+      
+      const response = await userService.deleteTeacherSubject(requestData);
+      
+      if (response.success) {
+        showNotification('Subject assignment deleted successfully!', 'success');
+        // Refresh subjects display
+        await loadSubjects();
+      } else {
+        throw new Error(response.error || 'Failed to delete subject assignment');
+      }
+    } catch (error) {
+      console.error('👨‍🏫 Error deleting subject assignment:', error);
+      showNotification('Error deleting subject assignment. Please try again.', 'error');
+    }
+  }, [loadSubjects, showNotification]);
+
+  // Show delete confirmation modal
+  const showDeleteConfirmation = useCallback((subjectId, subjectName, grade, classNumber) => {
+    setDeleteData({
+      subjectId,
+      subjectName,
+      grade,
+      classNumber
+    });
+    setShowDeleteModal(true);
+  }, []);
+
+  // Confirm delete
+  const confirmDelete = useCallback(async () => {
+    if (deleteData) {
+      await deleteTeacherSubject(deleteData.subjectId, deleteData.grade, deleteData.classNumber);
+      setShowDeleteModal(false);
+      setDeleteData(null);
+    }
+  }, [deleteData, deleteTeacherSubject]);
+
+  // Cancel delete
+  const cancelDelete = useCallback(() => {
+    setShowDeleteModal(false);
+    setDeleteData(null);
   }, []);
 
   // Save all selected subjects
@@ -1225,6 +1280,52 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           </PerfectModal>
       )}
       
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deleteData && (
+        <PerfectModal
+          isOpen={showDeleteModal}
+          onClose={cancelDelete}
+          title="Delete Subject Assignment"
+          size="small"
+        >
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Subject Assignment
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Are you sure you want to delete the assignment for{' '}
+                <span className="font-semibold text-gray-900">{deleteData.subjectName}</span>{' '}
+                in Grade {deleteData.grade}, Class {deleteData.classNumber}?
+              </p>
+              <p className="text-xs text-red-600">
+                This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+              >
+                Delete Assignment
+              </Button>
+            </div>
+          </div>
+        </PerfectModal>
+      )}
+      
       {/* Notifications */}
       <motion.div 
         className="fixed top-4 right-4 space-y-2 z-50"
@@ -1500,16 +1601,25 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                           <h3 className="font-semibold text-gray-800 mb-2">{subject.name}</h3>
                           <div className="flex flex-wrap gap-2">
                             {subject.classes?.map((cls, clsIndex) => (
-                              <motion.span
+                              <motion.div
                                 key={clsIndex}
-                                className="inline-block bg-blue-100 text-blue-800 text-xs rounded-full px-3 py-1"
+                                className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 text-xs rounded-full px-3 py-1"
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ delay: 0.4 + index * 0.1 + clsIndex * 0.05, duration: 0.2 }}
                                 whileHover={{ scale: 1.1 }}
                               >
-                                {cls.grade} - {cls.className}
-                              </motion.span>
+                                <span>{cls.grade} - {cls.className}</span>
+                                <button
+                                  onClick={() => showDeleteConfirmation(subject.id, subject.name, cls.grade, cls.class)}
+                                  className="ml-1 text-red-600 hover:text-red-800 transition-colors"
+                                  title="Delete this subject assignment"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </motion.div>
                             )) || (
                               <span className="text-gray-500 text-sm">No classes assigned</span>
                             )}

@@ -243,6 +243,34 @@ export const userService = {
     }
   },
 
+  // Delete teacher subject assignment
+  async deleteTeacherSubject(assignmentData) {
+    console.log('deleteTeacherSubject called with:', assignmentData);
+    
+    try {
+      const response = await window.tokenManager.makeAuthenticatedRequest(
+        '/.netlify/functions/delete-teacher-subject',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assignmentData)
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Teacher subject assignment deleted successfully');
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to delete teacher subject assignment');
+      }
+    } catch (error) {
+      console.error('Error deleting teacher subject assignment:', error);
+      throw error;
+    }
+  },
+
   // Enhanced getSubjectsDropdown from legacy code (loadSubjectsForDropdown)
   async getSubjectsDropdown() {
     console.log('getSubjectsDropdown called');

@@ -1,12 +1,13 @@
 const { neon } = require('@neondatabase/serverless');
 const { validateToken } = require('./validate-token');
+require('dotenv').config();
 
 exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -20,13 +21,16 @@ exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ success: false, message: 'Method not allowed' })
     };
   }
 
   try {
-    // Validate JWT token and extract user information
+    // Validate token and extract user information
     const result = validateToken(event);
     
     if (!result.success) {
@@ -52,12 +56,16 @@ exports.handler = async function(event, context) {
       };
     }
 
-    const { subjects } = JSON.parse(event.body);
+    const requestBody = JSON.parse(event.body);
+    console.log('Delete teacher subject request body:', requestBody);
+    
+    const { subjectId, grade, class: classNumber } = requestBody;
+    console.log('Parsed fields:', { subjectId, grade, classNumber });
     
     // Handle admin vs regular teacher
     let teacher_id;
     if (result.user.role === 'admin') {
-      // Admin can save subjects for any teacher - get from request body
+      // Admin can delete subjects for any teacher - get from request body
       teacher_id = JSON.parse(event.body).teacher_id;
       if (!teacher_id) {
         return {
@@ -71,7 +79,8 @@ exports.handler = async function(event, context) {
       teacher_id = result.user.teacher_id;
     }
 
-    if (!subjects || !Array.isArray(subjects)) {
+    // Validate required fields
+    if (!subjectId || !grade || !classNumber) {
       return {
         statusCode: 400,
         headers: {
@@ -80,50 +89,65 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Subjects array is required'
+          message: 'subjectId, grade, and class are required'
         })
       };
     }
 
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
-    // Begin transaction
-    await sql`BEGIN`;
-    
-    try {
-      // Use UPSERT approach: Insert new subjects, ignore duplicates
-      for (const subject of subjects) {
-        for (const classInfo of subject.classes) {
-          // Use INSERT ... ON CONFLICT DO NOTHING to avoid duplicates
-          await sql`
-            INSERT INTO teacher_subjects (teacher_id, subject_id, grade, class)
-            VALUES (${teacher_id}, ${subject.subject_id}, ${classInfo.grade}, ${classInfo.class})
-            ON CONFLICT (teacher_id, subject_id, grade, class) DO NOTHING
-          `;
-        }
-      }
-      
-      // Commit transaction
-      await sql`COMMIT`;
-      
+    const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Check if teacher-subject combination exists
+    const existingTeacherSubject = await sql`
+      SELECT id FROM teacher_subjects 
+      WHERE teacher_id = ${teacher_id} 
+      AND subject_id = ${subjectId} 
+      AND grade = ${grade} 
+      AND class = ${classNumber}
+    `;
+
+    if (existingTeacherSubject.length === 0) {
       return {
-        statusCode: 200,
+        statusCode: 404,
         headers: {
           ...headers,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          success: true,
-          message: 'Teacher subjects saved successfully'
+          success: false,
+          message: 'Teacher subject assignment not found'
         })
       };
-    } catch (error) {
-      // Rollback transaction on error
-      await sql`ROLLBACK`;
-      throw error;
     }
+
+    // Delete the specific teacher-subject assignment
+    await sql`
+      DELETE FROM teacher_subjects 
+      WHERE teacher_id = ${teacher_id} 
+      AND subject_id = ${subjectId} 
+      AND grade = ${grade} 
+      AND class = ${classNumber}
+    `;
+
+    return {
+      statusCode: 200,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        success: true,
+        message: 'Teacher subject assignment deleted successfully',
+        deletedAssignment: {
+          teacher_id,
+          subject_id: subjectId,
+          grade,
+          class: classNumber
+        }
+      })
+    };
+
   } catch (error) {
-    console.error('Save teacher subjects error:', error);
+    console.error('Delete teacher subject error:', error);
     
     return {
       statusCode: 500,
@@ -133,7 +157,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: false,
-        message: 'Failed to save teacher subjects',
+        message: 'Failed to delete teacher subject assignment',
         error: error.message
       })
     };
