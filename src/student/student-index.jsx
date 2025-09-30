@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Routes, Route, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { TestProvider } from '@/contexts/TestContext';
+import { TestProvider, useTest } from '@/contexts/TestContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { Button } from '@/components/ui/components-ui-index';
 import { LoadingSpinner, Notification } from '@/components/ui/components-ui-index';
@@ -19,15 +19,21 @@ import WordMatchingPage from './WordMatchingPage';
 const TestPage = () => {
   const { testType, testId } = useParams();
   const navigate = useNavigate();
+  const { activeTests } = useTest();
   
   const handleBackToCabinet = () => {
     navigate('/student');
   };
   
+  // Find the full test data including retest metadata
+  const fullTestData = activeTests.find(test => 
+    test.test_type === testType && test.test_id === parseInt(testId)
+  );
+  
   return (
     <StudentTests 
       onBackToCabinet={handleBackToCabinet}
-      currentTest={{ test_type: testType, test_id: parseInt(testId) }}
+      currentTest={fullTestData || { test_type: testType, test_id: parseInt(testId) }}
     />
   );
 };

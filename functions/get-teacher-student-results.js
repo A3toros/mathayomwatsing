@@ -145,7 +145,7 @@ exports.handler = async (event, context) => {
     
     // Query all test result tables with UNION to get comprehensive results
     const results = await sql`
-      -- Matching Type Test Results
+      -- Matching Type Test Results (best retest coalesced into score/max_score)
       SELECT 
         'matching_type' as test_type,
         m.id,
@@ -160,8 +160,8 @@ exports.handler = async (event, context) => {
         m.name,
         m.surname,
         m.nickname,
-        m.score,
-        m.max_score,
+        COALESCE(m_best.best_score, m.score)       AS score,
+        COALESCE(m_best.best_max,   m.max_score)   AS max_score,
         m.percentage,
         m.answers,
         m.time_taken,
@@ -170,6 +170,7 @@ exports.handler = async (event, context) => {
         m.caught_cheating,
         m.visibility_change_times,
         m.is_completed,
+        m.retest_offered,
         m.created_at,
         m.academic_period_id,
         s.subject,
@@ -177,6 +178,15 @@ exports.handler = async (event, context) => {
       FROM matching_type_test_results m
       LEFT JOIN subjects s ON m.subject_id = s.subject_id
       LEFT JOIN teachers t ON m.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = m.student_id
+          AND ta.test_id = m.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) m_best ON TRUE
       WHERE m.teacher_id = ${actualTeacherId}
         AND m.grade = ${parseInt(gradeNumber)}
         AND m.class = ${parseInt(classNumber)}
@@ -184,7 +194,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Multiple Choice Test Results
+      -- Multiple Choice Test Results (best retest coalesced into score/max_score)
       SELECT 
         'multiple_choice' as test_type,
         mc.id,
@@ -199,8 +209,8 @@ exports.handler = async (event, context) => {
         mc.name,
         mc.surname,
         mc.nickname,
-        mc.score,
-        mc.max_score,
+        COALESCE(mc_best.best_score, mc.score)     AS score,
+        COALESCE(mc_best.best_max,   mc.max_score) AS max_score,
         mc.percentage,
         mc.answers,
         mc.time_taken,
@@ -209,6 +219,7 @@ exports.handler = async (event, context) => {
         mc.caught_cheating,
         mc.visibility_change_times,
         mc.is_completed,
+        mc.retest_offered,
         mc.created_at,
         mc.academic_period_id,
         s.subject,
@@ -216,6 +227,15 @@ exports.handler = async (event, context) => {
       FROM multiple_choice_test_results mc
       LEFT JOIN subjects s ON mc.subject_id = s.subject_id
       LEFT JOIN teachers t ON mc.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = mc.student_id 
+          AND ta.test_id = mc.test_id 
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) mc_best ON TRUE
       WHERE mc.teacher_id = ${actualTeacherId}
         AND mc.grade = ${parseInt(gradeNumber)}
         AND mc.class = ${parseInt(classNumber)}
@@ -223,7 +243,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- True/False Test Results
+      -- True/False Test Results (best retest coalesced into score/max_score)
       SELECT 
         'true_false' as test_type,
         tf.id,
@@ -238,8 +258,8 @@ exports.handler = async (event, context) => {
         tf.name,
         tf.surname,
         tf.nickname,
-        tf.score,
-        tf.max_score,
+        COALESCE(tf_best.best_score, tf.score)     AS score,
+        COALESCE(tf_best.best_max,   tf.max_score) AS max_score,
         tf.percentage,
         tf.answers,
         tf.time_taken,
@@ -248,6 +268,7 @@ exports.handler = async (event, context) => {
         tf.caught_cheating,
         tf.visibility_change_times,
         tf.is_completed,
+        tf.retest_offered,
         tf.created_at,
         tf.academic_period_id,
         s.subject,
@@ -255,6 +276,15 @@ exports.handler = async (event, context) => {
       FROM true_false_test_results tf
       LEFT JOIN subjects s ON tf.subject_id = s.subject_id
       LEFT JOIN teachers t ON tf.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = tf.student_id
+          AND ta.test_id = tf.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) tf_best ON TRUE
       WHERE tf.teacher_id = ${actualTeacherId}
         AND tf.grade = ${parseInt(gradeNumber)}
         AND tf.class = ${parseInt(classNumber)}
@@ -262,7 +292,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Input Test Results
+      -- Input Test Results (best retest coalesced into score/max_score)
       SELECT 
         'input' as test_type,
         i.id,
@@ -277,8 +307,8 @@ exports.handler = async (event, context) => {
         i.name,
         i.surname,
         i.nickname,
-        i.score,
-        i.max_score,
+        COALESCE(i_best.best_score, i.score)       AS score,
+        COALESCE(i_best.best_max,   i.max_score)   AS max_score,
         i.percentage,
         i.answers,
         i.time_taken,
@@ -287,6 +317,7 @@ exports.handler = async (event, context) => {
         i.caught_cheating,
         i.visibility_change_times,
         i.is_completed,
+        i.retest_offered,
         i.created_at,
         i.academic_period_id,
         s.subject,
@@ -294,6 +325,15 @@ exports.handler = async (event, context) => {
       FROM input_test_results i
       LEFT JOIN subjects s ON i.subject_id = s.subject_id
       LEFT JOIN teachers t ON i.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = i.student_id
+          AND ta.test_id = i.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) i_best ON TRUE
       WHERE i.teacher_id = ${actualTeacherId}
         AND i.grade = ${parseInt(gradeNumber)}
         AND i.class = ${parseInt(classNumber)}
@@ -301,7 +341,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Word Matching Test Results
+      -- Word Matching Test Results (best retest coalesced into score/max_score)
       SELECT 
         'word_matching' as test_type,
         w.id,
@@ -316,8 +356,8 @@ exports.handler = async (event, context) => {
         w.name,
         w.surname,
         w.nickname,
-        w.score,
-        w.max_score,
+        COALESCE(w_best.best_score, w.score)       AS score,
+        COALESCE(w_best.best_max,   w.max_score)   AS max_score,
         w.percentage,
         w.answers,
         w.time_taken,
@@ -326,6 +366,7 @@ exports.handler = async (event, context) => {
         w.caught_cheating,
         w.visibility_change_times,
         w.is_completed,
+        w.retest_offered,
         w.created_at,
         w.academic_period_id,
         s.subject,
@@ -333,6 +374,15 @@ exports.handler = async (event, context) => {
       FROM word_matching_test_results w
       LEFT JOIN subjects s ON w.subject_id = s.subject_id
       LEFT JOIN teachers t ON w.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = w.student_id
+          AND ta.test_id = w.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) w_best ON TRUE
       WHERE w.teacher_id = ${actualTeacherId}
         AND w.grade = ${parseInt(gradeNumber)}
         AND w.class = ${parseInt(classNumber)}
@@ -340,7 +390,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Drawing Test Results
+      -- Drawing Test Results (best retest coalesced into score/max_score)
       SELECT 
         'drawing' as test_type,
         d.id,
@@ -355,8 +405,8 @@ exports.handler = async (event, context) => {
         d.name,
         d.surname,
         d.nickname,
-        d.score,
-        d.max_score,
+        COALESCE(d_best.best_score, d.score)       AS score,
+        COALESCE(d_best.best_max,   d.max_score)   AS max_score,
         d.percentage,
         d.answers,
         d.time_taken,
@@ -365,6 +415,7 @@ exports.handler = async (event, context) => {
         d.caught_cheating,
         d.visibility_change_times,
         d.is_completed,
+        d.retest_offered,
         d.created_at,
         d.academic_period_id,
         s.subject,
@@ -372,6 +423,15 @@ exports.handler = async (event, context) => {
       FROM drawing_test_results d
       LEFT JOIN subjects s ON d.subject_id = s.subject_id
       LEFT JOIN teachers t ON d.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = d.student_id
+          AND ta.test_id = d.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) d_best ON TRUE
       WHERE d.teacher_id = ${actualTeacherId}
         AND d.grade = ${parseInt(gradeNumber)}
         AND d.class = ${parseInt(classNumber)}
@@ -379,7 +439,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Fill Blanks Test Results
+      -- Fill Blanks Test Results (best retest coalesced into score/max_score)
       SELECT 
         'fill_blanks' as test_type,
         fb.id,
@@ -394,8 +454,8 @@ exports.handler = async (event, context) => {
         fb.name,
         fb.surname,
         fb.nickname,
-        fb.score,
-        fb.max_score,
+        COALESCE(fb_best.best_score, fb.score)     AS score,
+        COALESCE(fb_best.best_max,   fb.max_score) AS max_score,
         fb.percentage,
         fb.answers,
         fb.time_taken,
@@ -404,6 +464,7 @@ exports.handler = async (event, context) => {
         fb.caught_cheating,
         fb.visibility_change_times,
         fb.is_completed,
+        fb.retest_offered,
         fb.created_at,
         fb.academic_period_id,
         s.subject,
@@ -411,6 +472,15 @@ exports.handler = async (event, context) => {
       FROM fill_blanks_test_results fb
       LEFT JOIN subjects s ON fb.subject_id = s.subject_id
       LEFT JOIN teachers t ON fb.teacher_id = t.teacher_id
+      LEFT JOIN LATERAL (
+        SELECT ta.score AS best_score, ta.max_score AS best_max
+        FROM test_attempts ta
+        WHERE ta.student_id = fb.student_id
+          AND ta.test_id = fb.test_id
+          AND ta.retest_assignment_id IS NOT NULL
+        ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+        LIMIT 1
+      ) fb_best ON TRUE
       WHERE fb.teacher_id = ${actualTeacherId}
         AND fb.grade = ${parseInt(gradeNumber)}
         AND fb.class = ${parseInt(classNumber)}

@@ -372,16 +372,20 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         setTestLoadError('Loading is taking longer than expected...');
       }, 15000);
       
-      // Check if test is already completed before starting
+      // Check if test is already completed before starting (but allow retests)
       const studentIdStart = user?.student_id || user?.id || '';
       const completedKey = `test_completed_${studentIdStart}_${test.test_type}_${test.test_id}`;
       const isCompleted = localStorage.getItem(completedKey) === 'true';
       
-      if (isCompleted) {
+      if (isCompleted && !test?.retest_available) {
         console.log('🎓 Test already completed, redirecting to main cabinet');
         showNotification('This test has already been completed', 'info');
         navigate('/student');
         return;
+      }
+      
+      if (isCompleted && test?.retest_available) {
+        console.log('🎓 Test completed but retest available, allowing retest');
       }
       
       // Special handling for matching tests - redirect to dedicated page
@@ -569,6 +573,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       questions.forEach((q, idx) => {
         answersById[q.question_id] = studentAnswers[idx] ?? '';
       });
+      
+      // Debug: Log answers for drawing tests
+      if (currentTest.test_type === 'drawing') {
+        console.log('🎨 Drawing test answers being submitted:', studentAnswers);
+        console.log('🎨 Drawing test answers type:', typeof studentAnswers[0]);
+        console.log('🎨 Drawing test answers content:', studentAnswers[0]);
+      }
+      
       const result = await testService.submitTest(
         currentTest.test_type,
         currentTest.test_id,
@@ -585,7 +597,15 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           question_order: questions.map(q => q.question_id),
           // Add anti-cheating data
           caught_cheating: cheatingData.caught_cheating,
-          visibility_change_times: cheatingData.visibility_change_times
+          visibility_change_times: cheatingData.visibility_change_times,
+          // Add retest metadata if this is a retest (mirroring other test components)
+          retest_assignment_id: (() => {
+            const studentId = user?.student_id || user?.id || '';
+            const retestAssignKey = `retest_assignment_id_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+            const retestAssignmentId = localStorage.getItem(retestAssignKey);
+            return retestAssignmentId ? Number(retestAssignmentId) : null;
+          })(),
+          parent_test_id: currentTest.test_id
         },
         user // Pass user data directly
       );
@@ -593,6 +613,44 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       console.log('🎓 Test submission result:', result);
       
       if (result.success) {
+        // Check if this is a retest and increment attempt counter
+        const studentId = user?.student_id || user?.id || '';
+        const retestKey = `retest1_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+        const isRetest = localStorage.getItem(retestKey) === 'true';
+        
+        if (isRetest) {
+          const maxAttempts = currentTest?.retest_attempts_left || currentTest?.max_attempts || 3;
+
+          // Server is authoritative: if passed, it already forced last attempt. Mirror locally.
+          const passed = (result?.percentage_score ?? 0) >= 50;
+          if (passed) {
+            const lastSlotKey = `retest_attempt${maxAttempts}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+            localStorage.setItem(lastSlotKey, 'true');
+            console.log('🎓 Passed retest, marking last-slot key:', lastSlotKey);
+            // Remove the retest availability key locally
+            localStorage.removeItem(retestKey);
+          } else {
+            // Find the next attempt number
+            let nextAttemptNumber = 1;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              if (localStorage.getItem(key) !== 'true') {
+                nextAttemptNumber = i;
+                break;
+              }
+            }
+            // Mark this specific attempt as completed
+            const attemptKey = `retest_attempt${nextAttemptNumber}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+            localStorage.setItem(attemptKey, 'true');
+            console.log('🎓 Marked retest attempt as completed:', attemptKey);
+
+            // If this consumed max attempts, remove retest flag
+            if (nextAttemptNumber >= maxAttempts) {
+              localStorage.removeItem(retestKey);
+            }
+          }
+        }
+        
         // Mark test as completed FIRST (before showing results)
         console.log('🎓 Marking test as completed...');
         await markCompleted(currentTest.test_type, currentTest.test_id);
@@ -619,6 +677,25 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           const shuffleKey = `test_shuffle_order_${studentIdTimer}_${currentTest.test_type}_${currentTest.test_id}`;
           localStorage.removeItem(shuffleKey);
         } catch {}
+        
+        // Mark test as completed in localStorage (for centralized test types: input, drawing, true_false, multiple_choice)
+        if (user?.student_id) {
+          const completionKey = `test_completed_${user.student_id}_${currentTest.test_type}_${currentTest.test_id}`;
+          localStorage.setItem(completionKey, 'true');
+          console.log('✅ Test marked as completed in localStorage:', completionKey);
+        }
+        
+        // Clear retest keys (for centralized test types: input, drawing, true_false, multiple_choice)
+        try {
+          const studentIdCleanup = user?.student_id || user?.id || '';
+          const retestKey = `retest1_${studentIdCleanup}_${currentTest.test_type}_${currentTest.test_id}`;
+          const retestAssignKey = `retest_assignment_id_${studentIdCleanup}_${currentTest.test_type}_${currentTest.test_id}`;
+          localStorage.removeItem(retestKey);
+          localStorage.removeItem(retestAssignKey);
+          console.log('🧹 Cleared retest keys:', retestKey, retestAssignKey);
+        } catch (e) {
+          console.warn('Failed to clear retest keys:', e);
+        }
         
         // Clear test progress and anti-cheating data (but keep test_completed keys)
         console.log('🧹 Clearing test progress and anti-cheating data...');

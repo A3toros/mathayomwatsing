@@ -357,12 +357,17 @@ const FillBlanksTestStudent = ({
       console.log('🛡️ Anti-cheating data for fill blanks submission:', cheatingData);
       
       // Prepare submission data (following word matching pattern)
+      const studentId = user.student_id;
+      const retestAssignKey = `retest_assignment_id_${studentId}_fill_blanks_${testId}`;
+      const retestAssignmentId = localStorage.getItem(retestAssignKey);
       const submissionData = {
         test_id: testId,
         test_name: testName,
         teacher_id: teacherId || null,
         subject_id: subjectId || null,
-        student_id: user.student_id,
+        student_id: studentId,
+        parent_test_id: testId,
+        retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         answers: answers,
         score: score,
         maxScore: maxScore,
@@ -403,6 +408,10 @@ const FillBlanksTestStudent = ({
           const completionKey = `test_completed_${user.student_id}_fill_blanks_${testId}`;
           localStorage.setItem(completionKey, 'true');
           console.log('✅ Fill blanks test marked as completed in localStorage:', completionKey);
+          // Clear retest keys after successful submission
+          const retestKey = `retest1_${studentId}_fill_blanks_${testId}`;
+          localStorage.removeItem(retestKey);
+          localStorage.removeItem(retestAssignKey);
         }
 
         // Cache the test results immediately after successful submission (following word matching pattern)

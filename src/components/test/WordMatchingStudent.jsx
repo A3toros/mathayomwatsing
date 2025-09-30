@@ -357,12 +357,17 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       const cheatingData = getCheatingData();
       
       // Prepare submission data
+      const studentId = user.student_id;
+      const retestAssignKey = `retest_assignment_id_${studentId}_word_matching_${testData.id}`;
+      const retestAssignmentId = localStorage.getItem(retestAssignKey);
       const submissionData = {
         test_id: testData.id,
         test_name: testData.test_name,
         teacher_id: testData.teacher_id || null,
         subject_id: testData.subject_id || null,
-        student_id: user.student_id,
+        student_id: studentId,
+        parent_test_id: testData.id,
+        retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         interaction_type: testData.interaction_type,
         answers: finalAnswers,
         score: score,
@@ -397,6 +402,10 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           const completionKey = `test_completed_${user.student_id}_word_matching_${testData.id}`;
           localStorage.setItem(completionKey, 'true');
           console.log('✅ Test marked as completed in localStorage:', completionKey);
+          // Clear retest keys after successful submission
+          const retestKey = `retest1_${studentId}_word_matching_${testData.id}`;
+          localStorage.removeItem(retestKey);
+          localStorage.removeItem(retestAssignKey);
           
           // Clear test progress and anti-cheating data after submission
           clearTestData(user.student_id, 'word_matching', testData.id);
@@ -439,16 +448,19 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       transition={{ duration: 0.3 }}
       className="max-w-4xl mx-auto p-6"
     >
-      {/* Loading Overlay */}
-      {isSubmitting && (
-        <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-            <p className="text-blue-600 font-semibold text-lg">Submitting test...</p>
-            <p className="text-gray-500 text-sm mt-1">Please wait while we process your results</p>
-          </div>
+      {/* Submit Spinner Modal */}
+      <PerfectModal
+        isOpen={isSubmitting}
+        onClose={() => {}}
+        title="Submitting"
+        size="small"
+      >
+        <div className="flex flex-col items-center justify-center py-4">
+          <LoadingSpinner size="lg" className="mb-3" />
+          <p className="text-blue-600 font-semibold text-lg">Submitting test...</p>
+          <p className="text-gray-500 text-sm mt-1">Please wait while we process your results</p>
         </div>
-      )}
+      </PerfectModal>
       {/* Test Header */}
       <Card className="mb-6">
         <div className="text-center">

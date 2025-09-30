@@ -57,12 +57,44 @@ import * as XLSX from 'xlsx';
 // ✅ COMPLETED: Documentation: Comprehensive component documentation
 // ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
 
-const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
+const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRetestModal }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { showNotification } = useNotification();
   
+  // Compute percentage robustly from available fields; prefer best retest score/max when present
+  const computePercentage = useCallback((result) => {
+    let derived = null;
+    if (typeof result?.percentage === 'number' && !Number.isNaN(result.percentage)) {
+      derived = Math.round(result.percentage);
+      console.debug('[TeacherResults] Using provided percentage', { percentage: result.percentage, rounded: derived, result });
+      return derived;
+    }
+    const bestScore = result?.retest_best_score ?? result?.score;
+    const bestMax = result?.retest_best_max_score ?? result?.max_score;
+    const scoreNum = Number(bestScore ?? 0);
+    const maxNum = Number(bestMax ?? 0);
+    if (maxNum > 0) {
+      derived = Math.round((scoreNum / maxNum) * 100);
+    }
+    console.debug('[TeacherResults] Computed percentage', { score: result?.score, max_score: result?.max_score, retest_best_score: result?.retest_best_score, retest_best_max_score: result?.retest_best_max_score, derived, result });
+    return derived;
+  }, []);
+
+  const getColorClassForResult = useCallback((result) => {
+    const pct = computePercentage(result);
+    if (pct === null) return 'bg-gray-100 text-gray-800';
+    if (pct < 50) return 'bg-red-100 text-red-700';
+    if (pct < 70) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-green-100 text-green-700';
+  }, [computePercentage]);
+
+  const isRedResult = useCallback((result) => {
+    const pct = computePercentage(result);
+    return pct !== null && pct < 50;
+  }, [computePercentage]);
+
   // Local state for teacher data
   const [teacherData, setTeacherData] = useState(null);
   
@@ -302,8 +334,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
               studentResults[result.test_name] = {
                 id: result.id,
                 test_type: result.test_type,
+                test_id: result.test_id,
+                subject_id: result.subject_id,
                 score: result.score,
                 max_score: result.max_score,
+                retest_offered: result.retest_offered,
                 caught_cheating: result.caught_cheating,
                 visibility_change_times: result.visibility_change_times,
                 answers: result.answers, // Include answers for drawing tests
@@ -1269,6 +1304,23 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
                       animate={{ width: "auto", opacity: 1 }}
                       transition={{ duration: 0.3 }}
                       whileHover={{ scale: 1.02 }}
+                      onClick={(e) => {
+                        console.debug('[TeacherResults] Main table TD clicked', { testResult, student: student.student_id });
+                        if (testResult?.retest_offered) {
+                          showNotification('Retest is already offered', 'info');
+                          return;
+                        }
+                        const pct = computePercentage(testResult);
+                        if (pct !== null && pct < 50) {
+                          console.debug('[TeacherResults] Main table TD -> opening retest modal', { studentId: student.student_id, test });
+                          openRetestModal({
+                            failedStudentIds: [student.student_id],
+                            test_type: test.test_type,
+                            original_test_id: testResult?.test_id || test.test_id,
+                            subject_id: testResult?.subject_id || test.subject_id
+                          });
+                        }
+                      }}
                     >
                       {testResult && testResult.test_type === 'drawing' ? (
                         <div className="flex flex-col items-center space-y-2">
@@ -1332,20 +1384,56 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
                         </div>
                       ) : testResult && testResult.score !== null && testResult.score !== undefined ? (
                         <div className="flex flex-col items-center space-y-1">
-                          <motion.div 
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              testResult.caught_cheating
-                                ? 'bg-red-100 text-red-800 border border-red-300' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                            whileHover={{ scale: 1.1 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            {testResult.score}/{testResult.max_score}
-                            {testResult.caught_cheating && (
-                              <span className="ml-1">⚠️</span>
-                            )}
-                          </motion.div>
+                          {(() => {
+                            const pct = computePercentage(testResult);
+                            const isRed = pct !== null && pct < 50;
+                            const isYellow = pct !== null && pct >= 50 && pct < 70;
+                            const isGreen = pct !== null && pct >= 70;
+                            console.debug('[TeacherResults] Main table pill', { studentId: student.student_id, pct, isRed, isYellow, isGreen, testResult });
+                            const colorClass = pct === null
+                              ? 'text-gray-600'
+                              : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                            const blueOffered = testResult?.retest_offered === true;
+                            return (
+                              <motion.div 
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                style={isRed ? { color: '#b91c1c' } : undefined}
+                                whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={(e) => { 
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (testResult?.retest_offered) {
+                                    showNotification('Retest is already offered', 'info');
+                                    return;
+                                  }
+                                  if (isRed) {
+                                    console.debug('[TeacherResults] Main table pill clicked -> opening retest modal', { studentId: student.student_id, test }); 
+                                    openRetestModal({ 
+                                      failedStudentIds: [student.student_id],
+                                      test_type: test.test_type,
+                                      original_test_id: testResult?.test_id || test.test_id,
+                                      subject_id: testResult?.subject_id || test.subject_id
+                                    }); 
+                                  }
+                                }}
+                                title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
+                              >
+                                {(() => {
+                                  const displayScore = (testResult.retest_best_score ?? testResult.score);
+                                  const displayMax = (testResult.retest_best_max_score ?? testResult.max_score);
+                                  return (
+                                    <>
+                                      <span className={isRed ? 'text-red-700' : ''}>{displayScore}</span>/<span>{displayMax}</span>
+                                    </>
+                                  );
+                                })()}
+                                {testResult.caught_cheating && (
+                                  <span className="ml-1">⚠️</span>
+                                )}
+                              </motion.div>
+                            );
+                          })()}
                           {testResult.caught_cheating && testResult.visibility_change_times && (
                             <span className="text-xs text-red-600">
                               ({testResult.visibility_change_times})
@@ -1578,6 +1666,18 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
                             className="border-b border-gray-100 px-3 py-3 text-sm"
                             whileHover={{ scale: 1.01 }}
                             transition={{ duration: 0.15 }}
+                            onClick={(e) => {
+                              console.debug('[TeacherResults] TD clicked', { testResult, student: student.student_id });
+                              const pct = computePercentage(testResult);
+                              if (pct !== null && pct < 50) {
+                                if (testResult?.retest_offered) {
+                                  showNotification('Retest is already offered', 'info');
+                                  return;
+                                }
+                                console.debug('[TeacherResults] TD -> opening retest modal', { studentId: student.student_id });
+                                openRetestModal({ failedStudentIds: [student.student_id] });
+                              }
+                            }}
                           >
                             {testResult && testResult.score !== null && testResult.score !== undefined ? (
                               <div className="flex flex-col items-center space-y-1">
@@ -1630,20 +1730,39 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass }) => {
                                     )}
                                   </>
                                 ) : (
-                                  <motion.div 
-                                    className={`px-1 py-0.5 rounded text-xs font-medium ${
-                                      testResult.caught_cheating
-                                        ? 'bg-red-100 text-red-800 border border-red-300' 
-                                        : 'bg-gray-100 text-gray-800'
-                                    }`}
-                                    whileHover={{ scale: 1.05 }}
-                                    transition={{ duration: 0.15 }}
-                                  >
-                                    {testResult.score}/{testResult.max_score}
-                                    {testResult.caught_cheating && (
-                                      <span className="ml-1">⚠️</span>
-                                    )}
-                                  </motion.div>
+                                  (() => {
+                                      const pct = computePercentage(testResult);
+                                      const isRed = pct !== null && pct < 50;
+                                      const isYellow = pct !== null && pct >= 50 && pct < 70;
+                                      const isGreen = pct !== null && pct >= 70;
+                                      console.debug('[TeacherResults] Render pill', { studentId: student.student_id, pct, isRed, isYellow, isGreen, score: testResult.score, max: testResult.max_score, percentageField: testResult.percentage });
+                                      const colorClass = pct === null
+                                        ? 'text-gray-600'
+                                        : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                                      const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90 pointer-events-auto' : ''}`;
+                                      console.debug('[TeacherResults] Pill classes', { classNameStr, pct, isRed, isYellow, isGreen });
+                                      return (
+                                        <motion.div 
+                                          className={classNameStr}
+                                          style={isRed ? { color: '#b91c1c' } : undefined}
+                                          whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                          transition={{ duration: 0.15 }}
+                                          onClick={isRed ? (e) => { 
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const computedColor = window.getComputedStyle(e.currentTarget).color;
+                                            console.debug('[TeacherResults] Red pill clicked -> opening retest modal', { studentId: student.student_id, className: classNameStr, computedColor }); 
+                                            openRetestModal({ failedStudentIds: [student.student_id] }); 
+                                          } : undefined}
+                                          title={isRed ? 'Offer retest' : ''}
+                                        >
+                                          <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
+                                          {testResult.caught_cheating && (
+                                            <span className="ml-1">⚠️</span>
+                                          )}
+                                        </motion.div>
+                                      );
+                                  })()
                                 )}
                                 {testResult.caught_cheating && testResult.visibility_change_times && (
                                   <span className="text-xs text-red-600">

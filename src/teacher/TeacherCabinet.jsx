@@ -126,6 +126,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [performanceData, setPerformanceData] = useState({});
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [resultsViewKey, setResultsViewKey] = useState(0);
   
   // Subject selection states
   const [availableSubjects, setAvailableSubjects] = useState([]);
@@ -521,99 +522,74 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Show notification helper
   
 
-  // Load performance data for chart
+  // Load performance data for chart - UPDATED FOR SEMESTER-BASED API
+  const [isLoadingModal, setIsLoadingModal] = useState(false);
+
   const loadPerformanceData = useCallback(async (classKey) => {
     console.log('📊 Loading performance data for class:', classKey);
     console.log('📊 Current selectedClassForChart:', selectedClassForChart);
     try {
+      setIsLoadingModal(true);
       const [grade, className] = classKey.split('/');
       const gradeFormat = grade.startsWith('M') ? grade : `M${grade}`;
       
+      // Smart refresh on cache expiry (1h)
+      const cacheKey = `class_summary_${user.teacher_id}_${gradeFormat}_${className}_${CONFIG.CURRENT_ACADEMIC_YEAR}_${CONFIG.CURRENT_SEMESTER}`;
+      const cached = getCachedData(cacheKey);
+      const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
+      const cacheTTL = 3600000;
+      if (cacheAge > cacheTTL) {
+        try {
+          await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/refresh-class-summary-semester');
+        } catch (e) {
+          console.warn('Materialized view refresh failed (continuing):', e.message);
+        }
+      }
+
+      // Use new semester-based API
       const response = await window.tokenManager.makeAuthenticatedRequest(
-        `/.netlify/functions/get-teacher-student-results?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${classKey}&semester=1&academic_period_id=8`
+        `/.netlify/functions/get-class-summary-semester?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${className}&semester=${CONFIG.CURRENT_SEMESTER}&academic_year=${CONFIG.CURRENT_ACADEMIC_YEAR}`
       );
       console.log('📊 API response status:', response.status);
       const data = await response.json();
       
       console.log('📊 Performance API response:', data);
       console.log('📊 API success:', data.success);
-      console.log('📊 API results:', data.results);
+      console.log('📊 API summary:', data.summary);
       
-      if (data.success && data.results && Array.isArray(data.results)) {
-        console.log('📊 Processing performance data:', data.results);
-        console.log('📊 Results count:', data.results.length);
-        console.log('📊 Students count:', data.students?.length);
+      if (data.success && data.summary) {
+        console.log('📊 Processing semester performance data:', data.summary);
         
-        // Process the raw test results to create student data with test scores
-        const studentMap = {};
-        
-        // Initialize student map with basic info
-        if (data.students && Array.isArray(data.students)) {
-          data.students.forEach(student => {
-            studentMap[student.student_id] = {
-              student_id: student.student_id,
-              name: student.name,
-              surname: student.surname,
-              nickname: student.nickname,
-              number: student.number
-            };
-          });
-        }
-        
-        // Add test results to students
-        data.results.forEach(result => {
-          if (studentMap[result.student_id]) {
-            const testKey = result.test_name;
-            studentMap[result.student_id][testKey] = `${result.score}/${result.max_score}`;
-          }
+        // Process semester-based summary data
+        const summary = data.summary;
+        console.log('📊 Semester summary:', {
+          total_students: summary.total_students,
+          total_tests: summary.total_tests,
+          completed_tests: summary.completed_tests,
+          average_class_score: summary.average_class_score,
+          pass_rate: summary.pass_rate,
+          cheating_incidents: summary.cheating_incidents
         });
         
-        const allStudents = Object.values(studentMap);
-        
-        // Build per-test submissions and averages using actual results data
-        const testMap = new Map();
-        data.results.forEach(result => {
-          const key = `${result.test_type}:${result.test_id}`;
-          if (!testMap.has(key)) {
-            testMap.set(key, {
-              test_id: result.test_id,
-              test_name: result.test_name,
-              test_type: result.test_type,
-              submissions: [],
-              earliestDate: null,
-              average_percentage: 0,
-            });
-          }
-          const entry = testMap.get(key);
-          const pct = (Number(result.score) / Math.max(1, Number(result.max_score))) * 100;
-          const submittedAt = result.submitted_at || result.created_at;
-          entry.submissions.push({ percentage: pct, submitted_at: submittedAt });
-          if (!entry.earliestDate || (submittedAt && new Date(submittedAt) < new Date(entry.earliestDate))) {
-            entry.earliestDate = submittedAt;
-          }
-        });
+        // Create semester performance data structure
+        const semesterData = {
+          summary: summary,
+          semester: CONFIG.CURRENT_SEMESTER,
+          academicYear: CONFIG.CURRENT_ACADEMIC_YEAR,
+          overallAverage: summary.average_class_score || 0,
+          totalTests: summary.total_tests || 0,
+          completedTests: summary.completed_tests || 0,
+          passRate: summary.pass_rate || 0,
+          cheatingIncidents: summary.cheating_incidents || 0,
+          lastTestDate: summary.last_test_date,
+          semesterProgress: calculateSemesterProgress(summary)
+        };
 
-        // Compute averages per test
-        const testsArray = Array.from(testMap.values()).map(t => {
-          const valid = t.submissions.filter(s => !Number.isNaN(s.percentage));
-          const avg = valid.length > 0 ? valid.reduce((sum, s) => sum + s.percentage, 0) / valid.length : 0;
-          return { ...t, average_percentage: avg };
-        });
-
-        // Compute overall class average across all submissions
-        const allSubmissions = testsArray.flatMap(t => t.submissions);
-        const overallAverage = allSubmissions.length > 0
-          ? allSubmissions.reduce((sum, s) => sum + s.percentage, 0) / allSubmissions.length
-          : 0;
-
-        console.log('📊 Computed tests with averages:', testsArray);
+        console.log('📊 Semester performance data:', semesterData);
 
         setPerformanceData(prev => ({
           ...prev,
-          [classKey]: {
-            tests: testsArray,
-            overallAverage,
-          }
+          [classKey]: semesterData
         }));
       } else {
         console.log('📊 No performance data available for class:', classKey);
@@ -629,8 +605,25 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         ...prev,
         [classKey]: { tests: [], overallAverage: 0 }
       }));
+    } finally {
+      setIsLoadingModal(false);
     }
   }, [user]);
+
+  // Helper function to calculate semester progress
+  const calculateSemesterProgress = useCallback((summary) => {
+    if (!summary.last_test_date) return 0;
+    
+    // Get semester dates from academic_year table or use fixed dates
+    const semesterStart = new Date('2025-05-01'); // Adjust based on your semester start
+    const semesterEnd = new Date('2025-09-30');   // Adjust based on your semester end
+    const now = new Date();
+    
+    const totalDays = semesterEnd - semesterStart;
+    const elapsedDays = Math.min(now - semesterStart, totalDays);
+    
+    return Math.round((elapsedDays / totalDays) * 100);
+  }, []);
 
   // Enhanced showClassResults from legacy code
   const showResults = useCallback((grade, className) => {
@@ -647,7 +640,95 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     loadPerformanceData(classKey);
   }, [loadPerformanceData]);
 
-  // Render performance chart
+  // Retest management helpers (minimal UI hooks)
+  const [retests, setRetests] = useState([]);
+  const [retestTargets, setRetestTargets] = useState([]);
+  const loadRetests = useCallback(async () => {
+    try {
+      const mod = await import('@/services/retestService');
+      const list = await mod.retestService.getRetestAssignments(user.teacher_id);
+      setRetests(list);
+    } catch (e) {
+      console.warn('Failed to load retests', e);
+    }
+  }, [user]);
+
+  const loadRetestTargets = useCallback(async (retestId) => {
+    try {
+      const mod = await import('@/services/retestService');
+      const items = await mod.retestService.getRetestTargets(retestId);
+      setRetestTargets(items);
+    } catch (e) {
+      console.warn('Failed to load retest targets', e);
+    }
+  }, []);
+
+  // Retest creation modal state
+  const [showRetestModal, setShowRetestModal] = useState(false);
+  
+  // Debug state changes
+  useEffect(() => {
+    console.debug('[TeacherCabinet] showRetestModal state changed:', showRetestModal);
+  }, [showRetestModal]);
+  const [retestForm, setRetestForm] = useState({
+    test_type: '',
+    original_test_id: '',
+    subject_id: '',
+    passing_threshold: 50,
+    scoring_policy: 'BEST',
+    max_attempts: 1,
+    window_days: 2,
+    student_ids: []
+  });
+
+  const openRetestModal = useCallback(async (opts) => {
+    console.debug('[TeacherCabinet] openRetestModal called with:', opts);
+    const { test_type, original_test_id, subject_id, failedStudentIds = [] } = opts || {};
+    
+    // Pre-populate from existing test data
+    setRetestForm({
+      test_type: test_type || 'multiple_choice',
+      original_test_id: original_test_id || '',
+      subject_id: subject_id || '',
+      passing_threshold: 50,
+      scoring_policy: 'BEST',
+      max_attempts: 1,
+      window_days: 2, // Default to 2 days
+      student_ids: failedStudentIds
+    });
+    console.debug('[TeacherCabinet] Setting showRetestModal to true');
+    setShowRetestModal(true);
+  }, []);
+
+  const createRetest = useCallback(async () => {
+    try {
+      const mod = await import('@/services/retestService');
+      
+      // Calculate window start/end from days
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + (retestForm.window_days * 24 * 60 * 60 * 1000));
+      
+      const payload = {
+        ...retestForm,
+        grade: selectedGrade,
+        class: selectedClass,
+        window_start: now.toISOString(),
+        window_end: windowEnd.toISOString()
+      };
+      
+      await mod.retestService.createRetestAssignment(payload);
+      showNotification('Retest created', 'success');
+      setShowRetestModal(false);
+      loadRetests();
+      // Force immediate refresh of class results to show blue state
+      setResultsViewKey(k => k + 1);
+    } catch (e) {
+      console.error('Create retest error', e);
+      showNotification(e.message || 'Failed to create retest', 'error');
+    }
+  }, [retestForm, selectedGrade, selectedClass, loadRetests]);
+
+  // Render performance chart - UPDATED FOR SEMESTER DATA
   const renderPerformanceChart = useCallback((classKey) => {
     if (!classKey) {
       return (
@@ -658,133 +739,78 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       );
     }
     
-    const classData = performanceData[classKey] || { tests: [], overallAverage: 0 };
-    const tests = classData.tests || [];
+    const classData = performanceData[classKey] || {};
+    const summary = classData.summary;
     
-    if (tests.length === 0) {
+    if (!summary) {
       return (
         <div className="text-center py-8">
           <div className="text-gray-400 text-4xl mb-2">📊</div>
-          <p className="text-gray-500">No test data available for this class</p>
+          <p className="text-gray-500">No performance data available for this class</p>
         </div>
       );
     }
     
-    // Calculate overall class performance
-    const overallAverage = classData.overallAverage || 0;
-    
-    // X-axis per test in chronological order by earliest submission date
-    const sortedTests = [...tests].sort((a, b) => new Date(a.earliestDate || 0) - new Date(b.earliestDate || 0));
-    const xLabels = sortedTests.map(t => t.test_name);
-    
     return (
-      <div className="space-y-4">
-        {/* Single Line Chart */}
-        <div className="h-64 bg-gray-50 rounded-lg p-4">
-          <svg 
-            viewBox="0 0 400 200" 
-            className="w-full h-full"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map(value => {
-              const y = 20 + (100 - value) * 1.6;
-              return (
-                <g key={value}>
-                  <line
-                    x1="40"
-                    y1={y}
-                    x2="360"
-                    y2={y}
-                    stroke="#E5E7EB"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x="35"
-                    y={y + 4}
-                    fontSize="12"
-                    fill="#6B7280"
-                    textAnchor="end"
-                  >
-                    {value}%
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* X labels per test (sparse for readability) */}
-            {xLabels.map((label, index) => {
-              if (index % 2 !== 0) return null;
-              const x = 40 + (index / Math.max(1, (xLabels.length - 1))) * 320;
-              return (
-                <text key={label} x={x} y="190" fontSize="10" fill="#6B7280" textAnchor="middle">{label}</text>
-              );
-            })}
-
-            {/* Average line connecting per-test averages */}
-            {(() => {
-              const points = sortedTests.map((t, index) => {
-                const avg = Math.max(0, Math.min(100, t.average_percentage || 0));
-                const x = 40 + (index / Math.max(1, (sortedTests.length - 1))) * 320;
-                const y = 20 + (100 - avg) * 1.6;
-                return { x, y, score: avg, index };
-              });
-
-              const pathData = points
-                .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-                .join(' ');
-
-              return (
-                <g>
-                  {/* Main performance line */}
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke="#3B82F6"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  
-                  {/* Average points per test */}
-                  {points.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="#3B82F6" stroke="white" strokeWidth="2" />
-                  ))}
-                  
-                  {/* Submission dots per test */}
-                  {sortedTests.map((t, tIndex) => {
-                    const x = 40 + (tIndex / Math.max(1, (sortedTests.length - 1))) * 320;
-                    return (
-                      <g key={`subs-${t.test_id}`}>
-                        {t.submissions.map((s, sIdx) => {
-                          const pct = Math.max(0, Math.min(100, s.percentage || 0));
-                          const y = 20 + (100 - pct) * 1.6;
-                          return <circle key={sIdx} cx={x} cy={y} r="3" fill="#10B981" opacity="0.7" />;
-                        })}
-                      </g>
-                    );
-                  })}
-                </g>
-              );
-            })()}
-          </svg>
-        </div>
-
-        {/* Performance Summary */}
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="bg-blue-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-blue-600">{overallAverage.toFixed(1)}%</div>
-            <div className="text-sm text-blue-600">Overall Average</div>
+      <div className="space-y-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-blue-600">
+              {summary.average_class_score?.toFixed(1) || 0}%
+            </div>
+            <div className="text-sm text-blue-600">Class Average</div>
           </div>
-          <div className="bg-green-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-green-600">{sortedTests.length}</div>
-            <div className="text-sm text-green-600">Tests</div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-green-600">
+              {summary.total_tests || 0}
+            </div>
+            <div className="text-sm text-green-600">Total Tests</div>
           </div>
-          <div className="bg-purple-50 rounded-lg p-3">
-            <div className="text-2xl font-bold text-purple-600">{tests.reduce((sum, t) => sum + (t.submissions?.length || 0), 0)}</div>
-            <div className="text-sm text-purple-600">Submissions</div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-purple-600">
+              {summary.pass_rate?.toFixed(1) || 0}%
+            </div>
+            <div className="text-sm text-purple-600">Pass Rate</div>
+          </div>
+          <div className="bg-red-50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-red-600">
+              {summary.cheating_incidents || 0}
+            </div>
+            <div className="text-sm text-red-600">Cheating Incidents</div>
           </div>
         </div>
+        
+        {/* Additional Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-yellow-600">
+              {summary.completed_tests || 0}
+            </div>
+            <div className="text-sm text-yellow-600">Completed Tests</div>
+          </div>
+          <div className="bg-indigo-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-indigo-600">
+              {summary.highest_score || 0}
+            </div>
+            <div className="text-sm text-indigo-600">Highest Score</div>
+          </div>
+          <div className="bg-pink-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-pink-600">
+              {summary.total_students || 0}
+            </div>
+            <div className="text-sm text-pink-600">Total Students</div>
+          </div>
+        </div>
+        
+        {isLoadingModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-xs text-center">
+            <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-transparent rounded-full mx-auto mb-2"></div>
+            <div className="text-sm text-gray-700">Loading latest class summary...</div>
+          </div>
+        </div>
+        )}
       </div>
     );
   }, [performanceData]);
@@ -800,6 +826,9 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           <LoadingSpinner size="lg" />
           <p className="mt-4 text-gray-600">Loading Teacher Cabinet...</p>
         </div>
+
+        {/* Retests quick actions (disabled during loading) */}
+        <div className="flex flex-wrap gap-2" />
       </div>
     );
   }
@@ -1040,9 +1069,11 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               transition={{ duration: 0.3 }}
             >
               <TeacherResults 
+                key={resultsViewKey}
                 selectedGrade={selectedGrade}
                 selectedClass={selectedClass}
                 onBackToCabinet={() => setCurrentView('main')}
+                openRetestModal={openRetestModal}
               />
             </motion.div>
           )}
@@ -1242,6 +1273,64 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         </PerfectModal>
       )}
       
+      {/* Retest creation modal (PerfectModal) */}
+      {showRetestModal && (
+        <PerfectModal
+          isOpen={showRetestModal}
+          onClose={() => setShowRetestModal(false)}
+          title="Create Retest"
+          size="medium"
+        >
+          <div className="space-y-4">
+            {/* User choices */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Retest Window</label>
+                <select 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                  value={retestForm.window_days} 
+                  onChange={(e)=>setRetestForm(f=>({...f,window_days:Number(e.target.value)}))}
+                >
+                  <option value={1}>1 day</option>
+                  <option value={2}>2 days</option>
+                  <option value={3}>3 days</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Attempts</label>
+                <select 
+                  className="w-full border rounded px-3 py-2 text-sm" 
+                  value={retestForm.max_attempts} 
+                  onChange={(e)=>setRetestForm(f=>({...f,max_attempts:Number(e.target.value)}))}
+                >
+                  <option value={1}>1 attempt</option>
+                  <option value={2}>2 attempts</option>
+                  <option value={3}>3 attempts</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Students can retry immediately if they fail</p>
+              </div>
+            </div>
+
+            {/* Students hidden intentionally - teacher doesn't need specifics here */}
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-6">
+            <button 
+              onClick={()=>setShowRetestModal(false)} 
+              className="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={createRetest} 
+              className="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+            >
+              Create Retest
+            </button>
+          </div>
+        </PerfectModal>
+      )}
+
       {/* Test Details Modal */}
       {showTestDetails && selectedTest && (
         <PerfectModal
@@ -1806,8 +1895,6 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       </div>
     );
   }
-  
-  // Enhanced displayClassResults from legacy code
 };
 
 export default TeacherCabinet;

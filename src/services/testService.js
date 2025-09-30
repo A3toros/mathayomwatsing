@@ -264,7 +264,10 @@ export const testService = {
         visibility_change_times: timingData.visibility_change_times || 0,
         // Include order-agnostic answers mapping for backend storage/scoring
         answers_by_id: timingData.answers_by_id || null,
-        question_order: timingData.question_order || null
+        question_order: timingData.question_order || null,
+        // Add retest metadata if this is a retest
+        retest_assignment_id: timingData.retest_assignment_id || null,
+        parent_test_id: timingData.parent_test_id || testId
       };
 
       // Submit based on test type
@@ -575,6 +578,20 @@ export const testService = {
       case 'word_matching':
         return answers;
       case 'drawing':
+        // For drawing tests, answers are JSON strings that need to be parsed
+        if (Array.isArray(answers) && answers.length > 0) {
+          try {
+            // If the first answer is a JSON string, parse it
+            const firstAnswer = answers[0];
+            if (typeof firstAnswer === 'string' && firstAnswer.startsWith('[')) {
+              return JSON.parse(firstAnswer);
+            }
+            return answers;
+          } catch (e) {
+            console.warn('Failed to parse drawing answers:', e);
+            return answers;
+          }
+        }
         return answers;
       default:
         return answers;

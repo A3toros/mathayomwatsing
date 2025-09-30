@@ -347,6 +347,10 @@ export const CONFIG = {
   
   // Cache Configuration
   CACHE_DURATION: 300000, // 5 minutes
+  
+  // Academic Configuration - Semester-based
+  CURRENT_ACADEMIC_YEAR: '2025-2026',
+  CURRENT_SEMESTER: 1, // Will be dynamically determined
 };
 
 // Tailwind CSS Configuration

@@ -59,8 +59,16 @@ exports.handler = async (event, context) => {
       submitted_at,
       caught_cheating = false,
       visibility_change_times = 0,
-      is_completed
+      is_completed,
+      retest_assignment_id,
+      parent_test_id
     } = JSON.parse(event.body);
+    
+    // Debug: Log answers for drawing tests
+    console.log('🎨 Backend received answers:', answers);
+    console.log('🎨 Backend answers type:', typeof answers);
+    console.log('🎨 Backend answers content:', answers);
+    console.log('🎨 Backend retest_assignment_id:', retest_assignment_id);
     
     console.log('Parsed submission data:', {
       test_id,
@@ -106,25 +114,72 @@ exports.handler = async (event, context) => {
       const academicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
       console.log('Academic period ID:', academicPeriodId);
 
-      // Insert drawing test result
-      const result = await sql`
-        INSERT INTO drawing_test_results (
-          test_id, test_name, teacher_id, subject_id, grade, class, number,
-          student_id, name, surname, nickname, score, max_score,
-          answers, time_taken, started_at, submitted_at, caught_cheating,
-          visibility_change_times, is_completed, created_at, academic_period_id
-        ) VALUES (
-          ${test_id}, ${test_name}, ${teacher_id}, ${subject_id}, 
-          ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
-          ${userInfo.student_id}, ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname},
-          ${score}, ${maxScore},
-          ${JSON.stringify(answers)}, ${time_taken || null}, ${started_at || null}, 
-          ${submitted_at || new Date().toISOString()}, ${caught_cheating || false},
-          ${visibility_change_times || 0}, ${is_completed || true}, NOW(), 
-          ${academicPeriodId}
-        )
-        RETURNING id, percentage, is_completed
-      `;
+      // Retest handling: for drawing, score may be null at submission. We'll still record attempt as IN_PROGRESS.
+      let attemptNumber = null;
+      let effectiveParentTestId = parent_test_id || test_id;
+      if (retest_assignment_id) {
+        const target = await sql`
+          SELECT tgt.attempt_count, ra.max_attempts, ra.window_start, ra.window_end
+          FROM retest_targets tgt
+          JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
+          WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${userInfo.student_id}
+        `;
+        if (target.length === 0) {
+          throw new Error('Retest not found or not assigned to this student');
+        }
+        const row = target[0];
+        const nowTs = new Date();
+        if (!(new Date(row.window_start) <= nowTs && nowTs <= new Date(row.window_end))) {
+          throw new Error('Retest window is not active');
+        }
+        if (row.attempt_count >= row.max_attempts) {
+          throw new Error('Maximum retest attempts reached');
+        }
+        attemptNumber = Number(row.attempt_count || 0) + 1;
+      }
+
+      // Insert drawing test result (avoid dynamic column interpolation)
+      let result;
+      if (retest_assignment_id) {
+        result = await sql`
+          INSERT INTO drawing_test_results (
+            test_id, test_name, teacher_id, subject_id, grade, class, number,
+            student_id, name, surname, nickname, score, max_score,
+            answers, time_taken, started_at, submitted_at, caught_cheating,
+            visibility_change_times, is_completed, created_at, academic_period_id,
+            retest_assignment_id, attempt_number
+          ) VALUES (
+            ${test_id}, ${test_name}, ${teacher_id}, ${subject_id},
+            ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
+            ${userInfo.student_id}, ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname},
+            ${score}, ${maxScore},
+            ${JSON.stringify(answers)}, ${time_taken || null}, ${started_at || null},
+            ${submitted_at || new Date().toISOString()}, ${caught_cheating || false},
+            ${visibility_change_times || 0}, ${is_completed || true}, NOW(),
+            ${academicPeriodId}, ${retest_assignment_id}, ${attemptNumber || 1}
+          )
+          RETURNING id, percentage, is_completed
+        `;
+      } else {
+        result = await sql`
+          INSERT INTO drawing_test_results (
+            test_id, test_name, teacher_id, subject_id, grade, class, number,
+            student_id, name, surname, nickname, score, max_score,
+            answers, time_taken, started_at, submitted_at, caught_cheating,
+            visibility_change_times, is_completed, created_at, academic_period_id
+          ) VALUES (
+            ${test_id}, ${test_name}, ${teacher_id}, ${subject_id},
+            ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
+            ${userInfo.student_id}, ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname},
+            ${score}, ${maxScore},
+            ${JSON.stringify(answers)}, ${time_taken || null}, ${started_at || null},
+            ${submitted_at || new Date().toISOString()}, ${caught_cheating || false},
+            ${visibility_change_times || 0}, ${is_completed || true}, NOW(),
+            ${academicPeriodId}
+          )
+          RETURNING id, percentage, is_completed
+        `;
+      }
       
       const resultId = result[0].id;
       const insertedPercentage = result[0].percentage;
@@ -149,6 +204,125 @@ exports.handler = async (event, context) => {
               console.log(`Skipping invalid drawing data for question ${i + 1}:`, e.message);
             }
           }
+        }
+      }
+
+      // Upsert attempt and update retest target: if no score yet, mark IN_PROGRESS
+      if (retest_assignment_id) {
+        await sql`
+          UPDATE retest_targets SET attempt_count = ${attemptNumber}, last_attempt_at = NOW(), status = 'IN_PROGRESS'
+          WHERE retest_assignment_id = ${retest_assignment_id} AND student_id = ${userInfo.student_id}
+        `;
+      }
+
+      // If scored at submit time OR this is a retest, record in test_attempts
+      if ((score !== null && maxScore !== null && Number(maxScore) > 0) || retest_assignment_id) {
+        const percentageVal = (score !== null && maxScore !== null && Number(maxScore) > 0) 
+          ? Math.round((Number(score) / Number(maxScore)) * 10000) / 100 
+          : null;
+        const attemptNumForAttempts = attemptNumber || 1;
+        if (retest_assignment_id) {
+          // Determine safe attempt number
+          const target = await sql`
+            SELECT tgt.attempt_count, ra.max_attempts 
+            FROM retest_targets tgt
+            JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
+            WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${userInfo.student_id}
+          `;
+          const row = target?.[0] || {};
+          const maxAttempts = Number(row.max_attempts || 1);
+          const nextFromTarget = Number(row.attempt_count || 0) + 1;
+          const existingAttempts = await sql`
+            SELECT COALESCE(MAX(attempt_number), 0) AS max_attempt
+            FROM test_attempts
+            WHERE student_id = ${userInfo.student_id} AND test_id = ${effectiveParentTestId}
+          `;
+          const nextFromDb = Number(existingAttempts?.[0]?.max_attempt || 0) + 1;
+          let attemptNumberToWrite = (percentageVal !== null && percentageVal >= 50) ? maxAttempts : Math.max(nextFromDb, nextFromTarget);
+
+          // Debug: Log what we're about to write to test_attempts
+          console.log('🎨 About to write to test_attempts:');
+          console.log('🎨 answers:', answers);
+          console.log('🎨 JSON.stringify(answers):', JSON.stringify(answers));
+          console.log('🎨 retest_assignment_id:', retest_assignment_id);
+          console.log('🎨 effectiveParentTestId:', effectiveParentTestId);
+          console.log('🎨 attemptNumberToWrite:', attemptNumberToWrite);
+          
+          // Reuse existing row if attempt number exists
+          const existingSame = await sql`
+            SELECT id FROM test_attempts
+            WHERE student_id = ${userInfo.student_id} AND test_id = ${effectiveParentTestId} AND attempt_number = ${attemptNumberToWrite}
+            LIMIT 1
+          `;
+          if (existingSame.length > 0) {
+            await sql`
+              UPDATE test_attempts
+              SET score = ${score}, max_score = ${maxScore}, percentage = ${percentageVal},
+                  time_taken = ${time_taken || null}, started_at = ${started_at || null}, submitted_at = ${submitted_at || new Date().toISOString()},
+                  is_completed = ${is_completed || true},
+                  retest_assignment_id = ${retest_assignment_id},
+                  answers = ${JSON.stringify(answers)},
+                  answers_by_id = ${JSON.stringify({})},
+                  question_order = ${JSON.stringify([])},
+                  caught_cheating = ${caught_cheating || false},
+                  visibility_change_times = ${visibility_change_times || 0},
+                  test_name = ${test_name},
+                  teacher_id = ${teacher_id},
+                  subject_id = ${subject_id}
+              WHERE id = ${existingSame[0].id}
+            `;
+          } else {
+            await sql`
+              INSERT INTO test_attempts (
+                student_id, test_id, attempt_number, score, max_score, percentage,
+                time_taken, started_at, submitted_at, is_completed,
+                answers, answers_by_id, question_order, caught_cheating, visibility_change_times,
+                retest_assignment_id, test_name, teacher_id, subject_id, grade, class, number,
+                name, surname, nickname, academic_period_id
+              )
+              VALUES (
+                ${userInfo.student_id}, ${effectiveParentTestId}, ${attemptNumberToWrite}, ${score}, ${maxScore}, ${percentageVal},
+                ${time_taken || null}, ${started_at || null}, ${submitted_at || new Date().toISOString()}, ${is_completed || true},
+                ${JSON.stringify(answers)}, ${JSON.stringify({})}, ${JSON.stringify([])}, ${caught_cheating || false}, ${visibility_change_times || 0},
+                ${retest_assignment_id}, ${test_name}, ${teacher_id}, ${subject_id}, ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
+                ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname}, ${academicPeriodId}
+              )
+            `;
+          }
+
+          // Update retest_targets with early-pass behavior
+          if (percentageVal !== null && percentageVal >= 50) {
+            await sql`
+              UPDATE retest_targets tgt
+              SET attempt_count = ra.max_attempts,
+                  last_attempt_at = NOW(),
+                  status = 'PASSED'
+              FROM retest_assignments ra
+              WHERE tgt.retest_assignment_id = ra.id
+                AND tgt.retest_assignment_id = ${retest_assignment_id} 
+                AND student_id = ${userInfo.student_id}
+            `;
+          } else {
+            await sql`
+              UPDATE retest_targets 
+              SET attempt_count = GREATEST(attempt_count + 1, ${attemptNumberToWrite}),
+                  last_attempt_at = NOW(),
+                  status = 'FAILED'
+              WHERE retest_assignment_id = ${retest_assignment_id} 
+                AND student_id = ${userInfo.student_id}
+            `;
+          }
+
+          // Persist best retest values
+          await sql`SELECT update_best_retest_values(${userInfo.student_id}, ${effectiveParentTestId})`;
+        } else {
+          // For regular tests, use upsert to handle retakes
+          await sql`
+            INSERT INTO test_attempts (student_id, test_id, attempt_number, score, max_score, percentage, time_taken, started_at, submitted_at, is_completed)
+            VALUES (${userInfo.student_id}, ${effectiveParentTestId}, ${attemptNumForAttempts}, ${score}, ${maxScore}, ${percentageVal}, ${time_taken || null}, ${started_at || null}, ${submitted_at || new Date().toISOString()}, ${is_completed || true})
+            ON CONFLICT (student_id, test_id, attempt_number)
+            DO UPDATE SET score = EXCLUDED.score, max_score = EXCLUDED.max_score, percentage = EXCLUDED.percentage, submitted_at = EXCLUDED.submitted_at, is_completed = EXCLUDED.is_completed
+          `;
         }
       }
 

@@ -34,8 +34,11 @@ const MatchingTestPage = () => {
     
     const completionKey = `test_completed_${user.student_id}_matching_type_${testId}`;
     const isCompleted = localStorage.getItem(completionKey) === 'true';
+    // Allow if a retest key is present (set by StudentCabinet before navigation)
+    const retestKey = `retest1_${user.student_id}_matching_type_${testId}`;
+    const hasRetest = localStorage.getItem(retestKey) === 'true';
     
-    if (isCompleted) {
+    if (isCompleted && !hasRetest) {
       console.log('🎓 Test already completed, redirecting to cabinet');
       showNotification('This test has already been completed', 'info');
       navigate('/student');

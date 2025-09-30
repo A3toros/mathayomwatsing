@@ -1505,45 +1505,81 @@ Completed: ${new Date(testResults.timestamp).toLocaleString()}`;
     markTestCompleted(testType, testId);
   };
 
-  // Clear all test data from localStorage (bulk cleanup)
+  // Clear old test data from localStorage (older than 15 days)
   const clearAllTestData = () => {
     try {
-      console.log('Clearing all test data from localStorage...');
+      console.log('Clearing old test data from localStorage (older than 15 days)...');
+      
+      const now = Date.now();
+      const fifteenDaysAgo = now - (15 * 24 * 60 * 60 * 1000); // 15 days in milliseconds
+      const keysToRemove = [];
       
       // Get all localStorage keys
-      const keys = Object.keys(localStorage);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        
+        // Only target test-related keys (but preserve test_completed keys)
+        const isTestKey = (
+          key.startsWith('test_') || 
+          key.startsWith('student_') ||
+          key.startsWith('teacher_') ||
+          key.startsWith('admin_') ||
+          key.includes('progress') ||
+          key.includes('answers')
+        ) && !key.includes('test_completed_'); // Preserve completion keys
+        
+        if (!isTestKey) continue;
+        
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) { 
+            keysToRemove.push(key); 
+            continue; 
+          }
+          
+          // Try to parse JSON with timestamp fields
+          let createdAt = null;
+          if (raw.startsWith('{') || raw.startsWith('[')) {
+            const parsed = JSON.parse(raw);
+            const ts = parsed.timestamp || parsed.lastSaved || parsed.lastTickAt || 
+                     parsed.createdAt || parsed.updatedAt || parsed.startedAt || 
+                     parsed.started_at || parsed.created_at;
+            if (ts) {
+              createdAt = new Date(ts).getTime();
+            }
+          }
+          
+          // Fallback: check for companion timestamp key
+          if (!createdAt) {
+            const tsKey = `${key}__ts`;
+            const tsVal = localStorage.getItem(tsKey);
+            if (tsVal) createdAt = parseInt(tsVal) || null;
+          }
+          
+          // If we can't determine age, skip deletion to be safe
+          if (!createdAt) continue;
+          
+          // Remove if older than 15 days
+          if (createdAt < fifteenDaysAgo) {
+            keysToRemove.push(key);
+          }
+        } catch (e) {
+          // If we can't parse the data, skip it
+          continue;
+        }
+      }
       
-      // Filter keys that are test-related
-      const testKeys = keys.filter(key => 
-        key.startsWith('test_') || 
-        key.startsWith('student_') ||
-        key.startsWith('teacher_') ||
-        key.startsWith('admin_') ||
-        key.includes('progress') ||
-        key.includes('answers') ||
-        key.includes('completed')
-      );
-      
-      // Remove all test-related keys
-      testKeys.forEach(key => {
-        console.log(`Removing localStorage key: ${key}`);
+      // Remove the identified old keys
+      keysToRemove.forEach(key => {
+        console.log(`Removing old localStorage key: ${key}`);
         removeItem(key);
       });
       
-      // Clear React state
-      setCurrentTest(null);
-      setTestQuestions([]);
-      setStudentAnswers({});
-      setTestProgress({});
-      setIsTestActive(false);
-      setTestResults(null);
-      setActiveTests([]);
-      setError(null);
-      
-      console.log(`Cleared ${testKeys.length} test-related items from localStorage`);
-      return { success: true, clearedCount: testKeys.length };
+      console.log(`Cleared ${keysToRemove.length} old test-related items from localStorage`);
+      return { success: true, clearedCount: keysToRemove.length };
     } catch (error) {
-      console.error('Error clearing all test data:', error);
+      console.error('Error clearing old test data:', error);
       return { success: false, error: error.message };
     }
   };

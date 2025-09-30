@@ -1,15 +1,13 @@
 const { neon } = require('@neondatabase/serverless');
-const jwt = require('jsonwebtoken');
 
-exports.handler = async (event, context) => {
+exports.handler = async function(event, context) {
   // Enable CORS
   const headers = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
   };
 
-  // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -27,91 +25,27 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Extract and validate JWT token
-    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const sql = neon(process.env.NEON_DATABASE_URL);
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return {
-        statusCode: 401,
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          success: false,
-          message: 'Authorization header missing or invalid'
-        })
-      };
-    }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    // Get query parameters
+    const { teacher_id, grade, class: className, semester, academic_year } = event.queryStringParameters || {};
     
-    // Verify JWT token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return {
-          statusCode: 401,
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            success: false,
-            message: 'Token expired',
-            error: 'TOKEN_EXPIRED'
-          })
-        };
-      } else {
-        return {
-          statusCode: 401,
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            success: false,
-            message: 'Invalid token'
-          })
-        };
-      }
-    }
-
-    // Validate role - only teachers and admins can access class summaries
-    if (decoded.role !== 'teacher' && decoded.role !== 'admin') {
-      return {
-        statusCode: 403,
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          success: false,
-          message: 'Access denied. Teacher or admin role required.'
-        })
-      };
-    }
-
-    const { teacher_id, grade, class: className, semester, academic_year } = event.queryStringParameters;
-
-    // Validate required parameters
     if (!teacher_id || !grade || !className || !semester || !academic_year) {
       return {
         statusCode: 400,
-        headers,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           success: false,
-          error: 'Missing required parameters: teacher_id, grade, class, semester, academic_year'
+          message: 'Missing required parameters: teacher_id, grade, class, semester, academic_year'
         })
       };
     }
 
-    const sql = neon(process.env.NEON_DATABASE_URL);
-
-    // Query the semester-based materialized view
-    const result = await sql`
+    // Query the materialized view for semester-based class summary
+    const summary = await sql`
       SELECT 
         id,
         teacher_id,
@@ -135,16 +69,19 @@ exports.handler = async (event, context) => {
         updated_at
       FROM class_summary_view 
       WHERE teacher_id = ${teacher_id}
-      AND grade = ${grade}
-      AND class = ${className}
-      AND academic_year = ${academic_year}
-      AND semester = ${parseInt(semester)}
+        AND grade = ${parseInt(grade.replace('M', ''))}
+        AND class = ${parseInt(className)}
+        AND academic_year = ${academic_year}
+        AND semester = ${parseInt(semester)}
     `;
 
-    if (result.length === 0) {
+    if (summary.length === 0) {
       return {
         statusCode: 200,
-        headers,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           success: true,
           summary: null,
@@ -153,46 +90,53 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const summary = result[0];
+    const classSummary = summary[0];
 
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         success: true,
         summary: {
-          id: summary.id,
-          teacher_id: summary.teacher_id,
-          subject_id: summary.subject_id,
-          grade: summary.grade,
-          class: summary.class,
-          academic_year: summary.academic_year,
-          semester: summary.semester,
-          total_students: summary.total_students,
-          total_tests: summary.total_tests,
-          completed_tests: summary.completed_tests,
-          average_class_score: summary.average_class_score,
-          highest_score: summary.highest_score,
-          lowest_score: summary.lowest_score,
-          pass_rate: summary.pass_rate,
-          cheating_incidents: summary.cheating_incidents,
-          high_visibility_change_students: summary.high_visibility_change_students,
-          last_test_date: summary.last_test_date,
-          last_updated: summary.last_updated
+          id: classSummary.id,
+          teacher_id: classSummary.teacher_id,
+          subject_id: classSummary.subject_id,
+          grade: classSummary.grade,
+          class: classSummary.class,
+          academic_year: classSummary.academic_year,
+          semester: classSummary.semester,
+          total_students: classSummary.total_students,
+          total_tests: classSummary.total_tests,
+          completed_tests: classSummary.completed_tests,
+          average_class_score: parseFloat(classSummary.average_class_score) || 0,
+          highest_score: classSummary.highest_score,
+          lowest_score: classSummary.lowest_score,
+          pass_rate: parseFloat(classSummary.pass_rate) || 0,
+          cheating_incidents: classSummary.cheating_incidents,
+          high_visibility_change_students: classSummary.high_visibility_change_students,
+          last_test_date: classSummary.last_test_date,
+          last_updated: classSummary.last_updated,
+          created_at: classSummary.created_at,
+          updated_at: classSummary.updated_at
         }
       })
     };
-
   } catch (error) {
-    console.error('Error fetching class summary:', error);
+    console.error('Get class summary semester error:', error);
     
     return {
       statusCode: 500,
-      headers,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         success: false,
-        error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Failed to retrieve class summary data',
+        error: error.message
       })
     };
   }

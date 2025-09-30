@@ -27,9 +27,10 @@ exports.handler = async (event, context) => {
     
     const sql = neon(process.env.NEON_DATABASE_URL);
     
-    // Get current values first
+    // Get current values and context (student, test, retest)
     const currentResult = await sql`
-      SELECT score, max_score FROM drawing_test_results WHERE id = ${resultId}
+      SELECT id, test_id, student_id, score, max_score, retest_assignment_id, attempt_number
+      FROM drawing_test_results WHERE id = ${resultId}
     `;
     
     if (currentResult.length === 0) {
@@ -39,8 +40,9 @@ exports.handler = async (event, context) => {
       };
     }
     
-    const currentScore = currentResult[0].score;
-    const currentMaxScore = currentResult[0].max_score;
+    const row = currentResult[0];
+    const currentScore = row.score;
+    const currentMaxScore = row.max_score;
     
     // Use provided values or keep current ones
     const newScore = score !== undefined ? score : currentScore;
@@ -61,6 +63,44 @@ exports.handler = async (event, context) => {
           max_score = ${newMaxScore}
       WHERE id = ${resultId}
     `;
+
+    // Compute percentage if possible
+    if (newMaxScore && newMaxScore > 0) {
+      const percentage = Math.round((Number(newScore) / Number(newMaxScore)) * 10000) / 100;
+
+      // Upsert into test_attempts
+      const effectiveParentTestId = row.test_id; // parent or original; we don't persist parent separately
+      const attemptNumber = row.attempt_number || 1;
+      // For retests, we want to create separate records for each attempt
+      // Don't use ON CONFLICT for retests - let each attempt be a separate record
+      if (row.retest_assignment_id) {
+        await sql`
+          INSERT INTO test_attempts (student_id, test_id, attempt_number, score, max_score, percentage, submitted_at, is_completed)
+          VALUES (${row.student_id}, ${effectiveParentTestId}, ${attemptNumber}, ${newScore}, ${newMaxScore}, ${percentage}, NOW(), ${true})
+        `;
+      } else {
+        // For regular tests, use upsert to handle retakes
+        await sql`
+          INSERT INTO test_attempts (student_id, test_id, attempt_number, score, max_score, percentage, submitted_at, is_completed)
+          VALUES (${row.student_id}, ${effectiveParentTestId}, ${attemptNumber}, ${newScore}, ${newMaxScore}, ${percentage}, NOW(), ${true})
+          ON CONFLICT (student_id, test_id, attempt_number)
+          DO UPDATE SET score = EXCLUDED.score, max_score = EXCLUDED.max_score, percentage = EXCLUDED.percentage, submitted_at = EXCLUDED.submitted_at, is_completed = EXCLUDED.is_completed
+        `;
+      }
+
+      // If part of a retest, set target status according to assignment threshold
+      if (row.retest_assignment_id) {
+        // Get threshold
+        const ra = await sql`SELECT passing_threshold FROM retest_assignments WHERE id = ${row.retest_assignment_id}`;
+        const threshold = (ra && ra.length > 0 && ra[0].passing_threshold != null) ? Number(ra[0].passing_threshold) : 50;
+        const passed = percentage >= threshold;
+        await sql`
+          UPDATE retest_targets
+          SET status = ${passed ? 'PASSED' : 'FAILED'}, last_attempt_at = NOW()
+          WHERE retest_assignment_id = ${row.retest_assignment_id} AND student_id = ${row.student_id}
+        `;
+      }
+    }
 
     return {
       statusCode: 200,

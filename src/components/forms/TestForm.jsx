@@ -328,21 +328,6 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
       localStorage.removeItem('test_creation_state');
       localStorage.removeItem('test_creation_form_data');
       
-      // Clear any other test-related data
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('test') || key.includes('form') || key.includes('question'))) {
-          keysToRemove.push(key);
-        }
-      }
-      
-      // Remove the identified keys
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
-        console.log('Cleared additional test data:', key);
-      });
-      
       console.log('Test creation state cleared');
     } catch (error) {
       console.error('Error clearing test creation state:', error);

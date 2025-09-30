@@ -80,6 +80,46 @@ const AdminCabinet = () => {
   // State management
   const { user, isAdmin, logout } = useAuth();
   const { get: apiGet, post: apiPost, delete: apiDelete } = useApi();
+  const handleRefreshClassSummary = useCallback(async () => {
+    try {
+      setNotification({ type: 'info', message: 'Refreshing class summary view...' });
+      const res = await apiPost('/.netlify/functions/refresh-class-summary-semester', {});
+      if (res && (res.success || res.message)) {
+        setNotification({ type: 'success', message: 'Class summary view refreshed.' });
+      } else {
+        setNotification({ type: 'error', message: res?.error || 'Failed to refresh view' });
+      }
+    } catch (e) {
+      setNotification({ type: 'error', message: 'Failed to refresh view' });
+      console.error('Refresh class summary error:', e);
+    }
+  }, [apiPost]);
+
+  const handleCheckOverdueAssignments = useCallback(async () => {
+    try {
+      setNotification({ type: 'info', message: 'Checking for overdue assignments...' });
+      const res = await apiPost('/.netlify/functions/check-overdue-assignments', {});
+      if (res && res.success) {
+        const count = res.overdue_count || 0;
+        if (count > 0) {
+          setNotification({ 
+            type: 'success', 
+            message: `Found and marked ${count} overdue assignments as inactive.` 
+          });
+        } else {
+          setNotification({ 
+            type: 'info', 
+            message: 'No overdue assignments found.' 
+          });
+        }
+      } else {
+        setNotification({ type: 'error', message: res?.error || 'Failed to check assignments' });
+      }
+    } catch (e) {
+      setNotification({ type: 'error', message: 'Failed to check assignments' });
+      console.error('Check overdue assignments error:', e);
+    }
+  }, [apiPost]);
   
   // UI State
   const [isLoading, setIsLoading] = useState(false);
@@ -1327,13 +1367,25 @@ const AdminCabinet = () => {
             <Card className={STYLES.cardContainer}>
               <Card.Header className={STYLES.cardHeader}>
                 <Card.Title className={STYLES.cardTitle}>Teacher Management</Card.Title>
-              </Card.Header>
-              <Card.Body className={STYLES.cardBody}>
-                <div className={STYLES.buttonGroup}>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={handleRefreshClassSummary}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs whitespace-nowrap"
+                    title="Refresh materialized class summary view"
+                  >
+                    Refresh Class Summary View
+                  </button>
+                  <button
+                    onClick={handleCheckOverdueAssignments}
+                    className="px-3 py-1.5 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-xs whitespace-nowrap"
+                    title="Check and mark overdue assignments (7+ days old) as inactive"
+                  >
+                    Check Overdue Assignments
+                  </button>
                   <Button 
                     variant="primary" 
                     onClick={() => setShowTeacherForm(true)}
-                    className={STYLES.buttonPrimary}
+                    className="text-xs whitespace-nowrap"
                   >
                     Add Teacher
                   </Button>
@@ -1343,11 +1395,13 @@ const AdminCabinet = () => {
                       loadTeachersList();
                       setShowTeachersTable(!showTeachersTable);
                     }}
-                    className={STYLES.buttonSecondary}
+                    className="text-xs whitespace-nowrap"
                   >
                     {showTeachersTable ? 'Hide Teachers Table' : 'Get All Teachers ▶'}
                   </Button>
-                      </div>
+                </div>
+              </Card.Header>
+              <Card.Body className={STYLES.cardBody}>
             
                       {/* Add Teacher Form */}
                       <AnimatePresence>

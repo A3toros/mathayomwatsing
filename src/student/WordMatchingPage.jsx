@@ -28,8 +28,10 @@ const WordMatchingPage = () => {
   // Check if test is already completed
   const checkTestCompleted = useCallback(() => {
     if (!user?.student_id || !testId) return false;
-    
     const completionKey = `test_completed_${user.student_id}_word_matching_${testId}`;
+    const retestKey = `retest1_${user.student_id}_word_matching_${testId}`;
+    const hasRetest = localStorage.getItem(retestKey) === 'true';
+    if (hasRetest) return false; // allow entry during retest
     return localStorage.getItem(completionKey) === 'true';
   }, [user?.student_id, testId]);
 
@@ -60,7 +62,19 @@ const WordMatchingPage = () => {
         console.log('🎯 Word matching test loaded from cache:', cachedData);
         // Check if cached data has the processed format (with id field)
         if (cachedData.id) {
-          setTestData(cachedData);
+          let dataToUse = cachedData;
+          if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
+            const indices = dataToUse.rightWords.map((_, idx) => idx);
+            for (let i = indices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            const shuffledRight = indices.map(i => dataToUse.rightWords[i]);
+            const newIndexOf = new Map(indices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+            const remappedPairs = dataToUse.correctPairs.map((rightIdx) => newIndexOf.get(rightIdx));
+            dataToUse = { ...dataToUse, rightWords: shuffledRight, correctPairs: remappedPairs };
+          }
+          setTestData(dataToUse);
         } else {
           // Process cached data to match new format
           const processedCachedData = {
@@ -79,7 +93,19 @@ const WordMatchingPage = () => {
             correctPairs: cachedData.correctPairs,
             originalPairs: cachedData.originalPairs
           };
-          setTestData(processedCachedData);
+          let dataToUse = processedCachedData;
+          if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
+            const indices = dataToUse.rightWords.map((_, idx) => idx);
+            for (let i = indices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            const shuffledRight = indices.map(i => dataToUse.rightWords[i]);
+            const newIndexOf = new Map(indices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+            const remappedPairs = dataToUse.correctPairs.map((rightIdx) => newIndexOf.get(rightIdx));
+            dataToUse = { ...dataToUse, rightWords: shuffledRight, correctPairs: remappedPairs };
+          }
+          setTestData(dataToUse);
         }
         setIsLoading(false);
         return;
@@ -108,9 +134,21 @@ const WordMatchingPage = () => {
           originalPairs: result.data.originalPairs
         };
         
-        setTestData(processedTestData);
-        // Cache the processed test data
-        setCachedData(cacheKey, processedTestData, CACHE_TTL.word_matching_test);
+        let dataToUse = processedTestData;
+        if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
+          const indices = dataToUse.rightWords.map((_, idx) => idx);
+          for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+          }
+          const shuffledRight = indices.map(i => dataToUse.rightWords[i]);
+          const newIndexOf = new Map(indices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+          const remappedPairs = dataToUse.correctPairs.map((rightIdx) => newIndexOf.get(rightIdx));
+          dataToUse = { ...dataToUse, rightWords: shuffledRight, correctPairs: remappedPairs };
+        }
+        setTestData(dataToUse);
+        // Cache the processed (shuffled) test data
+        setCachedData(cacheKey, dataToUse, CACHE_TTL.word_matching_test);
         console.log('🎯 Word matching test loaded from API and cached:', processedTestData);
       } else {
         throw new Error(result.message || 'Failed to load test');
@@ -247,13 +285,9 @@ const WordMatchingPage = () => {
             navigate('/student');
           }}
           onRetakeTest={(testType, testId) => {
-            // Clear completion status to allow retake
-            const studentId = user?.student_id || user?.id || '';
-            const completedKey = `test_completed_${studentId}_${testType}_${testId}`;
-            localStorage.removeItem(completedKey);
+            // Do not clear completion keys; rely on backend retest availability
             setTestResults(null);
             setShowResults(false);
-            // Reload test data
             loadTestData();
           }}
           isLoading={false}

@@ -7,6 +7,7 @@ import { useTest } from '@/contexts/TestContext';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { Notification } from '@/components/ui/components-ui-index';
 import { userService } from '@/services/userService';
 import { testService } from '@/services/testService';
 import { TestResults, TestDetailsModal } from '@/components/test/components-test-index';
@@ -144,6 +145,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       
       // Load active tests
       console.log('🎓 Loading active tests...');
+      // Bust cache so newly created retests (retest_available) appear immediately
+      try { localStorage.removeItem('student_active_tests_'); } catch (e) { /* ignore */ }
       await loadActiveTests();
       
       // Load test results
@@ -164,6 +167,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     }
   }, [isAuthenticated, user, navigate]);
   
+  // Removed local retest key logic; rely solely on backend retest_available
+
   // Enhanced calculateAverageScore from legacy code - ENHANCED FOR NEW STRUCTURE
   const calculateAverageScore = useCallback(async () => {
     console.log('🎓 Calculating average score...');
@@ -193,8 +198,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       return;
     }
     
+    // Wait for student ID to be available
+    const studentId = user?.student_id || user?.id;
+    if (!studentId) {
+      console.log('🎓 Student ID not available yet, skipping localStorage initialization');
+      return;
+    }
+    
     const completed = new Set();
-    const studentId = user?.student_id || user?.id || '';
     
     // Check localStorage for test completion keys (new format only)
     for (let i = 0; i < localStorage.length; i++) {
@@ -246,11 +257,39 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   }, [testResults, user?.student_id, user?.id]);
   
   // Enhanced checkTestCompleted - check both localStorage AND database results
-  const checkTestCompleted = useCallback(async (testType, testId) => {
-    console.log('🎓 Checking test completion:', testType, testId);
+  const checkTestCompleted = useCallback(async (testType, testId, retestAvailable = false, testData = null) => {
+    console.log('🎓 Checking test completion:', testType, testId, 'retestAvailable:', retestAvailable);
     try {
       const studentId = user?.student_id || user?.id || '';
       
+      // If retest is available from backend, check attempt limits
+      if (retestAvailable) {
+        console.log('🎓 Retest available from backend, checking attempt limits.');
+        
+        // Check localStorage attempt tracking with descriptive keys
+        const attemptKeys = [];
+        for (let i = 1; i <= 10; i++) { // Check up to 10 attempts
+          const key = `retest_attempt${i}_${studentId}_${testType}_${testId}`;
+          if (localStorage.getItem(key) === 'true') {
+            attemptKeys.push(key);
+          }
+        }
+        const currentAttempts = attemptKeys.length;
+        
+        // Get max attempts from the test data (passed from backend)
+        const maxAttempts = testData?.retest_attempts_left || testData?.max_attempts || 3;
+        
+        console.log('🎓 Current attempts:', currentAttempts, 'Max attempts:', maxAttempts, 'Attempt keys:', attemptKeys);
+        
+        if (currentAttempts >= maxAttempts) {
+          console.log('🎓 Maximum retest attempts reached in localStorage');
+          return true; // Consider "completed" to block further attempts
+        }
+        
+        console.log('🎓 Retest attempts available, allowing start.');
+        return false; // Not considered "completed" for the purpose of starting a retest
+      }
+
       // Check new format: test_completed_${studentId}_${testType}_${testId}
       const localKey = `test_completed_${studentId}_${testType}_${testId}`;
       const localStatus = localStorage.getItem(localKey);
@@ -331,11 +370,24 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   const startTest = useCallback((test) => {
     console.log('🎓 Starting test:', test);
     
-    // Check if test is already completed
+    // Check if test is already completed (but allow retests)
     const testKey = `${test.test_type}_${test.test_id}`;
-    if (completedTests.has(testKey)) {
+    if (completedTests.has(testKey) && !test?.retest_available) {
       showNotification('This test has already been completed', 'warning');
       return;
+    }
+    
+    // Set retest1_ key if this is a retest AND the test is not already completed
+    if (test?.retest_available && !completedTests.has(testKey)) {
+      const studentId = user?.student_id || user?.id || '';
+      const retestKey = `retest1_${studentId}_${test.test_type}_${test.test_id}`;
+      localStorage.setItem(retestKey, 'true');
+      console.log('🎓 Set retest key:', retestKey);
+      // Persist retest assignment id for the test page to submit properly
+      if (test?.retest_assignment_id) {
+        const retestAssignKey = `retest_assignment_id_${studentId}_${test.test_type}_${test.test_id}`;
+        localStorage.setItem(retestAssignKey, String(test.retest_assignment_id));
+      }
     }
     
     // Show loading overlay
@@ -361,7 +413,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     
     // Don't clear isStartingTest - let navigation handle it
     // The overlay will persist until the component unmounts
-  }, [navigate, completedTests, showNotification]);
+  }, [navigate, completedTests, showNotification, user?.student_id, user?.id]);
   
   // Toggle show all tests
   const toggleShowAllTests = useCallback(() => {
@@ -383,13 +435,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       return;
     }
     
-    try {
-      // Check if test is already completed (for ALL test types including matching)
-      const isCompleted = await checkTestCompleted(test.test_type, test.test_id);
-      if (isCompleted) {
-        showNotification('This test has already been completed', 'warning');
-        return;
-      }
+        try {
+          // Check if test is already completed (for ALL test types including matching)
+          const isCompleted = await checkTestCompleted(test.test_type, test.test_id, test?.retest_available, test);
+          // Strict: block when completed unless backend explicitly exposes retest_available
+          if (isCompleted && !test?.retest_available) {
+            showNotification('This test has already been completed', 'warning');
+            return;
+          }
       
       // Start the test (this handles the overlay like matching tests)
       startTest(test);
@@ -689,7 +742,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                               {(() => {
                                 const testKey = `${test.test_type}_${test.test_id}`;
                                 const isCompleted = completedTests.has(testKey);
-                                
+
                                 // Show loading state while completion status is being determined
                                 if (!isCompletionStatusLoaded) {
                                   return (
@@ -703,7 +756,21 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                     </Button>
                                   );
                                 }
-                                
+
+                                // Allow retest start even if completed, when backend flags retest_available
+                                if (isCompleted && test?.retest_available) {
+                                  return (
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      onClick={() => handleTestStart(test)}
+                                      disabled={isStartingTest}
+                                    >
+                                      Start Retest
+                                    </Button>
+                                  );
+                                }
+
                                 if (isCompleted) {
                                   return (
                                     <Button
@@ -715,19 +782,19 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                       ✓ Completed
                                     </Button>
                                   );
-                                } else {
-                                  console.log('🎓 Button render, isStartingTest:', isStartingTest, 'test:', test.test_type);
-                                  return (
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={() => handleTestStart(test)}
-                                      disabled={isStartingTest}
-                                    >
-                                      Start Test
-                                    </Button>
-                                  );
                                 }
+
+                                console.log('🎓 Button render, isStartingTest:', isStartingTest, 'test:', test.test_type);
+                                return (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => handleTestStart(test)}
+                                    disabled={isStartingTest}
+                                  >
+                                    Start Test
+                                  </Button>
+                                );
                               })()}
                             </div>
                           </div>
@@ -789,13 +856,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         setTestResults(null);
                       }}
                       onRetakeTest={(testType, testId) => {
-                        // Clear completion status to allow retake (with student ID)
-                        const studentId = user?.student_id || user?.id || '';
-                        const completedKey = `test_completed_${studentId}_${testType}_${testId}`;
-                        localStorage.removeItem(completedKey);
-                        // Reload active tests
+                        // Rely on backend retest_available; do not clear completion keys
                         loadActiveTests();
-                        // Clear test results
                         setTestResults(null);
                       }}
                       isLoading={isLoading}
@@ -828,25 +890,16 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       
       {/* Notifications */}
       <div className="fixed top-4 right-4 space-y-2 z-50">
-        <AnimatePresence>
-          {notifications.map(notification => (
-            <motion.div
-              key={notification.id}
-              initial={{ opacity: 0, x: 300, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 300, scale: 0.8 }}
-              transition={{ duration: 0.3, type: "spring" }}
-            >
-              <Notification
-                type={notification.type}
-                message={notification.message}
-                onClose={() => setNotifications(prev => 
-                  prev.filter(n => n.id !== notification.id)
-                )}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {notifications.map(notification => (
+          <Notification
+            key={notification.id}
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotifications(prev => 
+              prev.filter(n => n.id !== notification.id)
+            )}
+          />
+        ))}
       </div>
     </motion.div>
   );

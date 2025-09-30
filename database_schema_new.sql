@@ -1295,3 +1295,673 @@ SELECT
     'All tables recreated with standard schema' as message,
     'WARNING: All existing Fill Blanks data has been deleted' as warning;
 
+-- ========================================
+-- SEMESTER-LEVEL CLASS SUMMARY MATERIALIZED VIEW
+-- ========================================
+
+-- Drop the existing materialized view
+DROP MATERIALIZED VIEW IF EXISTS class_summary_view CASCADE;
+
+-- Create the new semester-based materialized view
+CREATE MATERIALIZED VIEW class_summary_view AS
+WITH all_test_results AS (
+    -- Multiple Choice Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM multiple_choice_test_results
+
+    UNION ALL
+
+    -- True/False Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM true_false_test_results
+
+    UNION ALL
+
+    -- Input Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM input_test_results
+
+    UNION ALL
+
+    -- Matching Type Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM matching_type_test_results
+
+    UNION ALL
+
+    -- Word Matching Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM word_matching_test_results
+
+    UNION ALL
+
+    -- Drawing Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM drawing_test_results
+
+    UNION ALL
+
+    -- Fill Blanks Test Results
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_period_id,
+        test_id,
+        test_name,
+        student_id,
+        score,
+        max_score,
+        percentage as percentage,
+        submitted_at,
+        caught_cheating,
+        visibility_change_times,
+        is_completed
+    FROM fill_blanks_test_results
+),
+semester_mapping AS (
+    -- Map academic_period_id to semester and academic_year
+    -- Get ALL terms in the current semester (both term1 and term2)
+    SELECT 
+        ay.id as academic_period_id,
+        ay.academic_year,
+        ay.semester,
+        ay.start_date,
+        ay.end_date
+    FROM academic_year ay
+    WHERE ay.semester = (
+        -- Get semester from current term
+        SELECT semester 
+        FROM academic_year 
+        WHERE CURRENT_DATE BETWEEN start_date AND end_date
+    )
+),
+semester_results AS (
+    -- Join test results with semester mapping
+    SELECT 
+        atr.*,
+        sm.academic_year,
+        sm.semester,
+        sm.start_date as semester_start,
+        sm.end_date as semester_end
+    FROM all_test_results atr
+    JOIN semester_mapping sm ON atr.academic_period_id = sm.academic_period_id
+),
+class_stats AS (
+    SELECT 
+        teacher_id,
+        subject_id,
+        grade,
+        class,
+        academic_year,
+        semester,
+        
+        -- Student counts
+        COUNT(DISTINCT student_id) as total_students,
+        
+        -- Test counts  
+        COUNT(DISTINCT test_id) as total_tests,
+        COUNT(*) as completed_tests,
+        
+        -- Score statistics
+        ROUND(AVG(percentage), 2) as average_class_score,
+        MAX(score) as highest_score,
+        MIN(score) as lowest_score,
+        
+        -- Performance metrics
+        ROUND(
+            (COUNT(CASE WHEN percentage >= 60 THEN 1 END)::DECIMAL / COUNT(*)) * 100, 2
+        ) as pass_rate,
+        
+        -- Cheating incidents
+        COUNT(CASE WHEN caught_cheating = true THEN 1 END) as cheating_incidents,
+        COUNT(CASE WHEN visibility_change_times > 5 THEN 1 END) as high_visibility_change_students,
+        
+        -- Recent activity
+        MAX(submitted_at) as last_test_date,
+        CURRENT_TIMESTAMP as last_updated
+        
+    FROM semester_results
+    GROUP BY teacher_id, subject_id, grade, class, academic_year, semester
+)
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY teacher_id, subject_id, grade, class, academic_year, semester) as id,
+    teacher_id,
+    subject_id,
+    grade,
+    class,
+    academic_year,
+    semester,
+    total_students,
+    total_tests,
+    completed_tests,
+    average_class_score,
+    highest_score,
+    lowest_score,
+    pass_rate,
+    cheating_incidents,
+    high_visibility_change_students,
+    last_test_date,
+    last_updated,
+    CURRENT_TIMESTAMP as created_at,
+    CURRENT_TIMESTAMP as updated_at
+FROM class_stats;
+
+-- Create indexes for performance on underlying tables
+CREATE INDEX IF NOT EXISTS idx_mc_results_teacher_grade_class_period 
+ON multiple_choice_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_tf_results_teacher_grade_class_period 
+ON true_false_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_input_results_teacher_grade_class_period 
+ON input_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_matching_results_teacher_grade_class_period 
+ON matching_type_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_word_matching_results_teacher_grade_class_period 
+ON word_matching_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_drawing_results_teacher_grade_class_period 
+ON drawing_test_results(teacher_id, grade, class, academic_period_id);
+
+CREATE INDEX IF NOT EXISTS idx_fill_blanks_results_teacher_grade_class_period 
+ON fill_blanks_test_results(teacher_id, grade, class, academic_period_id);
+
+-- Add indexes for completion status and cheating detection
+CREATE INDEX IF NOT EXISTS idx_mc_results_completed_cheating 
+ON multiple_choice_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_tf_results_completed_cheating 
+ON true_false_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_input_results_completed_cheating 
+ON input_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_matching_results_completed_cheating 
+ON matching_type_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_word_matching_results_completed_cheating 
+ON word_matching_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_drawing_results_completed_cheating 
+ON drawing_test_results(is_completed, caught_cheating, visibility_change_times);
+
+CREATE INDEX IF NOT EXISTS idx_fill_blanks_results_completed_cheating 
+ON fill_blanks_test_results(caught_cheating, visibility_change_times);
+
+-- Create indexes on the materialized view for fast queries
+CREATE INDEX IF NOT EXISTS idx_class_summary_teacher ON class_summary_view(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_class_summary_subject ON class_summary_view(subject_id);
+CREATE INDEX IF NOT EXISTS idx_class_summary_class ON class_summary_view(grade, class);
+CREATE INDEX IF NOT EXISTS idx_class_summary_semester ON class_summary_view(academic_year, semester);
+
+-- Refresh the materialized view (run this after creating)
+REFRESH MATERIALIZED VIEW class_summary_view;
+
+
+DELETE FROM teacher_subjects 
+WHERE id NOT IN (
+    SELECT MIN(id) 
+    FROM teacher_subjects 
+    GROUP BY teacher_id, subject_id, grade, class
+);
+
+-- Add the unique constraint
+ALTER TABLE teacher_subjects 
+ADD CONSTRAINT unique_teacher_subject_grade_class 
+UNIQUE (teacher_id, subject_id, grade, class);
+
+-- Create an index for better performance on lookups
+CREATE INDEX IF NOT EXISTS idx_teacher_subjects_unique_lookup 
+ON teacher_subjects (teacher_id, subject_id, grade, class);
+
+-- Retests feature schema
+-- Implements targeted retests per RETESTS_IMPLEMENTATION_PLAN.md
+-- Note: We use (test_type, test_id) instead of a single FK to a tests table
+-- because tests are stored across multiple tables (multiple_choice, true_false, input, drawing, etc.).
+
+BEGIN;
+
+-- Table: retest_assignments
+-- Defines a retest window and policy for a subset of students on a specific original test
+CREATE TABLE IF NOT EXISTS retest_assignments (
+  id SERIAL PRIMARY KEY,
+  test_type VARCHAR(20) NOT NULL,                 -- e.g. 'multiple_choice', 'true_false', 'input', 'drawing', 'matching_type', 'word_matching'
+  test_id INTEGER NOT NULL,                       -- original test id in its own table
+  teacher_id VARCHAR(50) NOT NULL REFERENCES teachers(teacher_id),
+  subject_id INTEGER NOT NULL REFERENCES subjects(subject_id),
+  grade INTEGER NOT NULL,
+  class INTEGER NOT NULL,
+  passing_threshold DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+  scoring_policy VARCHAR(10) NOT NULL DEFAULT 'BEST', -- BEST|LATEST|AVERAGE
+  max_attempts INTEGER NOT NULL DEFAULT 1,
+  window_start TIMESTAMP NOT NULL,
+  window_end TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_scoring_policy CHECK (scoring_policy IN ('BEST','LATEST','AVERAGE')),
+  CONSTRAINT chk_window CHECK (window_end > window_start),
+  CONSTRAINT chk_grade_pos CHECK (grade > 0),
+  CONSTRAINT chk_class_pos CHECK (class > 0)
+);
+
+-- Helpful indexes for querying active windows and teacher/subject filters
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_teacher ON retest_assignments(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_subject ON retest_assignments(subject_id);
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_test ON retest_assignments(test_type, test_id);
+-- Active window partial index (only rows whose window is currently active)
+-- Note: Avoid partial index using NOW() (not IMMUTABLE). Use regular indexes instead.
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_window_start ON retest_assignments(window_start);
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_window_end ON retest_assignments(window_end);
+CREATE INDEX IF NOT EXISTS idx_retest_assignments_window_range ON retest_assignments(window_start, window_end);
+
+
+-- Table: retest_targets
+-- Per-student targeting for a given retest assignment
+CREATE TABLE IF NOT EXISTS retest_targets (
+  id SERIAL PRIMARY KEY,
+  retest_assignment_id INTEGER NOT NULL REFERENCES retest_assignments(id) ON DELETE CASCADE,
+  student_id VARCHAR(10) NOT NULL REFERENCES users(student_id),
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_attempt_at TIMESTAMP,
+  status VARCHAR(12) NOT NULL DEFAULT 'PENDING', -- PENDING|IN_PROGRESS|PASSED|FAILED|EXPIRED
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_retest_status CHECK (status IN ('PENDING','IN_PROGRESS','PASSED','FAILED','EXPIRED')),
+  CONSTRAINT uq_retest_target UNIQUE (retest_assignment_id, student_id)
+);
+
+-- Indexes for common lookups
+CREATE INDEX IF NOT EXISTS idx_retest_targets_assignment ON retest_targets(retest_assignment_id);
+CREATE INDEX IF NOT EXISTS idx_retest_targets_student ON retest_targets(student_id);
+CREATE INDEX IF NOT EXISTS idx_retest_targets_status ON retest_targets(status);
+
+
+-- Optional: augment existing results tables to carry retest metadata directly (uncomment as needed)
+-- This improves analytics/join performance but is not strictly required if using test_attempts as the linkage.
+--
+ALTER TABLE multiple_choice_test_results 
+ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_mc_retest_assignment_student 
+ON multiple_choice_test_results(retest_assignment_id, student_id);
+--
+ALTER TABLE true_false_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_tf_retest_assignment_student 
+  ON true_false_test_results(retest_assignment_id, student_id);
+
+ALTER TABLE input_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_input_retest_assignment_student 
+  ON input_test_results(retest_assignment_id, student_id);
+
+-- Add for matching type, word matching, fill blanks, drawing
+ALTER TABLE matching_type_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_match_retest_assignment_student 
+  ON matching_type_test_results(retest_assignment_id, student_id);
+
+ALTER TABLE word_matching_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_wordmatch_retest_assignment_student 
+  ON word_matching_test_results(retest_assignment_id, student_id);
+
+ALTER TABLE fill_blanks_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_fillblanks_retest_assignment_student 
+  ON fill_blanks_test_results(retest_assignment_id, student_id);
+
+ALTER TABLE drawing_test_results 
+  ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER;
+CREATE INDEX IF NOT EXISTS idx_drawing_retest_assignment_student 
+  ON drawing_test_results(retest_assignment_id, student_id);
+
+
+-- Notes:
+-- 1) Submission handlers should update retest_targets.attempt_count/last_attempt_at/status
+--    and insert into test_attempts with the computed attempt_number.
+-- 2) Semester/class summary views can derive is_retest as (attempt_count > 0 for that test)
+--    or by checking presence of retest_assignment_id in result tables if columns are added.
+
+COMMIT;
+
+
+-- Enhance test_attempts table to store detailed retest data
+-- This allows us to store all retest information in one table instead of duplicating in test result tables
+
+-- Add columns for detailed retest data
+ALTER TABLE test_attempts 
+ADD COLUMN IF NOT EXISTS answers JSONB,
+ADD COLUMN IF NOT EXISTS answers_by_id JSONB,
+ADD COLUMN IF NOT EXISTS question_order JSONB,
+ADD COLUMN IF NOT EXISTS caught_cheating BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS visibility_change_times INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS retest_assignment_id INTEGER,
+ADD COLUMN IF NOT EXISTS test_name VARCHAR(255),
+ADD COLUMN IF NOT EXISTS teacher_id VARCHAR(255),
+ADD COLUMN IF NOT EXISTS subject_id INTEGER,
+ADD COLUMN IF NOT EXISTS grade INTEGER,
+ADD COLUMN IF NOT EXISTS class INTEGER,
+ADD COLUMN IF NOT EXISTS number INTEGER,
+ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+ADD COLUMN IF NOT EXISTS surname VARCHAR(255),
+ADD COLUMN IF NOT EXISTS nickname VARCHAR(255),
+ADD COLUMN IF NOT EXISTS academic_period_id INTEGER;
+
+-- Add foreign key constraints
+ALTER TABLE test_attempts 
+ADD CONSTRAINT fk_test_attempts_retest_assignment 
+FOREIGN KEY (retest_assignment_id) REFERENCES retest_assignments(id) ON DELETE CASCADE;
+
+ALTER TABLE test_attempts 
+ADD CONSTRAINT fk_test_attempts_subject 
+FOREIGN KEY (subject_id) REFERENCES subjects(subject_id) ON DELETE CASCADE;
+
+ALTER TABLE test_attempts 
+ADD CONSTRAINT fk_test_attempts_academic_period 
+FOREIGN KEY (academic_period_id) REFERENCES academic_year(id) ON DELETE CASCADE;
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_test_attempts_retest_assignment ON test_attempts(retest_assignment_id);
+CREATE INDEX IF NOT EXISTS idx_test_attempts_subject ON test_attempts(subject_id);
+CREATE INDEX IF NOT EXISTS idx_test_attempts_academic_period ON test_attempts(academic_period_id);
+CREATE INDEX IF NOT EXISTS idx_test_attempts_teacher ON test_attempts(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_test_attempts_grade_class ON test_attempts(grade, class);
+
+-- Add comments for documentation
+COMMENT ON COLUMN test_attempts.answers IS 'Student answers for this attempt (JSON format)';
+COMMENT ON COLUMN test_attempts.answers_by_id IS 'Student answers organized by question ID (JSON format)';
+COMMENT ON COLUMN test_attempts.question_order IS 'Order of questions as presented to student (JSON format)';
+COMMENT ON COLUMN test_attempts.caught_cheating IS 'Whether student was caught cheating during this attempt';
+COMMENT ON COLUMN test_attempts.visibility_change_times IS 'Number of times student changed tab/window visibility';
+COMMENT ON COLUMN test_attempts.retest_assignment_id IS 'ID of retest assignment if this is a retest attempt';
+COMMENT ON COLUMN test_attempts.test_name IS 'Name of the test';
+COMMENT ON COLUMN test_attempts.teacher_id IS 'ID of the teacher who created the test';
+COMMENT ON COLUMN test_attempts.subject_id IS 'ID of the subject';
+COMMENT ON COLUMN test_attempts.grade IS 'Student grade level';
+COMMENT ON COLUMN test_attempts.class IS 'Student class number';
+COMMENT ON COLUMN test_attempts.number IS 'Student number in class';
+COMMENT ON COLUMN test_attempts.name IS 'Student first name';
+COMMENT ON COLUMN test_attempts.surname IS 'Student last name';
+COMMENT ON COLUMN test_attempts.nickname IS 'Student nickname';
+COMMENT ON COLUMN test_attempts.academic_period_id IS 'ID of the academic period when test was taken';
+
+-- Retest best-attempt index and retest_offered flags for all result tables
+-- Safe to run multiple times (IF NOT EXISTS used where applicable)
+
+BEGIN;
+
+-- Best-attempt index only (keep everything else unchanged)
+CREATE INDEX IF NOT EXISTS idx_test_attempts_best_pointer
+ON test_attempts (
+  student_id,
+  test_id,
+  percentage DESC,
+  attempt_number DESC
+)
+INCLUDE (score, max_score, submitted_at)
+WHERE retest_assignment_id IS NOT NULL;
+
+-- Optional: per-result-row linkage to the best retest attempt (pointer only)
+-- Adds a nullable column to each results table to store the chosen best retest attempt id
+-- No triggers here; you can set this from the API when computing best attempt
+
+ALTER TABLE multiple_choice_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_mc_best_retest_attempt ON multiple_choice_test_results(best_retest_attempt_id);
+
+ALTER TABLE true_false_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_tf_best_retest_attempt ON true_false_test_results(best_retest_attempt_id);
+
+ALTER TABLE input_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_input_best_retest_attempt ON input_test_results(best_retest_attempt_id);
+
+ALTER TABLE matching_type_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_mt_best_retest_attempt ON matching_type_test_results(best_retest_attempt_id);
+
+ALTER TABLE word_matching_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_wm_best_retest_attempt ON word_matching_test_results(best_retest_attempt_id);
+
+ALTER TABLE drawing_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_drawing_best_retest_attempt ON drawing_test_results(best_retest_attempt_id);
+
+ALTER TABLE fill_blanks_test_results
+  ADD COLUMN IF NOT EXISTS best_retest_attempt_id bigint;
+CREATE INDEX IF NOT EXISTS idx_fb_best_retest_attempt ON fill_blanks_test_results(best_retest_attempt_id);
+
+-- Minimal in-table flag: teacher-offered retest marker (default false)
+ALTER TABLE multiple_choice_test_results  ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE true_false_test_results       ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE input_test_results            ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE matching_type_test_results    ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE word_matching_test_results    ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE drawing_test_results          ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+ALTER TABLE fill_blanks_test_results      ADD COLUMN IF NOT EXISTS retest_offered boolean NOT NULL DEFAULT false;
+
+-- Utility: mark or clear the teacher-offered retest flag across all result tables
+CREATE OR REPLACE FUNCTION set_retest_offered(p_student_id text, p_test_id integer, p_flag boolean DEFAULT true)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE multiple_choice_test_results  SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE true_false_test_results       SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE input_test_results            SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE matching_type_test_results    SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE word_matching_test_results    SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE drawing_test_results          SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE fill_blanks_test_results      SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+END;
+$$;
+
+COMMIT;
+
+
+-- Compute-and-persist best retest attempt pointer into results tables
+-- Safe to run multiple times; uses CREATE OR REPLACE
+
+BEGIN;
+
+-- Helper index (idempotent). If it's already created elsewhere, this will be a no-op.
+CREATE INDEX IF NOT EXISTS idx_test_attempts_best_pointer
+ON test_attempts (
+  student_id,
+  test_id,
+  percentage DESC,
+  attempt_number DESC
+)
+INCLUDE (id, score, max_score, submitted_at)
+WHERE retest_assignment_id IS NOT NULL;
+
+-- Function: update_best_retest_pointer
+-- Picks the best retest attempt for the (student_id, test_id) and writes its id
+-- into best_retest_attempt_id across the results tables.
+-- Persist best retest SCORE/MAX/PERCENTAGE into results tables (not just an attempt id)
+-- Safe and idempotent: adds columns if missing and provides a single function to update them.
+
+BEGIN;
+
+-- Add best_retest_* columns to all results tables
+ALTER TABLE multiple_choice_test_results  ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE multiple_choice_test_results  ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE multiple_choice_test_results  ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE true_false_test_results       ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE true_false_test_results       ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE true_false_test_results       ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE input_test_results            ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE input_test_results            ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE input_test_results            ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE matching_type_test_results    ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE matching_type_test_results    ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE matching_type_test_results    ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE word_matching_test_results    ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE word_matching_test_results    ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE word_matching_test_results    ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE drawing_test_results          ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE drawing_test_results          ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE drawing_test_results          ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+ALTER TABLE fill_blanks_test_results      ADD COLUMN IF NOT EXISTS best_retest_score integer;
+ALTER TABLE fill_blanks_test_results      ADD COLUMN IF NOT EXISTS best_retest_max_score integer;
+ALTER TABLE fill_blanks_test_results      ADD COLUMN IF NOT EXISTS best_retest_percentage numeric;
+
+-- Helper function: compute best retest attempt and persist values into corresponding results row(s)
+CREATE OR REPLACE FUNCTION update_best_retest_values(p_student_id text, p_test_id integer)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  v_score integer;
+  v_max   integer;
+  v_pct   numeric;
+BEGIN
+  SELECT ta.score, ta.max_score, ta.percentage
+  INTO v_score, v_max, v_pct
+  FROM test_attempts ta
+  WHERE ta.student_id = p_student_id
+    AND ta.test_id = p_test_id
+    AND ta.retest_assignment_id IS NOT NULL
+  ORDER BY ta.percentage DESC NULLS LAST, ta.attempt_number DESC
+  LIMIT 1;
+
+  -- If no retest attempts exist, do nothing (preserve existing values)
+  IF v_score IS NOT NULL THEN
+    UPDATE multiple_choice_test_results  SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE true_false_test_results       SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE input_test_results            SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE matching_type_test_results    SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE word_matching_test_results    SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE drawing_test_results          SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+    UPDATE fill_blanks_test_results      SET best_retest_score = v_score, best_retest_max_score = v_max, best_retest_percentage = v_pct WHERE student_id = p_student_id AND test_id = p_test_id;
+  END IF;
+END;
+$$;
+
+COMMIT;
+
+
+ALTER TABLE retest_targets
+  ADD COLUMN IF NOT EXISTS status VARCHAR(12) NOT NULL DEFAULT 'PENDING';
+
+CREATE INDEX IF NOT EXISTS idx_retest_targets_status ON retest_targets(status);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_retest_status'
+      AND conrelid = 'retest_targets'::regclass
+  ) THEN
+    ALTER TABLE retest_targets
+      ADD CONSTRAINT chk_retest_status
+      CHECK (status IN ('PENDING','IN_PROGRESS','PASSED','FAILED','EXPIRED'));
+  END IF;
+END$$;
+
+

@@ -584,12 +584,15 @@ const MatchingTestStudent = ({
       console.log('🛡️ Anti-cheating data for submission:', cheatingData);
       
       // Prepare submission data
+      const studentId = user.student_id;
+      const retestAssignKey = `retest_assignment_id_${studentId}_matching_type_${testData.id}`;
+      const retestAssignmentId = localStorage.getItem(retestAssignKey);
       const submissionData = {
         test_id: testData.id,
         test_name: testData.test_name,
         teacher_id: testData.teacher_id || null,
         subject_id: testData.subject_id || null,
-        student_id: user.student_id,
+        student_id: studentId,
         answers: placedWords,
         score: score,
         maxScore: maxScore,
@@ -598,7 +601,10 @@ const MatchingTestStudent = ({
         submitted_at: endTime.toISOString(),
         // Add anti-cheating data
         caught_cheating: cheatingData.caught_cheating,
-        visibility_change_times: cheatingData.visibility_change_times
+        visibility_change_times: cheatingData.visibility_change_times,
+        // Retest fields (to allow backend to close retest on PASS)
+        retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
+        parent_test_id: testData.id
       };
       
       
@@ -639,6 +645,10 @@ const MatchingTestStudent = ({
           setCachedData(cacheKey, result, CACHE_TTL.student_results_table);
           console.log('🎓 Test results cached with key:', cacheKey);
         }
+        // Clear retest key to prevent further starts
+        const retestKey = `retest1_${studentId}_matching_type_${testData.id}`;
+        localStorage.removeItem(retestKey);
+        localStorage.removeItem(retestAssignKey);
         
         if (onTestComplete) {
           onTestComplete(score);
