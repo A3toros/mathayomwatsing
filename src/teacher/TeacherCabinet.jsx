@@ -128,6 +128,14 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [resultsViewKey, setResultsViewKey] = useState(0);
   
+  // Password change states
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  
   // Subject selection states
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -158,6 +166,81 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUserMenu, showMobileMenu]);
+
+  // Password change functions
+  const showChangePasswordTab = useCallback(() => {
+    console.log('🔧 showChangePasswordTab called');
+    setShowPasswordChange(true);
+    setShowUserMenu(false);
+    setShowMobileMenu(false);
+  }, []);
+
+  const hideChangePasswordTab = useCallback(() => {
+    console.log('🔧 hideChangePasswordTab called');
+    setShowPasswordChange(false);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+  }, []);
+
+  const handlePasswordChange = useCallback(async () => {
+    if (!user) return;
+    
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showNotification('Please fill in all fields', 'error');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      showNotification('New passwords do not match', 'error');
+      return;
+    }
+    
+    // Enhanced password validation
+    if (newPassword.length < 6) {
+      showNotification('New password must be at least 6 characters long', 'error');
+      return;
+    }
+    
+    // Check if password contains both letters and numbers
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    
+    if (!hasLetter || !hasNumber) {
+      showNotification('New password must contain both letters and numbers', 'error');
+      return;
+    }
+    
+    try {
+      const response = await userService.changePassword({
+        username: user.username,
+        currentPassword,
+        newPassword
+      });
+      
+      if (response.success) {
+        showNotification('Password changed successfully!', 'success');
+        hideChangePasswordTab();
+      } else {
+        showNotification(response.message || 'Failed to change password', 'error');
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      showNotification('Failed to change password. Please try again.', 'error');
+    }
+  }, [user, passwordForm, showNotification]);
+
+  const handlePasswordFormChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setPasswordForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  }, []);
 
   
   // Enhanced loadTeacherData from legacy code
@@ -914,6 +997,18 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
+                          showChangePasswordTab();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                        <span>Change Password</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
                           if (onBackToLogin) {
                             onBackToLogin();
                           } else {
@@ -958,6 +1053,18 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                       </p>
                       <p className="text-xs text-gray-500">Teacher Account</p>
                     </div>
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        showChangePasswordTab();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 flex items-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                      <span>Change Password</span>
+                    </button>
                     <button
                       onClick={() => {
                         setShowMobileMenu(false);
@@ -1451,6 +1558,78 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           </motion.div>
         ))}
       </motion.div>
+      
+      {/* Password Change Modal */}
+      {showPasswordChange && (
+        <PerfectModal
+          isOpen={showPasswordChange}
+          onClose={hideChangePasswordTab}
+          title="Change Password"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                name="currentPassword"
+                value={passwordForm.currentPassword}
+                onChange={handlePasswordFormChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                placeholder="Enter current password"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Password
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={passwordForm.newPassword}
+                onChange={handlePasswordFormChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                placeholder="Enter new password"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={passwordForm.confirmPassword}
+                onChange={handlePasswordFormChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                placeholder="Confirm new password"
+              />
+            </div>
+            
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={hideChangePasswordTab}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePasswordChange}
+                className="flex-1"
+              >
+                Change Password
+              </Button>
+            </div>
+          </div>
+        </PerfectModal>
+      )}
     </motion.div>
   );
   

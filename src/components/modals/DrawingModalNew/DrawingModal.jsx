@@ -51,6 +51,7 @@ const DrawingModal = ({
     console.log('DrawingModal - questionsData:', questionsData);
     console.log('DrawingModal - currentQuestionIndex:', currentQuestionIndex);
     if (questionsData.length > 0) {
+      // Pass the line segments directly, not the individual points
       const data = questionsData[currentQuestionIndex]?.drawingData || [];
       console.log('DrawingModal - setting drawingData:', data);
       setDrawingData(data);

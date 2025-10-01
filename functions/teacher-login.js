@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const { withSecurity, schemas } = require('./security-middleware');
 
 // Load environment variables from parent directory
 const envPath = path.join(__dirname, '..', '.env');
@@ -9,13 +10,14 @@ if (result.error) {
   console.log('Error loading .env file:', result.error.message);
 }
 
-exports.handler = async function(event, context) {
+const handler = async function(event, context) {
   // Enable CORS with Authorization header support
   const headers = {
     'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400' // Cache preflight for 24 hours
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -53,7 +55,27 @@ exports.handler = async function(event, context) {
 
             const sql = neon(process.env.NEON_DATABASE_URL);
     
-    // Query the database for the teacher
+    // Step 1: Check if username exists
+    const teacherExists = await sql`
+      SELECT teacher_id FROM teachers WHERE username = ${username}
+    `;
+
+    if (teacherExists.length === 0) {
+      return {
+        statusCode: 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Username not found. Please check your username.',
+          error: 'USERNAME_NOT_FOUND'
+        })
+      };
+    }
+
+    // Step 2: Check password for existing teacher
     const teachers = await sql`
       SELECT teacher_id, username, first_name, last_name, is_active
       FROM teachers 
@@ -69,7 +91,8 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Invalid username or password'
+          message: 'Incorrect password for this username. Please check your password.',
+          error: 'PASSWORD_INCORRECT'
         })
       };
     }
@@ -135,3 +158,9 @@ exports.handler = async function(event, context) {
     };
   }
 };
+
+// Export with security middleware
+exports.handler = withSecurity(handler, {
+  schema: schemas.login,
+  maxBodySize: 1024 * 1024 // 1MB limit for login requests
+});

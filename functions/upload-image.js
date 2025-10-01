@@ -11,7 +11,8 @@ exports.handler = async function(event, context) {
     'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400' // Cache preflight for 24 hours
   };
 
   if (event.httpMethod === 'OPTIONS') {

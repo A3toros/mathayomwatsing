@@ -14,6 +14,15 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
   const rotatedGroupRef = useRef(null);
   const [contentBounds, setContentBounds] = useState(null);
 
+  // Debug drawing data
+  useEffect(() => {
+    console.log('[ViewerCanvas] drawingData received:', drawingData);
+    console.log('[ViewerCanvas] drawingData length:', drawingData?.length);
+    if (drawingData && drawingData.length > 0) {
+      console.log('[ViewerCanvas] First drawing element:', drawingData[0]);
+    }
+  }, [drawingData]);
+
   useEffect(() => {
     if (typeof onScaleChange === 'function') onScaleChange(camera.scale);
     try {
@@ -263,7 +272,9 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
   const canvasH = 2048;
 
   const renderDrawingElement = (item, index) => {
+    console.log(`[ViewerCanvas] Rendering drawing element ${index}:`, item);
     if (Array.isArray(item)) {
+      console.log(`[ViewerCanvas] Array item with ${item.length} points:`, item.slice(0, 3));
       return (
         <Line
           key={index}
@@ -368,7 +379,10 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
                 <Group ref={rotatedGroupRef} x={tx} y={ty} rotation={rotation}>
                   <Rect x={0} y={0} width={canvasW} height={canvasH} fill="white" />
                   <Group x={contentNormalization.x} y={contentNormalization.y} scaleX={contentNormalization.scale} scaleY={contentNormalization.scale}>
-                    {Array.isArray(drawingData) ? drawingData.map((item, index) => renderDrawingElement(item, index)) : null}
+                    {Array.isArray(drawingData) ? (() => {
+                      console.log('[ViewerCanvas] Rendering', drawingData.length, 'drawing elements');
+                      return drawingData.map((item, index) => renderDrawingElement(item, index));
+                    })() : null}
                   </Group>
                 </Group>
               );

@@ -1,13 +1,15 @@
 const { neon } = require('@neondatabase/serverless');
 const jwt = require('jsonwebtoken');
+const { withSecurity, schemas } = require('./security-middleware');
 
-exports.handler = async function(event, context) {
+const handler = async function(event, context) {
   // Enable CORS with Authorization header support
   const headers = {
     'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400' // Cache preflight for 24 hours
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -45,7 +47,27 @@ exports.handler = async function(event, context) {
 
             const sql = neon(process.env.NEON_DATABASE_URL);
     
-    // Query the database for the student
+    // Step 1: Check if student ID exists
+    const studentExists = await sql`
+      SELECT student_id FROM users WHERE student_id = ${studentId}
+    `;
+
+    if (studentExists.length === 0) {
+      return {
+        statusCode: 401,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: 'Student ID not found. Please check your student ID.',
+          error: 'USERNAME_NOT_FOUND'
+        })
+      };
+    }
+
+    // Step 2: Check password for existing student
     const students = await sql`
       SELECT student_id, name, surname, nickname, grade, class, number, password
       FROM users 
@@ -61,7 +83,8 @@ exports.handler = async function(event, context) {
         },
         body: JSON.stringify({
           success: false,
-          message: 'Invalid student ID or password'
+          message: 'Incorrect password for this student ID. Please check your password.',
+          error: 'PASSWORD_INCORRECT'
         })
       };
     }
@@ -134,3 +157,9 @@ exports.handler = async function(event, context) {
     };
   }
 };
+
+// Export with security middleware
+exports.handler = withSecurity(handler, {
+  schema: schemas.studentLogin,
+  maxBodySize: 1024 * 1024 // 1MB limit for login requests
+});

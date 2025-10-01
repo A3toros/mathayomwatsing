@@ -215,8 +215,9 @@ exports.handler = async (event, context) => {
         `;
       }
 
-      // If scored at submit time OR this is a retest, record in test_attempts
-      if ((score !== null && maxScore !== null && Number(maxScore) > 0) || retest_assignment_id) {
+      // If this is a retest, always record in test_attempts (regardless of score)
+      // If scored at submit time, also record in test_attempts
+      if (retest_assignment_id || (score !== null && maxScore !== null && Number(maxScore) > 0)) {
         const percentageVal = (score !== null && maxScore !== null && Number(maxScore) > 0) 
           ? Math.round((Number(score) / Number(maxScore)) * 10000) / 100 
           : null;

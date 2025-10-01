@@ -5,10 +5,10 @@ object ProductionConfig {
     // API Configuration - temporarily hardcoded for build fix
     val API_BASE_URL: String = "https://mathayomwatsing.netlify.app/.netlify/functions/"
     
-    // Cloudinary Configuration - temporarily hardcoded for build fix
-    val CLOUDINARY_CLOUD_NAME: String = "dnovxoaqi"
-    val CLOUDINARY_API_KEY: String = "252927275769619"
-    val CLOUDINARY_API_SECRET: String = "0QungPQ1DalxpwHvJE1COjICbww"
+    // Cloudinary Configuration - using environment variables for security
+    val CLOUDINARY_CLOUD_NAME: String = System.getenv("CLOUDINARY_CLOUD_NAME") ?: "dnovxoaqi"
+    val CLOUDINARY_API_KEY: String = System.getenv("CLOUDINARY_API_KEY") ?: ""
+    val CLOUDINARY_API_SECRET: String = System.getenv("CLOUDINARY_API_SECRET") ?: ""
     
     // Feature Flags - temporarily hardcoded for build fix
     val ENABLE_LOGGING: Boolean = true

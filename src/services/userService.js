@@ -680,9 +680,21 @@ export const userService = {
   async changePassword(passwordData) {
     console.log('changePassword called');
     
+    // Determine the correct endpoint based on user type
+    let endpoint;
+    if (passwordData.studentId) {
+      // Student password change
+      endpoint = '/.netlify/functions/change-student-password';
+    } else if (passwordData.username) {
+      // Teacher password change
+      endpoint = '/.netlify/functions/change-teacher-password';
+    } else {
+      throw new Error('Invalid password data: missing studentId or username');
+    }
+    
     try {
       const response = await window.tokenManager.makeAuthenticatedRequest(
-        '/.netlify/functions/change-password',
+        endpoint,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

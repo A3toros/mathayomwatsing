@@ -898,7 +898,9 @@ const DrawingTestStudent = ({
   // Drawing functions
   const handleDrawingChange = (newLines) => {
     setLines(newLines);
-    // Save the drawing data as the student answer
+    // Save the drawing data as the student answer in the old format
+    // The newLines array already contains line segments (arrays of points)
+    // We just need to ensure the structure is correct for the old format
     onAnswerChange(question.question_id, JSON.stringify(newLines));
   };
 

@@ -240,8 +240,18 @@ const StudentApp = () => {
       return;
     }
     
-    if (newPassword.length < 3) {
-      showNotification('New password must be at least 3 characters long', 'error');
+    // Enhanced password validation
+    if (newPassword.length < 6) {
+      showNotification('New password must be at least 6 characters long', 'error');
+      return;
+    }
+    
+    // Check if password contains both letters and numbers
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    
+    if (!hasLetter || !hasNumber) {
+      showNotification('New password must contain both letters and numbers', 'error');
       return;
     }
     
