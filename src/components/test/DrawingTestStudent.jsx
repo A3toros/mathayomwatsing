@@ -490,8 +490,8 @@ const DrawingCanvas = ({
       setLastTouchDistance(currentDistance);
       setLastTouchCenter(currentCenter);
     } else if (touches.length === 1 && !isGestureActive) {
-      // Allow single finger to work naturally
-      // Don't prevent default for single finger
+      // Prevent default to stop page scroll during drawing
+      e.evt.preventDefault();
       handleMouseMove(e);
     }
   };

@@ -184,12 +184,12 @@ const LoginPage = () => {
           window.preventAutoLogin = false;
         } catch {}
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      handleFailure(error);
-    } finally {
-      setIsLoading(false);
-    }
+     } catch (error) {
+       console.error('Login error:', error);
+       setError('Invalid username or password');
+     } finally {
+       setIsLoading(false);
+     }
   }, [formData]);
   
   // Enhanced handleResponse from legacy code (handleLoginResponse)
