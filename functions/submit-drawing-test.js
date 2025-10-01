@@ -69,6 +69,8 @@ exports.handler = async (event, context) => {
     console.log('🎨 Backend answers type:', typeof answers);
     console.log('🎨 Backend answers content:', answers);
     console.log('🎨 Backend retest_assignment_id:', retest_assignment_id);
+    console.log('🎨 Backend retest_assignment_id type:', typeof retest_assignment_id);
+    console.log('🎨 Backend retest_assignment_id null check:', retest_assignment_id === null);
     
     console.log('Parsed submission data:', {
       test_id,
@@ -128,11 +130,14 @@ exports.handler = async (event, context) => {
           throw new Error('Retest not found or not assigned to this student');
         }
         const row = target[0];
+        console.log('🎨 Retest validation - attempt_count:', row.attempt_count, 'max_attempts:', row.max_attempts);
+        console.log('🎨 Retest validation - window_start:', row.window_start, 'window_end:', row.window_end);
         const nowTs = new Date();
         if (!(new Date(row.window_start) <= nowTs && nowTs <= new Date(row.window_end))) {
           throw new Error('Retest window is not active');
         }
         if (row.attempt_count >= row.max_attempts) {
+          console.log('🎨 ERROR: Maximum retest attempts reached - attempt_count:', row.attempt_count, 'max_attempts:', row.max_attempts);
           throw new Error('Maximum retest attempts reached');
         }
         attemptNumber = Number(row.attempt_count || 0) + 1;
@@ -216,8 +221,8 @@ exports.handler = async (event, context) => {
       }
 
       // If this is a retest, always record in test_attempts (regardless of score)
-      // If scored at submit time, also record in test_attempts
-      if (retest_assignment_id || (score !== null && maxScore !== null && Number(maxScore) > 0)) {
+      // Drawing tests are ungraded by default, so only check for retest_assignment_id
+      if (retest_assignment_id) {
         const percentageVal = (score !== null && maxScore !== null && Number(maxScore) > 0) 
           ? Math.round((Number(score) / Number(maxScore)) * 10000) / 100 
           : null;
@@ -244,10 +249,28 @@ exports.handler = async (event, context) => {
           // Debug: Log what we're about to write to test_attempts
           console.log('🎨 About to write to test_attempts:');
           console.log('🎨 answers:', answers);
+          console.log('🎨 answers type:', typeof answers);
+          console.log('🎨 answers length:', answers ? Object.keys(answers).length : 'null/undefined');
           console.log('🎨 JSON.stringify(answers):', JSON.stringify(answers));
+          console.log('🎨 JSON.stringify(answers) length:', JSON.stringify(answers).length);
           console.log('🎨 retest_assignment_id:', retest_assignment_id);
           console.log('🎨 effectiveParentTestId:', effectiveParentTestId);
           console.log('🎨 attemptNumberToWrite:', attemptNumberToWrite);
+          
+          // Special debugging for drawing test answers
+          if (answers && typeof answers === 'object') {
+            console.log('🎨 Drawing answers structure:');
+            Object.keys(answers).forEach(key => {
+              const answer = answers[key];
+              console.log(`🎨 Answer ${key}:`, typeof answer, Array.isArray(answer) ? `Array(${answer.length})` : 'Not array');
+              if (Array.isArray(answer) && answer.length > 0) {
+                console.log(`🎨 First stroke points:`, answer[0]?.length || 'No strokes');
+                if (answer[0] && answer[0].length > 0) {
+                  console.log(`🎨 First point:`, answer[0][0]);
+                }
+              }
+            });
+          }
           
           // Reuse existing row if attempt number exists
           const existingSame = await sql`
@@ -272,6 +295,7 @@ exports.handler = async (event, context) => {
                   subject_id = ${subject_id}
               WHERE id = ${existingSame[0].id}
             `;
+            console.log('🎨 Successfully wrote to test_attempts (UPDATE)');
           } else {
             await sql`
               INSERT INTO test_attempts (
@@ -289,10 +313,30 @@ exports.handler = async (event, context) => {
                 ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname}, ${academicPeriodId}
               )
             `;
+            console.log('🎨 Successfully wrote to test_attempts (INSERT)');
           }
 
-          // Update retest_targets with early-pass behavior
+          console.log('🎨 Database write completed for test_attempts');
+          
+          // Verify the answers were written by querying the database
+          const verifyAnswers = await sql`
+            SELECT answers FROM test_attempts 
+            WHERE student_id = ${userInfo.student_id} 
+              AND test_id = ${effectiveParentTestId} 
+              AND attempt_number = ${attemptNumberToWrite}
+            LIMIT 1
+          `;
+          
+          if (verifyAnswers.length > 0) {
+            console.log('🎨 Verified answers in database:', verifyAnswers[0].answers);
+            console.log('🎨 Verified answers length:', verifyAnswers[0].answers?.length || 'null');
+          } else {
+            console.log('🎨 ERROR: No answers found in database after write!');
+          }
+
+          // Update retest_targets with special handling for drawing tests
           if (percentageVal !== null && percentageVal >= 50) {
+            // Graded tests: Mark as PASSED if score >= 50%
             await sql`
               UPDATE retest_targets tgt
               SET attempt_count = ra.max_attempts,
@@ -303,7 +347,23 @@ exports.handler = async (event, context) => {
                 AND tgt.retest_assignment_id = ${retest_assignment_id} 
                 AND student_id = ${userInfo.student_id}
             `;
+          } else if (percentageVal === null) {
+            // Drawing tests: Mark as PASSED (ungraded, manually graded)
+            // Set attempt_count to max_attempts to prevent further retests
+            console.log('🎨 Updating retest_targets for drawing test - setting attempt_count to max_attempts');
+            const updateResult = await sql`
+              UPDATE retest_targets tgt
+              SET attempt_count = ra.max_attempts,
+                  last_attempt_at = NOW(),
+                  status = 'PASSED'
+              FROM retest_assignments ra
+              WHERE tgt.retest_assignment_id = ra.id
+                AND tgt.retest_assignment_id = ${retest_assignment_id} 
+                AND tgt.student_id = ${userInfo.student_id}
+            `;
+            console.log('🎨 Retest targets update result:', updateResult);
           } else {
+            // Graded tests: Mark as FAILED if score < 50%
             await sql`
               UPDATE retest_targets 
               SET attempt_count = GREATEST(attempt_count + 1, ${attemptNumberToWrite}),

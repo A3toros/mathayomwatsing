@@ -15,7 +15,6 @@ import { useFullscreen } from './hooks/useFullscreen';
 // Import components
 import CanvasViewer from './components/CanvasViewer';
 import ViewerCanvas from './components/ViewerCanvas';
-import Toolbar from './components/Toolbar';
 import ZoomControls from './components/ZoomControls';
 import QuestionNavigation from './components/QuestionNavigation';
 
@@ -31,11 +30,35 @@ const DrawingModal = ({
   isTeacherView = false
 }) => {
   // Custom hooks
-  const { drawingState, setDrawingState, drawingData, setDrawingData } = useDrawingState();
+  const { 
+    drawingState, 
+    setDrawingState, 
+    drawingData, 
+    setDrawingData,
+    textBoxes,
+    setTextBoxes,
+    // NEW: Eraser and history functions
+    handleThicknessChange,
+    handleEraserSizeChange,
+    saveToHistoryState,
+    undo,
+    redo,
+    canUndoState,
+    canRedoState
+  } = useDrawingState();
   const { questionsData, setQuestionsData, currentQuestionIndex, setCurrentQuestionIndex } = useDataParsing(drawing);
   const { zoom, setZoom, position, setPosition, handleZoomIn, handleZoomOut } = useCanvasZoom(ZOOM_CONFIG, CANVAS_CONFIG);
   const { isFullscreen, enterFullscreen, exitFullscreen } = useFullscreen(drawingState, setDrawingState);
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchGestures(drawingState, setDrawingState, drawingData, setDrawingData);
+  const { 
+    handleTouchStart, 
+    handleTouchMove, 
+    handleTouchEnd,
+    // NEW: Expose new handlers
+    handleEraserStart,
+    handleUndoTouch,
+    handleRedoTouch,
+    showTouchFeedback
+  } = useTouchGestures(drawingState, setDrawingState, drawingData, setDrawingData, saveToHistoryState, undo, redo, canUndoState, canRedoState);
 
   // Refs
   const stageRef = useRef(null);
@@ -53,10 +76,13 @@ const DrawingModal = ({
     if (questionsData.length > 0) {
       // Pass the line segments directly, not the individual points
       const data = questionsData[currentQuestionIndex]?.drawingData || [];
+      const textBoxData = questionsData[currentQuestionIndex]?.textBoxes || [];
       console.log('DrawingModal - setting drawingData:', data);
+      console.log('DrawingModal - setting textBoxes:', textBoxData);
       setDrawingData(data);
+      setTextBoxes(textBoxData);
     }
-  }, [questionsData, currentQuestionIndex, setDrawingData]);
+  }, [questionsData, currentQuestionIndex, setDrawingData, setTextBoxes]);
 
   // Initialize score inputs when modal opens or drawing changes
   useEffect(() => {
@@ -88,6 +114,37 @@ const DrawingModal = ({
   const handleColorChange = (color) => {
     setDrawingState(prev => ({ ...prev, currentColor: color }));
   };
+
+  // NEW: Missing handler functions to add to DrawingModal.jsx
+  const handleUndo = () => {
+    if (canUndoState) {
+      undo();
+    }
+  };
+
+  const handleRedo = () => {
+    if (canRedoState) {
+      redo();
+    }
+  };
+
+  // NEW: Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+        } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Handle rotation
   const handleRotate = () => {
@@ -155,11 +212,15 @@ const DrawingModal = ({
         onClick={onClose}
       >
         <motion.div
-          className="bg-white rounded-lg shadow-xl max-w-4xl h-[90vh] w-full mx-4 flex flex-col"
+          className="bg-white rounded-lg shadow-xl max-w-4xl h-[90vh] w-full mx-4 flex flex-col select-none"
+          style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.preventDefault()}
+          onTouchMove={(e) => e.preventDefault()}
+          onTouchEnd={(e) => e.preventDefault()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -195,11 +256,15 @@ const DrawingModal = ({
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Drawing Container */}
-            <div className="flex-1 min-h-0 relative overflow-hidden bg-gray-100 p-4">
+            <div 
+              className="flex-1 min-h-0 relative overflow-hidden bg-gray-100 p-0 sm:p-4 select-none"
+              style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+            >
               {isTeacherView ? (
                 <ViewerCanvas
                   ref={viewerRef}
                   drawingData={drawingData}
+                  textBoxes={textBoxes}
                   canvasSize={{
                     width: CANVAS_CONFIG.WIDTH,
                     height: CANVAS_CONFIG.HEIGHT,
@@ -213,6 +278,7 @@ const DrawingModal = ({
                 <CanvasViewer
                   ref={stageRef}
                   drawingData={drawingData}
+                  textBoxes={textBoxes}
                   drawingState={drawingState}
                   canvasSize={{
                     width: CANVAS_CONFIG.WIDTH,
@@ -225,18 +291,13 @@ const DrawingModal = ({
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
+                  // NEW: Eraser cursor props
+                  mousePosition={{ x: 0, y: 0 }}
+                  isMouseOverCanvas={false}
+                  isEraserDrawing={false}
                 />
               )}
 
-              {/* Toolbar - Only show for student view */}
-              {!isTeacherView && (
-                <Toolbar
-                  currentTool={drawingState.currentTool}
-                  currentColor={drawingState.currentColor}
-                  onToolChange={handleToolChange}
-                  onColorChange={handleColorChange}
-                />
-              )}
 
               {/* Zoom Controls */}
               <ZoomControls

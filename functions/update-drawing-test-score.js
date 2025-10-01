@@ -68,25 +68,18 @@ exports.handler = async (event, context) => {
     if (newMaxScore && newMaxScore > 0) {
       const percentage = Math.round((Number(newScore) / Number(newMaxScore)) * 10000) / 100;
 
-      // Upsert into test_attempts
-      const effectiveParentTestId = row.test_id; // parent or original; we don't persist parent separately
-      const attemptNumber = row.attempt_number || 1;
-      // For retests, we want to create separate records for each attempt
-      // Don't use ON CONFLICT for retests - let each attempt be a separate record
+      // Only write to test_attempts for retests (not for original tests)
       if (row.retest_assignment_id) {
+        const effectiveParentTestId = row.test_id; // parent or original; we don't persist parent separately
+        const attemptNumber = row.attempt_number || 1;
+        
+        // For retests, create separate records for each attempt
         await sql`
           INSERT INTO test_attempts (student_id, test_id, attempt_number, score, max_score, percentage, submitted_at, is_completed)
           VALUES (${row.student_id}, ${effectiveParentTestId}, ${attemptNumber}, ${newScore}, ${newMaxScore}, ${percentage}, NOW(), ${true})
-        `;
-      } else {
-        // For regular tests, use upsert to handle retakes
-        await sql`
-          INSERT INTO test_attempts (student_id, test_id, attempt_number, score, max_score, percentage, submitted_at, is_completed)
-          VALUES (${row.student_id}, ${effectiveParentTestId}, ${attemptNumber}, ${newScore}, ${newMaxScore}, ${percentage}, NOW(), ${true})
-          ON CONFLICT (student_id, test_id, attempt_number)
-          DO UPDATE SET score = EXCLUDED.score, max_score = EXCLUDED.max_score, percentage = EXCLUDED.percentage, submitted_at = EXCLUDED.submitted_at, is_completed = EXCLUDED.is_completed
         `;
       }
+      // For original tests, we don't write to test_attempts - only to drawing_test_results
 
       // If part of a retest, set target status according to assignment threshold
       if (row.retest_assignment_id) {

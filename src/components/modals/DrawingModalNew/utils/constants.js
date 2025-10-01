@@ -28,6 +28,9 @@ export const DRAWING_TOOLS = {
   LINE: 'line',
   RECTANGLE: 'rectangle',
   CIRCLE: 'circle',
+  ERASER: 'eraser',        // NEW
+  UNDO: 'undo',            // NEW - touch support
+  REDO: 'redo',            // NEW - touch support
   PAN: 'pan',
 };
 
@@ -37,10 +40,45 @@ export const COLOR_PALETTE = [
   '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500',
 ];
 
+// Eraser configuration
+export const ERASER_CONFIG = {
+  MIN_SIZE: 5,
+  MAX_SIZE: 50,
+  DEFAULT_SIZE: 10,
+  CURSOR_COLOR: '#ff0000',
+  CURSOR_OPACITY: 0.3,
+};
+
+// Thickness configuration for different tools
+export const THICKNESS_CONFIG = {
+  // Drawing tools (pencil, line, rectangle, circle)
+  DRAWING_MIN: 1,
+  DRAWING_MAX: 20,
+  DRAWING_DEFAULT: 2,
+  
+  // Eraser tool
+  ERASER_MIN: 5,
+  ERASER_MAX: 50,
+  ERASER_DEFAULT: 10,
+  
+  // Thickness-eraser size linkage
+  ERASER_TO_THICKNESS_RATIO: 2.5,  // eraserSize = thickness * 2.5
+  THICKNESS_TO_ERASER_RATIO: 0.4,  // thickness = eraserSize * 0.4
+};
+
+// History configuration (UPDATED - reduced from 50)
+export const HISTORY_CONFIG = {
+  MAX_ENTRIES: 10,              // Reduced from 50
+  MAX_MEMORY_KB: 500,           // 500KB limit
+  COMPRESSION_THRESHOLD: 200,    // Compress at 200KB
+  COMPRESSION_RATIO: 0.5,       // Keep 50% of data
+};
+
 // Default settings
 export const DEFAULT_SETTINGS = {
   color: '#000000',
   thickness: 2,
+  eraserSize: 10,        // NEW
   tool: 'pencil',
 };
 

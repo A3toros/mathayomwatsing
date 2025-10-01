@@ -295,13 +295,21 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const loadTests = useCallback(async () => {
     console.log('👨‍🏫 Loading teacher active tests...');
     try {
-      // Check cache first
       const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+      
+      // FORCE REFRESH: Clear cache if it contains drawing tests to ensure fresh data
       const cachedData = getCachedData(cacheKey);
-      if (cachedData) {
+      if (cachedData && cachedData.some(test => test.test_type === 'drawing')) {
+        console.log('🎨 Drawing test detected - forcing cache refresh');
+        localStorage.removeItem(cacheKey);
+      }
+      
+      // Check cache again after potential clearing
+      const freshCachedData = getCachedData(cacheKey);
+      if (freshCachedData) {
         console.log('👨‍🏫 Using cached teacher tests');
-        setActiveTestsData(cachedData);
-        return cachedData;
+        setActiveTestsData(freshCachedData);
+        return freshCachedData;
       }
       
       // Cache miss - fetch from API

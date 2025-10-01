@@ -1,11 +1,11 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState, useMemo } from 'react';
-import { Stage, Layer, Rect, Line, Circle, Group } from 'react-konva';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from 'react';
+import { Stage, Layer, Rect, Line, Circle, Group, Text } from 'react-konva';
 import { useCamera } from '../hooks/useCamera';
 
 // Simple in-memory camera persistence across remounts
 const __cameraMemory = new Map();
 
-const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScaleChange, persistKey = 'viewer' }, ref) => {
+const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rotation = 0, onScaleChange, persistKey = 'viewer' }, ref) => {
   const containerRef = useRef(null);
   const stageRef = useRef(null);
   const camera = useCamera({ containerRef, canvasSize, rotation });
@@ -21,6 +21,8 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
     if (drawingData && drawingData.length > 0) {
       console.log('[ViewerCanvas] First drawing element:', drawingData[0]);
     }
+    console.log('[ViewerCanvas] textBoxes:', textBoxes);
+    console.log('[ViewerCanvas] textBoxes length:', textBoxes?.length);
   }, [drawingData]);
 
   useEffect(() => {
@@ -334,10 +336,37 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
     return null;
   };
 
+  // Enhanced touch event handlers to prevent page scrolling
+  const handleContainerTouchStart = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleContainerTouchMove = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleContainerTouchEnd = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', display: 'block', backgroundColor: 'transparent' }}
+      style={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'block', 
+        backgroundColor: 'transparent',
+        touchAction: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+      className="select-none"
+      onTouchStart={handleContainerTouchStart}
+      onTouchMove={handleContainerTouchMove}
+      onTouchEnd={handleContainerTouchEnd}
     >
       <Stage
         ref={stageRef}
@@ -383,6 +412,33 @@ const ViewerCanvas = forwardRef(({ drawingData, canvasSize, rotation = 0, onScal
                       console.log('[ViewerCanvas] Rendering', drawingData.length, 'drawing elements');
                       return drawingData.map((item, index) => renderDrawingElement(item, index));
                     })() : null}
+                    {Array.isArray(textBoxes) && textBoxes.map((tb, i) => (
+                      <Group key={`tb-${i}`} x={tb.x} y={tb.y} listening={false}>
+                        <Rect
+                          width={tb.width}
+                          height={tb.height}
+                          fill="#ffffff"
+                          stroke="#d1d5db"
+                          strokeWidth={1}
+                          cornerRadius={6}
+                          shadowColor="black"
+                          shadowBlur={2}
+                          shadowOffset={{ x: 1, y: 1 }}
+                        />
+                        <Text
+                          text={tb.text}
+                          x={8}
+                          y={8}
+                          width={Math.max(0, (tb.width || 0) - 16)}
+                          height={Math.max(0, (tb.height || 0) - 16)}
+                          fontSize={tb.fontSize || 14}
+                          fill={tb.color || '#000000'}
+                          wrap="word"
+                          align="left"
+                          verticalAlign="top"
+                        />
+                      </Group>
+                    ))}
                   </Group>
                 </Group>
               );

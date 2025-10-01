@@ -390,7 +390,7 @@ exports.handler = async (event, context) => {
       
       UNION ALL
       
-      -- Drawing Test Results (best retest coalesced into score/max_score)
+      -- Drawing Test Results (best retest coalesced into score/max_score, drawing data from retests)
       SELECT 
         'drawing' as test_type,
         d.id,
@@ -408,7 +408,8 @@ exports.handler = async (event, context) => {
         COALESCE(d_best.best_score, d.score)       AS score,
         COALESCE(d_best.best_max,   d.max_score)   AS max_score,
         d.percentage,
-        d.answers,
+        -- Use retest drawing data if available, otherwise use original
+        COALESCE(d_best.best_answers, d.answers)   AS answers,
         d.time_taken,
         d.started_at,
         d.submitted_at,
@@ -424,7 +425,7 @@ exports.handler = async (event, context) => {
       LEFT JOIN subjects s ON d.subject_id = s.subject_id
       LEFT JOIN teachers t ON d.teacher_id = t.teacher_id
       LEFT JOIN LATERAL (
-        SELECT ta.score AS best_score, ta.max_score AS best_max
+        SELECT ta.score AS best_score, ta.max_score AS best_max, ta.answers AS best_answers
         FROM test_attempts ta
         WHERE ta.student_id = d.student_id
           AND ta.test_id = d.test_id

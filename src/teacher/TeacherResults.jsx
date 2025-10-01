@@ -561,6 +561,14 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       
       // Check cache first for teacher tests
       const testsCacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+      
+      // FORCE REFRESH: Clear cache if it contains drawing tests to ensure fresh data
+      const cachedTests = getCachedData(testsCacheKey);
+      if (cachedTests && cachedTests.some(test => test.test_type === 'drawing')) {
+        console.log('🎨 Drawing test detected - forcing cache refresh');
+        localStorage.removeItem(testsCacheKey);
+      }
+      
       let tests = getCachedData(testsCacheKey);
       
       if (!tests) {

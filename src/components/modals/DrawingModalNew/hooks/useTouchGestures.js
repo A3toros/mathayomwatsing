@@ -8,8 +8,9 @@ import {
 } from '../utils/gestureUtils';
 import { getCanvasPoint, clampPosition, getContainerSize } from '../utils/canvasUtils';
 import { createPointData, createShapeData, DRAWING_TOOLS } from '../utils/drawingUtils';
+import { handleEraserGesture } from '../utils/eraserUtils';
 
-export const useTouchGestures = (drawingState, setDrawingState, drawingData, setDrawingData) => {
+export const useTouchGestures = (drawingState, setDrawingState, drawingData, setDrawingData, saveToHistoryState, undo, redo, canUndo, canRedo) => {
   const [gestureState, setGestureState] = useState({
     isActive: false,
     type: null,
@@ -48,6 +49,64 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
       }));
     }
   }, [drawingState.currentTool, drawingState.currentColor, drawingState.currentThickness, setDrawingState]);
+
+  // NEW: Eraser gesture handling
+  const handleEraserStart = useCallback((point) => {
+    // Apply eraser to existing drawing data
+    const updatedData = handleEraserGesture(point.x, point.y, drawingState.eraserSize, drawingData);
+    setDrawingData(updatedData);
+    
+    // Save to history
+    saveToHistoryState(updatedData);
+  }, [drawingState.eraserSize, drawingData, setDrawingData, saveToHistoryState]);
+
+  // NEW: Touch handlers for new tools
+  const handleUndoTouch = useCallback((e) => {
+    if (canUndo) {
+      undo();
+      // Visual feedback for touch
+      showTouchFeedback('Undo', e);
+    }
+  }, [canUndo, undo]);
+
+  const handleRedoTouch = useCallback((e) => {
+    if (canRedo) {
+      redo();
+      // Visual feedback for touch
+      showTouchFeedback('Redo', e);
+    }
+  }, [canRedo, redo]);
+
+  // NEW: Touch feedback for new tools
+  const showTouchFeedback = useCallback((action, e) => {
+    // Create visual feedback for touch actions
+    const stage = e.target.getStage();
+    const point = getCanvasPoint(e, stage);
+    
+    // Show temporary feedback circle
+    const feedbackCircle = new Konva.Circle({
+      x: point.x,
+      y: point.y,
+      radius: 20,
+      stroke: '#4CAF50',
+      strokeWidth: 3,
+      opacity: 0.8,
+      listening: false
+    });
+    
+    stage.add(feedbackCircle);
+    
+    // Animate and remove
+    feedbackCircle.to({
+      scaleX: 2,
+      scaleY: 2,
+      opacity: 0,
+      duration: 0.3,
+      onFinish: () => {
+        feedbackCircle.destroy();
+      }
+    });
+  }, []);
 
   // Continue drawing
   const continueDrawing = useCallback((e) => {
@@ -92,28 +151,44 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
     }));
   }, [drawingState.isDrawing, drawingState.currentTool, drawingState.currentLine, drawingState.currentShape, setDrawingData, setDrawingState]);
 
-  // Handle touch start
+  // Handle touch start with new tools support
   const handleTouchStart = useCallback((e) => {
     e.evt.preventDefault();
+    e.evt.stopPropagation();
     const touches = e.evt.touches;
     
     if (touches.length === 2) {
-      // Two-finger gesture
+      // Two-finger gesture - always pan/zoom (disable other tools)
       setGestureState({
         isActive: true,
-        type: null,
+        type: 'pan',
         lastDistance: getTouchDistance(touches),
         lastCenter: getTouchCenter(touches),
       });
     } else if (touches.length === 1) {
-      // Single finger - start drawing
-      startDrawing(e);
+      // Single finger - tool-specific actions
+      if (drawingState.currentTool === DRAWING_TOOLS.ERASER) {
+        // Eraser mode - disable pan gestures, enable eraser touch
+        const stage = e.target.getStage();
+        const point = getCanvasPoint(e, stage);
+        handleEraserStart(point);
+      } else if (drawingState.currentTool === DRAWING_TOOLS.UNDO) {
+        // Undo tool - handle touch for undo
+        handleUndoTouch(e);
+      } else if (drawingState.currentTool === DRAWING_TOOLS.REDO) {
+        // Redo tool - handle touch for redo
+        handleRedoTouch(e);
+      } else {
+        // Drawing tools - existing logic
+        startDrawing(e);
+      }
     }
-  }, [getTouchDistance, getTouchCenter, startDrawing]);
+  }, [getTouchDistance, getTouchCenter, startDrawing, drawingState.currentTool, handleEraserStart, handleUndoTouch, handleRedoTouch]);
 
   // Throttled touch move handler
   const handleTouchMoveThrottled = useCallback(rafThrottle((e) => {
     e.evt.preventDefault();
+    e.evt.stopPropagation();
     const touches = e.evt.touches;
     
     if (touches.length === 2 && gestureState.isActive) {
@@ -157,8 +232,35 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
         lastCenter: getTouchCenter(touches),
       }));
     } else if (touches.length === 1) {
-      // Continue drawing
-      continueDrawing(e);
+      // Single finger - tool-specific actions
+      if (drawingState.currentTool === DRAWING_TOOLS.ERASER) {
+        // Eraser mode - continue erasing
+        const stage = e.target.getStage();
+        const point = getCanvasPoint(e, stage);
+        const updatedData = handleEraserGesture(point.x, point.y, drawingState.eraserSize, drawingData);
+        setDrawingData(updatedData);
+      } else if (drawingState.currentTool === DRAWING_TOOLS.PAN) {
+        // Pan mode - continue panning
+        const currentCenter = getTouchCenter(touches);
+        const deltaX = currentCenter.x - gestureState.lastCenter.x;
+        const deltaY = currentCenter.y - gestureState.lastCenter.y;
+        
+        setDrawingState(prev => ({
+          ...prev,
+          position: {
+            x: prev.position.x + deltaX,
+            y: prev.position.y + deltaY
+          }
+        }));
+        
+        setGestureState(prev => ({
+          ...prev,
+          lastCenter: currentCenter
+        }));
+      } else {
+        // Drawing tools - continue drawing
+        continueDrawing(e);
+      }
     }
   }), [gestureState, drawingState.zoom, setDrawingState, continueDrawing]);
 
@@ -170,6 +272,7 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
   // Handle touch end
   const handleTouchEnd = useCallback((e) => {
     e.evt.preventDefault();
+    e.evt.stopPropagation();
     const touches = e.evt.touches;
     
     if (touches.length === 0) {
@@ -191,5 +294,10 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
+    // NEW: Expose new handlers
+    handleEraserStart,
+    handleUndoTouch,
+    handleRedoTouch,
+    showTouchFeedback,
   };
 };

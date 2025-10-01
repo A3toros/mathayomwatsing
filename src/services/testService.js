@@ -270,6 +270,11 @@ export const testService = {
         parent_test_id: timingData.parent_test_id || testId
       };
 
+      // Debug: Log the retest assignment ID being sent
+      console.log('🎨 testService retest_assignment_id:', timingData.retest_assignment_id);
+      console.log('🎨 testService timingData:', timingData);
+      console.log('🎨 testService commonData.retest_assignment_id:', commonData.retest_assignment_id);
+
       // Submit based on test type
       let submitUrl;
       switch (testType) {
@@ -301,6 +306,7 @@ export const testService = {
       console.log('Submitting to:', submitUrl);
       console.log('Submission data:', commonData);
       console.log('Submission data JSON:', JSON.stringify(commonData, null, 2));
+      console.log('🎨 Final submission retest_assignment_id:', commonData.retest_assignment_id);
 
       const response = await window.tokenManager.makeAuthenticatedRequest(submitUrl, {
         method: 'POST',

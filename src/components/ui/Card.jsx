@@ -4,10 +4,11 @@ const Card = ({
   children, 
   hover = true,
   className = '',
+  paddingClass = 'p-6',
   ...props 
 }) => {
   const cardClasses = `
-    bg-white rounded-xl shadow-md border border-gray-200 p-6
+    bg-white rounded-xl shadow-md border border-gray-200 ${paddingClass}
     ${hover ? 'hover:shadow-lg hover:-translate-y-1 transition-all duration-200' : ''}
     ${className}
   `

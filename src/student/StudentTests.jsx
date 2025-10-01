@@ -603,6 +603,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             const studentId = user?.student_id || user?.id || '';
             const retestAssignKey = `retest_assignment_id_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             const retestAssignmentId = localStorage.getItem(retestAssignKey);
+            console.log('🎨 Frontend retest key:', retestAssignKey);
+            console.log('🎨 Frontend retest assignment ID from localStorage:', retestAssignmentId);
+            console.log('🎨 Frontend retest assignment ID converted:', retestAssignmentId ? Number(retestAssignmentId) : null);
+            console.log('🎨 Frontend current test data:', currentTest);
+            console.log('🎨 Frontend current test retest_assignment_id:', currentTest.retest_assignment_id);
             return retestAssignmentId ? Number(retestAssignmentId) : null;
           })(),
           parent_test_id: currentTest.test_id

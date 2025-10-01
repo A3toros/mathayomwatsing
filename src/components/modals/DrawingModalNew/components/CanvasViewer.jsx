@@ -1,21 +1,87 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Line, Rect, Circle } from 'react-konva';
-import { DRAWING_TOOLS, ZOOM_CONFIG } from '../utils/constants';
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Stage, Layer, Line, Rect, Circle, Text } from 'react-konva';
+import { DRAWING_TOOLS, ZOOM_CONFIG, ERASER_CONFIG } from '../utils/constants';
+import { getCanvasPoint } from '../utils/canvasUtils';
 
 const CanvasViewer = forwardRef(({ 
   drawingData, 
+  textBoxes = [],
   drawingState, 
   canvasSize, 
   zoom, 
   position, 
   onTouchStart, 
   onTouchMove, 
-  onTouchEnd 
+  onTouchEnd,
+  // NEW: Eraser cursor props
+  mousePosition,
+  isMouseOverCanvas,
+  isEraserDrawing
 }, ref) => {
   // Internal container ref to measure available space
   const containerRef = useRef(null);
   const [fitZoom, setFitZoom] = useState(0.25);
   const [contentBounds, setContentBounds] = useState(null);
+
+  // NEW: Mouse position tracking for eraser cursor
+  const [localMousePosition, setLocalMousePosition] = useState({ x: 0, y: 0 });
+  const [localIsMouseOverCanvas, setLocalIsMouseOverCanvas] = useState(false);
+
+  // NEW: Eraser cursor component
+  const EraserCursor = useCallback(({ x, y, size, visible, isDrawing }) => {
+    if (!visible || !x || !y) return null;
+    
+    return (
+      <Circle
+        x={x}
+        y={y}
+        radius={size / 2}
+        stroke={ERASER_CONFIG.CURSOR_COLOR}
+        strokeWidth={2}
+        dash={[5, 5]}
+        opacity={isDrawing ? 0.8 : ERASER_CONFIG.CURSOR_OPACITY}
+        listening={false}
+        // CRITICAL: Ensure cursor doesn't interfere with drawing
+        zIndex={1000}
+      />
+    );
+  }, []);
+
+  // NEW: Mouse event handlers for eraser cursor
+  const handleMouseMove = useCallback((e) => {
+    if (drawingState.currentTool === DRAWING_TOOLS.ERASER) {
+      const stage = e.target.getStage();
+      const point = getCanvasPoint(e, stage);
+      setLocalMousePosition(point);
+    }
+  }, [drawingState.currentTool]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (drawingState.currentTool === DRAWING_TOOLS.ERASER) {
+      setLocalIsMouseOverCanvas(true);
+    }
+  }, [drawingState.currentTool]);
+
+  const handleMouseLeave = useCallback(() => {
+    setLocalIsMouseOverCanvas(false);
+  }, []);
+
+  // NEW: Canvas event coordination
+  useEffect(() => {
+    const stage = ref.current;
+    if (!stage) return;
+    
+    // Add mouse event listeners for eraser cursor
+    stage.on('mousemove', handleMouseMove);
+    stage.on('mouseenter', handleMouseEnter);
+    stage.on('mouseleave', handleMouseLeave);
+    
+    return () => {
+      stage.off('mousemove', handleMouseMove);
+      stage.off('mouseenter', handleMouseEnter);
+      stage.off('mouseleave', handleMouseLeave);
+    };
+  }, [handleMouseMove, handleMouseEnter, handleMouseLeave, ref]);
 
   // Compute dynamic min zoom to fit the canvas into container (rotation-aware)
   useEffect(() => {
@@ -141,10 +207,15 @@ const CanvasViewer = forwardRef(({
   useEffect(() => {
     console.log('CanvasViewer - drawingData:', drawingData);
     console.log('CanvasViewer - drawingData length:', drawingData?.length);
+    console.log('CanvasViewer - textBoxes:', textBoxes);
+    console.log('CanvasViewer - textBoxes length:', textBoxes?.length);
     if (drawingData && drawingData.length > 0) {
       console.log('CanvasViewer - first item:', drawingData[0]);
     }
-  }, [drawingData]);
+    if (textBoxes && textBoxes.length > 0) {
+      console.log('CanvasViewer - first textBox:', textBoxes[0]);
+    }
+  }, [drawingData, textBoxes]);
 
   // Debug canvas dimensions and positioning
   useEffect(() => {
@@ -314,9 +385,38 @@ const CanvasViewer = forwardRef(({
     transformOrigin: 'center center',
   };
 
+  // Enhanced touch event handlers to prevent page scrolling
+  const handleContainerTouchStart = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleContainerTouchMove = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleContainerTouchEnd = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
   return (
-    <div style={containerStyle} ref={containerRef}>
-      <div style={canvasStyle}>
+    <div 
+      style={{ ...containerStyle, touchAction: 'none', WebkitTouchCallout: 'none' }} 
+      ref={containerRef} 
+      className="select-none"
+      onTouchStart={handleContainerTouchStart}
+      onTouchMove={handleContainerTouchMove}
+      onTouchEnd={handleContainerTouchEnd}
+    >
+      <div 
+        style={{ ...canvasStyle, touchAction: 'none', WebkitTouchCallout: 'none' }} 
+        className="select-none"
+        onTouchStart={handleContainerTouchStart}
+        onTouchMove={handleContainerTouchMove}
+        onTouchEnd={handleContainerTouchEnd}
+      >
         <Stage
           ref={ref}
           width={Math.max((canvasSize.width ?? canvasSize.WIDTH) || 0, 1536)}
@@ -345,8 +445,54 @@ const CanvasViewer = forwardRef(({
               return renderDrawingElement(item, index);
             })}
             
+            {/* Text boxes */}
+            {textBoxes && textBoxes.map((textBox, index) => (
+              <Rect
+                key={`textbox-${index}`}
+                x={textBox.x}
+                y={textBox.y}
+                width={textBox.width}
+                height={textBox.height}
+                fill="#ffffff"
+                stroke="#d1d5db"
+                strokeWidth={1}
+                cornerRadius={6}
+                shadowColor="black"
+                shadowBlur={2}
+                shadowOffset={{ x: 1, y: 1 }}
+              />
+            ))}
+            
+            {/* Text box text content */}
+            {textBoxes && textBoxes.map((textBox, index) => (
+              <Text
+                key={`text-${index}`}
+                x={textBox.x + 8}
+                y={textBox.y + 8}
+                width={textBox.width - 16}
+                height={textBox.height - 16}
+                text={textBox.text}
+                fontSize={textBox.fontSize || 14}
+                fill={textBox.color || '#000000'}
+                wrap="word"
+                align="left"
+                verticalAlign="top"
+              />
+            ))}
+            
             {/* Current drawing */}
             {renderCurrentDrawing()}
+            
+            {/* NEW: Eraser cursor rendering with proper coordination */}
+            {drawingState.currentTool === DRAWING_TOOLS.ERASER && (
+              <EraserCursor
+                x={localMousePosition.x}
+                y={localMousePosition.y}
+                size={drawingState.eraserSize}
+                visible={localIsMouseOverCanvas}
+                isDrawing={isEraserDrawing}
+              />
+            )}
           </Layer>
         </Stage>
       </div>

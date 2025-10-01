@@ -377,17 +377,30 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       return;
     }
     
-    // Set retest1_ key if this is a retest AND the test is not already completed
-    if (test?.retest_available && !completedTests.has(testKey)) {
+    // Set retest1_ key if this is a retest (regardless of completion status)
+    console.log('🎓 Checking retest conditions:');
+    console.log('🎓 test.retest_available:', test?.retest_available);
+    console.log('🎓 testKey:', testKey);
+    console.log('🎓 completedTests.has(testKey):', completedTests.has(testKey));
+    console.log('🎓 completedTests:', Array.from(completedTests));
+    
+    if (test?.retest_available) {
       const studentId = user?.student_id || user?.id || '';
       const retestKey = `retest1_${studentId}_${test.test_type}_${test.test_id}`;
       localStorage.setItem(retestKey, 'true');
       console.log('🎓 Set retest key:', retestKey);
       // Persist retest assignment id for the test page to submit properly
+      console.log('🎓 Test retest_assignment_id:', test.retest_assignment_id);
+      console.log('🎓 Test retest_assignment_id type:', typeof test.retest_assignment_id);
       if (test?.retest_assignment_id) {
         const retestAssignKey = `retest_assignment_id_${studentId}_${test.test_type}_${test.test_id}`;
         localStorage.setItem(retestAssignKey, String(test.retest_assignment_id));
+        console.log('🎓 Set retest assignment ID:', retestAssignKey, '=', test.retest_assignment_id);
+      } else {
+        console.log('🎓 No retest assignment ID found in test data');
       }
+    } else {
+      console.log('🎓 Retest assignment ID storage skipped - retest not available');
     }
     
     // Show loading overlay

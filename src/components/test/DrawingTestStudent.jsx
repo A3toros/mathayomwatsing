@@ -5,6 +5,8 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useNotification } from '../ui/Notification';
+import TextBox from './TextBox';
+import TextEditOverlay from './TextEditOverlay';
 
 // Drawing canvas component with zoom functionality
 const DrawingCanvas = ({ 
@@ -25,7 +27,19 @@ const DrawingCanvas = ({
   setIsPanning,
   responsiveDimensions,
   canvasSize,
-  question
+  question,
+  textBoxes,
+  setTextBoxes,
+  selectedTextBox,
+  setSelectedTextBox,
+  handleTextBoxSelect,
+  handleTextBoxUpdate,
+  handleTextBoxDelete,
+  isEditingText,
+  editingTextBox,
+  setIsEditingText,
+  setEditingTextBox,
+  setCurrentTool
 }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentLine, setCurrentLine] = useState([]);
@@ -33,6 +47,7 @@ const DrawingCanvas = ({
   const [startPoint, setStartPoint] = useState(null);
   const containerRef = useRef(null);
   const [fitZoom, setFitZoom] = useState(0.25);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const computeFit = () => {
@@ -57,6 +72,32 @@ const DrawingCanvas = ({
       return;
     }
     
+    // Handle text box creation
+    if (currentTool === 'text') {
+      const adjustedPos = {
+        x: (pos.x - stage.x()) / stage.scaleX(),
+        y: (pos.y - stage.y()) / stage.scaleY()
+      };
+      
+      const newTextBox = {
+        id: Date.now(),
+        x: adjustedPos.x,
+        y: adjustedPos.y,
+        width: 150,
+        height: 60,
+        text: 'Double-click to edit',
+        fontSize: 14,
+        color: '#000000'
+      };
+      
+      setTextBoxes(prev => [...prev, newTextBox]);
+      setSelectedTextBox(newTextBox.id);
+      
+      // Automatically switch to pan tool after creating text box
+      setCurrentTool('pan');
+      return;
+    }
+    
     setIsDrawing(true);
     // Adjust coordinates for zoom level
     const adjustedPos = {
@@ -68,6 +109,9 @@ const DrawingCanvas = ({
     
     if (currentTool === 'pencil') {
       setCurrentLine([{ x: adjustedPos.x, y: adjustedPos.y, color: currentColor, thickness: currentThickness }]);
+    } else if (currentTool === 'eraser') {
+      // Start eraser stroke
+      setCurrentLine([{ x: adjustedPos.x, y: adjustedPos.y, color: currentColor, thickness: currentThickness, tool: 'eraser' }]);
     } else if (['line', 'rectangle', 'circle'].includes(currentTool)) {
       setCurrentShape({
         type: currentTool,
@@ -85,6 +129,13 @@ const DrawingCanvas = ({
     const stage = stageRef.current;
     const point = stage.getPointerPosition();
     
+    // Update mouse position for eraser cursor
+    const adjustedPoint = {
+      x: (point.x - stage.x()) / stage.scaleX(),
+      y: (point.y - stage.y()) / stage.scaleY()
+    };
+    setMousePosition(adjustedPoint);
+    
     if (currentTool === 'pan') {
       // Pan handling is now done by Konva's draggable property
       return;
@@ -92,15 +143,13 @@ const DrawingCanvas = ({
     
     if (!isDrawing) return;
     
-    // Adjust coordinates for zoom level
-    const adjustedPoint = {
-      x: (point.x - stage.x()) / stage.scaleX(),
-      y: (point.y - stage.y()) / stage.scaleY()
-    };
-    
     if (currentTool === 'pencil') {
       const newLine = [...currentLine, { x: adjustedPoint.x, y: adjustedPoint.y, color: currentColor, thickness: currentThickness }];
       setCurrentLine(newLine);
+    } else if (currentTool === 'eraser') {
+      // Continue eraser stroke
+      const newEraserStroke = [...currentLine, { x: adjustedPoint.x, y: adjustedPoint.y, color: currentColor, thickness: currentThickness, tool: 'eraser' }];
+      setCurrentLine(newEraserStroke);
     } else if (['line', 'rectangle', 'circle'].includes(currentTool) && currentShape) {
       setCurrentShape({
         ...currentShape,
@@ -121,6 +170,11 @@ const DrawingCanvas = ({
         const newLines = [...lines, currentLine];
         onDrawingChange(newLines);
         setCurrentLine([]);
+      } else if (currentTool === 'eraser') {
+        // Finish eraser stroke
+        const newLines = [...lines, currentLine];
+        onDrawingChange(newLines);
+        setCurrentLine([]);
       } else if (['line', 'rectangle', 'circle'].includes(currentTool) && currentShape) {
         const newLines = [...lines, currentShape];
         onDrawingChange(newLines);
@@ -129,6 +183,20 @@ const DrawingCanvas = ({
       setIsDrawing(false);
       setStartPoint(null);
     }
+  };
+
+  // NEW: Eraser function - creates eraser strokes that use destination-out
+  const handleEraser = (pos) => {
+    // Create an eraser stroke that will be rendered with destination-out
+    const eraserStroke = {
+      tool: 'eraser',
+      points: [pos.x, pos.y],
+      thickness: currentThickness
+    };
+    
+    // Add the eraser stroke to the lines
+    const newLines = [...lines, eraserStroke];
+    onDrawingChange(newLines);
   };
 
   // Two-finger gesture state
@@ -473,8 +541,8 @@ const DrawingCanvas = ({
   };
 
   return (
-    <div className="relative w-full flex justify-center">
-      <div className="w-full max-w-full flex justify-center">
+    <div className="relative w-full block sm:flex sm:justify-center">
+      <div className="w-full max-w-full block sm:flex sm:justify-center">
         <div 
           className="relative"
           style={{
@@ -530,13 +598,13 @@ const DrawingCanvas = ({
                 }
               }}
                 draggable={currentTool === 'pan' && zoom > 0.25}
-                className={`border border-gray-300 rounded-lg shadow-sm ${
+                className={`border-0 rounded-none shadow-none sm:border sm:rounded-lg sm:shadow-sm ${
                   currentTool === 'pan' ? 'cursor-grab' : 
                   isPanning ? 'cursor-grabbing' : 
                   'cursor-crosshair'
                 }`}
                 style={{
-                  maxWidth: '100%',
+                  width: '100%',
                   height: 'auto'
                 }}
                 onLoad={() => {
@@ -560,16 +628,18 @@ const DrawingCanvas = ({
                   {/* Existing drawings */}
                   {lines.map((item, i) => {
                     if (Array.isArray(item)) {
-                      // It's a line (pencil drawing)
+                      // Check if it's an eraser stroke
+                      const isEraserStroke = item[0]?.tool === 'eraser';
                       return (
                         <Line
                           key={i}
                           points={item.flatMap(p => [p.x, p.y])}
-                          stroke={item[0]?.color || '#000000'}
-                          strokeWidth={item[0]?.thickness || 2}
+                          stroke={isEraserStroke ? "black" : (item[0]?.color || '#000000')}
+                          strokeWidth={isEraserStroke ? (item[0]?.thickness || 2) * 7 : (item[0]?.thickness || 2)}
                           tension={0.5}
                           lineCap="round"
                           lineJoin="round"
+                          globalCompositeOperation={isEraserStroke ? "destination-out" : "source-over"}
                         />
                       );
                     } else if (item.type === 'line') {
@@ -623,6 +693,18 @@ const DrawingCanvas = ({
                     return null;
                   })}
                   
+                  {/* Text boxes */}
+                  {textBoxes.map(textBox => (
+                    <TextBox
+                      key={textBox.id}
+                      {...textBox}
+                      isSelected={selectedTextBox === textBox.id}
+                      onSelect={handleTextBoxSelect}
+                      onUpdate={handleTextBoxUpdate}
+                      onDelete={handleTextBoxDelete}
+                    />
+                  ))}
+                  
                   {/* Current drawing being created */}
                   {currentTool === 'pencil' && (
                     <Line
@@ -632,6 +714,19 @@ const DrawingCanvas = ({
                       tension={0.5}
                       lineCap="round"
                       lineJoin="round"
+                    />
+                  )}
+                  
+                  {/* Current eraser stroke being created */}
+                  {currentTool === 'eraser' && (
+                    <Line
+                      points={currentLine.flatMap(p => [p.x, p.y])}
+                      stroke="black"
+                      strokeWidth={currentThickness * 7}
+                      tension={0.5}
+                      lineCap="round"
+                      lineJoin="round"
+                      globalCompositeOperation="destination-out"
                     />
                   )}
                   
@@ -669,9 +764,103 @@ const DrawingCanvas = ({
                       fill="transparent"
                     />
                   )}
+                  
+                  {/* Tool cursors - show when tools are selected */}
+                  {currentTool === 'eraser' && (
+                    <Circle
+                      x={mousePosition.x}
+                      y={mousePosition.y}
+                      radius={(currentThickness * 7) / 2}
+                      stroke="#666666"
+                      strokeWidth={2}
+                      fill="rgba(102, 102, 102, 0.2)"
+                      dash={[5, 5]}
+                      listening={false}
+                    />
+                  )}
+                  
+                  {/* Pencil cursor - crosshair */}
+                  {currentTool === 'pencil' && (
+                    <Line
+                      points={[
+                        mousePosition.x - 10, mousePosition.y,
+                        mousePosition.x + 10, mousePosition.y,
+                        mousePosition.x, mousePosition.y - 10,
+                        mousePosition.x, mousePosition.y + 10
+                      ]}
+                      stroke="#666666"
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  )}
+                  
+                  {/* Line tool cursor - crosshair */}
+                  {currentTool === 'line' && (
+                    <Line
+                      points={[
+                        mousePosition.x - 10, mousePosition.y,
+                        mousePosition.x + 10, mousePosition.y,
+                        mousePosition.x, mousePosition.y - 10,
+                        mousePosition.x, mousePosition.y + 10
+                      ]}
+                      stroke="#666666"
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  )}
+                  
+                  {/* Rectangle tool cursor - crosshair */}
+                  {currentTool === 'rectangle' && (
+                    <Line
+                      points={[
+                        mousePosition.x - 10, mousePosition.y,
+                        mousePosition.x + 10, mousePosition.y,
+                        mousePosition.x, mousePosition.y - 10,
+                        mousePosition.x, mousePosition.y + 10
+                      ]}
+                      stroke="#666666"
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  )}
+                  
+                  {/* Circle tool cursor - crosshair */}
+                  {currentTool === 'circle' && (
+                    <Line
+                      points={[
+                        mousePosition.x - 10, mousePosition.y,
+                        mousePosition.x + 10, mousePosition.y,
+                        mousePosition.x, mousePosition.y - 10,
+                        mousePosition.x, mousePosition.y + 10
+                      ]}
+                      stroke="#666666"
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  )}
                 </Layer>
               </Stage>
             </div>
+            
+            {/* Text editing overlay */}
+            {isEditingText && editingTextBox && (
+              <TextEditOverlay
+                x={editingTextBox.x}
+                y={editingTextBox.y}
+                width={editingTextBox.width}
+                height={editingTextBox.height}
+                initialText={editingTextBox.text}
+                onSave={(newText) => {
+                  handleTextBoxUpdate(editingTextBox.id, { text: newText });
+                  setIsEditingText(false);
+                  setEditingTextBox(null);
+                }}
+                onCancel={() => {
+                  setIsEditingText(false);
+                  setEditingTextBox(null);
+                }}
+              />
+            )}
             
             {/* Zoom controls overlay */}
             <div className="absolute top-2 right-2 flex flex-col gap-1">
@@ -900,11 +1089,25 @@ const DrawingTestStudent = ({
   const [currentTool, setCurrentTool] = useState('pencil');
   const [currentColor, setCurrentColor] = useState('#000000');
   const [currentThickness, setCurrentThickness] = useState(2);
+  
+  // NEW: History state
+  const [drawingHistory, setDrawingHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const [canvasSize, setCanvasSize] = useState({ width: 600, height: 800 });
   const [zoom, setZoom] = useState(1);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  // Text box state
+  const [textBoxes, setTextBoxes] = useState([]);
+  const [selectedTextBox, setSelectedTextBox] = useState(null);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [editingTextBox, setEditingTextBox] = useState(null);
+
+  // NEW: Computed properties for history state
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < drawingHistory.length - 1;
   const [isFullscreen, setIsFullscreen] = useState(false);
   const stageRef = useRef(null);
   const containerRef = useRef(null);
@@ -972,8 +1175,16 @@ const DrawingTestStudent = ({
       // Load existing drawing from student answer
       if (studentAnswer && typeof studentAnswer === 'string') {
         try {
-          const savedLines = JSON.parse(studentAnswer);
-          setLines(savedLines);
+          const savedData = JSON.parse(studentAnswer);
+          if (savedData.lines) {
+            setLines(savedData.lines);
+          } else {
+            // Fallback to old format
+            setLines(savedData);
+          }
+          if (savedData.textBoxes) {
+            setTextBoxes(savedData.textBoxes);
+          }
         } catch (e) {
           console.log('No valid drawing data found');
         }
@@ -1001,15 +1212,133 @@ const DrawingTestStudent = ({
   // Drawing functions
   const handleDrawingChange = (newLines) => {
     setLines(newLines);
-    // Save the drawing data as the student answer in the old format
-    // The newLines array already contains line segments (arrays of points)
-    // We just need to ensure the structure is correct for the old format
-    onAnswerChange(question.question_id, JSON.stringify(newLines));
+    
+    // Save both lines and text boxes
+    const answerData = {
+      lines: newLines,
+      textBoxes: textBoxes
+    };
+    
+    onAnswerChange(question.question_id, JSON.stringify(answerData));
+    
+  // NEW: Save to history
+  saveToHistory(newLines, textBoxes);
+  };
+
+  // NEW: History management functions
+  const saveToHistory = (newLines, newTextBoxes = textBoxes) => {
+    const newHistory = drawingHistory.slice(0, historyIndex + 1);
+    newHistory.push({
+      lines: [...newLines],
+      textBoxes: [...newTextBoxes]
+    });
+    setDrawingHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const handleUndo = () => {
+    if (canUndo) {
+      const newIndex = historyIndex - 1;
+      const historyData = drawingHistory[newIndex];
+      
+      if (historyData && typeof historyData === 'object' && historyData.lines) {
+        // New format with text boxes
+        setLines([...historyData.lines]);
+        setTextBoxes([...historyData.textBoxes]);
+        const answerData = {
+          lines: historyData.lines,
+          textBoxes: historyData.textBoxes
+        };
+        onAnswerChange(question.question_id, JSON.stringify(answerData));
+      } else {
+        // Fallback to old format
+        const newLines = historyData || [];
+        setLines([...newLines]);
+        onAnswerChange(question.question_id, JSON.stringify(newLines));
+      }
+      
+      setHistoryIndex(newIndex);
+    }
+  };
+
+  const handleRedo = () => {
+    if (canRedo) {
+      const newIndex = historyIndex + 1;
+      const historyData = drawingHistory[newIndex];
+      
+      if (historyData && typeof historyData === 'object' && historyData.lines) {
+        // New format with text boxes
+        setLines([...historyData.lines]);
+        setTextBoxes([...historyData.textBoxes]);
+        const answerData = {
+          lines: historyData.lines,
+          textBoxes: historyData.textBoxes
+        };
+        onAnswerChange(question.question_id, JSON.stringify(answerData));
+      } else {
+        // Fallback to old format
+        const newLines = historyData || [];
+        setLines([...newLines]);
+        onAnswerChange(question.question_id, JSON.stringify(newLines));
+      }
+      
+      setHistoryIndex(newIndex);
+    }
   };
 
   const clearCanvas = () => {
     setLines([]);
+    setTextBoxes([]);
+    setSelectedTextBox(null);
     onAnswerChange(question.question_id, '');
+  };
+
+  // Text box handlers
+  const handleTextBoxSelect = (id) => {
+    setSelectedTextBox(id);
+  };
+
+  const handleTextBoxUpdate = (id, updates) => {
+    const newTextBoxes = textBoxes.map(tb => 
+      tb.id === id ? { ...tb, ...updates } : tb
+    );
+    setTextBoxes(newTextBoxes);
+    
+    // Save to history
+    saveToHistory(lines, newTextBoxes);
+    
+    // Update answer data
+    const answerData = {
+      lines: lines,
+      textBoxes: newTextBoxes
+    };
+    onAnswerChange(question.question_id, JSON.stringify(answerData));
+    
+    // If editing, show overlay
+    if (updates.isEditing) {
+      const textBox = textBoxes.find(tb => tb.id === id);
+      setEditingTextBox(textBox);
+      setIsEditingText(true);
+    }
+  };
+
+  const handleTextBoxDelete = (id) => {
+    const newTextBoxes = textBoxes.filter(tb => tb.id !== id);
+    setTextBoxes(newTextBoxes);
+    
+    if (selectedTextBox === id) {
+      setSelectedTextBox(null);
+    }
+    
+    // Save to history
+    saveToHistory(lines, newTextBoxes);
+    
+    // Update answer data
+    const answerData = {
+      lines: lines,
+      textBoxes: newTextBoxes
+    };
+    onAnswerChange(question.question_id, JSON.stringify(answerData));
   };
 
 
@@ -1220,7 +1549,7 @@ const DrawingTestStudent = ({
   }
 
   return (
-    <div className={`drawing-question max-w-6xl mx-auto p-1 sm:p-2 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-y-auto' : ''}`}>
+    <div className={`drawing-question w-full max-w-full mx-0 p-0 sm:p-2 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-y-auto' : ''}`}>
       {/* Question Header - hidden in fullscreen */}
       {!isFullscreen && (
         <div className="mb-4">
@@ -1246,8 +1575,8 @@ const DrawingTestStudent = ({
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           {/* Tool Selection */}
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700">Tool:</label>
-            <div className="flex gap-1">
+            <label className="hidden sm:block text-sm text-gray-700">Tool:</label>
+            <div className="flex flex-nowrap sm:flex-wrap gap-1 overflow-x-auto">
               <button
                 onClick={() => setCurrentTool('pencil')}
                 className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
@@ -1292,19 +1621,72 @@ const DrawingTestStudent = ({
               >
                 ⭕
               </button>
-              {isLargeScreen && (
-                <button
-                  onClick={() => setCurrentTool('pan')}
-                  className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
-                    currentTool === 'pan' 
-                      ? 'bg-blue-500 text-white border-blue-500' 
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                  }`}
-                  title="Pan (Move canvas)"
-                >
-                  ✋
-                </button>
-              )}
+              <button
+                onClick={() => setCurrentTool('eraser')}
+                className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
+                  currentTool === 'eraser' 
+                    ? 'bg-red-500 text-white border-red-500' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+                title="Eraser"
+              >
+                🧽
+              </button>
+              <button
+                onClick={() => setCurrentTool('text')}
+                className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
+                  currentTool === 'text' 
+                    ? 'bg-green-500 text-white border-green-500' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+                title="Text Box"
+              >
+                📝
+              </button>
+              {/* Pan tool lives in tool group; wraps to next line on mobile */}
+              {/* Pan tool button (single source of truth) */}
+              <button
+                onClick={() => setCurrentTool('pan')}
+                className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
+                  currentTool === 'pan' 
+                    ? 'bg-blue-500 text-white border-blue-500' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+                title="Pan (Move canvas)"
+              >
+                ✋
+              </button>
+            </div>
+          </div>
+
+          {/* History Controls */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700">History:</label>
+            <div className="flex gap-1">
+              <button
+                onClick={handleUndo}
+                disabled={!canUndo}
+                className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
+                  canUndo
+                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' 
+                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                }`}
+                title="Undo (Ctrl+Z)"
+              >
+                ↶
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={!canRedo}
+                className={`px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors ${
+                  canRedo
+                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' 
+                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                }`}
+                title="Redo (Ctrl+Y)"
+              >
+                ↷
+              </button>
             </div>
           </div>
 
@@ -1358,6 +1740,7 @@ const DrawingTestStudent = ({
             <span className="text-xs text-gray-500 w-6 sm:w-8">{currentThickness}px</span>
           </div>
 
+
           {/* Clear Button */}
           <Button
             onClick={clearCanvas}
@@ -1371,8 +1754,8 @@ const DrawingTestStudent = ({
       )}
 
       {/* Drawing Canvas */}
-      <Card className="p-1 sm:p-2">
-        <div className="w-full drawing-canvas-container relative">
+      <Card paddingClass="p-0 sm:p-2">
+        <div className="w-full drawing-canvas-container relative p-0 m-0">
             <DrawingCanvas
               width={canvasSize.width}
               height={canvasSize.height}
@@ -1392,6 +1775,18 @@ const DrawingTestStudent = ({
               responsiveDimensions={responsiveDimensions}
               canvasSize={canvasSize}
               question={question}
+              textBoxes={textBoxes}
+              setTextBoxes={setTextBoxes}
+              selectedTextBox={selectedTextBox}
+              setSelectedTextBox={setSelectedTextBox}
+              handleTextBoxSelect={handleTextBoxSelect}
+              handleTextBoxUpdate={handleTextBoxUpdate}
+              handleTextBoxDelete={handleTextBoxDelete}
+              isEditingText={isEditingText}
+              editingTextBox={editingTextBox}
+              setIsEditingText={setIsEditingText}
+              setEditingTextBox={setEditingTextBox}
+              setCurrentTool={setCurrentTool}
             />
             
             {/* Fullscreen Button */}
@@ -1413,6 +1808,8 @@ const DrawingTestStudent = ({
               )}
             </button>
         </div>
+
+          {/* Pan button moved to tool group; no duplicate here */}
       </Card>
     </div>
   );
