@@ -144,6 +144,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveButton, setShowSaveButton] = useState(false);
   
+  // Speaking test score editing state
+  const [editingSpeakingScore, setEditingSpeakingScore] = useState(null); // { resultId, score }
+  const [tempSpeakingScore, setTempSpeakingScore] = useState('');
+  const [isSavingSpeakingScore, setIsSavingSpeakingScore] = useState(false);
+  
   // Column-level editing state for drawing tests ONLY
   const [editingColumns, setEditingColumns] = useState(new Set()); // Set of test names being edited
   const [columnScores, setColumnScores] = useState({}); // { testName: { studentId: { score, maxScore } } }
@@ -912,6 +917,64 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     setTempScore('');
     setTempMaxScore('');
     setShowSaveButton(false);
+  }, []);
+
+  // Speaking test score editing handlers
+  const handleStartSpeakingScoreEdit = useCallback((resultId, currentScore) => {
+    setEditingSpeakingScore({ resultId, score: currentScore });
+    setTempSpeakingScore(currentScore.toString());
+  }, []);
+
+  const handleSaveSpeakingScore = useCallback(async () => {
+    if (!editingSpeakingScore) return;
+    
+    setIsSavingSpeakingScore(true);
+    try {
+      const payload = { 
+        resultId: editingSpeakingScore.resultId, 
+        score: parseInt(tempSpeakingScore) || 0
+      };
+      
+      const response = await fetch(API_ENDPOINTS.UPDATE_SPEAKING_TEST_SCORE, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        showNotification('Speaking test score updated successfully', 'success');
+        
+        // Update the selectedSpeakingTest with the new score
+        if (selectedSpeakingTest) {
+          setSelectedSpeakingTest(prev => ({
+            ...prev,
+            score: responseData.score,
+            percentage: responseData.percentage
+          }));
+        }
+        
+        if (currentSelectedClass) {
+          loadResultsForSemester(selectedSemester);
+        }
+        // Reset editing state
+        setEditingSpeakingScore(null);
+        setTempSpeakingScore('');
+      } else {
+        const errorData = await response.json();
+        showNotification(errorData.error || 'Failed to update speaking test score', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating speaking test score:', error);
+      showNotification('Failed to update speaking test score', 'error');
+    } finally {
+      setIsSavingSpeakingScore(false);
+    }
+  }, [editingSpeakingScore, tempSpeakingScore, currentSelectedClass, selectedSemester, loadResultsForSemester, showNotification]);
+
+  const handleCancelSpeakingScoreEdit = useCallback(() => {
+    setEditingSpeakingScore(null);
+    setTempSpeakingScore('');
   }, []);
 
   // Column-level editing handlers for drawing tests ONLY
@@ -2383,6 +2446,14 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
             isOpen={isSpeakingModalOpen}
             onClose={() => setIsSpeakingModalOpen(false)}
             initialTab={selectedSpeakingTest.__initialTab || 'overview'}
+            // Speaking test score editing props
+            editingSpeakingScore={editingSpeakingScore}
+            tempSpeakingScore={tempSpeakingScore}
+            isSavingSpeakingScore={isSavingSpeakingScore}
+            onStartSpeakingScoreEdit={handleStartSpeakingScoreEdit}
+            onSaveSpeakingScore={handleSaveSpeakingScore}
+            onCancelSpeakingScoreEdit={handleCancelSpeakingScoreEdit}
+            onTempSpeakingScoreChange={setTempSpeakingScore}
           />
         </ErrorBoundary>
       )}

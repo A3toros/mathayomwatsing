@@ -30,6 +30,9 @@ const CACHE_TTL = {
   
   // Word Matching Test Data
   word_matching_test: 10 * 60 * 1000,   // 10 minutes TTL
+  
+  // Speaking Test Data (survives page reloads)
+  speaking_test_data: 60 * 60 * 1000,   // 60 minutes TTL (longer for test data)
 };
 
 const getCacheKey = (type, userId = '') => {
@@ -204,6 +207,13 @@ const clearTestData = (userId, testType, testId) => {
   
   localStorage.removeItem(testProgressKey);
   localStorage.removeItem(antiCheatingKey);
+  
+  // Clear speaking test data cache if it's a speaking test
+  if (testType === 'speaking_test_data') {
+    const speakingTestDataKey = `speaking_test_data_${userId}_${testId}`;
+    localStorage.removeItem(speakingTestDataKey);
+    console.log(`Cleared speaking test data cache for ${testId}`);
+  }
   
   console.log(`Cleared test data for ${testType}_${testId}`);
 };

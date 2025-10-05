@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless');
 const { validateToken } = require('./validate-token');
 const cloudinary = require('cloudinary').v2;
+const { createClient } = require('@supabase/supabase-js');
 
 // Configure Cloudinary
 if (process.env.CLOUDINARY_URL) {
@@ -10,6 +11,51 @@ if (process.env.CLOUDINARY_URL) {
     api_secret: process.env.CLOUDINARY_URL.split(':')[1].split('@')[0]
   });
 }
+
+// Configure Supabase
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY 
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+  : null;
+
+// Helper function to delete Supabase audio files
+const deleteSupabaseAudio = async (audioUrl) => {
+  try {
+    if (!supabase) {
+      console.log('Supabase not configured, skipping audio deletion:', audioUrl);
+      return { success: false, reason: 'Supabase not configured' };
+    }
+
+    // Extract file path from Supabase URL
+    // URL format: https://[project].supabase.co/storage/v1/object/public/audio/path/to/file.webm
+    const urlParts = audioUrl.split('/');
+    const publicIndex = urlParts.findIndex(part => part === 'public');
+    
+    if (publicIndex === -1 || publicIndex + 2 >= urlParts.length) {
+      console.log('Invalid Supabase URL format, skipping:', audioUrl);
+      return { success: false, reason: 'Invalid URL format' };
+    }
+
+    // Extract the file path (everything after 'public/audio/')
+    const filePath = urlParts.slice(publicIndex + 2).join('/');
+    
+    console.log('Deleting Supabase audio file:', filePath);
+    
+    const { error } = await supabase.storage
+      .from('audio')
+      .remove([filePath]);
+    
+    if (error) {
+      console.error('Supabase audio deletion error:', error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log('Supabase audio deletion successful:', filePath);
+    return { success: true, filePath };
+  } catch (error) {
+    console.error('Error deleting Supabase audio:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Helper function to delete Cloudinary image
 const deleteCloudinaryImage = async (imageUrl) => {
@@ -182,6 +228,14 @@ exports.handler = async function(event, context) {
           testOwnership = fillBlanksTest.length > 0;
           break;
 
+        case 'speaking':
+          const speakingTest = await sql`
+            SELECT id FROM speaking_tests 
+            WHERE id = ${test_id} AND teacher_id = ${teacher_id}
+          `;
+          testOwnership = speakingTest.length > 0;
+          break;
+
         default:
           return {
             statusCode: 400,
@@ -228,6 +282,9 @@ exports.handler = async function(event, context) {
           WHERE dtr.test_id = ${test_id}
         `;
         imageUrls = drawingImageResult.map(row => row.drawing_url).filter(url => url);
+      } else if (test_type === 'speaking') {
+        // Speaking tests don't have Cloudinary images, so no URLs to delete
+        imageUrls = [];
       }
       
       console.log(`Found ${imageUrls.length} images to delete for test ${test_id}`);
@@ -251,6 +308,45 @@ exports.handler = async function(event, context) {
     } catch (cloudinaryError) {
       console.error('Error during Cloudinary image deletion:', cloudinaryError);
       // Don't fail the entire operation if Cloudinary deletion fails
+    }
+
+    // Delete Supabase audio files for speaking tests
+    let supabaseAudioDeletionSummary = { total: 0, deleted: 0, failed: 0 };
+    
+    if (test_type === 'speaking') {
+      try {
+        console.log('=== Starting Supabase Audio Deletion ===');
+        
+        // Get audio URLs for this specific speaking test
+        const audioUrlsResult = await sql`
+          SELECT audio_url FROM speaking_test_results 
+          WHERE test_id = ${test_id}
+          AND audio_url IS NOT NULL
+        `;
+        
+        const audioUrls = audioUrlsResult.map(row => row.audio_url).filter(url => url);
+        console.log(`Found ${audioUrls.length} audio files to delete for speaking test ${test_id}`);
+        
+        // Delete each audio file
+        for (const audioUrl of audioUrls) {
+          if (audioUrl) {
+            supabaseAudioDeletionSummary.total++;
+            const deleteResult = await deleteSupabaseAudio(audioUrl);
+            if (deleteResult.success) {
+              supabaseAudioDeletionSummary.deleted++;
+              console.log('✅ Successfully deleted Supabase audio:', audioUrl);
+            } else {
+              supabaseAudioDeletionSummary.failed++;
+              console.log('❌ Failed to delete Supabase audio:', audioUrl, deleteResult.reason || deleteResult.error);
+            }
+          }
+        }
+        
+        console.log(`Supabase audio deletion complete: ${supabaseAudioDeletionSummary.deleted} deleted, ${supabaseAudioDeletionSummary.failed} failed`);
+      } catch (supabaseError) {
+        console.error('Error during Supabase audio deletion:', supabaseError);
+        // Don't fail the entire operation if Supabase deletion fails
+      }
     }
 
     // Begin transaction
@@ -277,6 +373,8 @@ exports.handler = async function(event, context) {
         await sql`DELETE FROM drawing_test_results WHERE test_id = ${test_id}`;
       } else if (test_type === 'fill_blanks') {
         await sql`DELETE FROM fill_blanks_test_results WHERE test_id = ${test_id}`;
+      } else if (test_type === 'speaking') {
+        await sql`DELETE FROM speaking_test_results WHERE test_id = ${test_id}`;
       }
       
       // 3. DELETE TEST QUESTIONS
@@ -296,6 +394,8 @@ exports.handler = async function(event, context) {
         await sql`DELETE FROM drawing_test_questions WHERE test_id = ${test_id}`;
       } else if (test_type === 'fill_blanks') {
         await sql`DELETE FROM fill_blanks_test_questions WHERE test_id = ${test_id}`;
+      } else if (test_type === 'speaking') {
+        await sql`DELETE FROM speaking_test_questions WHERE test_id = ${test_id}`;
       }
       
       // 4. DELETE MAIN TEST RECORD LAST
@@ -313,6 +413,8 @@ exports.handler = async function(event, context) {
         await sql`DELETE FROM drawing_tests WHERE id = ${test_id}`;
       } else if (test_type === 'fill_blanks') {
         await sql`DELETE FROM fill_blanks_tests WHERE id = ${test_id}`;
+      } else if (test_type === 'speaking') {
+        await sql`DELETE FROM speaking_tests WHERE id = ${test_id}`;
       }
 
       // Commit transaction
@@ -328,7 +430,8 @@ exports.handler = async function(event, context) {
           message: 'Test and all related data deleted successfully',
           test_type: test_type,
           test_id: test_id,
-          cloudinary_deletion: cloudinaryDeletionSummary
+          cloudinary_deletion: cloudinaryDeletionSummary,
+          supabase_audio_deletion: supabaseAudioDeletionSummary
         })
       };
 

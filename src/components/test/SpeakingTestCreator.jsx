@@ -3,6 +3,7 @@ import { useNotification } from '../ui/Notification';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { CEFR_LEVELS } from '../../utils/cefrLevels';
 
 const SpeakingTestCreator = ({
   testName = '',
@@ -21,7 +22,7 @@ const SpeakingTestCreator = ({
         question_id: 1,
         prompt: '',
         expected_duration: null,
-        difficulty_level: 'medium'
+        difficulty_level: 'B1'
       }
     ]
   });
@@ -53,7 +54,7 @@ const SpeakingTestCreator = ({
           question_id: prev.questions.length + 1,
           prompt: '',
           expected_duration: null,
-          difficulty_level: 'medium'
+          difficulty_level: 'B1'
         }
       ]
     }));
@@ -142,14 +143,13 @@ const SpeakingTestCreator = ({
   }
 
   return (
-    <div className="speaking-test-creator max-w-4xl mx-auto p-6">
-      <Card className="p-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Create Speaking Test</h2>
-          <p className="text-gray-600">Create a speaking test where students record audio responses with AI-powered feedback</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="speaking-test-creator max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Create Speaking Test</h2>
+        <p className="text-gray-600">Create a speaking test where students record audio responses with AI-powered feedback</p>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
 
             {/* Scoring Settings */}
             <div className="space-y-4">
@@ -185,6 +185,31 @@ const SpeakingTestCreator = ({
                   Add Question
                 </Button>
               </div>
+              
+              {/* Notification about random question selection */}
+              {formData.questions.length > 1 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Multiple Questions Detected
+                      </h3>
+                      <div className="mt-1 text-sm text-blue-700">
+                        <p>
+                          You have {formData.questions.length} questions in this test. 
+                          <strong> Only one question will be randomly selected</strong> and shown to each student.
+                          This ensures fair distribution across your question pool.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {formData.questions.map((question, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4">
@@ -240,17 +265,22 @@ const SpeakingTestCreator = ({
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Difficulty Level
+                          CEFR Level
                         </label>
                         <select
                           value={question.difficulty_level}
                           onChange={(e) => handleQuestionChange(index, 'difficulty_level', e.target.value)}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="easy">Easy</option>
-                          <option value="medium">Medium</option>
-                          <option value="hard">Hard</option>
+                          {CEFR_LEVELS.map(level => (
+                            <option key={level.value} value={level.value}>
+                              {level.label} - {level.description}
+                            </option>
+                          ))}
                         </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Select the appropriate CEFR level for this question. This will be used by AI to evaluate students appropriately.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -276,7 +306,6 @@ const SpeakingTestCreator = ({
               </Button>
             </div>
         </form>
-      </Card>
     </div>
   );
 };

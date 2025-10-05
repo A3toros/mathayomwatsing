@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless');
 const { validateToken } = require('./validate-token');
 const cloudinary = require('cloudinary').v2;
+const { createClient } = require('@supabase/supabase-js');
 
 // Configure Cloudinary
 if (process.env.CLOUDINARY_URL) {
@@ -10,6 +11,51 @@ if (process.env.CLOUDINARY_URL) {
     api_secret: process.env.CLOUDINARY_URL.split(':')[1].split('@')[0]
   });
 }
+
+// Configure Supabase
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY 
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+  : null;
+
+// Helper function to delete Supabase audio files
+const deleteSupabaseAudio = async (audioUrl) => {
+  try {
+    if (!supabase) {
+      console.log('Supabase not configured, skipping audio deletion:', audioUrl);
+      return { success: false, reason: 'Supabase not configured' };
+    }
+
+    // Extract file path from Supabase URL
+    // URL format: https://[project].supabase.co/storage/v1/object/public/audio/path/to/file.webm
+    const urlParts = audioUrl.split('/');
+    const publicIndex = urlParts.findIndex(part => part === 'public');
+    
+    if (publicIndex === -1 || publicIndex + 2 >= urlParts.length) {
+      console.log('Invalid Supabase URL format, skipping:', audioUrl);
+      return { success: false, reason: 'Invalid URL format' };
+    }
+
+    // Extract the file path (everything after 'public/audio/')
+    const filePath = urlParts.slice(publicIndex + 2).join('/');
+    
+    console.log('Deleting Supabase audio file:', filePath);
+    
+    const { error } = await supabase.storage
+      .from('audio')
+      .remove([filePath]);
+    
+    if (error) {
+      console.error('Supabase audio deletion error:', error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log('Supabase audio deletion successful:', filePath);
+    return { success: true, filePath };
+  } catch (error) {
+    console.error('Error deleting Supabase audio:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Helper function to delete Cloudinary images
 const deleteCloudinaryImage = async (imageUrl) => {
@@ -295,6 +341,14 @@ exports.handler = async function(event, context) {
       `;
       console.log('Fill Blanks Tests found:', fillBlanksTests.length, fillBlanksTests);
       
+      const speakingTests = await sql`
+        SELECT id, test_name, created_at, teacher_id 
+        FROM speaking_tests 
+        WHERE teacher_id = ${teacherId} 
+        AND created_at BETWEEN ${startDate} AND ${endDateFull}
+      `;
+      console.log('Speaking Tests found:', speakingTests.length, speakingTests);
+      
       // Check if teacher exists at all
       const teacherCheck = await sql`
         SELECT teacher_id, username 
@@ -331,6 +385,10 @@ exports.handler = async function(event, context) {
         UNION ALL
         SELECT 'fill_blanks' as type, id, test_name, created_at 
         FROM fill_blanks_tests 
+        WHERE teacher_id = ${teacherId}
+        UNION ALL
+        SELECT 'speaking' as type, id, test_name, created_at 
+        FROM speaking_tests 
         WHERE teacher_id = ${teacherId}
         ORDER BY created_at DESC
       `;
@@ -401,6 +459,14 @@ exports.handler = async function(event, context) {
             DELETE FROM fill_blanks_test_questions 
             WHERE test_id IN (
               SELECT id FROM fill_blanks_tests 
+              WHERE teacher_id = ${teacherId}
+            )
+          `;
+        } else if (tableName === 'speaking_test_questions') {
+          result = await sql`
+            DELETE FROM speaking_test_questions 
+            WHERE test_id IN (
+              SELECT id FROM speaking_tests 
               WHERE teacher_id = ${teacherId}
             )
           `;
@@ -489,6 +555,15 @@ exports.handler = async function(event, context) {
               AND created_at BETWEEN ${startDate} AND ${endDateFull}
             )
           `;
+        } else if (tableName === 'speaking_test_results') {
+          result = await sql`
+            DELETE FROM speaking_test_results 
+            WHERE test_id IN (
+              SELECT id FROM speaking_tests 
+              WHERE teacher_id = ${teacherId}
+              AND created_at BETWEEN ${startDate} AND ${endDateFull}
+            )
+          `;
         } else {
           throw new Error(`Unsupported results table name: ${tableName}`);
         }
@@ -540,6 +615,11 @@ exports.handler = async function(event, context) {
           )
           OR ta.test_id IN (
             SELECT id FROM fill_blanks_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          OR ta.test_id IN (
+            SELECT id FROM speaking_tests 
             WHERE teacher_id = ${teacherId}
             AND created_at BETWEEN ${startDate} AND ${endDateFull}
           )
@@ -613,6 +693,12 @@ exports.handler = async function(event, context) {
         } else if (tableName === 'fill_blanks_tests') {
           result = await sql`
             DELETE FROM fill_blanks_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          `;
+        } else if (tableName === 'speaking_tests') {
+          result = await sql`
+            DELETE FROM speaking_tests 
             WHERE teacher_id = ${teacherId}
             AND created_at BETWEEN ${startDate} AND ${endDateFull}
           `;
@@ -852,6 +938,28 @@ exports.handler = async function(event, context) {
       
       totalDeleted += deletionSummary.fillBlanks.questions + deletionSummary.fillBlanks.results + deletionSummary.fillBlanks.tests;
 
+      // 8. DELETE SPEAKING TEST DATA
+      console.log('=== Starting Speaking Test Deletion ===');
+      deletionSummary.speaking = {};
+      
+      // Delete results FIRST (has created_at column AND test_id column, so can filter by date AND teacher)
+      // This must be done before deleting main tests to avoid foreign key constraint violations
+      deletionSummary.speaking.results = await deleteFromResultsTable(
+        'speaking_test_results', 
+        'speaking_tests'
+      );
+      
+      // Delete questions (no created_at column, so no date filtering)
+      deletionSummary.speaking.questions = await deleteFromTableWithTeacher(
+        'speaking_test_questions', 
+        'speaking_tests'
+      );
+      
+      // Delete main test records LAST (after all dependent records are deleted)
+      deletionSummary.speaking.tests = await deleteFromMainTestTable('speaking_tests');
+      
+      totalDeleted += deletionSummary.speaking.questions + deletionSummary.speaking.results + deletionSummary.speaking.tests;
+
       // Delete Cloudinary images for matching type tests before deleting the tests themselves
       console.log('=== Starting Cloudinary Image Deletion ===');
       deletionSummary.cloudinaryImages = {};
@@ -928,6 +1036,60 @@ exports.handler = async function(event, context) {
           failed: 0
         };
         // Don't fail the entire operation if Cloudinary deletion fails
+      }
+
+      // Delete Supabase audio files for speaking tests
+      console.log('=== Starting Supabase Audio Deletion ===');
+      deletionSummary.supabaseAudio = {};
+      
+      try {
+        // Get all speaking test audio URLs for this teacher and date range
+        const speakingAudioUrlsResult = await sql`
+          SELECT audio_url FROM speaking_test_results 
+          WHERE test_id IN (
+            SELECT id FROM speaking_tests 
+            WHERE teacher_id = ${teacherId}
+            AND created_at BETWEEN ${startDate} AND ${endDateFull}
+          )
+          AND audio_url IS NOT NULL
+        `;
+        
+        console.log(`Found ${speakingAudioUrlsResult.length} speaking test audio files to delete`);
+        
+        let deletedAudio = 0;
+        let failedAudio = 0;
+        
+        // Delete each audio file
+        for (const row of speakingAudioUrlsResult) {
+          const audioUrl = row.audio_url;
+          console.log('Processing speaking test audio for deletion:', audioUrl);
+          
+          const deleteResult = await deleteSupabaseAudio(audioUrl);
+          if (deleteResult.success) {
+            deletedAudio++;
+            console.log('✅ Successfully deleted Supabase audio:', deleteResult.filePath);
+          } else {
+            failedAudio++;
+            console.log('❌ Failed to delete Supabase audio:', audioUrl, deleteResult.reason || deleteResult.error);
+          }
+        }
+        
+        deletionSummary.supabaseAudio = {
+          total: speakingAudioUrlsResult.length,
+          deleted: deletedAudio,
+          failed: failedAudio
+        };
+        
+        console.log(`Supabase audio deletion complete: ${deletedAudio} deleted, ${failedAudio} failed`);
+      } catch (supabaseError) {
+        console.error('Error during Supabase audio deletion:', supabaseError);
+        deletionSummary.supabaseAudio = {
+          error: supabaseError.message,
+          total: 0,
+          deleted: 0,
+          failed: 0
+        };
+        // Don't fail the entire operation if Supabase deletion fails
       }
 
       // Test assignments already deleted at the beginning

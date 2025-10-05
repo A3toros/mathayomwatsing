@@ -26,6 +26,9 @@ class TokenManager {
     
     // Start token monitoring
     this.startTokenMonitoring();
+    
+    // Add user activity detection for more frequent refreshes
+    this.setupUserActivityDetection();
   }
 
   /**
@@ -129,8 +132,8 @@ class TokenManager {
       const now = Math.floor(Date.now() / 1000);
       const timeUntilExpiry = decoded.exp - now;
       
-      // Return true if token expires in less than 2 minutes
-      return timeUntilExpiry < 120;
+      // Return true if token expires in less than 5 minutes (more reasonable)
+      return timeUntilExpiry < 300;
     } catch (error) {
       console.error('Error decoding token:', error);
       return true;
@@ -166,6 +169,36 @@ class TokenManager {
   }
 
   /**
+   * 🆕 Setup user activity detection for proactive token refresh
+   */
+  setupUserActivityDetection() {
+    let lastActivity = Date.now();
+    
+    // Track user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const updateActivity = () => {
+      lastActivity = Date.now();
+    };
+    
+    // Add event listeners
+    activityEvents.forEach(event => {
+      document.addEventListener(event, updateActivity, true);
+    });
+    
+    // Check activity every 2 minutes
+    setInterval(() => {
+      const timeSinceActivity = Date.now() - lastActivity;
+      
+      // If user was active in last 5 minutes, check token more frequently
+      if (timeSinceActivity < 300000) { // 5 minutes
+        console.log('[DEBUG] User is active, checking token status...');
+        this.checkTokenExpiry();
+      }
+    }, 120000); // Check every 2 minutes
+  }
+
+  /**
    * 🆕 Schedule the next token check with adaptive timing
    */
   scheduleNextCheck() {
@@ -183,12 +216,12 @@ class TokenManager {
         // Token already expired, check immediately
         nextCheckDelay = 0;
         console.log('[DEBUG] Token already expired, checking immediately');
-      } else if (timeUntilExpiry <= 120) {
-        // Token expires in less than 2 minutes, check every 30 seconds
+      } else if (timeUntilExpiry <= 300) {
+        // Token expires in less than 5 minutes, check every 30 seconds
         nextCheckDelay = 30000;
         console.log(`[DEBUG] Token expires in ${timeUntilExpiry} seconds, checking every 30 seconds`);
-      } else if (timeUntilExpiry <= 300) {
-        // Token expires in less than 5 minutes, check every minute
+      } else if (timeUntilExpiry <= 600) {
+        // Token expires in less than 10 minutes, check every minute
         nextCheckDelay = 60000;
         console.log(`[DEBUG] Token expires in ${timeUntilExpiry} seconds, checking every minute`);
       } else {
@@ -223,7 +256,22 @@ class TokenManager {
       console.log('[DEBUG] Token expired, initiating refresh...');
       this.refreshToken();
     } else {
-      console.log('[DEBUG] Token still valid, continuing monitoring');
+      // Check if token needs proactive refresh (expires in less than 10 minutes)
+      try {
+        const decoded = this.decodeToken(this.accessToken);
+        const now = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = decoded.exp - now;
+        
+        if (timeUntilExpiry <= 600) { // 10 minutes
+          console.log(`[DEBUG] Token expires in ${timeUntilExpiry} seconds, proactively refreshing...`);
+          this.refreshToken();
+        } else {
+          console.log('[DEBUG] Token still valid, continuing monitoring');
+        }
+      } catch (error) {
+        console.error('Error checking token expiry:', error);
+        this.refreshToken(); // Refresh on error
+      }
     }
   }
 

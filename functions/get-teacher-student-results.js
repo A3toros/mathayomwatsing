@@ -658,6 +658,9 @@ exports.handler = async (event, context) => {
       console.log('🔍 Debug: All results for this teacher:', debugResults);
     }
     
+    // Extract unique subjects from results
+    const uniqueSubjects = [...new Set(results.map(result => result.subject).filter(subject => subject))];
+    
     return {
       statusCode: 200,
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -665,6 +668,7 @@ exports.handler = async (event, context) => {
         success: true, 
         results,
         students,
+        subjects: uniqueSubjects,
         count: results.length,
         student_count: students.length,
         teacher_id: actualTeacherId,

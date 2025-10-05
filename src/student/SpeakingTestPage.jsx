@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
 import TestResults from '../components/test/TestResults';
+import Button from '../components/ui/Button';
 
 const SpeakingTestPage = () => {
   const { testId } = useParams();
@@ -94,10 +95,32 @@ const SpeakingTestPage = () => {
 
   if (isLoading) {
     return (
-      <div className="speaking-test-page min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 mt-4">Loading speaking test...</p>
+      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+        {/* Speaking Test Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={handleExit}
+              >
+                Back to Cabinet
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="text-gray-600 mt-4">Loading speaking test...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -105,17 +128,33 @@ const SpeakingTestPage = () => {
 
   if (error) {
     return (
-      <div className="speaking-test-page min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Test</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={handleExit}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Return to Dashboard
-          </button>
+      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+        {/* Speaking Test Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={handleExit}
+              >
+                Back to Cabinet
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="text-red-600 text-6xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Test</h2>
+              <p className="text-gray-600 mb-6">{error}</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -123,18 +162,26 @@ const SpeakingTestPage = () => {
 
   if (isCompleted && testResult) {
     return (
-      <div className="speaking-test-page min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="mb-6">
-            <button
-              onClick={handleExit}
-              className="text-blue-600 hover:text-blue-800 mb-4"
-            >
-              ← Back to Dashboard
-            </button>
-            <h1 className="text-3xl font-bold text-gray-900">Speaking Test Results</h1>
+      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+        {/* Speaking Test Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Speaking Test Results</h1>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={handleExit}
+              >
+                Back to Cabinet
+              </Button>
+            </div>
           </div>
-          
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <TestResults
             testType="speaking"
             testData={testData}
@@ -153,17 +200,33 @@ const SpeakingTestPage = () => {
 
   if (!testData || questions.length === 0) {
     return (
-      <div className="speaking-test-page min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-gray-400 text-6xl mb-4">📝</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Test Data</h2>
-          <p className="text-gray-600 mb-6">Unable to load test information</p>
-          <button
-            onClick={handleExit}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Return to Dashboard
-          </button>
+      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+        {/* Speaking Test Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={handleExit}
+              >
+                Back to Cabinet
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="text-gray-400 text-6xl mb-4">📝</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">No Test Data</h2>
+              <p className="text-gray-600 mb-6">Unable to load test information</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -173,17 +236,26 @@ const SpeakingTestPage = () => {
   const currentQuestion = questions[0];
 
   return (
-    <div className="speaking-test-page min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-6">
-          <button
-            onClick={handleExit}
-            className="text-blue-600 hover:text-blue-800 mb-4"
-          >
-            ← Back to Dashboard
-          </button>
+    <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      {/* Speaking Test Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+            </div>
+            
+            <Button
+              variant="outline"
+              onClick={handleExit}
+            >
+              Back to Cabinet
+            </Button>
+          </div>
         </div>
-        
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <SpeakingTestStudent
           testData={{
             ...testData,

@@ -1,7 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AudioPlayer from './AudioPlayer';
 
-const SpeakingTestReview = ({ result, isOpen, onClose, initialTab = 'overview' }) => {
+const SpeakingTestReview = ({ 
+  result, 
+  isOpen, 
+  onClose, 
+  initialTab = 'overview',
+  // Speaking test score editing props
+  editingSpeakingScore,
+  tempSpeakingScore,
+  isSavingSpeakingScore,
+  onStartSpeakingScoreEdit,
+  onSaveSpeakingScore,
+  onCancelSpeakingScoreEdit,
+  onTempSpeakingScoreChange
+}) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const unmountedRef = useRef(false);
 
@@ -136,6 +149,7 @@ const SpeakingTestReview = ({ result, isOpen, onClose, initialTab = 'overview' }
               { id: 'overview', label: 'Overview' },
               { id: 'audio', label: 'Audio' },
               { id: 'transcript', label: 'Transcript' },
+              { id: 'analysis', label: 'AI Analysis' },
               { id: 'scoring', label: 'Scoring' }
             ].map(tab => (
               <button
@@ -222,26 +236,133 @@ const SpeakingTestReview = ({ result, isOpen, onClose, initialTab = 'overview' }
             </div>
           )}
 
+          {activeTab === 'analysis' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900">AI Analysis Results</h3>
+              
+              {/* Score Breakdown */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-md font-semibold text-gray-800 mb-4">AI Analysis Results</h4>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-gray-800">
+                    {result.overall_score || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">Overall Score (0-100)</div>
+                </div>
+              </div>
+
+              {/* Detailed Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-md font-semibold text-gray-800 mb-3">Performance Metrics</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Word Count:</span>
+                      <span className="text-sm font-medium">{result.word_count || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Grammar Mistakes:</span>
+                      <span className="text-sm font-medium text-red-600">{result.grammar_mistakes || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Vocabulary Issues:</span>
+                      <span className="text-sm font-medium text-red-600">{result.vocabulary_mistakes || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-md font-semibold text-gray-800 mb-3">AI Feedback</h4>
+                  {result.feedback ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-gray-700">{result.feedback}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">No AI feedback available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Simple Score Display */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-md font-semibold text-gray-800 mb-4">Score Summary</h4>
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-blue-600 mb-2">
+                    {result.overall_score || 0}/100
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {result.overall_score >= 80 ? 'Excellent' : 
+                     result.overall_score >= 60 ? 'Good' : 
+                     result.overall_score >= 40 ? 'Fair' : 'Needs Improvement'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'scoring' && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900">Score Details</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Current Score</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {studentResults.score} / {studentResults.max_score}
-                  </p>
+              
+              {editingSpeakingScore ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Score</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={studentResults.max_score}
+                        value={tempSpeakingScore}
+                        onChange={(e) => onTempSpeakingScoreChange(e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Max Score</label>
+                      <p className="mt-1 text-sm text-gray-900">{studentResults.max_score} (Fixed)</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={onSaveSpeakingScore}
+                      disabled={isSavingSpeakingScore}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {isSavingSpeakingScore ? 'Saving...' : 'Save Score'}
+                    </button>
+                    <button
+                      onClick={onCancelSpeakingScoreEdit}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Percentage</label>
-                  <p className="mt-1 text-sm text-gray-900">{studentResults.percentage}%</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Current Score</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {studentResults.score} / {studentResults.max_score}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Percentage</label>
+                      <p className="mt-1 text-sm text-gray-900">{studentResults.percentage}%</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onStartSpeakingScoreEdit(result.id, studentResults.score)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Edit Score
+                  </button>
                 </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm text-gray-600">
-                  Score editing functionality can be implemented here to allow teachers to manually adjust scores.
-                </p>
-              </div>
+              )}
             </div>
           )}
         </div>

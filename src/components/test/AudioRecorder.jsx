@@ -4,6 +4,7 @@ const AudioRecorder = forwardRef(({
   onRecordingComplete, 
   minDuration = 0, 
   maxDuration = 600,
+  minWords = 50,
   maxAttempts = 3,
   currentAttempt = 1 
 }, ref) => {
@@ -280,12 +281,12 @@ const AudioRecorder = forwardRef(({
         </div>
       )}
 
-      {/* Controls */}
-      <div className="flex justify-center space-x-4 mb-6">
+      {/* Controls - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-6">
         {!isRecording ? (
           <button
             onClick={startRecording}
-            className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-700 flex items-center space-x-2"
+            className="w-full sm:w-auto bg-red-600 text-white px-6 py-4 rounded-full hover:bg-red-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
           >
             <span className="text-xl">🎤</span>
             <span>Start Recording</span>
@@ -295,7 +296,7 @@ const AudioRecorder = forwardRef(({
             {!isPaused ? (
               <button
                 onClick={pauseRecording}
-                className="bg-yellow-600 text-white px-6 py-3 rounded-full hover:bg-yellow-700 flex items-center space-x-2"
+                className="w-full sm:w-auto bg-yellow-600 text-white px-6 py-4 rounded-full hover:bg-yellow-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
               >
                 <span className="text-xl">⏸️</span>
                 <span>Pause</span>
@@ -303,7 +304,7 @@ const AudioRecorder = forwardRef(({
             ) : (
               <button
                 onClick={resumeRecording}
-                className="bg-green-600 text-white px-6 py-3 rounded-full hover:bg-green-700 flex items-center space-x-2"
+                className="w-full sm:w-auto bg-green-600 text-white px-6 py-4 rounded-full hover:bg-green-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
               >
                 <span className="text-xl">▶️</span>
                 <span>Resume</span>
@@ -311,7 +312,7 @@ const AudioRecorder = forwardRef(({
             )}
             <button
               onClick={stopRecording}
-              className="bg-gray-600 text-white px-6 py-3 rounded-full hover:bg-gray-700 flex items-center space-x-2"
+              className="w-full sm:w-auto bg-gray-600 text-white px-6 py-4 rounded-full hover:bg-gray-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
             >
               <span className="text-xl">⏹️</span>
               <span>Stop & Submit</span>
@@ -320,16 +321,6 @@ const AudioRecorder = forwardRef(({
         )}
       </div>
 
-      {/* Requirements */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h4 className="font-semibold mb-2">Recording Requirements:</h4>
-        <ul className="text-sm text-gray-700 space-y-1">
-          <li>• Minimum duration: {minDuration} seconds</li>
-          <li>• Maximum duration: {maxDuration} seconds</li>
-          <li>• Speak clearly and at normal pace</li>
-          <li>• Ensure good audio quality (green indicator)</li>
-        </ul>
-      </div>
 
       {/* Error Display */}
       {error && (

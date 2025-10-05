@@ -1,53 +1,112 @@
 const { neon } = require('@neondatabase/serverless');
 const axios = require('axios');
+const OpenAI = require('openai');
+
+// Import helper functions directly (avoiding path issues)
+function getCEFRDescription(level) {
+  const descriptions = {
+    'A1': 'Beginner - Basic vocabulary, simple sentences',
+    'A2': 'Elementary - Everyday vocabulary, present/past tenses', 
+    'B1': 'Intermediate - Varied vocabulary, complex sentences',
+    'B2': 'Upper-Intermediate - Advanced vocabulary, sophisticated structures',
+    'C1': 'Advanced - Nuanced vocabulary, complex discourse',
+    'C2': 'Proficiency - Native-like fluency and accuracy'
+  };
+  return descriptions[level] || descriptions['B1'];
+}
+
+function getScoringGuidelines(level) {
+  const guidelines = {
+    'A1': `A1 LEVEL EXPECTATIONS:
+- Grammar: Basic present tense, simple sentences (I am, I like, I have)
+- Vocabulary: Basic words (good, bad, big, small, happy, sad)
+- Pronunciation: Clear enough to understand basic words
+- Fluency: Slow but understandable, many pauses acceptable
+- Content: Simple responses to basic questions`,
+    
+    'A2': `A2 LEVEL EXPECTATIONS:
+- Grammar: Present/past tenses, simple future (will), basic conditionals
+- Vocabulary: Everyday words, basic adjectives, common verbs
+- Pronunciation: Generally clear, some errors acceptable
+- Fluency: Steady pace, some hesitation acceptable
+- Content: Clear responses to familiar topics`,
+    
+    'B1': `B1 LEVEL EXPECTATIONS:
+- Grammar: Present/past/future, conditionals, passive voice, reported speech
+- Vocabulary: Varied vocabulary, some idiomatic expressions
+- Pronunciation: Clear pronunciation, minor errors acceptable
+- Fluency: Natural pace, occasional hesitation
+- Content: Detailed responses with examples and explanations`,
+    
+    'B2': `B2 LEVEL EXPECTATIONS:
+- Grammar: Complex tenses, subjunctive, advanced conditionals, perfect tenses
+- Vocabulary: Advanced vocabulary, synonyms, collocations
+- Pronunciation: Clear pronunciation, native-like intonation
+- Fluency: Natural pace, minimal hesitation
+- Content: Sophisticated responses with analysis and evaluation`,
+    
+    'C1': `C1 LEVEL EXPECTATIONS:
+- Grammar: Perfect grammar, complex structures, nuanced tense usage
+- Vocabulary: Sophisticated vocabulary, precise word choice, idioms
+- Pronunciation: Near-native pronunciation and intonation
+- Fluency: Natural, flowing speech with minimal hesitation
+- Content: Complex, nuanced responses with critical thinking`,
+    
+    'C2': `C2 LEVEL EXPECTATIONS:
+- Grammar: Perfect grammar, native-like structures
+- Vocabulary: Expert-level vocabulary, precise terminology
+- Pronunciation: Native-like pronunciation and intonation
+- Fluency: Natural, flowing speech without hesitation
+- Content: Expert-level responses with sophisticated analysis`
+  };
+  return guidelines[level] || guidelines['B1'];
+}
 
 // Environment variables
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const ASSEMBLYAI_BASE_URL = process.env.ASSEMBLYAI_BASE_URL || 'https://api.assemblyai.com';
-const LANGUAGETOOL_URL = process.env.LANGUAGETOOL_URL || 'https://api.languagetool.org/v2/check';
-const LANGUAGETOOL_LANGUAGE = process.env.LANGUAGETOOL_LANGUAGE || 'en-US';
-const LANGUAGETOOL_LEVEL = process.env.LANGUAGETOOL_LEVEL || 'default';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-// Scoring configuration
-const SPEAKING_SCORE_CONFIG = {
-  WORD_WEIGHT: 0.30,
-  GRAMMAR_WEIGHT: 0.40,
-  VOCAB_WEIGHT: 0.30,
-  POINTS_PER_GRAMMAR_ERROR: 2,
-  POINTS_PER_VOCAB_ERROR: 1
-};
+// Initialize OpenAI client for GPT-4o Mini
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: OPENROUTER_API_KEY,
+});
 
 const sql = neon(process.env.NEON_DATABASE_URL);
 
 exports.handler = async (event, context) => {
-  console.log('=== AI FEEDBACK PROCESSING ===');
+  console.log('=== AI FEEDBACK PROCESSING WITH GPT-4O MINI ===');
   
   try {
     // Parse request body
     const body = JSON.parse(event.body);
-    const { test_id, audio_blob } = body;
+    const { test_id, audio_blob, question_id } = body;
 
     console.log('AI Feedback request data:', {
       test_id,
+      question_id,
       has_audio_blob: !!audio_blob,
       audio_blob_size: audio_blob ? audio_blob.length : 0
     });
 
-    // Get test configuration
+    // Get test configuration and question details
     const testConfig = await sql`
-      SELECT min_words, time_limit, min_duration, max_duration, passing_score
-      FROM speaking_tests 
-      WHERE id = ${test_id}
+      SELECT st.min_words, st.time_limit, st.min_duration, st.max_duration, st.passing_score,
+             stq.prompt, stq.difficulty_level
+      FROM speaking_tests st
+      LEFT JOIN speaking_test_questions stq ON st.id = stq.test_id
+      WHERE st.id = ${test_id} AND stq.id = ${question_id}
     `;
 
     if (testConfig.length === 0) {
-      throw new Error('Speaking test not found');
+      throw new Error('Speaking test or question not found');
     }
 
     const config = testConfig[0];
     console.log('Test configuration:', config);
 
-    // Process audio with AI
+    // Process audio with AssemblyAI for transcription
     console.log('Processing audio with AssemblyAI...');
     const transcript = await transcribeAudioWithAssemblyAI(audio_blob);
     console.log('Transcript:', transcript);
@@ -56,19 +115,14 @@ exports.handler = async (event, context) => {
       throw new Error('Your speech was not recognized, please speak louder');
     }
 
-    // Analyze grammar with LanguageTool
-    console.log('Analyzing grammar with LanguageTool...');
-    const grammarAnalysis = await analyzeGrammarWithLanguageTool(transcript);
-    console.log('Grammar analysis:', grammarAnalysis);
+    // Analyze with GPT-4o Mini
+    console.log('Analyzing with GPT-4o Mini...');
+    const analysis = await analyzeWithGPT4oMini(transcript, config.prompt, config.difficulty_level);
+    console.log('GPT-4o Mini analysis:', analysis);
 
-    // Analyze vocabulary with LanguageTool
-    console.log('Analyzing vocabulary with LanguageTool...');
-    const vocabAnalysis = await analyzeVocabularyWithLanguageTool(transcript);
-    console.log('Vocabulary analysis:', vocabAnalysis);
-
-    // Calculate scores
-    const scores = calculateSpeakingScore(transcript, grammarAnalysis, vocabAnalysis, config);
-    console.log('Calculated scores:', scores);
+    // Calculate overall score
+    const overallScore = calculateOverallScore(analysis);
+    console.log('Overall score:', overallScore);
 
     return {
       statusCode: 200,
@@ -81,9 +135,23 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         transcript,
-        score_breakdown: scores,
-        grammar_analysis: grammarAnalysis,
-        vocab_analysis: vocabAnalysis
+        // Use existing columns only
+        grammar_mistakes: analysis.grammar_mistakes,
+        vocabulary_mistakes: analysis.vocabulary_mistakes,
+        word_count: analysis.word_count,
+        overall_score: overallScore,
+        // Store detailed feedback in transcript or as JSON in existing fields
+        feedback: analysis.feedback,
+        improved_transcript: analysis.improved_transcript,
+        grammar_corrections: analysis.grammar_corrections || [],
+        vocabulary_corrections: analysis.vocabulary_corrections || [],
+        // Add individual category scores for frontend display
+        grammar_score: analysis.grammar_score,
+        vocabulary_score: analysis.vocabulary_score,
+        pronunciation_score: analysis.pronunciation_score,
+        fluency_score: analysis.fluency_score,
+        content_score: analysis.content_score,
+        passed: overallScore >= config.passing_score
       })
     };
 
@@ -169,166 +237,87 @@ async function transcribeAudioWithAssemblyAI(audioBlob) {
   }
 }
 
-async function analyzeGrammarWithLanguageTool(text) {
+async function analyzeWithGPT4oMini(transcript, prompt, difficultyLevel) {
   try {
-    const formData = new URLSearchParams();
-    formData.append('text', text);
-    formData.append('language', LANGUAGETOOL_LANGUAGE);
-    formData.append('level', LANGUAGETOOL_LEVEL);
-    
-    const response = await fetch(LANGUAGETOOL_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'SpeakingTestApp/1.0'
-      },
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`LanguageTool API error: ${response.status}`);
+    const analysisPrompt = `
+You are an expert ESL speaking test evaluator. Analyze this student's response:
+
+PROMPT: "${prompt}"
+STUDENT RESPONSE: "${transcript}"
+STUDENT LEVEL: ${difficultyLevel} (${getCEFRDescription(difficultyLevel)})
+
+IMPORTANT: Evaluate the student based on their CURRENT LEVEL (${difficultyLevel}). 
+- For A1 students: Expect basic vocabulary, simple present tense, basic sentence structure
+- For A2 students: Expect everyday vocabulary, present/past tenses, simple complex sentences
+- For B1 students: Expect varied vocabulary, conditional sentences, some complex structures
+- For B2 students: Expect advanced vocabulary, sophisticated grammar, complex discourse
+- For C1 students: Expect nuanced vocabulary, complex grammar, native-like structures
+- For C2 students: Expect expert-level vocabulary, perfect grammar, native-like fluency
+
+CRITICAL: Focus ONLY on grammar, vocabulary, pronunciation, fluency, and content accuracy. 
+- Do NOT make corrections based on inclusivity, diversity, or political correctness
+- Do NOT suggest changes for social or cultural reasons
+- Only correct actual grammar errors, vocabulary misuse, or clarity issues
+- "A person" vs "people" is NOT a grammar error - both are grammatically correct
+- Focus on language learning, not social commentary
+
+Evaluate on these 5 categories and return JSON:
+{
+  "grammar_score": 0-25,        // Grammar accuracy appropriate for ${difficultyLevel} level
+  "vocabulary_score": 0-20,     // Word choice and variety appropriate for ${difficultyLevel} level
+  "pronunciation_score": 0-15,  // Clarity and accuracy appropriate for ${difficultyLevel} level
+  "fluency_score": 0-20,        // Pace, pauses, flow appropriate for ${difficultyLevel} level
+  "content_score": 0-20,        // How well they addressed the prompt (appropriate for ${difficultyLevel} level)
+  "grammar_mistakes": number,   // Count of grammar errors for ${difficultyLevel} level
+  "vocabulary_mistakes": number, // Count of vocabulary issues for ${difficultyLevel} level
+  "word_count": number,         // Total words spoken
+  "feedback": "string",         // Teacher-style feedback message appropriate for ${difficultyLevel} level
+  "improved_transcript": "string", // Corrected version of the transcript with grammar and vocabulary improvements
+  "grammar_corrections": [      // Array of specific grammar mistakes with explanations
+    {
+      "mistake": "original incorrect phrase",
+      "correction": "corrected phrase", 
+      "explanation": "why this is wrong and how to fix it"
     }
-    
-    const result = await response.json();
+  ],
+  "vocabulary_corrections": [   // Array of specific vocabulary issues with explanations
+    {
+      "mistake": "original word/phrase",
+      "correction": "better word/phrase",
+      "explanation": "why this is better and when to use it"
+    }
+  ]
+}
 
-    const matches = result.matches || [];
-    
-    // Calculate grammar score
-    const totalErrors = matches.length;
-    const grammarScore = Math.max(0, 100 - (totalErrors * SPEAKING_SCORE_CONFIG.POINTS_PER_GRAMMAR_ERROR));
-    
-    // Extract detailed corrections
-    const detailedCorrections = matches.map(match => ({
-      original: match.context.text.substring(match.context.offset, match.context.offset + match.context.length),
-      suggested: match.replacements?.[0]?.value || '',
-      message: match.message,
-      shortMessage: match.shortMessage,
-      rule: match.rule.id,
-      category: match.rule.category.id,
-      severity: match.rule.issueType,
-      context: {
-        before: match.context.text.substring(0, match.context.offset),
-        problem: match.context.text.substring(match.context.offset, match.context.offset + match.context.length),
-        after: match.context.text.substring(match.context.offset + match.context.length)
-      },
-      explanation: match.rule.description
-    }));
+SCORING GUIDELINES FOR ${difficultyLevel}:
+${getScoringGuidelines(difficultyLevel)}
+`;
 
-    return {
-      score: grammarScore,
-      total_errors: totalErrors,
-      detailed_corrections: detailedCorrections,
-      raw_matches: matches
-    };
+    const response = await openai.chat.completions.create({
+      model: "openai/gpt-4o-mini",
+      messages: [{ role: "user", content: analysisPrompt }],
+      response_format: { type: "json_object" }
+    });
 
+    return JSON.parse(response.choices[0].message.content);
   } catch (error) {
-    console.error('LanguageTool grammar analysis error:', error);
-    return {
-      score: 0,
-      total_errors: 999,
-      detailed_corrections: [],
-      raw_matches: [],
-      error: error.message
-    };
+    console.error('GPT-4o Mini analysis error:', error);
+    throw new Error(`AI analysis failed: ${error.message}`);
   }
 }
 
-async function analyzeVocabularyWithLanguageTool(text) {
-  try {
-    const formData = new URLSearchParams();
-    formData.append('text', text);
-    formData.append('language', LANGUAGETOOL_LANGUAGE);
-    formData.append('level', LANGUAGETOOL_LEVEL);
-    
-    const response = await fetch(LANGUAGETOOL_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'SpeakingTestApp/1.0'
-      },
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`LanguageTool API error: ${response.status}`);
-    }
-    
-    const result = await response.json();
-
-    const matches = result.matches || [];
-    
-    // Filter for vocabulary/style-related issues
-    const vocabMatches = matches.filter(match => 
-      match.rule.category.id === 'STYLE' || 
-      match.rule.category.id === 'REDUNDANCY' ||
-      match.rule.category.id === 'REPETITIONS'
-    );
-
-    // Count unique words
-    const words = text.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    const uniqueWords = new Set(words);
-    
-    // Manual detection of word repetitions
-    const wordCounts = {};
-    words.forEach(word => {
-      wordCounts[word] = (wordCounts[word] || 0) + 1;
-    });
-    
-    const repeatedWords = Object.entries(wordCounts)
-      .filter(([word, count]) => count > 2)
-      .map(([word, count]) => ({ word, count }));
-
-    // Calculate vocabulary score using new formula
-    const vocabWarnings = vocabMatches.length + repeatedWords.length;
-    const vocabScore = uniqueWords.size > 0 
-      ? Math.max(0, (uniqueWords.size - vocabWarnings) / uniqueWords.size * 100)
-      : 0;
-
-    return {
-      score: vocabScore,
-      unique_words: uniqueWords.size,
-      total_words: words.length,
-      vocab_warnings: vocabWarnings,
-      repeated_words: repeatedWords,
-      style_matches: vocabMatches,
-      raw_matches: matches
-    };
-
-  } catch (error) {
-    console.error('LanguageTool vocabulary analysis error:', error);
-    return {
-      score: 0,
-      unique_words: 0,
-      total_words: 0,
-      vocab_warnings: 999,
-      repeated_words: [],
-      style_matches: [],
-      raw_matches: [],
-      error: error.message
-    };
-  }
-}
-
-function calculateSpeakingScore(transcript, grammarAnalysis, vocabAnalysis, config) {
-  const wordCount = transcript.split(/\s+/).length;
+function calculateOverallScore(analysis) {
+  const { 
+    grammar_score, 
+    vocabulary_score, 
+    pronunciation_score, 
+    fluency_score, 
+    content_score 
+  } = analysis;
   
-  // Word Score: 30 points max, based on word count vs minimum
-  const wordScore = Math.min(30, (wordCount / config.min_words) * 30);
+  // Sum all category scores (already weighted by GPT-4o Mini)
+  const totalScore = grammar_score + vocabulary_score + pronunciation_score + 
+                    fluency_score + content_score;
   
-  // Grammar Score: 40 points max, deduct 2 points per error
-  const grammarScore = Math.max(0, 40 - (grammarAnalysis.total_errors * 2));
-  
-  // Vocabulary Score: 30 points max, based on quality
-  const vocabScore = Math.min(30, (vocabAnalysis.score / 100) * 30);
-  
-  const overallScore = Math.round(wordScore + grammarScore + vocabScore);
-
-  return {
-    word_count: wordCount,
-    word_score: Math.round(wordScore),
-    grammar_score: Math.round(grammarScore),
-    vocab_score: Math.round(vocabScore),
-    overall_score: overallScore,
-    passed: overallScore >= config.passing_score
-  };
+  return Math.max(0, Math.min(100, Math.round(totalScore)));
 }

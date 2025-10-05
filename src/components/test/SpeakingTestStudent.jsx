@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import FeedbackDisplay from './FeedbackDisplay';
 import TestResults from './TestResults';
-import ProgressTracker from './ProgressTracker';
 
 const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) => {
   const [currentStep, setCurrentStep] = useState('recording'); // permission, recording, processing, feedback, completed
@@ -27,6 +26,21 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const { makeAuthenticatedRequest } = api;
   const recordingRef = useRef(null);
   
+  // Load attempts from localStorage on component mount
+  useEffect(() => {
+    if (testData?.test_id && user?.student_id) {
+      const attemptsKey = `speaking_attempts_${user.student_id}_${testData.test_id}`;
+      const savedAttempts = localStorage.getItem(attemptsKey);
+      if (savedAttempts) {
+        const attempts = parseInt(savedAttempts, 10);
+        if (attempts > 0 && attempts <= maxAttempts) {
+          setAttemptNumber(attempts);
+          console.log('🔄 Loaded attempts from localStorage:', attempts);
+        }
+      }
+    }
+  }, [testData, user, maxAttempts]);
+
   // Start test timer when component mounts (like other tests)
   useEffect(() => {
     if (testData && !testStartTime) {
@@ -46,6 +60,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     
     setTestProgress(progress);
   }, [currentStep]);
+
 
   // Automatically request microphone permission when component mounts
   useEffect(() => {
@@ -143,6 +158,88 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     });
   };
 
+  // Save attempts to localStorage
+  const saveAttemptsToStorage = useCallback((attempts) => {
+    if (testData?.test_id && user?.student_id) {
+      const attemptsKey = `speaking_attempts_${user.student_id}_${testData.test_id}`;
+      localStorage.setItem(attemptsKey, attempts.toString());
+      console.log('💾 Saved attempts to localStorage:', attempts);
+    }
+  }, [testData, user]);
+
+  // Save speaking test data to cache (survives page reloads)
+  const saveSpeakingTestData = useCallback(async (audioBlob, transcript, scores, recordingTime, currentStep) => {
+    if (testData?.test_id && user?.student_id) {
+      try {
+        const { setCachedData, CACHE_TTL } = await import('../../utils/cacheUtils');
+        const cacheKey = `speaking_test_data_${user.student_id}_${testData.test_id}`;
+        
+        // Convert audio blob to base64 for caching
+        const audioBase64 = audioBlob ? await blobToBase64(audioBlob) : null;
+        
+        const cacheData = {
+          audioBlob: audioBase64,
+          transcript,
+          scores,
+          recordingTime,
+          currentStep,
+          timestamp: Date.now()
+        };
+        
+        setCachedData(cacheKey, cacheData, CACHE_TTL.speaking_test_data);
+        console.log('💾 Saved speaking test data to cache:', cacheKey);
+      } catch (error) {
+        console.error('Failed to save speaking test data to cache:', error);
+      }
+    }
+  }, [testData, user]);
+
+  // Load speaking test data from cache
+  const loadSpeakingTestData = useCallback(async () => {
+    if (testData?.test_id && user?.student_id) {
+      try {
+        const { getCachedData } = await import('../../utils/cacheUtils');
+        const cacheKey = `speaking_test_data_${user.student_id}_${testData.test_id}`;
+        const cachedData = getCachedData(cacheKey);
+        
+        if (cachedData) {
+          console.log('💾 Loaded speaking test data from cache:', cachedData);
+          
+          // Restore audio blob from base64
+          if (cachedData.audioBlob) {
+            const audioBlob = new Blob([Uint8Array.from(atob(cachedData.audioBlob), c => c.charCodeAt(0))], { type: 'audio/webm' });
+            setAudioBlob(audioBlob);
+          }
+          
+          // Restore other data
+          if (cachedData.transcript) setTranscript(cachedData.transcript);
+          if (cachedData.scores) setScores(cachedData.scores);
+          if (cachedData.recordingTime) setRecordingTime(cachedData.recordingTime);
+          if (cachedData.currentStep) setCurrentStep(cachedData.currentStep);
+          
+          return true; // Data was loaded
+        }
+      } catch (error) {
+        console.error('Failed to load speaking test data from cache:', error);
+      }
+    }
+    return false; // No data was loaded
+  }, [testData, user]);
+
+  // Load speaking test data from cache on component mount
+  useEffect(() => {
+    if (testData?.test_id && user?.student_id) {
+      loadSpeakingTestData();
+    }
+  }, [testData, user, loadSpeakingTestData]);
+
+  // Save speaking test data to cache whenever state changes
+  useEffect(() => {
+    if (testData?.test_id && user?.student_id && (audioBlob || transcript || scores)) {
+      saveSpeakingTestData(audioBlob, transcript, scores, recordingTime, currentStep);
+    }
+  }, [audioBlob, transcript, scores, recordingTime, currentStep, testData, user, saveSpeakingTestData]);
+
   const handleRecordingComplete = useCallback(async (audioBlobData, recordingDuration) => {
     console.log('🎤 Recording completed, duration:', recordingDuration);
     setAudioBlob(audioBlobData);
@@ -189,35 +286,92 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       // Process audio immediately with real AI (like other tests do)
       console.log('🎤 Processing audio with AI...');
       
-      // Send audio to backend for AI processing (feedback only)
-      const response = await makeAuthenticatedRequest('/.netlify/functions/process-speaking-audio-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          test_id: testData.test_id,
-          audio_blob: audioBase64
-        })
-      });
-      
-      const result = await response.json();
+      try {
+        // Send audio to backend for AI processing (feedback only)
+        const response = await makeAuthenticatedRequest('/.netlify/functions/process-speaking-audio-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            test_id: testData.test_id,
+            question_id: testData.question_id || 1,
+            audio_blob: audioBase64
+          })
+        });
+        
+        const result = await response.json();
       
       if (result.success) {
-        // Set real AI results
+        // Set real AI results - map the AI response to the expected format
+        console.log('🎤 AI Analysis Result:', result);
         setTranscript(result.transcript);
-        setScores(result.score_breakdown);
+        
+        // Verify word count
+        const actualWordCount = result.transcript ? result.transcript.split(/\s+/).filter(word => word.length > 0).length : 0;
+        console.log('🎤 Word Count Verification:', {
+          aiCount: result.word_count,
+          actualCount: actualWordCount,
+          transcript: result.transcript
+        });
+        
+        // Use the actual word count instead of AI count for display
+        const displayWordCount = actualWordCount;
+        
+        const mappedScores = {
+          overall_score: result.overall_score,
+          word_count: displayWordCount, // Use actual word count for display
+          // Use AI's actual scores instead of calculating them
+          grammar_score: result.grammar_score,
+          vocabulary_score: result.vocabulary_score,
+          pronunciation_score: result.pronunciation_score,
+          fluency_score: result.fluency_score,
+          content_score: result.content_score,
+          grammar_mistakes: result.grammar_mistakes,
+          vocabulary_mistakes: result.vocabulary_mistakes,
+          feedback: result.feedback,
+          // Add improved transcript for display
+          improved_transcript: result.improved_transcript,
+          // Add detailed corrections
+          grammar_corrections: result.grammar_corrections || [],
+          vocabulary_corrections: result.vocabulary_corrections || []
+        };
+        
+        console.log('🎤 Mapped Scores:', mappedScores);
+        console.log('🎤 Individual scores check:', {
+          grammar_score: result.grammar_score,
+          vocabulary_score: result.vocabulary_score,
+          pronunciation_score: result.pronunciation_score,
+          fluency_score: result.fluency_score,
+          content_score: result.content_score
+        });
+        setScores(mappedScores);
         setCurrentStep('feedback');
       } else {
         throw new Error(result.message || 'Failed to process audio with AI');
       }
       
-      // Clear progress from localStorage
-      localStorage.removeItem(`speaking_progress_${testData.test_id}`);
+        // Clear progress from localStorage
+        localStorage.removeItem(`speaking_progress_${testData.test_id}`);
+      } catch (error) {
+        console.error('Speaking test submission error:', error);
+        
+        // Handle authentication errors specifically
+        if (error.message.includes('No valid authentication token found')) {
+          setError('Your session has expired. Please refresh the page and try again.');
+          // Optionally redirect to login or refresh the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          setError(error.message);
+        }
+        setCurrentStep('recording');
+      }
     } catch (error) {
       console.error('Speaking test submission error:', error);
       setError(error.message);
       setCurrentStep('recording');
     }
-  }, [testData, user, makeAuthenticatedRequest]);
+  }, [testData, user, makeAuthenticatedRequest, attemptNumber, saveAttemptsToStorage]);
 
   const handleReRecord = useCallback(() => {
     if (attemptNumber < maxAttempts) {
@@ -225,12 +379,17 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       setTranscript('');
       setScores(null);
       setError(null);
-      setAttemptNumber(prev => prev + 1);
+      
+      // Increment attempt when student decides to re-record after seeing results
+      const newAttempt = attemptNumber + 1;
+      setAttemptNumber(newAttempt);
+      saveAttemptsToStorage(newAttempt);
+      
       setCurrentStep('recording');
     } else {
       setError('Maximum attempts reached');
     }
-  }, [attemptNumber, maxAttempts]);
+  }, [attemptNumber, maxAttempts, saveAttemptsToStorage]);
 
   const handleSubmitTest = useCallback(async () => {
     if (!transcript || !scores) return;
@@ -292,6 +451,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           const completionKey = `test_completed_${user.student_id}_speaking_${testData.test_id}`;
           localStorage.setItem(completionKey, 'true');
           console.log('✅ Speaking test marked as completed in localStorage:', completionKey);
+          
+        // Clear attempts from localStorage upon successful submission
+        const attemptsKey = `speaking_attempts_${user.student_id}_${testData.test_id}`;
+        localStorage.removeItem(attemptsKey);
+        console.log('🗑️ Cleared attempts from localStorage upon submission');
+        
+        // Clear speaking test data from cache upon successful submission
+        const { clearTestData } = await import('../../utils/cacheUtils');
+        clearTestData(user.student_id, 'speaking_test_data', testData.test_id);
+        console.log('🗑️ Cleared speaking test data from cache upon submission');
         }
         
         // Cache the test results immediately after successful submission (like other tests)
@@ -317,7 +486,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             submitted_at: new Date().toISOString(),
             academic_period_id: 3, // Default period
             subject: 'Listening and Speaking', // Default subject
-            teacher_name: 'Unknown'
+            teacher_name: testData.teacher_name || 'Unknown'
           }]
         };
         
@@ -368,8 +537,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       case 'recording':
         return (
           <div className="speaking-test-recording">
-            <h2 className="text-2xl font-bold mb-4">Speaking Test: {testData.test_name}</h2>
-            <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-4 text-center">{testData.test_name}</h2>
+            <div className="mb-6 text-center">
               <h3 className="text-lg font-semibold mb-2">Instructions:</h3>
               <p className="text-gray-700 mb-4">{testData.prompt}</p>
               <div className="bg-blue-50 p-4 rounded-lg">
@@ -385,6 +554,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
               onRecordingComplete={handleRecordingComplete}
               minDuration={0}
               maxDuration={testData.max_duration || 600}
+              minWords={testData.min_words || 50}
               maxAttempts={maxAttempts}
               currentAttempt={attemptNumber}
             />
@@ -481,45 +651,17 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{testData.test_name}</h1>
-              <p className="text-gray-600 mt-1">Speaking Test</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Attempt {attemptNumber} of {maxAttempts}</div>
-              {currentStep === 'completed' && (
-                <div className="text-green-600 font-semibold">✓ Completed</div>
-              )}
-            </div>
+    <div>
+      
+      {/* Test Content */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800">{error}</p>
           </div>
-          
-          {/* Progress Tracker (like other tests) */}
-          <div className="mt-4">
-            <ProgressTracker
-              answeredCount={currentStep === 'completed' ? 1 : 0}
-              totalQuestions={1}
-              percentage={testProgress}
-              timeElapsed={testStartTime ? Math.floor((Date.now() - testStartTime.getTime()) / 1000) : 0}
-              showDetails={true}
-            />
-          </div>
-        </div>
+        )}
         
-        {/* Test Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-800">{error}</p>
-            </div>
-          )}
-          
-          {renderCurrentStep()}
-        </div>
+        {renderCurrentStep()}
       </div>
     </div>
   );

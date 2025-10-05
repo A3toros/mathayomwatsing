@@ -42,6 +42,16 @@ const FeedbackDisplay = ({
     return getScoreColor(scores?.overall_score || 0, 100);
   };
 
+  // Debug logging
+  console.log('🎯 FeedbackDisplay received scores:', scores);
+  console.log('🎯 Individual score values:', {
+    grammar_score: scores?.grammar_score,
+    vocabulary_score: scores?.vocabulary_score,
+    pronunciation_score: scores?.pronunciation_score,
+    fluency_score: scores?.fluency_score,
+    content_score: scores?.content_score
+  });
+
   return (
     <div className="feedback-display bg-white rounded-lg shadow-lg p-6">
       <div className="mb-6">
@@ -67,31 +77,14 @@ const FeedbackDisplay = ({
         </div>
       </div>
 
-      {/* Score Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border rounded-lg p-4">
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold text-gray-700">Word Count</span>
-            <span className={`font-bold ${getScoreColor(scores?.word_score || 0, 30)}`}>
-              {scores?.word_score || 0}/30
-            </span>
-          </div>
-          <div className="text-sm text-gray-600">
-            {scores?.word_count || 0} words spoken
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full"
-              style={{ width: `${Math.min((scores?.word_score || 0) / 30 * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-
+      {/* Score Breakdown - All 5 AI Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {/* Grammar Score */}
         <div className="bg-white border rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Grammar</span>
-            <span className={`font-bold ${getScoreColor(scores?.grammar_score || 0, 40)}`}>
-              {scores?.grammar_score || 0}/40
+            <span className={`font-bold ${getScoreColor(scores?.grammar_score || 0, 25)}`}>
+              {scores?.grammar_score || 0}/25
             </span>
           </div>
           <div className="text-sm text-gray-600">
@@ -100,16 +93,17 @@ const FeedbackDisplay = ({
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div 
               className="bg-green-600 h-2 rounded-full"
-              style={{ width: `${Math.min((scores?.grammar_score || 0) / 40 * 100, 100)}%` }}
+              style={{ width: `${Math.min((scores?.grammar_score || 0) / 25 * 100, 100)}%` }}
             />
           </div>
         </div>
 
+        {/* Vocabulary Score */}
         <div className="bg-white border rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Vocabulary</span>
-            <span className={`font-bold ${getScoreColor(scores?.vocab_score || 0, 30)}`}>
-              {scores?.vocab_score || 0}/30
+            <span className={`font-bold ${getScoreColor(scores?.vocabulary_score || 0, 20)}`}>
+              {scores?.vocabulary_score || 0}/20
             </span>
           </div>
           <div className="text-sm text-gray-600">
@@ -118,7 +112,83 @@ const FeedbackDisplay = ({
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div 
               className="bg-purple-600 h-2 rounded-full"
-              style={{ width: `${Math.min((scores?.vocab_score || 0) / 30 * 100, 100)}%` }}
+              style={{ width: `${Math.min((scores?.vocabulary_score || 0) / 20 * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Pronunciation Score */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-gray-700">Pronunciation</span>
+            <span className={`font-bold ${getScoreColor(scores?.pronunciation_score || 0, 15)}`}>
+              {scores?.pronunciation_score || 0}/15
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Clarity and accuracy
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-orange-600 h-2 rounded-full"
+              style={{ width: `${Math.min((scores?.pronunciation_score || 0) / 15 * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Fluency Score */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-gray-700">Fluency</span>
+            <span className={`font-bold ${getScoreColor(scores?.fluency_score || 0, 20)}`}>
+              {scores?.fluency_score || 0}/20
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Pace, pauses, and flow
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full"
+              style={{ width: `${Math.min((scores?.fluency_score || 0) / 20 * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Content Score */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-gray-700">Content</span>
+            <span className={`font-bold ${getScoreColor(scores?.content_score || 0, 20)}`}>
+              {scores?.content_score || 0}/20
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            How well addressed the prompt
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-indigo-600 h-2 rounded-full"
+              style={{ width: `${Math.min((scores?.content_score || 0) / 20 * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Word Count (Bonus Info) */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-gray-700">Word Count</span>
+            <span className="font-bold text-gray-700">
+              {scores?.word_count || 0} words
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Total words spoken
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-gray-600 h-2 rounded-full"
+              style={{ width: `${Math.min((scores?.word_count || 0) / 100 * 100, 100)}%` }}
             />
           </div>
         </div>
@@ -132,20 +202,45 @@ const FeedbackDisplay = ({
         </div>
       )}
 
-      {/* Transcript */}
+      {/* AI Feedback - Prominent Display */}
+      {scores?.feedback && (
+        <div className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border border-green-200">
+          <div className="flex items-start space-x-3">
+            <span className="text-green-600 text-2xl">🤖</span>
+            <div className="flex-1">
+              <div className="font-semibold text-green-800 mb-3 text-lg">AI Feedback</div>
+              <p className="text-gray-700 leading-relaxed">{scores.feedback}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Improved Transcript */}
+      {scores?.improved_transcript && (
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start space-x-2 mb-3">
+            <span className="text-green-600 text-lg">✨</span>
+            <div>
+              <h4 className="font-semibold text-green-800 mb-2">Improved Version</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Here's how your response could be improved with better grammar and vocabulary:
+              </p>
+            </div>
+          </div>
+          <div className="bg-white border border-green-200 rounded p-3">
+            <p className="text-gray-800 leading-relaxed">{scores.improved_transcript}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Show Details Toggle */}
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold">Transcript</h3>
-          <button
-            onClick={() => setShowDetailedFeedback(!showDetailedFeedback)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            {showDetailedFeedback ? 'Hide Details' : 'Show Details'}
-          </button>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-gray-800 leading-relaxed">{transcript}</p>
-        </div>
+        <button
+          onClick={() => setShowDetailedFeedback(!showDetailedFeedback)}
+          className="text-blue-600 hover:text-blue-800 text-sm"
+        >
+          {showDetailedFeedback ? 'Hide Details' : 'Show Details'}
+        </button>
       </div>
 
       {/* Detailed Feedback */}
@@ -168,37 +263,24 @@ const FeedbackDisplay = ({
                  `Found ${scores?.grammar_mistakes || 0} grammar ${scores?.grammar_mistakes === 1 ? 'mistake' : 'mistakes'}.`}
               </span>
               {scores?.grammar_corrections && scores.grammar_corrections.length > 0 && (
-                <div className="mt-2 ml-4">
-                  <button
-                    onClick={() => setShowDetailedFeedback(!showDetailedFeedback)}
-                    className="text-blue-600 hover:text-blue-800 text-sm underline"
-                  >
-                    {showDetailedFeedback ? 'Hide' : 'Show'} detailed corrections
-                  </button>
-                  {showDetailedFeedback && (
-                    <div className="mt-2 space-y-2">
-                      {scores.grammar_corrections.map((correction, index) => (
-                        <div key={index} className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                          <div className="flex items-start space-x-2">
-                            <span className="text-red-600 font-mono text-sm">✗</span>
-                            <div className="flex-1">
-                              <div className="text-sm">
-                                <span className="font-medium text-red-600">{correction.original}</span>
-                                <span className="mx-2">→</span>
-                                <span className="font-medium text-green-600">{correction.suggested}</span>
-                              </div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                <strong>Context:</strong> "...{correction.context.before}<span className="bg-red-100">{correction.context.problem}</span>{correction.context.after}..."
-                              </div>
-                              <div className="text-xs text-blue-600 mt-1">
-                                <strong>Explanation:</strong> {correction.explanation}
-                              </div>
-                            </div>
+                <div className="mt-2 space-y-2">
+                  {scores.grammar_corrections.map((correction, index) => (
+                    <div key={index} className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-red-600 font-mono text-sm">✗</span>
+                        <div className="flex-1">
+                          <div className="text-sm">
+                            <span className="font-medium text-red-600">{correction.mistake}</span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-green-600">{correction.correction}</span>
+                          </div>
+                          <div className="text-xs text-blue-600 mt-1">
+                            <strong>Explanation:</strong> {correction.explanation}
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
@@ -208,48 +290,69 @@ const FeedbackDisplay = ({
                 {scores?.vocabulary_mistakes === 0 ? 'Excellent vocabulary usage!' : 
                  `Found ${scores?.vocabulary_mistakes || 0} vocabulary ${scores?.vocabulary_mistakes === 1 ? 'issue' : 'issues'}.`}
               </span>
+              {scores?.vocabulary_corrections && scores.vocabulary_corrections.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {scores.vocabulary_corrections.map((correction, index) => (
+                    <div key={index} className="bg-purple-50 border border-purple-200 rounded p-3">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-purple-600 font-mono text-sm">📝</span>
+                        <div className="flex-1">
+                          <div className="text-sm">
+                            <span className="font-medium text-purple-600">{correction.mistake}</span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-green-600">{correction.correction}</span>
+                          </div>
+                          <div className="text-xs text-blue-600 mt-1">
+                            <strong>Explanation:</strong> {correction.explanation}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {/* Attempt Info */}
+      <div className="text-sm text-gray-600 mb-3">
+        Attempt {attemptNumber} of {maxAttempts}
+      </div>
+
       {/* Action Buttons */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-600">
-          Attempt {attemptNumber} of {maxAttempts}
-        </div>
-        <div className="flex space-x-4">
-          {canReRecord && (
-            <button
-              onClick={onReRecord}
-              className="bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
-            >
-              <span>🔄</span>
-              <span>Re-record</span>
-            </button>
-          )}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+        {canReRecord && (
           <button
-            onClick={onFinalSubmit}
-            disabled={isSubmitting}
-            className={`px-6 py-2 rounded-lg flex items-center space-x-2 ${
-              isSubmitting 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-green-600 hover:bg-green-700'
-            } text-white`}
+            onClick={onReRecord}
+            className="w-full sm:w-auto bg-yellow-600 text-white px-4 py-2.5 rounded-lg hover:bg-yellow-700 flex items-center justify-center space-x-2 min-h-[40px] text-base font-medium"
           >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Submitting...</span>
-              </>
-            ) : (
-              <>
-                <span>✅</span>
-                <span>Submit Final</span>
-              </>
-            )}
+            <span>🔄</span>
+            <span>Re-record</span>
           </button>
-        </div>
+        )}
+        <button
+          onClick={onFinalSubmit}
+          disabled={isSubmitting}
+          className={`w-full sm:w-auto px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 min-h-[40px] text-base font-medium ${
+            isSubmitting 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-green-600 hover:bg-green-700'
+          } text-white`}
+        >
+          {isSubmitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Submitting...</span>
+            </>
+          ) : (
+            <>
+              <span>✅</span>
+              <span>Submit Final</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Re-record Notice */}
