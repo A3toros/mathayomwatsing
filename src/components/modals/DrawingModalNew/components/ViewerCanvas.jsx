@@ -235,6 +235,24 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
   // Simple mouse pan when zoomed in
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef({ x: 0, y: 0 });
+  const dragEnabledFor = useRef(new Set());
+  const longPressTimers = useRef(new Map());
+
+  const enableDragForIndex = useCallback((index) => {
+    const set = new Set(dragEnabledFor.current);
+    set.add(index);
+    dragEnabledFor.current = set;
+    // force render by updating a noop state via scale which exists
+    setScale((s) => ({ ...s }));
+  }, []);
+
+  const disableDragForIndex = useCallback((index) => {
+    if (!dragEnabledFor.current.has(index)) return;
+    const set = new Set(dragEnabledFor.current);
+    set.delete(index);
+    dragEnabledFor.current = set;
+    setScale((s) => ({ ...s }));
+  }, []);
 
   const computeFitScale = () => {
     const el = containerRef.current;
@@ -453,6 +471,33 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
                         key={`tb-${i}`} 
                         x={tb.x} 
                         y={tb.y}
+                        draggable={dragEnabledFor.current.has(i)}
+                        onPointerDown={(e) => {
+                          e.cancelBubble = true;
+                          // Start long-press timer (400ms) to enable dragging
+                          const timerId = setTimeout(() => {
+                            enableDragForIndex(i);
+                          }, 400);
+                          longPressTimers.current.set(i, timerId);
+                        }}
+                        onPointerUp={(e) => {
+                          e.cancelBubble = true;
+                          const timerId = longPressTimers.current.get(i);
+                          if (timerId) {
+                            clearTimeout(timerId);
+                            longPressTimers.current.delete(i);
+                          }
+                          // Disable drag shortly after pointer up to avoid accidental drags
+                          setTimeout(() => disableDragForIndex(i), 0);
+                        }}
+                        onPointerLeave={() => {
+                          const timerId = longPressTimers.current.get(i);
+                          if (timerId) {
+                            clearTimeout(timerId);
+                            longPressTimers.current.delete(i);
+                          }
+                          disableDragForIndex(i);
+                        }}
                         onDblClick={(e) => {
                           e.cancelBubble = true;
                           if (typeof onTextBoxEdit === 'function') onTextBoxEdit({ index: i, textBox: tb, event: e });

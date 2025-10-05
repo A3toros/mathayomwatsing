@@ -139,19 +139,21 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         return;
       }
       
-      // Load student data
-      console.log('🎓 Loading student data...');
+      // Load data in parallel
+      console.log('🎓 Loading student data, active tests, and results in parallel...');
+      const studentId = user?.student_id || user?.id || '';
       await loadStudentData();
-      
-      // Load active tests
-      console.log('🎓 Loading active tests...');
-      // Bust cache so newly created retests (retest_available) appear immediately
-      try { localStorage.removeItem('student_active_tests_'); } catch (e) { /* ignore */ }
-      await loadActiveTests();
-      
-      // Load test results
-      console.log('🎓 Loading test results...');
-      await loadTestResults(user?.student_id || user?.id || '');
+      // Bust per-student caches on cabinet entry to reflect newly created assignments
+      try {
+        const activeKey = `student_active_tests_${studentId}`;
+        const resultsKey = `student_results_table_${studentId}`;
+        localStorage.removeItem(activeKey);
+        localStorage.removeItem(resultsKey);
+      } catch (e) { /* ignore */ }
+      await Promise.all([
+        loadActiveTests(studentId),
+        loadTestResults(studentId)
+      ]);
       
       // Calculate average score
       console.log('🎓 Calculating average score...');
