@@ -803,7 +803,7 @@ exports.handler = async function(event, context) {
           question_id, audio_url, transcript, word_count,
           grammar_mistakes, vocabulary_mistakes, stt_confidence,
           overall_score, time_taken, started_at, submitted_at, caught_cheating,
-          visibility_change_times, is_completed, created_at
+          visibility_change_times, is_completed, created_at, ai_feedback
         )
         VALUES (
           ${test_id}, ${test_name}, ${teacher_id}, ${subject_id}, 
@@ -813,7 +813,7 @@ exports.handler = async function(event, context) {
           ${scores.grammar_mistakes}, ${scores.vocabulary_mistakes}, ${scores.stt_confidence},
           ${Math.round(scores.overall_score)}, ${time_taken || null}, ${started_at || null}, 
           ${submitted_at || new Date().toISOString()}, ${caught_cheating}, ${visibility_change_times}, 
-          ${is_completed}, NOW()
+          ${is_completed}, NOW(), ${scores.ai_feedback ? JSON.stringify(scores.ai_feedback) : null}
         )
         RETURNING id, percentage, is_completed
       `;

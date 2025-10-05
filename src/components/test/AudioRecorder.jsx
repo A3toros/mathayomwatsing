@@ -47,14 +47,23 @@ const AudioRecorder = forwardRef(({
         throw new Error('Microphone access requires HTTPS. Please use a secure connection.');
       }
       
-      // Request microphone access with explicit permission request
+      // iOS/Safari: ensure an AudioContext exists and is resumed within user gesture BEFORE getUserMedia
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtx();
+      }
+      if (audioContextRef.current.state !== 'running') {
+        await audioContextRef.current.resume().catch(() => {});
+      }
+
+      // Request microphone access with conservative constraints for iOS
       console.log('🎤 Requesting microphone permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1
         } 
       });
       
@@ -62,24 +71,43 @@ const AudioRecorder = forwardRef(({
       
       streamRef.current = stream;
       
+      // Attach to a muted inline audio sink to "activate" audio on iOS
+      try {
+        let sinkEl = document.getElementById('ios-audio-sink');
+        if (!sinkEl) {
+          sinkEl = document.createElement('audio');
+          sinkEl.id = 'ios-audio-sink';
+          sinkEl.muted = true;
+          sinkEl.playsInline = true;
+          sinkEl.style.display = 'none';
+          document.body.appendChild(sinkEl);
+        }
+        sinkEl.srcObject = stream;
+        await sinkEl.play().catch(() => {});
+      } catch (_) {}
+
       // Set up audio analysis for quality monitoring
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
       
       source.connect(analyser);
       analyser.fftSize = 256;
       
-      audioContextRef.current = audioContext;
       analyserRef.current = analyser;
       
       // Start monitoring audio quality
       monitorAudioQuality();
       
-      // Set up MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Set up MediaRecorder with best supported mime type for the browser
+      let preferredMime = 'audio/webm;codecs=opus';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported && !MediaRecorder.isTypeSupported(preferredMime)) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) preferredMime = 'audio/mp4';
+          else if (MediaRecorder.isTypeSupported('audio/aac')) preferredMime = 'audio/aac';
+          else preferredMime = '';
+        }
+      }
+      const mediaRecorder = new MediaRecorder(stream, preferredMime ? { mimeType: preferredMime } : undefined);
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -91,7 +119,8 @@ const AudioRecorder = forwardRef(({
       };
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const outType = preferredMime && preferredMime.startsWith('audio/') ? preferredMime : 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: outType });
         setAudioBlob(audioBlob);
         
         // Call onRecordingComplete with the blob and recording time
@@ -101,9 +130,7 @@ const AudioRecorder = forwardRef(({
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
         }
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-        }
+        // Do not close AudioContext immediately; iOS may require it alive during page session
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
         }

@@ -125,6 +125,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [classResults, setClassResults] = useState({});
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [collapsedTests, setCollapsedTests] = useState(new Set());
+  const [isStudentCollapsed, setIsStudentCollapsed] = useState(true);
   const [showScrollLeft, setShowScrollLeft] = useState(false);
   const [showScrollRight, setShowScrollRight] = useState(false);
   const tableRef = useRef(null);
@@ -153,6 +154,10 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [editingColumns, setEditingColumns] = useState(new Set()); // Set of test names being edited
   const [columnScores, setColumnScores] = useState({}); // { testName: { studentId: { score, maxScore } } }
   const [isSavingColumn, setIsSavingColumn] = useState(false);
+  // Inline drawing score edit state
+  const [inlineDrawingEdit, setInlineDrawingEdit] = useState(null); // { key: `${testName}|${studentId}` }
+  const [inlineDrawingValue, setInlineDrawingValue] = useState('');
+  const [isSavingInline, setIsSavingInline] = useState(false);
   
   // Use ref to persist editing state across re-renders
   const editingColumnsRef = useRef(new Set());
@@ -368,6 +373,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                 caught_cheating: result.caught_cheating,
                 visibility_change_times: result.visibility_change_times,
                 answers: result.answers, // Include answers for drawing tests
+                // Pass through AI feedback for speaking tests so modal can render analysis immediately
+                ai_feedback: result.ai_feedback,
                 name: result.name,
                 surname: result.surname,
                 test_name: result.test_name
@@ -847,6 +854,21 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
 
   // Speaking test modal handlers
   const handleViewSpeakingTest = useCallback((result, initialTab = 'overview', audioUrlOverride) => {
+    // Debug selected speaking result payload to ensure ai_feedback is present and shape is correct
+    try {
+      const hasAi = !!result?.ai_feedback;
+      const aiType = typeof result?.ai_feedback;
+      let aiKeys = [];
+      if (hasAi) {
+        if (aiType === 'string') {
+          try { aiKeys = Object.keys(JSON.parse(result.ai_feedback)); } catch (e) { aiKeys = ['<invalid json>']; }
+        } else if (aiType === 'object') {
+          aiKeys = Object.keys(result.ai_feedback || {});
+        }
+      }
+      console.log('[AI DEBUG] Opening speaking result', { hasAi, aiType, aiKeys });
+    } catch (_) {}
+
     const payload = { ...result, __initialTab: initialTab };
     if (audioUrlOverride) {
       payload.__audioUrl = audioUrlOverride;
@@ -1132,21 +1154,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        {/* Scroll indicators */}
-        {showScrollLeft && (
-          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-blue-500 text-white rounded-full p-2 shadow-lg">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </div>
-        )}
-        {showScrollRight && (
-          <div className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-blue-500 text-white rounded-full p-2 shadow-lg">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        )}
+        {/* Scroll indicators hidden per request */}
         
         <motion.div
           className="bg-white rounded-lg shadow-lg overflow-hidden"
@@ -1191,12 +1199,22 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                 <th className="border-b border-gray-200 px-4 py-4 text-left font-semibold text-gray-700 w-20 text-center">
                   Student ID
                 </th>
-                <th className="border-b border-gray-200 px-4 py-4 text-left font-semibold text-gray-700 min-w-[120px]">
-                  Name
+                <th
+                  className={`border-b border-gray-200 px-2 py-4 text-left font-semibold text-gray-700 ${isStudentCollapsed ? 'w-8 min-w-[32px] max-w-[32px] bg-gray-100 cursor-pointer select-none' : 'min-w-[180px] bg-blue-50 cursor-pointer select-none'}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsStudentCollapsed(!isStudentCollapsed); }}
+                  title="Toggle student name columns"
+                >
+                  {isStudentCollapsed ? (
+                    <div className="flex justify-center">
+                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="truncate" title="Student Name">Student Name</span>
+                      <svg className="w-4 h-4 ml-1 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>
+                  )}
                 </th>
-                <th className="border-b border-gray-200 px-4 py-4 text-left font-semibold text-gray-700 min-w-[120px]">
-                  Surname
-              </th>
                 <th className="border-b border-gray-200 px-4 py-4 text-left font-semibold text-gray-700 w-16 text-center">
                   No.
                 </th>
@@ -1224,90 +1242,23 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🖱️ Clicked on test header:', test.test_name);
                         toggleTestCollapse(test.test_name);
                       }}
                     >
                       {isCollapsed ? (
                         <div className="flex justify-center">
-                          <svg 
-                            className="w-4 h-4 text-gray-600"
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                          >
+                          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </div>
                       ) : (
-                        <div className="flex flex-col space-y-2">
-                          {/* Edit Column button ONLY for drawing tests */}
-                          {isDrawingTest && (
-                            <div className="flex justify-center">
-                              {isEditingColumn ? (
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleSaveColumnScores(test.test_name);
-                                    }}
-                                    disabled={isSavingColumn}
-                                    className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                                  >
-                                    {isSavingColumn ? (
-                                      <>
-                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                                        Saving...
-                                      </>
-                                    ) : (
-                                      'Save'
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleCancelColumnEditing(test.test_name);
-                                    }}
-                                    disabled={isSavingColumn}
-                                    className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    console.log('🎯 Edit Column button clicked for drawing test:', test.test_name);
-                                    console.log('🎯 Results state at button click:', results);
-                                    console.log('🎯 Current results ref:', currentResultsRef.current);
-                                    handleStartColumnEditing(test.test_name, currentResultsRef.current);
-                                  }}
-                                  className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                                >
-                                  Edit Column
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Test name */}
-                          <div className="flex items-center justify-between">
-                            <span className="truncate" title={test.test_name}>
-                              {test.test_name.length > 8 ? test.test_name.substring(0, 8) + '...' : test.test_name}
-                            </span>
-                            <svg 
-                              className="w-4 h-4 ml-1 flex-shrink-0 transition-transform duration-200"
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <span className="truncate" title={test.test_name}>
+                            {test.test_name.length > 8 ? test.test_name.substring(0, 8) + '...' : test.test_name}
+                          </span>
+                          <svg className="w-4 h-4 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </div>
                       )}
                     </th>
@@ -1343,20 +1294,38 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                     >
                       {student.student_id}
                     </motion.td>
-                    <motion.td 
-                      className="border-b border-gray-100 px-4 py-4 text-gray-900"
-                      whileHover={{ scale: 1.02 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {student.name}
-                    </motion.td>
-                    <motion.td 
-                      className="border-b border-gray-100 px-4 py-4 text-gray-900"
-                      whileHover={{ scale: 1.02 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {student.surname}
-                    </motion.td>
+                    {isStudentCollapsed ? (
+                      <td className="border-b border-gray-100 px-1 py-4 text-sm w-8 min-w-[32px] max-w-[32px]">
+                        <div className="flex justify-center">
+                          <svg 
+                            className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsStudentCollapsed(false); }}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </td>
+                    ) : (
+                      <>
+                        <motion.td 
+                          className="border-b border-gray-100 px-4 py-4 text-gray-900"
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {student.name}
+                        </motion.td>
+                        <motion.td 
+                          className="border-b border-gray-100 px-4 py-4 text-gray-900"
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {student.surname}
+                        </motion.td>
+                      </>
+                    )}
                     <motion.td 
                       className="border-b border-gray-100 px-4 py-4 text-center text-gray-900"
                       whileHover={{ scale: 1.02 }}
@@ -1439,50 +1408,75 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             View Drawing
                           </button>
                           
-                          {/* Score display - regular numbers by default, editable when column is being edited */}
+                          {/* Inline drawing score edit (0/10) */}
                           {(() => {
-                            const isEditing = editingColumnsRef.current.has(test.test_name);
-                            console.log(`🎯 Score cell for ${test.test_name}:`, {
-                              isEditing,
-                              editingColumns: Array.from(editingColumnsRef.current),
-                              test_name: test.test_name
-                            });
-                            return isEditing;
-                          })() ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min="0"
-                                max={testResult.max_score || 100}
-                                value={columnScoresRef.current[test.test_name]?.[student.student_id]?.score || testResult.score || ''}
-                                onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'score', e.target.value)}
-                                className="w-16 px-2 py-1 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Score"
-                              />
-                              <span className="text-xs text-gray-500">/</span>
-                              <input
-                                type="number"
-                                min="1"
-                                value={columnScoresRef.current[test.test_name]?.[student.student_id]?.maxScore || testResult.max_score || 100}
-                                onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'maxScore', e.target.value)}
-                                className="w-16 px-2 py-1 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Max"
-                              />
-                            </div>
-                          ) : (
-                            <div 
-                              className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors"
-                  onDoubleClick={() => {
-                    console.log('🎯 Double-clicked on drawing test score:', test.test_name);
-                    console.log('🎯 Results state at double-click:', results);
-                    console.log('🎯 Current results ref:', currentResultsRef.current);
-                    handleStartColumnEditing(test.test_name, currentResultsRef.current);
-                  }}
-                              title="Double-click to edit column"
-                            >
-                              {testResult.score || 0}/{testResult.max_score || 100}
-                            </div>
-                          )}
+                            const key = `${test.test_name}|${student.student_id}`;
+                            const isEditing = inlineDrawingEdit === key;
+                            const displayScore = Number.isFinite(testResult?.score) ? testResult.score : 0;
+                            const displayMax = 10;
+                            if (!isEditing) {
+                              return (
+                                <div 
+                                  className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors"
+                                  onClick={() => { setInlineDrawingEdit(key); setInlineDrawingValue(String(displayScore)); }}
+                                  title="Click to edit score"
+                                >
+                                  {displayScore}/{displayMax}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={10}
+                                  value={inlineDrawingValue}
+                                  onChange={(e) => setInlineDrawingValue(e.target.value)}
+                                  onBlur={async () => {
+                                    const newVal = Math.max(0, Math.min(10, parseFloat(inlineDrawingValue || '0')));
+                                    setIsSavingInline(true);
+                                    try {
+                                      const payload = {
+                                        resultId: testResult?.id,
+                                        score: newVal,
+                                        maxScore: 10
+                                      };
+                                      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+                                      const resp = await fetch(API_ENDPOINTS.UPDATE_DRAWING_TEST_SCORE, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+                                        body: JSON.stringify(payload)
+                                      });
+                                      if (!resp.ok) throw new Error('Failed to save');
+                                    } catch (_) { /* swallow, UI stays */ }
+                                    finally {
+                                      setIsSavingInline(false);
+                                      setInlineDrawingEdit(null);
+                                      loadResultsForSemester(selectedSemester);
+                                    }
+                                  }}
+                                  onKeyDown={async (e) => {
+                                    if (e.key === 'Enter') {
+                                      e.currentTarget.blur();
+                                    } else if (e.key === 'Escape') {
+                                      setInlineDrawingEdit(null);
+                                    }
+                                  }}
+                                  className="w-16 px-2 py-1 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0"
+                                  disabled={isSavingInline}
+                                />
+                                <span className="text-xs text-gray-500">/</span>
+                                <input
+                                  type="number"
+                                  value={10}
+                                  className="w-12 px-2 py-1 text-xs border border-gray-300 bg-gray-100 rounded"
+                                  disabled
+                                />
+                              </div>
+                            );
+                          })()}
                           
                           {testResult.caught_cheating && testResult.visibility_change_times && (
                             <span className="text-xs text-red-600">
@@ -1508,7 +1502,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                   onClick={() => handleViewSpeakingTest({ ...testResult, __studentId: student.student_id }, 'audio', audioUrl)}
                                   className="text-blue-600 hover:text-blue-800 underline text-sm font-medium px-2 py-1 rounded hover:bg-blue-50"
                                 >
-                                  View Audio
+                                  Results
                                 </button>
                                 {/* No direct link; only modal trigger per request */}
                               </>
@@ -1692,7 +1686,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         </motion.div>
       </motion.div>
     );
-  }, [getScoreClass, collapsedTests, toggleTestCollapse]);
+  }, [getScoreClass, collapsedTests, toggleTestCollapse, isStudentCollapsed]);
 
   // Mobile responsive table version
   const createTableMobile = useCallback((subject, students, uniqueTests) => {
@@ -1734,11 +1728,21 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                   <th className="border-b border-gray-200 px-3 py-3 text-left font-semibold text-gray-700 w-16 text-center">
                     ID
                   </th>
-                  <th className="border-b border-gray-200 px-3 py-3 text-left font-semibold text-gray-700 min-w-[100px]">
-                    Name
-                  </th>
-                  <th className="border-b border-gray-200 px-3 py-3 text-left font-semibold text-gray-700 min-w-[100px]">
-                    Surname
+                  <th
+                    className={`border-b border-gray-200 px-2 py-3 text-left font-semibold text-gray-700 ${isStudentCollapsed ? 'w-8 min-w-[32px] max-w-[32px] bg-gray-100 cursor-pointer select-none' : 'min-w-[160px] bg-blue-50 cursor-pointer select-none'}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsStudentCollapsed(!isStudentCollapsed); }}
+                    title="Toggle student name columns"
+                  >
+                    {isStudentCollapsed ? (
+                      <div className="flex justify-center">
+                        <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="truncate" title="Student Name">Student Name</span>
+                        <svg className="w-3 h-3 ml-1 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    )}
                   </th>
                   <th className="border-b border-gray-200 px-3 py-3 text-left font-semibold text-gray-700 w-12 text-center">
                     No.
@@ -1840,20 +1844,38 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                       >
                         {student.student_id}
                       </motion.td>
-                      <motion.td 
-                        className="border-b border-gray-100 px-3 py-3 text-gray-900 truncate"
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        {student.name}
-                      </motion.td>
-                      <motion.td 
-                        className="border-b border-gray-100 px-3 py-3 text-gray-900 truncate"
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        {student.surname}
-                      </motion.td>
+                      {isStudentCollapsed ? (
+                        <td className="border-b border-gray-100 px-1 py-3 text-xs w-8 min-w-[32px] max-w-[32px]">
+                          <div className="flex justify-center">
+                            <svg 
+                              className="w-3 h-3 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsStudentCollapsed(false); }}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </td>
+                      ) : (
+                        <>
+                          <motion.td 
+                            className="border-b border-gray-100 px-3 py-3 text-gray-900 truncate"
+                            whileHover={{ scale: 1.01 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            {student.name}
+                          </motion.td>
+                          <motion.td 
+                            className="border-b border-gray-100 px-3 py-3 text-gray-900 truncate"
+                            whileHover={{ scale: 1.01 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            {student.surname}
+                          </motion.td>
+                        </>
+                      )}
                       <motion.td 
                         className="border-b border-gray-100 px-3 py-3 text-center text-gray-900 truncate"
                         whileHover={{ scale: 1.01 }}
@@ -2085,7 +2107,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         </motion.div>
       </motion.div>
     );
-  }, [getScoreClass, collapsedTests, toggleTestCollapse]);
+  }, [getScoreClass, collapsedTests, toggleTestCollapse, isStudentCollapsed]);
   
 
   // Enhanced displayClassResults from legacy code
@@ -2434,6 +2456,20 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
             isOpen={isDrawingModalOpen}
             onClose={() => setIsDrawingModalOpen(false)}
             isTeacherView={true}
+            onSaveScore={async ({ resultId, score, maxScore }) => {
+              try {
+                const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+                const resp = await fetch(API_ENDPOINTS.UPDATE_DRAWING_TEST_SCORE, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+                  body: JSON.stringify({ resultId, score, maxScore })
+                });
+                if (!resp.ok) throw new Error('Failed to save');
+                await loadResultsForSemester(selectedSemester);
+              } catch (e) {
+                showNotification('Failed to save drawing score', 'error');
+              }
+            }}
           />
         </ErrorBoundary>
       )}

@@ -5,7 +5,7 @@ import { useCamera } from '../hooks/useCamera';
 // Simple in-memory camera persistence across remounts
 const __cameraMemory = new Map();
 
-const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rotation = 0, onScaleChange, persistKey = 'viewer' }, ref) => {
+const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rotation = 0, onScaleChange, persistKey = 'viewer', onTextBoxEdit }, ref) => {
   const containerRef = useRef(null);
   const stageRef = useRef(null);
   const camera = useCamera({ containerRef, canvasSize, rotation });
@@ -336,20 +336,56 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
     return null;
   };
 
-  // Enhanced touch event handlers to prevent page scrolling
-  const handleContainerTouchStart = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Pointer events for pinch-zoom and pan
+  const activePointersRef = useRef(new Map());
+  const lastPinchDistRef = useRef(null);
+  const pinchCenterRef = useRef({ x: 0, y: 0 });
+
+  const onPointerDown = useCallback((e) => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.setPointerCapture?.(e.pointerId);
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastPosRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  const handleContainerTouchMove = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onPointerMove = useCallback((e) => {
+    const active = activePointersRef.current;
+    if (!active.has(e.pointerId)) return;
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (active.size === 2) {
+      const pts = Array.from(active.values());
+      const dx = pts[1].x - pts[0].x;
+      const dy = pts[1].y - pts[0].y;
+      const dist = Math.hypot(dx, dy);
+      const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      const stage = stageRef.current;
+      const centerStage = stage ? stage.getPointerPosition() || center : center;
+      if (lastPinchDistRef.current != null) {
+        const factor = dist / Math.max(1, lastPinchDistRef.current);
+        camera.zoomByFactor(factor, centerStage);
+      }
+      lastPinchDistRef.current = dist;
+      pinchCenterRef.current = centerStage;
+    } else if (active.size === 1) {
+      const fit = computeFitScale();
+      if (camera.scale <= fit) return;
+      const dx = e.clientX - lastPosRef.current.x;
+      const dy = e.clientY - lastPosRef.current.y;
+      lastPosRef.current = { x: e.clientX, y: e.clientY };
+      camera.panBy(dx, dy);
+    }
   }, []);
 
-  const handleContainerTouchEnd = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onPointerUp = useCallback((e) => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.releasePointerCapture?.(e.pointerId);
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) {
+      lastPinchDistRef.current = null;
+    }
+    isDraggingRef.current = false;
   }, []);
 
   return (
@@ -364,9 +400,9 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
         WebkitTouchCallout: 'none'
       }}
       className="select-none"
-      onTouchStart={handleContainerTouchStart}
-      onTouchMove={handleContainerTouchMove}
-      onTouchEnd={handleContainerTouchEnd}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
     >
       <Stage
         ref={stageRef}
@@ -413,7 +449,21 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
                       return drawingData.map((item, index) => renderDrawingElement(item, index));
                     })() : null}
                     {Array.isArray(textBoxes) && textBoxes.map((tb, i) => (
-                      <Group key={`tb-${i}`} x={tb.x} y={tb.y} listening={false}>
+                      <Group 
+                        key={`tb-${i}`} 
+                        x={tb.x} 
+                        y={tb.y}
+                        onDblClick={(e) => {
+                          e.cancelBubble = true;
+                          if (typeof onTextBoxEdit === 'function') onTextBoxEdit({ index: i, textBox: tb, event: e });
+                          try { window.dispatchEvent(new CustomEvent('drawingTextEdit', { detail: { index: i, textBox: tb } })); } catch {}
+                        }}
+                        onDblTap={(e) => {
+                          e.cancelBubble = true;
+                          if (typeof onTextBoxEdit === 'function') onTextBoxEdit({ index: i, textBox: tb, event: e });
+                          try { window.dispatchEvent(new CustomEvent('drawingTextEdit', { detail: { index: i, textBox: tb } })); } catch {}
+                        }}
+                      >
                         <Rect
                           width={tb.width}
                           height={tb.height}

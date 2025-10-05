@@ -146,7 +146,6 @@ const SpeakingTestReview = ({
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
             {[
-              { id: 'overview', label: 'Overview' },
               { id: 'audio', label: 'Audio' },
               { id: 'transcript', label: 'Transcript' },
               { id: 'analysis', label: 'AI Analysis' },
@@ -179,7 +178,7 @@ const SpeakingTestReview = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Score</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {studentResults.score} / {studentResults.max_score} ({studentResults.percentage}%)
+                    {studentResults.score} / {studentResults.max_score}
                   </p>
                 </div>
                 <div>
@@ -240,77 +239,164 @@ const SpeakingTestReview = ({
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-900">AI Analysis Results</h3>
               
-              {/* Score Breakdown */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-md font-semibold text-gray-800 mb-4">AI Analysis Results</h4>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-800">
-                    {result.overall_score || 0}
-                  </div>
-                  <div className="text-sm text-gray-600">Overall Score (0-100)</div>
-                </div>
-              </div>
-
-              {/* Detailed Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="text-md font-semibold text-gray-800 mb-3">Performance Metrics</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Word Count:</span>
-                      <span className="text-sm font-medium">{result.word_count || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Grammar Mistakes:</span>
-                      <span className="text-sm font-medium text-red-600">{result.grammar_mistakes || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Vocabulary Issues:</span>
-                      <span className="text-sm font-medium text-red-600">{result.vocabulary_mistakes || 0}</span>
+              {(() => {
+                let ai = result.ai_feedback;
+                if (ai && typeof ai === 'string') {
+                  try { ai = JSON.parse(ai); } catch (e) { ai = null; }
+                }
+                return ai ? (
+                <>
+                  {/* Overall Score */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4">Overall Performance</h4>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-gray-800">
+                        {ai.overall_score || 0}
+                      </div>
+                      <div className="text-sm text-gray-600">Overall Score (0-100)</div>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="text-md font-semibold text-gray-800 mb-3">AI Feedback</h4>
-                  {result.feedback ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-gray-700">{result.feedback}</p>
+                  {/* Category Scores Grid */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4">Category Breakdown</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-blue-600">{ai.grammar_score || 0}/25</div>
+                        <div className="text-xs text-gray-600">Grammar</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-green-600">{ai.vocabulary_score || 0}/20</div>
+                        <div className="text-xs text-gray-600">Vocabulary</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-purple-600">{ai.pronunciation_score || 0}/15</div>
+                        <div className="text-xs text-gray-600">Pronunciation</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-orange-600">{ai.fluency_score || 0}/20</div>
+                        <div className="text-xs text-gray-600">Fluency</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-red-600">{ai.content_score || 0}/20</div>
+                        <div className="text-xs text-gray-600">Content</div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <p className="text-sm">No AI feedback available</p>
+                  </div>
+
+                  {/* Performance Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">Performance Metrics</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Word Count:</span>
+                          <span className="text-sm font-medium">{ai.word_count || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Grammar Mistakes:</span>
+                          <span className="text-sm font-medium text-red-600">{ai.grammar_mistakes || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Vocabulary Issues:</span>
+                          <span className="text-sm font-medium text-red-600">{ai.vocabulary_mistakes || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Difficulty Level:</span>
+                          <span className="text-sm font-medium">{ai.difficulty_level || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">AI Feedback</h4>
+                      {ai.feedback ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-sm text-gray-700">{ai.feedback}</p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          <p className="text-sm">No AI feedback available</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Improved Transcript */}
+                  {ai.improved_transcript && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">Improved Transcript</h4>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-700">{ai.improved_transcript}</p>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Simple Score Display */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 className="text-md font-semibold text-gray-800 mb-4">Score Summary</h4>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-blue-600 mb-2">
-                    {result.overall_score || 0}/100
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {result.overall_score >= 80 ? 'Excellent' : 
-                     result.overall_score >= 60 ? 'Good' : 
-                     result.overall_score >= 40 ? 'Fair' : 'Needs Improvement'}
-                  </div>
+                  {/* Grammar Corrections */}
+                  {ai.grammar_corrections && ai.grammar_corrections.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">Grammar Corrections</h4>
+                      <div className="space-y-3">
+                        {ai.grammar_corrections.map((correction, index) => (
+                          <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="text-sm">
+                              <span className="font-medium text-red-800">Mistake:</span> {correction.mistake}
+                            </div>
+                            <div className="text-sm mt-1">
+                              <span className="font-medium text-green-800">Correction:</span> {correction.correction}
+                            </div>
+                            {correction.explanation && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                <span className="font-medium">Explanation:</span> {correction.explanation}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Vocabulary Corrections */}
+                  {ai.vocabulary_corrections && ai.vocabulary_corrections.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">Vocabulary Improvements</h4>
+                      <div className="space-y-3">
+                        {ai.vocabulary_corrections.map((correction, index) => (
+                          <div key={index} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="text-sm">
+                              <span className="font-medium text-yellow-800">Original:</span> {correction.mistake}
+                            </div>
+                            <div className="text-sm mt-1">
+                              <span className="font-medium text-green-800">Better:</span> {correction.correction}
+                            </div>
+                            {correction.explanation && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                <span className="font-medium">Explanation:</span> {correction.explanation}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+                ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No AI analysis available for this result</p>
                 </div>
-              </div>
+              )})()}
             </div>
           )}
 
           {activeTab === 'scoring' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Score Details</h3>
+              <h3 className="text-lg font-medium text-gray-900 text-center">Score Details</h3>
               
               {editingSpeakingScore ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 place-items-center">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Score</label>
+                      <label className="block text-sm font-medium text-gray-700 text-center">Score</label>
                       <input
                         type="number"
                         min="0"
@@ -321,11 +407,11 @@ const SpeakingTestReview = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Max Score</label>
-                      <p className="mt-1 text-sm text-gray-900">{studentResults.max_score} (Fixed)</p>
+                      <label className="block text-sm font-medium text-gray-700 text-center">Max Score</label>
+                      <p className="mt-1 text-sm text-gray-900 text-center">{studentResults.max_score} (Fixed)</p>
                     </div>
                   </div>
-                  <div className="flex space-x-3">
+                  <div className="flex justify-center space-x-3">
                     <button
                       onClick={onSaveSpeakingScore}
                       disabled={isSavingSpeakingScore}
@@ -342,22 +428,19 @@ const SpeakingTestReview = ({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 text-center">
+                  <div className="grid grid-cols-1 place-items-center gap-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Current Score</label>
-                      <p className="mt-1 text-sm text-gray-900">
+                      <label className="block text-sm font-medium text-gray-700 text-center">Current Score</label>
+                      <p className="mt-1 text-sm text-gray-900 text-center">
                         {studentResults.score} / {studentResults.max_score}
                       </p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Percentage</label>
-                      <p className="mt-1 text-sm text-gray-900">{studentResults.percentage}%</p>
-                    </div>
+                    {/* Percentage hidden per request */}
                   </div>
                   <button
                     onClick={() => onStartSpeakingScoreEdit(result.id, studentResults.score)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mx-auto"
                   >
                     Edit Score
                   </button>

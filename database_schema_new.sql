@@ -2072,7 +2072,10 @@ CREATE TABLE IF NOT EXISTS speaking_test_results (
     retest_assignment_id INTEGER REFERENCES retest_assignments(id),
     best_retest_score INTEGER,
     best_retest_max_score INTEGER,
-    best_retest_percentage DECIMAL(5,2)
+    best_retest_percentage DECIMAL(5,2),
+    
+    -- AI Feedback Storage
+    ai_feedback JSONB -- Complete AI analysis payload (scores, feedback, corrections, etc.)
 );
 
 
@@ -2114,6 +2117,7 @@ CREATE INDEX IF NOT EXISTS idx_speaking_results_score ON speaking_test_results(o
 CREATE INDEX IF NOT EXISTS idx_speaking_results_completed_cheating ON speaking_test_results(is_completed, caught_cheating, visibility_change_times);
 CREATE INDEX IF NOT EXISTS idx_speaking_results_question_id ON speaking_test_results(question_id);
 CREATE INDEX IF NOT EXISTS idx_speaking_results_retest_assignment_id ON speaking_test_results(retest_assignment_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_ai_feedback ON speaking_test_results USING GIN (ai_feedback);
 
 -- Speaking test audio indexes
 CREATE INDEX IF NOT EXISTS idx_speaking_audio_result_id ON speaking_test_audio(result_id);
@@ -2164,13 +2168,13 @@ ORDER BY str.overall_score DESC;
 COMMENT ON TABLE speaking_tests IS 'Main table for speaking test configurations';
 COMMENT ON TABLE speaking_test_questions IS 'Speaking test questions with prompts';
 COMMENT ON TABLE speaking_test_results IS 'Student speaking test results with automatic scoring';
-COMMENT ON TABLE speaking_test_audio IS 'Audio file metadata for speaking tests';
+
 
 COMMENT ON COLUMN speaking_test_questions.prompt IS 'Speaking topic/prompt for students';
 COMMENT ON COLUMN speaking_tests.min_words IS 'Minimum word count required for full word score';
 
 COMMENT ON COLUMN speaking_test_results.question_id IS 'Link to the specific speaking test question';
-COMMENT ON COLUMN speaking_test_results.audio_url IS 'URL to the student recorded audio in Supabase';
+
 COMMENT ON COLUMN speaking_test_results.transcript IS 'Full transcript from speech-to-text service';
 COMMENT ON COLUMN speaking_test_results.word_count IS 'Actual word count from transcript';
 COMMENT ON COLUMN speaking_test_results.grammar_mistakes IS 'Number of grammar mistakes detected';
@@ -2201,3 +2205,10 @@ SELECT
     'Speaking test schema created successfully' as status,
     'All tables, functions, and indexes created' as message,
     'Automatic scoring system implemented' as scoring_system;
+
+    ALTER TABLE speaking_test_results
+  ADD COLUMN IF NOT EXISTS ai_feedback JSONB;
+
+-- Optional index for teacher queries filtering by presence
+CREATE INDEX IF NOT EXISTS idx_speaking_results_ai_feedback
+  ON speaking_test_results USING GIN (ai_feedback);

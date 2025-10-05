@@ -16,8 +16,11 @@
   
   <!-- External CSS -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-2SK_wnZv.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CZcYzwjE.css">
+  
+  <!-- Content Security Policy: allow blob: workers for audio processing/UI libs -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http: data: blob:; script-src 'self' https: http: 'unsafe-inline' 'unsafe-eval' blob:; connect-src 'self' https: http: blob: data:; img-src 'self' https: http: data: blob:; media-src 'self' https: http: data: blob:; font-src 'self' https: http: data:; style-src 'self' https: http: 'unsafe-inline'; worker-src 'self' blob:;">
+  <script type="module" crossorigin src="/assets/index-B2CETCff.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CYXPgzrW.css">
 </head>
 <body>
   <div id="root"></div>

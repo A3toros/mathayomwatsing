@@ -29,12 +29,12 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
     let aborted = false;
     if (audioUrl) {
       // Direct URL provided (e.g., from Supabase)
-      console.log('AudioPlayer: Using provided URL:', audioUrl);
+      
       if (!aborted) setAudioObjectUrl(audioUrl);
     } else if (audioBlob) {
       // Check if audioBlob is valid
       if (!audioBlob || audioBlob.size === 0) {
-        console.log('Invalid audio blob provided to AudioPlayer');
+        
         if (!aborted) setIsLoading(false);
         return;
       }
@@ -46,18 +46,14 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
         return;
       }
       
-      console.log('AudioPlayer: Creating URL for blob:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        isBlob: audioBlob instanceof Blob
-      });
+      // debug removed
       
       const url = URL.createObjectURL(audioBlob);
       if (!aborted) setAudioObjectUrl(url);
       
       return () => {
         aborted = true;
-        console.log('AudioPlayer: Revoking URL');
+        
         URL.revokeObjectURL(url);
       };
     }
@@ -66,29 +62,31 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
 
   useEffect(() => {
     let aborted = false;
-    async function ensureReachable(url) {
-      if (!url) return url;
-      // If we've already switched to a signed URL or already tried signing, skip probing
-      if (signedTried || /\/object\/sign\//.test(url)) {
-        return url;
-      }
+
+    const isSupabasePublicPath = (url) => {
       try {
-        const head = await fetch(url, { method: 'HEAD' });
-        if (head.ok) return url;
-        if (!signedTried) {
-          const u = new URL(url);
-          const path = u.pathname.replace(/^\/storage\/v1\/object\/public\//, '');
-          const bucket = path.split('/')[0];
-          const filePath = path.substring(bucket.length + 1);
-          const resp = await fetch(`/.netlify/functions/get-speaking-test-new?action=sign-audio&bucket=${encodeURIComponent(bucket)}&file_path=${encodeURIComponent(filePath)}`);
-          if (resp.ok) {
-            const { url: signed } = await resp.json();
-            if (!aborted && !unmountedRef.current) {
-              setSignedTried(true);
-              setAudioObjectUrl(signed);
-            }
-            return signed;
+        const u = new URL(url);
+        return /\/storage\/v1\/object\/public\//.test(u.pathname);
+      } catch (_) { return false; }
+    };
+
+    async function getSignedUrlIfNeeded(url) {
+      if (!url) return url;
+      if (signedTried || /\/object\/sign\//.test(url)) return url;
+      if (!isSupabasePublicPath(url)) return url;
+      try {
+        const u = new URL(url);
+        const path = u.pathname.replace(/^\/storage\/v1\/object\/public\//, '');
+        const bucket = path.split('/')[0];
+        const filePath = path.substring(bucket.length + 1);
+        const resp = await fetch(`/.netlify/functions/get-speaking-test-new?action=sign-audio&bucket=${encodeURIComponent(bucket)}&file_path=${encodeURIComponent(filePath)}`);
+        if (resp.ok) {
+          const { url: signed } = await resp.json();
+          if (!aborted && !unmountedRef.current) {
+            setSignedTried(true);
+            setAudioObjectUrl(signed);
           }
+          return signed;
         }
       } catch (_) {}
       return url;
@@ -96,9 +94,9 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
 
     (async () => {
       if (audioUrl) {
-        const maybeSigned = await ensureReachable(audioUrl);
+        const resolved = await getSignedUrlIfNeeded(audioUrl);
         if (!aborted && !unmountedRef.current && !signedTried) {
-          setAudioObjectUrl(maybeSigned);
+          setAudioObjectUrl(resolved);
         }
       }
     })();
@@ -123,7 +121,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
       const audio = audioRef.current;
       let aborted = false;
       
-      console.log('AudioPlayer: Setting up audio with URL:', audioObjectUrl);
+      
       
       // Assign src directly to improve metadata detection on some browsers
       try { audio.src = audioObjectUrl; } catch (_) {}
@@ -133,8 +131,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
       const updateDuration = () => {
         if (aborted || unmountedRef.current) return;
         let audioDuration = audio.duration;
-        console.log('Audio duration:', audioDuration);
-        console.log('Recording time prop:', recordingTime);
+        
         // If Infinity, force browser to compute by seeking far
         if (audioDuration === Infinity) {
           try {
@@ -143,7 +140,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
               if (aborted || unmountedRef.current) return;
               audio.ontimeupdate = null;
               const fixed = audio.duration;
-              console.log('Fixed duration via seek trick:', fixed);
+              
               if (!aborted) {
                 setDuration(isFinite(fixed) && fixed > 0 ? fixed : 0);
                 audio.currentTime = 0;
@@ -161,16 +158,16 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
           const useBuffered = !useSeekable && audio.buffered && audio.buffered.length > 0 && isFinite(audio.buffered.end(audio.buffered.length - 1));
           if (useSeekable) {
             audioDuration = audio.seekable.end(0);
-            console.log('Using seekable end as duration fallback:', audioDuration);
+            
           } else if (useBuffered) {
             audioDuration = audio.buffered.end(audio.buffered.length - 1);
-            console.log('Using buffered end as duration fallback:', audioDuration);
+            
           }
         }
         if (isNaN(audioDuration) || !isFinite(audioDuration) || audioDuration <= 0) {
           console.warn('Invalid audio duration after fallbacks:', audioDuration);
           if (recordingTime && recordingTime > 0) {
-            console.log('Using recording time as fallback:', recordingTime);
+            
             if (!aborted) setDuration(recordingTime);
           } else {
             if (!aborted) setDuration(0);
@@ -229,13 +226,13 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
           currentSrc: audio.currentSrc
         });
         const code = audio.error?.code;
-        console.log('Audio error code:', code, 'MEDIA_ERR_SRC_NOT_SUPPORTED is 4');
+        
         // Only mark unsupported for MEDIA_ERR_SRC_NOT_SUPPORTED (code 4)
         if (code === 4) {
-          console.log('Marking format as unsupported due to error code 4');
+          
           setUnsupportedFormat(true);
         } else {
-          console.log('Not marking as unsupported, error code:', code);
+          
         }
         setLoadError(audio.error || { code });
         setIsLoading(false);
@@ -245,7 +242,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
       const fallbackTimer = setTimeout(() => {
         if (aborted || unmountedRef.current) return;
         if (audio.readyState === 0) {
-          console.warn('AudioPlayer: Fallback timeout reached; stopping loader but not marking unsupported');
+          
           setIsLoading(false);
         }
       }, 6000);
@@ -284,7 +281,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
   useEffect(() => {
     let aborted = false;
     if (recordingTime && recordingTime > 0 && (isNaN(duration) || !isFinite(duration) || duration <= 0)) {
-      console.log('Updating duration from recordingTime prop:', recordingTime);
+      
       if (!aborted) {
         setDuration(recordingTime);
       }
@@ -293,17 +290,14 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
   }, [recordingTime, duration]);
 
   const togglePlayPause = () => {
-    console.log('Play button clicked, audioRef.current:', audioRef.current);
-    console.log('Audio src:', audioRef.current?.src);
-    console.log('Audio readyState:', audioRef.current?.readyState);
-    console.log('Audio networkState:', audioRef.current?.networkState);
+    
     
     if (audioRef.current) {
       if (isPlaying) {
-        console.log('Pausing audio');
+        
         audioRef.current.pause();
       } else {
-        console.log('Playing audio');
+        
         audioRef.current.play().catch(error => {
           console.error('Play failed:', error);
         });
@@ -385,15 +379,7 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
     return audio.canPlayType('audio/webm') !== '';
   }, []);
   
-  console.log('AudioPlayer: URL analysis', {
-    audioObjectUrl,
-    audioUrl,
-    guessedType,
-    unsupportedFormat,
-    loadError,
-    webmSupported,
-    canPlayWebM: typeof window !== 'undefined' ? document.createElement('audio').canPlayType('audio/webm') : 'unknown'
-  });
+  // debug removed
 
   return (
     <div className={`audio-player bg-gray-50 rounded-lg p-4 ${className}`}>

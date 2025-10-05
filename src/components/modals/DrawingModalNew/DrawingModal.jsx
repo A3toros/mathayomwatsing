@@ -27,7 +27,8 @@ const DrawingModal = ({
   onClose, 
   onScoreChange, 
   onMaxScoreChange, 
-  isTeacherView = false
+  isTeacherView = false,
+  onSaveScore
 }) => {
   // Custom hooks
   const { 
@@ -87,8 +88,8 @@ const DrawingModal = ({
   // Initialize score inputs when modal opens or drawing changes
   useEffect(() => {
     if (isOpen && drawing) {
-      setScoreValue(drawing.score?.toString() || '');
-      setMaxScoreValue(drawing.max_score?.toString() || '100');
+      setScoreValue((Number.isFinite(drawing.score) ? drawing.score : 0).toString());
+      setMaxScoreValue('10');
     }
   }, [isOpen, drawing]);
 
@@ -189,13 +190,17 @@ const DrawingModal = ({
   };
 
   // Handle score submit (teacher view)
-  const handleScoreSubmit = () => {
+  const handleScoreSubmit = async () => {
     if (!isTeacherView) return onClose();
     const parsedScore = parseInt(scoreValue, 10);
-    const parsedMax = parseInt(maxScoreValue, 10);
-    if (Number.isFinite(parsedScore) && Number.isFinite(parsedMax)) {
-      if (onScoreChange) onScoreChange(drawing.id, parsedScore);
-      if (onMaxScoreChange) onMaxScoreChange(drawing.id, parsedMax);
+    const parsedMax = 10;
+    if (Number.isFinite(parsedScore)) {
+      if (typeof onSaveScore === 'function') {
+        await onSaveScore({ resultId: drawing.id, score: Math.max(0, Math.min(10, parsedScore)), maxScore: parsedMax });
+      } else {
+        if (onScoreChange) onScoreChange(drawing.id, parsedScore);
+        if (onMaxScoreChange) onMaxScoreChange(drawing.id, parsedMax);
+      }
     }
     onClose();
   };
@@ -218,9 +223,6 @@ const DrawingModal = ({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.preventDefault()}
-          onTouchMove={(e) => e.preventDefault()}
-          onTouchEnd={(e) => e.preventDefault()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -350,17 +352,16 @@ const DrawingModal = ({
               </div>
             </div>
 
-            {/* Scoring Section - disabled in viewer */}
-            {false && (
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
+            {/* Scoring Section for Teacher View */}
+            {isTeacherView && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <label className="text-sm font-medium text-gray-700">Score:</label>
                     <input
                       type="number"
                       min="0"
-                      max={parseInt(maxScoreValue || '100', 10)}
+                      max={10}
                       value={scoreValue}
                       onChange={(e) => setScoreValue(e.target.value)}
                       className="w-20 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -368,36 +369,23 @@ const DrawingModal = ({
                     />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">Max Score:</label>
+                    <label className="text-sm font-medium text-gray-700">Max:</label>
                     <input
                       type="number"
-                      min="1"
-                      value={maxScoreValue}
-                      onChange={(e) => setMaxScoreValue(e.target.value)}
-                      className="w-20 px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="100"
+                      value={10}
+                      disabled
+                      className="w-20 px-3 py-1 text-sm border border-gray-300 rounded bg-gray-100"
                     />
                   </div>
-                  {drawing.score !== undefined && drawing.max_score !== undefined && (
-                    <div className="text-sm text-gray-600">
-                      Percentage: {(() => {
-                        const s = parseInt(scoreValue || '0', 10);
-                        const m = parseInt(maxScoreValue || '100', 10);
-                        if (!m) return 0;
-                        return Math.round((s / m) * 100);
-                      })()}%
-                    </div>
-                  )}
+                  <Button
+                    onClick={handleScoreSubmit}
+                    variant="primary"
+                    size="sm"
+                  >
+                    Save
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleScoreSubmit}
-                  variant="primary"
-                  size="sm"
-                >
-                  Save Score
-                </Button>
               </div>
-            </div>
             )}
           </div>
         </motion.div>

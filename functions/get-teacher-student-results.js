@@ -174,6 +174,7 @@ exports.handler = async (event, context) => {
         m.retest_offered,
         m.created_at,
         m.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM matching_type_test_results m
@@ -224,6 +225,7 @@ exports.handler = async (event, context) => {
         mc.retest_offered,
         mc.created_at,
         mc.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM multiple_choice_test_results mc
@@ -274,6 +276,7 @@ exports.handler = async (event, context) => {
         tf.retest_offered,
         tf.created_at,
         tf.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM true_false_test_results tf
@@ -324,6 +327,7 @@ exports.handler = async (event, context) => {
         i.retest_offered,
         i.created_at,
         i.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM input_test_results i
@@ -374,6 +378,7 @@ exports.handler = async (event, context) => {
         w.retest_offered,
         w.created_at,
         w.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM word_matching_test_results w
@@ -425,6 +430,7 @@ exports.handler = async (event, context) => {
         d.retest_offered,
         d.created_at,
         d.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM drawing_test_results d
@@ -475,6 +481,7 @@ exports.handler = async (event, context) => {
         fb.retest_offered,
         fb.created_at,
         fb.academic_period_id,
+        NULL::jsonb as ai_feedback,
         s.subject,
         CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM fill_blanks_test_results fb
@@ -510,6 +517,15 @@ exports.handler = async (event, context) => {
         COALESCE(s_best.best_caught_cheating, s.caught_cheating) AS caught_cheating,
         COALESCE(s_best.best_visibility_change_times, s.visibility_change_times) AS visibility_change_times,
         s.is_completed, s.retest_offered, s.created_at, s.academic_period_id,
+        COALESCE(
+          s.ai_feedback,
+          jsonb_build_object(
+            'overall_score', s.overall_score,
+            'word_count', s.word_count,
+            'grammar_mistakes', s.grammar_mistakes,
+            'vocabulary_mistakes', s.vocabulary_mistakes
+          )
+        ) as ai_feedback,
         subj.subject, CONCAT(t.first_name, ' ', t.last_name) as teacher_name
       FROM speaking_test_results s
       LEFT JOIN subjects subj ON s.subject_id = subj.subject_id

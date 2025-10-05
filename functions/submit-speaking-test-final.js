@@ -246,7 +246,8 @@ async function saveToDatabase(data, userInfo) {
         academic_period_id,
         is_completed,
         submitted_at,
-        created_at
+        created_at,
+        ai_feedback
       ) VALUES (
         ${test_id},
         ${test_name},
@@ -275,7 +276,8 @@ async function saveToDatabase(data, userInfo) {
         ${academic_period_id},
         true,
         NOW(),
-        NOW()
+        NOW(),
+        ${scores.ai_feedback ? JSON.stringify(scores.ai_feedback) : null}
       )
       RETURNING id
     `;

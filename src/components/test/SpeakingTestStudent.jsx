@@ -369,7 +369,9 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           improved_transcript: result.improved_transcript,
           // Add detailed corrections
           grammar_corrections: result.grammar_corrections || [],
-          vocabulary_corrections: result.vocabulary_corrections || []
+          vocabulary_corrections: result.vocabulary_corrections || [],
+          // Include full AI feedback object for persistence on final submit
+          ai_feedback: result.ai_feedback || null
         };
         
         console.log('🎤 Mapped Scores:', mappedScores);

@@ -71,6 +71,10 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: OPENROUTER_API_KEY,
+  defaultHeaders: {
+    'HTTP-Referer': process.env.URL || 'http://localhost:8888',
+    'X-Title': 'Mathayom Watsing Testing System'
+  }
 });
 
 const sql = neon(process.env.NEON_DATABASE_URL);
@@ -124,6 +128,25 @@ exports.handler = async (event, context) => {
     const overallScore = calculateOverallScore(analysis);
     console.log('Overall score:', overallScore);
 
+    // Build complete AI feedback payload for storage
+    const aiFeedback = {
+      overall_score: overallScore,
+      word_count: analysis.word_count,
+      feedback: analysis.feedback,
+      improved_transcript: analysis.improved_transcript,
+      grammar_score: analysis.grammar_score,
+      vocabulary_score: analysis.vocabulary_score,
+      pronunciation_score: analysis.pronunciation_score,
+      fluency_score: analysis.fluency_score,
+      content_score: analysis.content_score,
+      grammar_mistakes: analysis.grammar_mistakes,
+      vocabulary_mistakes: analysis.vocabulary_mistakes,
+      grammar_corrections: analysis.grammar_corrections || [],
+      vocabulary_corrections: analysis.vocabulary_corrections || [],
+      prompt: config.prompt,
+      difficulty_level: config.difficulty_level
+    };
+
     return {
       statusCode: 200,
       headers: {
@@ -151,7 +174,9 @@ exports.handler = async (event, context) => {
         pronunciation_score: analysis.pronunciation_score,
         fluency_score: analysis.fluency_score,
         content_score: analysis.content_score,
-        passed: overallScore >= config.passing_score
+        passed: overallScore >= config.passing_score,
+        // Complete AI feedback payload for database storage
+        ai_feedback: aiFeedback
       })
     };
 
@@ -260,6 +285,7 @@ CRITICAL: Focus ONLY on grammar, vocabulary, pronunciation, fluency, and content
 - Only correct actual grammar errors, vocabulary misuse, or clarity issues
 - "A person" vs "people" is NOT a grammar error - both are grammatically correct
 - Focus on language learning, not social commentary
+ - Do NOT correct capitalization or case (uppercase/lowercase) or purely stylistic punctuation issues because transcripts come from speech; casing is not meaningful in evaluation
 
 Evaluate on these 5 categories and return JSON:
 {
