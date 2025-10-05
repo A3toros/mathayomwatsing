@@ -53,14 +53,14 @@ const FeedbackDisplay = ({
   });
 
   return (
-    <div className="feedback-display bg-white rounded-lg shadow-lg p-6">
+    <div className="feedback-display bg-white rounded-lg shadow-lg p-3 sm:p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2">Speaking Test Results</h2>
         <p className="text-gray-600">Review your performance and decide whether to submit or re-record.</p>
       </div>
 
       {/* Overall Score */}
-      <div className="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-lg mb-6">
+      <div className="bg-gradient-to-r from-blue-50 to-green-50 p-3 sm:p-6 rounded-lg mb-6">
         <div className="text-center">
           <div className={`text-4xl font-bold ${getOverallColor()}`}>
             {scores?.overall_score || 0}/100
@@ -80,7 +80,7 @@ const FeedbackDisplay = ({
       {/* Score Breakdown - All 5 AI Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Grammar Score */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Grammar</span>
             <span className={`font-bold ${getScoreColor(scores?.grammar_score || 0, 25)}`}>
@@ -99,7 +99,7 @@ const FeedbackDisplay = ({
         </div>
 
         {/* Vocabulary Score */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Vocabulary</span>
             <span className={`font-bold ${getScoreColor(scores?.vocabulary_score || 0, 20)}`}>
@@ -118,7 +118,7 @@ const FeedbackDisplay = ({
         </div>
 
         {/* Pronunciation Score */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Pronunciation</span>
             <span className={`font-bold ${getScoreColor(scores?.pronunciation_score || 0, 15)}`}>
@@ -137,7 +137,7 @@ const FeedbackDisplay = ({
         </div>
 
         {/* Fluency Score */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Fluency</span>
             <span className={`font-bold ${getScoreColor(scores?.fluency_score || 0, 20)}`}>
@@ -156,7 +156,7 @@ const FeedbackDisplay = ({
         </div>
 
         {/* Content Score */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Content</span>
             <span className={`font-bold ${getScoreColor(scores?.content_score || 0, 20)}`}>
@@ -175,7 +175,7 @@ const FeedbackDisplay = ({
         </div>
 
         {/* Word Count (Bonus Info) */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-3 sm:p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-gray-700">Word Count</span>
             <span className="font-bold text-gray-700">
@@ -204,7 +204,7 @@ const FeedbackDisplay = ({
 
       {/* AI Feedback - Prominent Display */}
       {scores?.feedback && (
-        <div className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border border-green-200">
+        <div className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 p-3 sm:p-6 rounded-lg border border-green-200">
           <div className="flex items-start space-x-3">
             <span className="text-green-600 text-2xl">🤖</span>
             <div className="flex-1">
@@ -217,7 +217,7 @@ const FeedbackDisplay = ({
 
       {/* Improved Transcript */}
       {scores?.improved_transcript && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
           <div className="flex items-start space-x-2 mb-3">
             <span className="text-green-600 text-lg">✨</span>
             <div>
@@ -245,7 +245,7 @@ const FeedbackDisplay = ({
 
       {/* Detailed Feedback */}
       {showDetailedFeedback && (
-        <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+        <div className="mb-6 bg-blue-50 p-3 sm:p-4 rounded-lg">
           <h4 className="font-semibold mb-3">Detailed Analysis</h4>
           <div className="space-y-3 text-sm">
             <div>
@@ -265,7 +265,7 @@ const FeedbackDisplay = ({
               {scores?.grammar_corrections && scores.grammar_corrections.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {scores.grammar_corrections.map((correction, index) => (
-                    <div key={index} className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                    <div key={index} className="bg-yellow-50 border border-yellow-200 rounded p-2 sm:p-3">
                       <div className="flex items-start space-x-2">
                         <span className="text-red-600 font-mono text-sm">✗</span>
                         <div className="flex-1">
@@ -293,7 +293,7 @@ const FeedbackDisplay = ({
               {scores?.vocabulary_corrections && scores.vocabulary_corrections.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {scores.vocabulary_corrections.map((correction, index) => (
-                    <div key={index} className="bg-purple-50 border border-purple-200 rounded p-3">
+                    <div key={index} className="bg-purple-50 border border-purple-200 rounded p-2 sm:p-3">
                       <div className="flex items-start space-x-2">
                         <span className="text-purple-600 font-mono text-sm">📝</span>
                         <div className="flex-1">
@@ -357,7 +357,7 @@ const FeedbackDisplay = ({
 
       {/* Re-record Notice */}
       {!canReRecord && (
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="mt-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 text-sm">
             <strong>Maximum attempts reached.</strong> This is your final attempt. 
             Click "Submit Final" to complete the test.

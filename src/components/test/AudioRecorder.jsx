@@ -39,7 +39,12 @@ const AudioRecorder = forwardRef(({
       
       // Check if microphone is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Microphone access is not supported in this browser');
+        throw new Error('Microphone access is not supported in this browser. Please use a modern browser like Chrome, Safari, or Firefox.');
+      }
+      
+      // Check if we're in a secure context (required for iOS)
+      if (!window.isSecureContext && !window.location.hostname.includes('localhost')) {
+        throw new Error('Microphone access requires HTTPS. Please use a secure connection.');
       }
       
       // Request microphone access with explicit permission request
@@ -126,12 +131,22 @@ const AudioRecorder = forwardRef(({
     } catch (error) {
       console.error('Error starting recording:', error);
       
+      // iOS detection
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
       if (error.name === 'NotAllowedError') {
-        setError('Microphone access denied. Please allow microphone access in your browser settings and try again.');
+        if (isIOS) {
+          setError('Microphone access denied. Please go to Settings > Safari > Microphone and allow access, then refresh the page.');
+        } else {
+          setError('Microphone access denied. Please allow microphone access in your browser settings and try again.');
+        }
       } else if (error.name === 'NotFoundError') {
         setError('No microphone found. Please connect a microphone and try again.');
       } else if (error.name === 'NotSupportedError') {
-        setError('Microphone access is not supported in this browser. Please use a modern browser.');
+        setError('Microphone access is not supported in this browser. Please use a modern browser like Chrome, Safari, or Firefox.');
+      } else if (error.message.includes('HTTPS')) {
+        setError('Microphone access requires HTTPS. Please use a secure connection.');
       } else {
         setError(`Failed to access microphone: ${error.message}`);
       }
@@ -239,7 +254,7 @@ const AudioRecorder = forwardRef(({
   };
 
   return (
-    <div className="audio-recorder bg-white rounded-lg shadow-lg p-6">
+    <div className="audio-recorder bg-white rounded-lg shadow-lg p-3 sm:p-6">
       <div className="text-center mb-6">
         <h3 className="text-xl font-semibold mb-2">Record Your Response</h3>
         <p className="text-gray-600">
@@ -324,7 +339,7 @@ const AudioRecorder = forwardRef(({
 
       {/* Error Display */}
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-800">{error}</p>
         </div>
       )}

@@ -17,6 +17,12 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   
+  // iOS detection function
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  };
+  
   // Progress tracking (like other tests)
   const [testProgress, setTestProgress] = useState(0);
   const [testStartTime, setTestStartTime] = useState(null);
@@ -67,13 +73,44 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     const requestPermission = async () => {
       try {
         console.log('🎤 Automatically requesting microphone permission...');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Check if we're in a secure context (required for iOS)
+        if (!window.isSecureContext && !window.location.hostname.includes('localhost')) {
+          setError('Microphone access requires HTTPS. Please use a secure connection.');
+          return;
+        }
+        
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError('Microphone access is not supported in this browser. Please use a modern browser like Chrome, Safari, or Firefox.');
+          return;
+        }
+        
+        // For iOS Safari, we need to request permission in a user interaction
+        if (isIOS()) {
+          // Don't show error message for iOS - let the user try the button
+          return;
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        });
         console.log('🎤 Microphone permission granted!');
         setHasMicPermission(true);
         stream.getTracks().forEach(track => track.stop());
       } catch (err) {
         console.error('🎤 Microphone permission denied:', err);
-        setError('Microphone access denied. Please allow microphone access and refresh the page.');
+        if (err.name === 'NotAllowedError') {
+          setError('Microphone access denied. Please allow microphone access in your browser settings and refresh the page.');
+        } else if (err.name === 'NotFoundError') {
+          setError('No microphone found. Please connect a microphone and try again.');
+        } else {
+          setError('Microphone access failed. Please check your browser settings and try again.');
+        }
       }
     };
     
@@ -541,7 +578,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             <div className="mb-6 text-center">
               <h3 className="text-lg font-semibold mb-2">Instructions:</h3>
               <p className="text-gray-700 mb-4">{testData.prompt}</p>
-              <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>Requirements:</strong> Minimum {testData.min_words || 50} words, 
                   0-{testData.max_duration || 600} seconds duration
@@ -560,7 +597,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             />
             
             {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-800">{error}</p>
               </div>
             )}
@@ -569,7 +606,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
 
       case 'processing':
         return (
-          <div className="transcription-status bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="transcription-status bg-white rounded-lg shadow-lg p-4 sm:p-8 text-center">
             <div className="mb-6">
               <div className="text-6xl mb-4">⏳</div>
               <h3 className="text-2xl font-semibold mb-2">Processing Your Speech</h3>
@@ -654,7 +691,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     <div>
       
       {/* Test Content */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">{error}</p>
