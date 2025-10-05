@@ -622,6 +622,35 @@ exports.handler = async function(event, context) {
       fillBlanksTests = [];
     }
 
+    // Get speaking tests
+    let speakingTests = [];
+    try {
+      console.log('🔍 Fetching speaking tests...');
+      speakingTests = await sql`
+        SELECT 
+          'speaking' as test_type,
+          st.id as test_id,
+          st.test_name,
+          st.min_words as num_questions,
+          st.created_at,
+          st.teacher_id,
+          t.username as teacher_name,
+          'Not Assigned' as classes,
+          'Not Assigned' as subjects
+        FROM speaking_tests st
+        LEFT JOIN teachers t ON st.teacher_id = t.teacher_id
+        ORDER BY st.created_at DESC
+      `;
+      console.log('🔍 Speaking tests found:', speakingTests.length);
+      if (speakingTests.length > 0) {
+        console.log('🔍 Sample speaking test:', speakingTests[0]);
+      }
+    } catch (error) {
+      console.log('⚠️ Speaking tests query failed:', error.message);
+      console.log('⚠️ Error details:', error);
+      speakingTests = [];
+    }
+
     // Combine all tests
     const allTests = [
       ...multipleChoiceTests,
@@ -630,7 +659,8 @@ exports.handler = async function(event, context) {
       ...matchingTypeTests,
       ...wordMatchingTests,
       ...drawingTests,
-      ...fillBlanksTests
+      ...fillBlanksTests,
+      ...speakingTests
     ];
 
     // Sort by creation date (newest first)
@@ -653,7 +683,8 @@ exports.handler = async function(event, context) {
           matching_type: matchingTypeTests.length,
           word_matching: wordMatchingTests.length,
           drawing: drawingTests.length,
-          fill_blanks: fillBlanksTests.length
+          fill_blanks: fillBlanksTests.length,
+          speaking: speakingTests.length
         }
       })
     };

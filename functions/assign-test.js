@@ -97,6 +97,9 @@ exports.handler = async function(event, context) {
         case 'drawing':
           testInfo = await sql`SELECT test_name FROM drawing_tests WHERE id = ${test_id}`;
           break;
+        case 'speaking':
+          testInfo = await sql`SELECT test_name FROM speaking_tests WHERE id = ${test_id}`;
+          break;
         default:
           throw new Error('Invalid test type');
       }

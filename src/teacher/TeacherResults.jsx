@@ -8,6 +8,8 @@ import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
 import { useNotification } from '@/components/ui/Notification';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
 import { DrawingModal } from '@/components/modals';
+import SpeakingTestReview from '@/components/test/SpeakingTestReview';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import * as XLSX from 'xlsx';
 
 
@@ -131,6 +133,10 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [selectedDrawing, setSelectedDrawing] = useState(null);
   const [isDrawingModalOpen, setIsDrawingModalOpen] = useState(false);
   
+  // Speaking test modal state
+  const [selectedSpeakingTest, setSelectedSpeakingTest] = useState(null);
+  const [isSpeakingModalOpen, setIsSpeakingModalOpen] = useState(false);
+  
   // Score editing state
   const [editingScore, setEditingScore] = useState(null); // { resultId, score, maxScore }
   const [tempScore, setTempScore] = useState('');
@@ -194,7 +200,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   useEffect(() => {
     if (results && tableRef.current) {
       // Small delay to ensure table is rendered
-      setTimeout(handleScroll, 100);
+      const timeoutId = setTimeout(handleScroll, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [results, handleScroll]);
   
@@ -319,16 +326,30 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         }
         
         // Map test results to students
+        console.log('🔍 RAW RESULTS DATA:', data.results);
+        console.log('🔍 RAW STUDENTS DATA:', data.students);
         const studentsWithScores = (data.students || []).map(student => {
           const studentResults = {};
           
           // Find all results for this student
-          const studentTestResults = (data.results || []).filter(result => 
-            result.student_id === student.student_id
-          );
+          const studentTestResults = (data.results || []).filter(result => {
+            console.log(`🔍 Checking result ${result.id} for student ${student.student_id}:`, {
+              result_student_id: result.student_id,
+              student_id: student.student_id,
+              match: result.student_id === student.student_id,
+              test_type: result.test_type
+            });
+            return result.student_id === student.student_id;
+          });
           
           // Map each test result to the student
           studentTestResults.forEach(result => {
+            console.log(`🔍 Mapping result ${result.id} (${result.test_type}) to student ${student.student_id}:`, {
+              test_name: result.test_name,
+              test_type: result.test_type,
+              score: result.score,
+              answers: result.answers
+            });
             if (result.test_name) {
               // Store full result data including test_type and answers for drawing tests
               studentResults[result.test_name] = {
@@ -346,6 +367,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                 surname: result.surname,
                 test_name: result.test_name
               };
+              console.log(`🔍 MAPPED: ${result.test_name} -> student ${student.student_id}:`, studentResults[result.test_name]);
             }
           });
           
@@ -818,6 +840,16 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     setIsDrawingModalOpen(true);
   }, []);
 
+  // Speaking test modal handlers
+  const handleViewSpeakingTest = useCallback((result, initialTab = 'overview', audioUrlOverride) => {
+    const payload = { ...result, __initialTab: initialTab };
+    if (audioUrlOverride) {
+      payload.__audioUrl = audioUrlOverride;
+    }
+    setSelectedSpeakingTest(payload);
+    setIsSpeakingModalOpen(true);
+  }, []);
+
   // Handle double-click to start editing score
   const handleScoreDoubleClick = useCallback((resultId, currentScore, currentMaxScore) => {
     setEditingScore({ resultId, score: currentScore, maxScore: currentMaxScore });
@@ -910,7 +942,10 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         console.log(`🎯 Test result keys:`, testResult ? Object.keys(testResult) : 'null');
         console.log(`🎯 Test result id:`, testResult ? testResult.id : 'null');
         
-        if (testResult && testResult.test_type === 'drawing') {
+        if (testResult && (testResult.test_type === 'drawing' || testResult.test_type === 'speaking')) {
+          console.log(`🎯 SPEAKING TEST RESULT:`, testResult);
+          console.log(`🎯 SPEAKING TEST TYPE:`, testResult.test_type);
+          console.log(`🎯 SPEAKING TEST ANSWERS:`, testResult.answers);
           initialScores[student.student_id] = {
             score: (testResult.score || 0).toString(), // Keep as string for input display
             maxScore: (testResult.max_score || 100).toString(), // Keep as string for input display
@@ -1325,7 +1360,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             failedStudentIds: [student.student_id],
                             test_type: test.test_type,
                             original_test_id: testResult?.test_id || test.test_id,
-                            subject_id: testResult?.subject_id || test.subject_id
+                            subject_id: testResult?.subject_id || test.subject_id,
+                            grade: selectedGrade,
+                            class: selectedClass
                           });
                         }
                       }}
@@ -1390,6 +1427,133 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             </span>
                           )}
                         </div>
+                      ) : testResult && (testResult.test_type === 'speaking' || test.test_type === 'speaking') ? (
+                        <div className="flex flex-col items-center space-y-2">
+                          {(() => {
+                            const a = testResult?.answers;
+                            let audioUrl = undefined;
+                            if (typeof a === 'string') {
+                              if (/^https?:\/\//i.test(a)) audioUrl = a; else { try { audioUrl = JSON.parse(a)?.audio_url; } catch (_) {} }
+                            } else if (a && typeof a === 'object') {
+                              audioUrl = a.audio_url;
+                            }
+                            if (!audioUrl && testResult?.audio_url) audioUrl = testResult.audio_url;
+                            console.log('🎧 Final computed audioUrl (main table):', { studentId: student.student_id, testName: test.test_name, audioUrl });
+                            return (
+                              <>
+                                <button
+                                  onClick={() => handleViewSpeakingTest({ ...testResult, __studentId: student.student_id }, 'audio', audioUrl)}
+                                  className="text-blue-600 hover:text-blue-800 underline text-sm font-medium px-2 py-1 rounded hover:bg-blue-50"
+                                >
+                                  View Audio
+                                </button>
+                                {/* No direct link; only modal trigger per request */}
+                              </>
+                            );
+                          })()}
+                          
+                          {/* Score display - regular numbers by default, editable when column is being edited */}
+                          {(() => {
+                            const isEditing = editingColumnsRef.current.has(test.test_name);
+                            console.log(`🎯 Score cell for ${test.test_name}:`, {
+                              isEditing,
+                              editingColumns: Array.from(editingColumnsRef.current),
+                              test_name: test.test_name
+                            });
+                            return isEditing;
+                          })() ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max={testResult.max_score || 100}
+                                value={columnScoresRef.current[test.test_name]?.[student.student_id]?.score || testResult.score || ''}
+                                onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'score', e.target.value)}
+                                className="w-16 px-2 py-1 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Score"
+                              />
+                              <span className="text-xs text-gray-500">/</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={columnScoresRef.current[test.test_name]?.[student.student_id]?.maxScore || testResult.max_score || 100}
+                                onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'maxScore', e.target.value)}
+                                className="w-16 px-2 py-1 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Max"
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors"
+                              onDoubleClick={() => {
+                                console.log('🎯 Double-clicked on speaking test score:', test.test_name);
+                                console.log('🎯 Results state at double-click:', results);
+                                console.log('🎯 Test result:', testResult);
+                                console.log('🎯 Student:', student);
+                                console.log('🎯 Test:', test);
+                                
+                                if (testResult && testResult.id) {
+                                  console.log('🎯 Starting column editing for speaking test:', test.test_name);
+                                  handleStartColumnEditing(test.test_name);
+                                } else {
+                                  console.log('🎯 No test result ID found, cannot edit');
+                                }
+                              }}
+                              title="Double-click to edit scores"
+                            >
+                          {(() => {
+                            const pct = computePercentage(testResult);
+                            const isRed = pct !== null && pct < 50;
+                            const isYellow = pct !== null && pct >= 50 && pct < 70;
+                            const isGreen = pct !== null && pct >= 70;
+                            const blueOffered = testResult.retest_offered;
+                            const colorClass = pct === null
+                              ? 'text-gray-600'
+                              : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                            return (
+                              <motion.div
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                style={isRed ? { color: '#b91c1c' } : undefined}
+                                whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => {
+                                  if (isRed && !blueOffered) {
+                                    console.log('🎯 Offering retest for speaking test:', test.test_name);
+                                    openRetestModal({
+                                      failedStudentIds: [student.student_id],
+                                      test_type: test.test_type,
+                                      original_test_id: testResult?.test_id || test.test_id,
+                                      subject_id: testResult?.subject_id || test.subject_id,
+                                      grade: selectedGrade,
+                                      class: selectedClass
+                                    });
+                                  }
+                                }}
+                                title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
+                              >
+                                {(() => {
+                                  const displayScore = (testResult.retest_best_score ?? testResult.score);
+                                  const displayMax = (testResult.retest_best_max_score ?? testResult.max_score);
+                                  return (
+                                    <>
+                                      <span className={isRed ? 'text-red-700' : ''}>{displayScore}</span>/<span>{displayMax}</span>
+                                    </>
+                                  );
+                                })()}
+                                {testResult.caught_cheating && (
+                                  <span className="ml-1">⚠️</span>
+                                )}
+                              </motion.div>
+                            );
+                          })()}
+                              {testResult.caught_cheating && testResult.visibility_change_times && (
+                                <span className="text-xs text-red-600">
+                                  ({testResult.visibility_change_times})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       ) : testResult && testResult.score !== null && testResult.score !== undefined ? (
                         <div className="flex flex-col items-center space-y-1">
                           {(() => {
@@ -1421,7 +1585,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       failedStudentIds: [student.student_id],
                                       test_type: test.test_type,
                                       original_test_id: testResult?.test_id || test.test_id,
-                                      subject_id: testResult?.subject_id || test.subject_id
+                                      subject_id: testResult?.subject_id || test.subject_id,
+                                      grade: selectedGrade,
+                                      class: selectedClass
                                     }); 
                                   }
                                 }}
@@ -1633,7 +1799,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                         {student.number ?? (studentIndex + 1)}
                       </motion.td>
                       <motion.td 
-                        className="border-b border-gray-100 px-3 py-3 text-gray-600 truncate"
+                        className="border-b border-gray-100 px-3 py-3 text-gray-600 whitespace-normal break-words"
                         whileHover={{ scale: 1.01 }}
                         transition={{ duration: 0.15 }}
                       >
@@ -1683,7 +1849,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                   return;
                                 }
                                 console.debug('[TeacherResults] TD -> opening retest modal', { studentId: student.student_id });
-                                openRetestModal({ failedStudentIds: [student.student_id] });
+                                openRetestModal({ 
+                                  failedStudentIds: [student.student_id],
+                                  grade: selectedGrade,
+                                  class: selectedClass
+                                });
                               }
                             }}
                           >
@@ -1737,6 +1907,61 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       </motion.div>
                                     )}
                                   </>
+                                ) : (testResult.test_type === 'speaking' || test.test_type === 'speaking') ? (
+                                  <>
+                                    {console.log('🎧 Rendering speaking link (compact table):', {
+                                      studentId: student.student_id,
+                                      testName: test.test_name,
+                                      testType: testResult?.test_type,
+                                      answers: testResult?.answers
+                                    })}
+                                    <button
+                                      onClick={() => handleViewSpeakingTest({ ...testResult, __studentId: student.student_id }, 'audio')}
+                                      className="text-blue-600 hover:text-blue-800 underline text-xs font-medium px-1 py-0.5 rounded hover:bg-blue-50"
+                                    >
+                                      View Audio
+                                    </button>
+                                    {/* No direct link; only modal trigger per request */}
+                                    {editingColumnsRef.current.has(test.test_name) ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={testResult.max_score || 100}
+                                          value={columnScoresRef.current[test.test_name]?.[student.student_id]?.score || testResult.score || ''}
+                                          onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'score', e.target.value)}
+                                          className="w-12 px-1 py-0.5 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                          placeholder="Score"
+                                        />
+                                        <span className="text-xs text-gray-500">/</span>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={columnScoresRef.current[test.test_name]?.[student.student_id]?.maxScore || testResult.max_score || 100}
+                                          onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'maxScore', e.target.value)}
+                                          className="w-12 px-1 py-0.5 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                          placeholder="Max"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <motion.div 
+                                        className={`px-1 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors ${
+                                          testResult.caught_cheating
+                                            ? 'bg-red-100 text-red-800 border border-red-300' 
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                        whileHover={{ scale: 1.05 }}
+                                        transition={{ duration: 0.15 }}
+                                        onDoubleClick={() => handleStartColumnEditing(test.test_name)}
+                                        title="Double-click to edit scores"
+                                      >
+                                        {testResult.score || 0}/{testResult.max_score || 100}
+                                        {testResult.caught_cheating && (
+                                          <span className="ml-1">⚠️</span>
+                                        )}
+                                      </motion.div>
+                                    )}
+                                  </>
                                 ) : (
                                   (() => {
                                       const pct = computePercentage(testResult);
@@ -1760,7 +1985,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                             e.stopPropagation();
                                             const computedColor = window.getComputedStyle(e.currentTarget).color;
                                             console.debug('[TeacherResults] Red pill clicked -> opening retest modal', { studentId: student.student_id, className: classNameStr, computedColor }); 
-                                            openRetestModal({ failedStudentIds: [student.student_id] }); 
+                                            openRetestModal({ 
+                                              failedStudentIds: [student.student_id],
+                                              grade: selectedGrade,
+                                              class: selectedClass
+                                            }); 
                                           } : undefined}
                                           title={isRed ? 'Offer retest' : ''}
                                         >
@@ -2135,13 +2364,27 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       </div>
 
       {/* Drawing Modal */}
-      {selectedDrawing && (
-        <DrawingModal
-          drawing={selectedDrawing}
-          isOpen={isDrawingModalOpen}
-          onClose={() => setIsDrawingModalOpen(false)}
-          isTeacherView={true}
-        />
+      {selectedDrawing && isDrawingModalOpen && (
+        <ErrorBoundary>
+          <DrawingModal
+            drawing={selectedDrawing}
+            isOpen={isDrawingModalOpen}
+            onClose={() => setIsDrawingModalOpen(false)}
+            isTeacherView={true}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* Speaking Test Modal */}
+      {selectedSpeakingTest && isSpeakingModalOpen && (
+        <ErrorBoundary>
+          <SpeakingTestReview
+            result={selectedSpeakingTest}
+            isOpen={isSpeakingModalOpen}
+            onClose={() => setIsSpeakingModalOpen(false)}
+            initialTab={selectedSpeakingTest.__initialTab || 'overview'}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );

@@ -244,6 +244,16 @@ exports.handler = async function(event, context) {
           if (fillBlanksTest.length > 0) {
             testInfo = fillBlanksTest[0];
           }
+        } else if (assignment.test_type === 'speaking') {
+          const speakingTest = await sql`
+            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
+            FROM speaking_tests 
+            WHERE id = ${assignment.test_id}
+          `;
+          console.log('Speaking test query result:', speakingTest);
+          if (speakingTest.length > 0) {
+            testInfo = speakingTest[0];
+          }
         }
         
         console.log('Test info:', testInfo);
@@ -394,7 +404,8 @@ exports.handler = async function(event, context) {
           input: activeTests.filter(t => t.test_type === 'input').length,
           matching_type: activeTests.filter(t => t.test_type === 'matching_type').length,
           word_matching: activeTests.filter(t => t.test_type === 'word_matching').length,
-          fill_blanks: activeTests.filter(t => t.test_type === 'fill_blanks').length
+          fill_blanks: activeTests.filter(t => t.test_type === 'fill_blanks').length,
+          speaking: activeTests.filter(t => t.test_type === 'speaking').length
         }
       },
       final_output: {

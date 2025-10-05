@@ -774,7 +774,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   const openRetestModal = useCallback(async (opts) => {
     console.debug('[TeacherCabinet] openRetestModal called with:', opts);
-    const { test_type, original_test_id, subject_id, failedStudentIds = [] } = opts || {};
+    const { test_type, original_test_id, subject_id, failedStudentIds = [], grade, class: className } = opts || {};
     
     // Pre-populate from existing test data
     setRetestForm({
@@ -787,6 +787,11 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       window_days: 2, // Default to 2 days
       student_ids: failedStudentIds
     });
+    
+    // Set grade and class if provided, otherwise use current selection
+    if (grade !== undefined) setSelectedGrade(grade);
+    if (className !== undefined) setSelectedClass(className);
+    
     console.debug('[TeacherCabinet] Setting showRetestModal to true');
     setShowRetestModal(true);
   }, []);

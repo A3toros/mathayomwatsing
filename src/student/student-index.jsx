@@ -12,6 +12,7 @@ import StudentTests from './StudentTests';
 import StudentResults from './StudentResults';
 import MatchingTestPage from './MatchingTestPage';
 import WordMatchingPage from './WordMatchingPage';
+import SpeakingTestPage from './SpeakingTestPage';
 
 
 
@@ -514,6 +515,9 @@ const StudentApp = () => {
         
         {/* Word Matching Test Route */}
         <Route path="word-matching-test/:testId" element={<WordMatchingPage />} />
+        
+        {/* Speaking Test Route */}
+        <Route path="speaking-test/:testId" element={<SpeakingTestPage />} />
         
         {/* Results Route */}
         <Route path="/results" element={<StudentResults />} />

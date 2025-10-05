@@ -420,6 +420,13 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       navigate(`/student/word-matching-test/${test.test_id}`);
       return;
     }
+
+    // Special handling for speaking tests - redirect to dedicated page
+    if (test.test_type === 'speaking') {
+      console.log('🎤 Redirecting to speaking test page for testId:', test.test_id);
+      navigate(`/student/speaking-test/${test.test_id}`);
+      return;
+    }
     
     // Navigate to the test page for other test types
     navigate(`/student/test/${test.test_type}/${test.test_id}`);

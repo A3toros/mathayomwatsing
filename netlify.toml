@@ -35,14 +35,14 @@
     # Force HTTPS
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     
-    # Very permissive CSP to allow all external resources
-    Content-Security-Policy = "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data:; connect-src *; font-src * data:;"
+    # Very permissive CSP to allow all external resources including blob URLs
+    Content-Security-Policy = "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; connect-src *; font-src * data:; media-src * blob:;"
     
     # Referrer Policy
     Referrer-Policy = "strict-origin-when-cross-origin"
     
     # Permissions Policy
-    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Permissions-Policy = "camera=(), microphone=*, geolocation=(), payment=()"
 
 # API-specific headers
 [[headers]]

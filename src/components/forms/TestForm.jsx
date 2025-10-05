@@ -8,6 +8,7 @@ import { QuestionForm } from './QuestionForm';
 import MatchingTestCreator from '../test/MatchingTestCreator';
 import DrawingTestCreator from '../test/DrawingTestCreator';
 import FillBlanksTestCreator from '../test/FillBlanksTestCreator';
+import SpeakingTestCreator from '../test/SpeakingTestCreator';
 
 // TEST FORM - React Component for Test Creation Forms
 // ✅ COMPLETED: All 20+ functions from teacher-tests.js converted to React
@@ -107,6 +108,14 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
       description: 'Rich text with multiple choice blanks',
       icon: '/pics/fill-blanks.png',
       fields: ['test_text', 'blanks', 'separate_type']
+    },
+    // NEW: Add speaking test type
+    { 
+      id: 'speaking', 
+      name: 'Speaking Test', 
+      description: 'Audio recording with AI-powered feedback',
+      icon: '/pics/speaking.png',
+      fields: ['questions', 'time_limit', 'min_duration', 'max_duration', 'min_words']
     }
   ];
 
@@ -601,6 +610,21 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
     />
   );
 
+  // NEW: Render speaking test form
+  const renderSpeakingTestForm = () => (
+    <SpeakingTestCreator
+      testName={formData.testName}
+      onTestSaved={(testData) => handleTestCreated('speaking', testData)}
+      onCancel={handleCancel}
+      onBackToCabinet={() => {
+        resetTestCreation();
+        if (onCancel) onCancel();
+      }}
+      isSaving={isLoading}
+      validationErrors={validationErrors}
+    />
+  );
+
   // Render test form
   const renderTestForm = () => {
     if (selectedTestType === 'matching') {
@@ -615,6 +639,11 @@ export const TestForm = ({ onTestCreated, onTestAssigned, onCancel }) => {
     // NEW: Add fill blanks test form rendering
     if (selectedTestType === 'fill_blanks') {
       return renderFillBlanksTestForm();
+    }
+    
+    // NEW: Add speaking test form rendering
+    if (selectedTestType === 'speaking') {
+      return renderSpeakingTestForm();
     }
     
     return (

@@ -288,6 +288,22 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                           Pending Review
                         </span>
                       )
+                    ) : result.test_type === 'speaking' ? (
+                      result.score !== null ? (
+                        <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold ${
+                          Math.round((result.score / result.max_score) * 100) >= 80 
+                            ? 'bg-green-100 text-green-800' 
+                            : Math.round((result.score / result.max_score) * 100) >= 60 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {result.score}/{result.max_score} ({Math.round((result.score / result.max_score) * 100)}%)
+                        </span>
+                      ) : (
+                        <span className="px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800">
+                          Pending Review
+                        </span>
+                      )
                     ) : (
                       <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold ${
                         Math.round((result.score / result.max_score) * 100) >= 80 

@@ -137,7 +137,7 @@ exports.handler = async function(event, context) {
       console.log('Querying test results tables directly for student:', student_id);
       
       // Query all test result tables and combine results
-      const [multipleChoiceResults, trueFalseResults, inputResults, matchingResults, wordMatchingResults, drawingResults, fillBlanksResults] = await Promise.all([
+      const [multipleChoiceResults, trueFalseResults, inputResults, matchingResults, wordMatchingResults, drawingResults, fillBlanksResults, speakingResults] = await Promise.all([
         currentPeriodId 
           ? sql`
               SELECT 
@@ -443,6 +443,51 @@ exports.handler = async function(event, context) {
               LEFT JOIN subjects s ON f.subject_id = s.subject_id
               LEFT JOIN teachers te ON f.teacher_id = te.teacher_id
               WHERE f.student_id = ${student_id}
+            `,
+        // Speaking test results from speaking_test_results table
+        currentPeriodId 
+          ? sql`
+              SELECT 
+                str.id,
+                str.test_id,
+                'speaking' as test_type,
+                str.test_name,
+                str.score,
+                str.max_score,
+                str.overall_score as percentage,
+                str.caught_cheating,
+                str.visibility_change_times,
+                str.is_completed,
+                str.submitted_at,
+                str.academic_period_id,
+                s.subject,
+                CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+              FROM speaking_test_results str
+              LEFT JOIN subjects s ON str.subject_id = s.subject_id
+              LEFT JOIN teachers te ON str.teacher_id = te.teacher_id
+              WHERE str.student_id = ${student_id}
+                AND str.academic_period_id = ${currentPeriodId}
+            `
+          : sql`
+              SELECT 
+                str.id,
+                str.test_id,
+                'speaking' as test_type,
+                str.test_name,
+                str.score,
+                str.max_score,
+                str.overall_score as percentage,
+                str.caught_cheating,
+                str.visibility_change_times,
+                str.is_completed,
+                str.submitted_at,
+                str.academic_period_id,
+                s.subject,
+                CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+              FROM speaking_test_results str
+              LEFT JOIN subjects s ON str.subject_id = s.subject_id
+              LEFT JOIN teachers te ON str.teacher_id = te.teacher_id
+              WHERE str.student_id = ${student_id}
             `
       ]);
       
@@ -454,7 +499,8 @@ exports.handler = async function(event, context) {
         ...matchingResults,
         ...wordMatchingResults,
         ...drawingResults,
-        ...fillBlanksResults
+        ...fillBlanksResults,
+        ...speakingResults
       ].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
       
       console.log('Student results query successful, found:', results.length, 'results');

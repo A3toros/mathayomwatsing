@@ -245,6 +245,9 @@ export const useApi = () => {
         case 'matching_type':
           url = '/.netlify/functions/submit-matching-type-test';
           break;
+        case 'speaking':
+          url = '/.netlify/functions/submit-speaking-test';
+          break;
         default:
           throw new Error(`Unknown test type: ${testType}`);
       }
@@ -521,6 +524,150 @@ export const useApi = () => {
     }
   }, [makeAuthenticatedRequest]);
 
+  // Speaking Test API functions
+  const submitSpeakingTest = useCallback(async (testData) => {
+    try {
+      const url = '/.netlify/functions/submit-speaking-test';
+      console.log('[API] Submitting speaking test:', testData);
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Speaking test submitted successfully:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to submit speaking test');
+      }
+    } catch (error) {
+      console.error('[API] Failed to submit speaking test:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  const getSpeakingTest = useCallback(async (testId) => {
+    try {
+      const url = `/.netlify/functions/get-speaking-test-new?action=test&test_id=${testId}`;
+      console.log('[API] Getting speaking test:', testId);
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'GET'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Speaking test loaded successfully:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to load speaking test');
+      }
+    } catch (error) {
+      console.error('[API] Failed to load speaking test:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  const getSpeakingTestQuestions = useCallback(async (testId) => {
+    try {
+      const url = `/.netlify/functions/get-speaking-test-new?action=questions&test_id=${testId}`;
+      console.log('[API] Getting speaking test questions:', testId);
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'GET'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Speaking test questions loaded successfully:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to load speaking test questions');
+      }
+    } catch (error) {
+      console.error('[API] Failed to load speaking test questions:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  const uploadSpeakingAudio = useCallback(async (audioData) => {
+    try {
+      const url = '/.netlify/functions/upload-speaking-audio';
+      console.log('[API] Uploading speaking audio');
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(audioData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Audio uploaded successfully:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to upload audio');
+      }
+    } catch (error) {
+      console.error('[API] Failed to upload audio:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  const getSpeakingAudio = useCallback(async (filePath) => {
+    try {
+      const url = `/.netlify/functions/get-speaking-test-new?action=audio&file_path=${encodeURIComponent(filePath)}`;
+      console.log('[API] Getting speaking audio:', filePath);
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'GET'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Audio URL retrieved successfully:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to get audio');
+      }
+    } catch (error) {
+      console.error('[API] Failed to get audio:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  // Check test completion status
+  const checkTestCompletion = useCallback(async (testId, testType) => {
+    try {
+      const url = `/.netlify/functions/check-test-completion?test_id=${testId}&test_type=${testType}`;
+      console.log('[API] Checking test completion:', testId, testType);
+      
+      const response = await makeAuthenticatedRequest(url, {
+        method: 'GET'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[API] Test completion status:', data);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to check test completion');
+      }
+    } catch (error) {
+      console.error('[API] Failed to check test completion:', error);
+      throw error;
+    }
+  }, [makeAuthenticatedRequest]);
+
   return {
     // State
     loading,
@@ -542,6 +689,14 @@ export const useApi = () => {
     getTestQuestions,
     loadStudentActiveTests,
     submitTest,
+    
+    // Speaking Test API functions
+    submitSpeakingTest,
+    getSpeakingTest,
+    getSpeakingTestQuestions,
+    uploadSpeakingAudio,
+    getSpeakingAudio,
+    checkTestCompletion,
     
     // Teacher API functions
     saveMultipleChoiceTest,

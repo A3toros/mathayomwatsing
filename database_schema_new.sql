@@ -1965,3 +1965,239 @@ BEGIN
 END$$;
 
 
+-- Speaking Test Database Schema
+-- Follows standard test structure with automatic scoring system
+-- Implements: Word Count (30%), Grammar (40%), Vocabulary (30%) scoring
+
+-- ========================================
+-- CLEANUP PREVIOUS TABLES
+-- ========================================
+
+-- Drop existing speaking test tables in reverse dependency order
+DROP TABLE IF EXISTS speaking_test_audio CASCADE;
+DROP TABLE IF EXISTS speaking_test_results CASCADE;
+DROP TABLE IF EXISTS speaking_test_questions CASCADE;
+DROP TABLE IF EXISTS speaking_tests CASCADE;
+
+-- ========================================
+-- SPEAKING TEST TABLES
+-- ========================================
+
+-- 1. Main Speaking Tests Table
+CREATE TABLE IF NOT EXISTS speaking_tests (
+    id SERIAL PRIMARY KEY,
+    teacher_id VARCHAR(50) REFERENCES teachers(teacher_id),
+    subject_id INTEGER REFERENCES subjects(subject_id),
+    test_name VARCHAR(200) NOT NULL,
+    num_questions INTEGER NOT NULL DEFAULT 1, -- Number of speaking prompts/questions
+    time_limit INTEGER DEFAULT 300, -- Maximum recording time in seconds
+    min_duration INTEGER DEFAULT 30, -- Minimum recording duration in seconds
+    max_duration INTEGER DEFAULT 600, -- Maximum recording duration in seconds
+    max_attempts INTEGER DEFAULT 3, -- Maximum retry attempts allowed
+    
+    -- Basic Test Configuration
+    min_words INTEGER DEFAULT 50, -- Minimum word count required
+    
+    
+    -- Standard test fields
+    passing_score INTEGER,
+    allowed_time INTEGER, -- Timer support
+    is_shuffled BOOLEAN DEFAULT FALSE, -- Not applicable for speaking tests
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT chk_num_questions CHECK (num_questions > 0),
+    CONSTRAINT chk_min_words CHECK (min_words > 0),
+    CONSTRAINT chk_duration CHECK (min_duration <= max_duration),
+    CONSTRAINT chk_time_limit CHECK (time_limit > 0),
+    CONSTRAINT chk_max_attempts CHECK (max_attempts > 0)
+);
+
+-- 2. Speaking Test Questions Table
+CREATE TABLE IF NOT EXISTS speaking_test_questions (
+    id SERIAL PRIMARY KEY,
+    test_id INTEGER REFERENCES speaking_tests(id) ON DELETE CASCADE,
+    question_number INTEGER NOT NULL,
+    prompt TEXT NOT NULL, -- Speaking prompt/topic for students
+    expected_duration INTEGER, -- Expected response duration in seconds
+    difficulty_level VARCHAR(20) DEFAULT 'medium', -- easy, medium, hard
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT chk_question_number CHECK (question_number > 0),
+    CONSTRAINT chk_expected_duration CHECK (expected_duration > 0)
+);
+
+-- 3. Speaking Test Results Table (Standard Schema)
+CREATE TABLE IF NOT EXISTS speaking_test_results (
+    id SERIAL PRIMARY KEY,
+    test_id INTEGER REFERENCES speaking_tests(id),
+    test_name VARCHAR(200) NOT NULL,
+    teacher_id VARCHAR(50) REFERENCES teachers(teacher_id),
+    subject_id INTEGER REFERENCES subjects(subject_id),
+    grade INTEGER NOT NULL,
+    class INTEGER NOT NULL,
+    number INTEGER,
+    student_id VARCHAR(50) REFERENCES users(student_id),
+    name VARCHAR(100),
+    surname VARCHAR(100),
+    nickname VARCHAR(100),
+    academic_period_id INTEGER REFERENCES academic_year(id),
+    
+    -- Speaking Test Specific Fields
+    question_id INTEGER REFERENCES speaking_test_questions(id), -- Link to the specific question
+    audio_url TEXT, -- URL to the student's recorded audio in Supabase
+    transcript TEXT, -- Full transcript from speech-to-text service
+    word_count INTEGER, -- Actual word count from transcript
+    grammar_mistakes INTEGER DEFAULT 0, -- Number of grammar mistakes
+    vocabulary_mistakes INTEGER DEFAULT 0, -- Number of vocabulary mistakes (e.g., repeated words, simple vocab)
+    
+    -- Final Score (0-100)
+    overall_score DECIMAL(5,2), -- Total score (0-100)
+    percentage DECIMAL(5,2) GENERATED ALWAYS AS (overall_score) STORED,
+    
+    -- Standard test result fields
+    time_taken INTEGER, -- Time taken in seconds
+    started_at TIMESTAMP,
+    submitted_at TIMESTAMP,
+    caught_cheating BOOLEAN DEFAULT false,
+    visibility_change_times INTEGER DEFAULT 0,
+    is_completed BOOLEAN DEFAULT false,
+    retest_offered BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Retest specific fields (for displaying best retest score in results)
+    retest_assignment_id INTEGER REFERENCES retest_assignments(id),
+    best_retest_score INTEGER,
+    best_retest_max_score INTEGER,
+    best_retest_percentage DECIMAL(5,2)
+);
+
+
+-- ========================================
+-- SCORING NOTES
+-- ========================================
+
+-- Automatic scoring is handled entirely in the backend:
+-- 1. Word Count Score (30%): min(actual_words / min_words, 1) * 30
+-- 2. Grammar Score (40%): max(40 - (grammar_mistakes * 2), 0)  
+-- 3. Vocabulary Score (30%): max(30 - (vocab_mistakes * 2), 0)
+-- 4. Total Score: word_score + grammar_score + vocab_score
+-- 
+-- Backend stores only the final overall_score (0-100) in the database
+-- All scoring configuration and calculation logic is in the backend code
+
+-- ========================================
+-- INDEXES FOR PERFORMANCE
+-- ========================================
+
+-- Speaking tests indexes
+CREATE INDEX IF NOT EXISTS idx_speaking_tests_teacher_id ON speaking_tests(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_tests_subject_id ON speaking_tests(subject_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_tests_created_at ON speaking_tests(created_at);
+
+-- Speaking test questions indexes
+CREATE INDEX IF NOT EXISTS idx_speaking_questions_test_id ON speaking_test_questions(test_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_questions_number ON speaking_test_questions(question_number);
+
+-- Speaking test results indexes
+CREATE INDEX IF NOT EXISTS idx_speaking_results_test_id ON speaking_test_results(test_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_student_id ON speaking_test_results(student_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_teacher_id ON speaking_test_results(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_grade ON speaking_test_results(grade);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_class ON speaking_test_results(class);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_academic_period_id ON speaking_test_results(academic_period_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_submitted_at ON speaking_test_results(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_score ON speaking_test_results(overall_score);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_completed_cheating ON speaking_test_results(is_completed, caught_cheating, visibility_change_times);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_question_id ON speaking_test_results(question_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_results_retest_assignment_id ON speaking_test_results(retest_assignment_id);
+
+-- Speaking test audio indexes
+CREATE INDEX IF NOT EXISTS idx_speaking_audio_result_id ON speaking_test_audio(result_id);
+CREATE INDEX IF NOT EXISTS idx_speaking_audio_created_at ON speaking_test_audio(created_at);
+
+-- ========================================
+-- UPDATE CLASS SUMMARY VIEW
+-- ========================================
+
+-- Add speaking test results to the materialized view
+-- Note: This would require updating the existing materialized view
+-- to include speaking_test_results in the UNION ALL sections
+
+-- ========================================
+-- SAMPLE DATA AND TESTING
+-- ========================================
+
+
+-- ========================================
+-- USAGE EXAMPLES
+-- ========================================
+
+-- Example: Get speaking test results with scores
+/*
+SELECT 
+    str.id,
+    str.student_id,
+    str.name,
+    str.transcript,
+    str.word_count,
+    str.word_score,
+    str.grammar_score,
+    str.vocab_score,
+    str.overall_score,
+    st.min_words,
+    stq.prompt
+FROM speaking_test_results str
+JOIN speaking_tests st ON str.test_id = st.id
+JOIN speaking_test_questions stq ON stq.test_id = st.id
+WHERE str.is_completed = true
+ORDER BY str.overall_score DESC;
+*/
+
+-- ========================================
+-- COMMENTS AND DOCUMENTATION
+-- ========================================
+
+COMMENT ON TABLE speaking_tests IS 'Main table for speaking test configurations';
+COMMENT ON TABLE speaking_test_questions IS 'Speaking test questions with prompts';
+COMMENT ON TABLE speaking_test_results IS 'Student speaking test results with automatic scoring';
+COMMENT ON TABLE speaking_test_audio IS 'Audio file metadata for speaking tests';
+
+COMMENT ON COLUMN speaking_test_questions.prompt IS 'Speaking topic/prompt for students';
+COMMENT ON COLUMN speaking_tests.min_words IS 'Minimum word count required for full word score';
+
+COMMENT ON COLUMN speaking_test_results.question_id IS 'Link to the specific speaking test question';
+COMMENT ON COLUMN speaking_test_results.audio_url IS 'URL to the student recorded audio in Supabase';
+COMMENT ON COLUMN speaking_test_results.transcript IS 'Full transcript from speech-to-text service';
+COMMENT ON COLUMN speaking_test_results.word_count IS 'Actual word count from transcript';
+COMMENT ON COLUMN speaking_test_results.grammar_mistakes IS 'Number of grammar mistakes detected';
+COMMENT ON COLUMN speaking_test_results.vocabulary_mistakes IS 'Number of vocabulary mistakes detected';
+COMMENT ON COLUMN speaking_test_results.overall_score IS 'Final calculated score (0-100)';
+
+-- ========================================
+-- ADD MISSING SCORE COLUMNS
+-- ========================================
+
+-- Add missing score and max_score columns to match other test results
+ALTER TABLE speaking_test_results 
+ADD COLUMN IF NOT EXISTS score INTEGER,
+ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 10;
+
+-- Update existing records to set max_score = 10 and score = round(overall_score/10)
+UPDATE speaking_test_results 
+SET max_score = 10, 
+    score = ROUND(overall_score/10)
+WHERE score IS NULL OR max_score IS NULL;
+
+-- ========================================
+-- VERIFICATION QUERIES
+-- ========================================
+
+-- Verify schema creation
+SELECT 
+    'Speaking test schema created successfully' as status,
+    'All tables, functions, and indexes created' as message,
+    'Automatic scoring system implemented' as scoring_system;

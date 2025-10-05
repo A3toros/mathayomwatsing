@@ -23,6 +23,8 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
 
   // Start drawing
   const startDrawing = useCallback((e) => {
+    e.evt.preventDefault();
+    e.evt.stopPropagation();
     if (drawingState.currentTool === DRAWING_TOOLS.PAN) return;
     
     const stage = e.target.getStage();
@@ -110,6 +112,8 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
 
   // Continue drawing
   const continueDrawing = useCallback((e) => {
+    e.evt.preventDefault();
+    e.evt.stopPropagation();
     if (!drawingState.isDrawing) return;
     
     const stage = e.target.getStage();
@@ -134,7 +138,11 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
   }, [drawingState.isDrawing, drawingState.currentTool, drawingState.currentColor, drawingState.currentThickness, drawingState.currentShape, setDrawingState]);
 
   // Finish drawing
-  const finishDrawing = useCallback(() => {
+  const finishDrawing = useCallback((e) => {
+    if (e && e.evt) {
+      e.evt.preventDefault();
+      e.evt.stopPropagation();
+    }
     if (!drawingState.isDrawing) return;
 
     if (drawingState.currentTool === DRAWING_TOOLS.PENCIL && drawingState.currentLine.length > 0) {
@@ -277,7 +285,7 @@ export const useTouchGestures = (drawingState, setDrawingState, drawingData, set
     
     if (touches.length === 0) {
       // All fingers lifted
-      finishDrawing();
+      finishDrawing(e);
       setGestureState({
         isActive: false,
         type: null,

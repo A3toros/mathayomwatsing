@@ -10,6 +10,7 @@ import MatchingTestCreator from '../components/test/MatchingTestCreator';
 import WordMatchingCreator from '../components/test/WordMatchingCreator';
 import DrawingTestCreator from '../components/test/DrawingTestCreator';
 import FillBlanksTestCreator from '../components/test/FillBlanksTestCreator';
+import SpeakingTestCreator from '../components/test/SpeakingTestCreator';
 import * as XLSX from 'xlsx';
 
 // Test type mapping
@@ -20,7 +21,8 @@ const TEST_TYPE_MAP = {
   'matching': 'matching_type',
   'wordMatching': 'word_matching',
   'drawing': 'drawing',
-  'fillBlanks': 'fill_blanks'
+  'fillBlanks': 'fill_blanks',
+  'speaking': 'speaking'
 };
 
 const TeacherTests = () => {
@@ -1120,6 +1122,72 @@ const TeacherTests = () => {
         } else {
           console.error('❌ Failed to create fill blanks test:', response.message);
           showNotification('Error creating and assigning fill blanks test: ' + response.message, 'error');
+        }
+        setIsAssigningTest(false);
+        return;
+      }
+
+      // Handle speaking tests
+      if (testType === 'speaking') {
+        console.log('🎯 Processing speaking test...');
+        console.log('🔄 Setting isAssigningTest to true for speaking test...');
+        setIsAssigningTest(true);
+        console.log('🔄 isAssigningTest set to true, overlay should show');
+        
+        // Small delay to ensure state update renders
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const speakingData = formData.speakingData;
+        console.log('🔍 Speaking test data from formData:', speakingData);
+        
+        if (!speakingData) {
+          console.error('❌ Speaking test data not found in formData');
+          showNotification('Speaking test data not found. Please recreate the test.', 'error');
+          return;
+        }
+        
+        console.log('✅ Speaking test data found, processing...');
+
+        const testData = {
+          teacher_id: user.teacher_id,
+          test_type: 'speaking',
+          test_name: formData.testName,
+          time_limit: speakingData.time_limit,
+          min_duration: speakingData.min_duration,
+          max_duration: speakingData.max_duration,
+          max_attempts: speakingData.max_attempts,
+          min_words: speakingData.min_words,
+          passing_score: speakingData.passing_score,
+          allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,
+          questions: speakingData.questions,
+          assignments: assignments
+        };
+
+        console.log('📤 Final speaking test data payload:', testData);
+
+        // Call the specialized save-speaking-test-with-assignments function
+        console.log('🚀 Calling save-speaking-test-with-assignments for speaking test...');
+        const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/save-speaking-test-with-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testData)
+        });
+        
+        const result = await response.json();
+        console.log('📥 API Response:', result);
+        
+        if (result.success) {
+          console.log('✅ Speaking test created and assigned successfully!');
+          showNotification('Speaking test created and assigned successfully!', 'success');
+          
+          // Mark assignment as completed
+          setTestAssignmentCompleted(true);
+          
+          // Return to main cabinet
+          returnToMainCabinet();
+        } else {
+          console.error('❌ Failed to create speaking test:', result.message);
+          showNotification('Error creating and assigning speaking test: ' + result.message, 'error');
         }
         setIsAssigningTest(false);
         return;
@@ -2392,6 +2460,43 @@ const TeacherTests = () => {
       setIsSavingTest(false);
     }
   }, [showNotification]);
+
+  // Handle speaking test cancel
+  const handleSpeakingTestCancel = useCallback(() => {
+    console.log('❌ Cancelling speaking test creation');
+    setCurrentStep('typeSelection');
+    setFormData({
+      testName: '',
+      numQuestions: 0,
+      numOptions: 0,
+      questions: {}
+    });
+  }, []);
+
+  const handleSpeakingTestSave = useCallback(async (testData) => {
+    console.log('🎯 [DEBUG] handleSpeakingTestSave called');
+    console.log('🎯 [DEBUG] Received testData:', testData);
+    
+    setIsSavingTest(true);
+    
+    try {
+      // Store the speaking test data
+      setFormData(prev => ({
+        ...prev,
+        speakingData: testData,
+        numQuestions: testData.questions?.length || 0
+      }));
+      
+      // Move to assignment step (like drawing tests)
+      setCurrentStep('testAssignment');
+      showNotification('Speaking test created! Now assign it to classes.', 'success');
+    } catch (error) {
+      console.error('❌ Error saving speaking test:', error);
+      showNotification('Error saving speaking test', 'error');
+    } finally {
+      setIsSavingTest(false);
+    }
+  }, [showNotification]);
     
     return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -2430,7 +2535,8 @@ const TeacherTests = () => {
                   { type: 'matching', title: 'Picture Matching', description: 'Labeling pictures', icon: '/pics/matching.png' },
                   { type: 'wordMatching', title: 'Word Matching', description: 'Matching word pairs by dragging or drawing arrows', icon: '/pics/matching-words.png' },
                   { type: 'drawing', title: 'Drawing Test', description: 'Interactive drawing tests with canvas for students', icon: '/pics/drawing.png' },
-                  { type: 'fillBlanks', title: 'Fill Blanks', description: 'Text with multiple choice blanks', icon: '/pics/fill-blanks.png' }
+                  { type: 'fillBlanks', title: 'Fill Blanks', description: 'Text with multiple choice blanks', icon: '/pics/fill-blanks.png' },
+                  { type: 'speaking', title: 'Speaking Test', description: 'Audio recording with AI-powered feedback', icon: '/pics/speaking.png' }
                 ].map(({ type, title, description, icon }) => (
                   <motion.div
                     key={type}
@@ -2467,7 +2573,7 @@ const TeacherTests = () => {
                     </Button>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'fillBlanks' ? 'Fill Blanks' : testType === 'wordMatching' ? 'Word Matching' : 'Picture Matching'} Test</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Create {testType === 'multipleChoice' ? 'Multiple Choice' : testType === 'trueFalse' ? 'True/False' : testType === 'input' ? 'Input' : testType === 'drawing' ? 'Drawing' : testType === 'fillBlanks' ? 'Fill Blanks' : testType === 'wordMatching' ? 'Word Matching' : testType === 'speaking' ? 'Speaking' : 'Picture Matching'} Test</h2>
                     <p className="text-gray-600">Fill in the test details and questions</p>
                   </div>
                 </div>
@@ -2489,7 +2595,7 @@ const TeacherTests = () => {
                     />
                   </div>
         
-        {testType !== 'matching' && testType !== 'wordMatching' && testType !== 'drawing' && testType !== 'fillBlanks' && (
+        {testType !== 'matching' && testType !== 'wordMatching' && testType !== 'drawing' && testType !== 'fillBlanks' && testType !== 'speaking' && (
           <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
               <input
@@ -2648,8 +2754,23 @@ const TeacherTests = () => {
                 </div>
               )}
 
-              {/* Excel Upload Section - Only show for non-matching, non-drawing, and non-fill-blanks tests */}
-              {testType !== 'matching' && testType !== 'drawing' && testType !== 'fillBlanks' && formData.numQuestions > 0 && (
+              {/* Speaking Test Interface */}
+              {testType === 'speaking' && (
+                <div className="speaking-test-section">
+                  {console.log('🎤 Rendering SpeakingTestCreator, testType:', testType)}
+                  <SpeakingTestCreator
+                    testName={formData.testName}
+                    onTestSaved={handleSpeakingTestSave}
+                    onCancel={handleSpeakingTestCancel}
+                    onBackToCabinet={returnToMainCabinet}
+                    isSaving={isSavingTest}
+                    validationErrors={{}}
+                  />
+                </div>
+              )}
+
+              {/* Excel Upload Section - Only show for non-matching, non-drawing, non-fill-blanks, and non-speaking tests */}
+              {testType !== 'matching' && testType !== 'drawing' && testType !== 'fillBlanks' && testType !== 'speaking' && formData.numQuestions > 0 && (
                 <Card>
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Excel Upload</h3>

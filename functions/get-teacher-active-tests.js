@@ -222,6 +222,32 @@ exports.handler = async function(event, context) {
         WHERE ta.is_active = true
         GROUP BY dt.id, dt.test_name, dt.num_questions, dt.created_at, ta.subject_id, s.subject
         
+        UNION ALL
+        
+        SELECT 
+          'speaking' as test_type,
+          st.id as test_id,
+          st.test_name,
+          st.min_words as num_questions,
+          st.created_at,
+          ta.subject_id,
+          s.subject,
+          COUNT(ta.id) as assignment_count,
+          ARRAY_AGG(
+            JSON_BUILD_OBJECT(
+              'assignment_id', ta.id,
+              'grade', ta.grade,
+              'class', ta.class,
+              'assigned_at', ta.assigned_at,
+              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
+            )
+          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
+        FROM speaking_tests st
+        INNER JOIN test_assignments ta ON st.id = ta.test_id AND ta.test_type = 'speaking'
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        WHERE ta.is_active = true
+        GROUP BY st.id, st.test_name, st.min_words, st.created_at, ta.subject_id, s.subject
+        
         ORDER BY created_at DESC
       `;
     } else {
@@ -406,6 +432,32 @@ exports.handler = async function(event, context) {
         LEFT JOIN subjects s ON ta.subject_id = s.subject_id
         WHERE fbt.teacher_id = ${teacher_id} AND ta.is_active = true
         GROUP BY fbt.id, fbt.test_name, fbt.num_questions, fbt.created_at, ta.subject_id, s.subject
+        
+        UNION ALL
+        
+        SELECT 
+          'speaking' as test_type,
+          st.id as test_id,
+          st.test_name,
+          st.min_words as num_questions,
+          st.created_at,
+          ta.subject_id,
+          s.subject,
+          COUNT(ta.id) as assignment_count,
+          ARRAY_AGG(
+            JSON_BUILD_OBJECT(
+              'assignment_id', ta.id,
+              'grade', ta.grade,
+              'class', ta.class,
+              'assigned_at', ta.assigned_at,
+              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
+            )
+          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
+        FROM speaking_tests st
+        INNER JOIN test_assignments ta ON st.id = ta.test_id AND ta.test_type = 'speaking'
+        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
+        WHERE st.teacher_id = ${teacher_id} AND ta.is_active = true
+        GROUP BY st.id, st.test_name, st.min_words, st.created_at, ta.subject_id, s.subject
         
         ORDER BY created_at DESC
       `;
