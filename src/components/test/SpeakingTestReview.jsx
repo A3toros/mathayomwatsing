@@ -379,6 +379,30 @@ const SpeakingTestReview = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Language Use Suggestions */}
+                  {ai.language_use_corrections && ai.language_use_corrections.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">Language Use Suggestions</h4>
+                      <div className="space-y-3">
+                        {ai.language_use_corrections.map((item, index) => (
+                          <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="text-sm">
+                              <span className="font-medium text-blue-800">Original:</span> {item.mistake}
+                            </div>
+                            <div className="text-sm mt-1">
+                              <span className="font-medium text-blue-800">Suggestion:</span> {item.suggestion}
+                            </div>
+                            {item.explanation && (
+                              <div className="text-xs text-blue-700 mt-1">
+                                {item.explanation}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
                 ) : (
                 <div className="text-center py-8 text-gray-500">

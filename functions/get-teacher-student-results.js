@@ -51,14 +51,14 @@ exports.handler = async (event, context) => {
     }
 
     const sql = neon(process.env.NEON_DATABASE_URL);
-    const { teacher_id, grade, class: className, semester, academic_period_id } = event.queryStringParameters;
+    const { teacher_id, grade, class: className, academic_period_id } = event.queryStringParameters;
     
     // Validate required parameters
-    if (!grade || !className || !semester || !academic_period_id) {
+    if (!grade || !className || !academic_period_id) {
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Missing required parameters: grade, class, semester, academic_period_id' })
+        body: JSON.stringify({ error: 'Missing required parameters: grade, class, academic_period_id' })
       };
     }
 
@@ -104,7 +104,6 @@ exports.handler = async (event, context) => {
       teacher_id: actualTeacherId,
       grade,
       class: className,
-      semester,
       academic_period_id
     });
 
@@ -118,30 +117,26 @@ exports.handler = async (event, context) => {
     
     console.log(`Found ${students.length} students in grade ${grade} class ${className}`);
 
-    // Get all academic periods for the requested semester
-    const requestedSemester = parseInt(semester);
-    
-    // Find all academic periods that match the requested semester
+    // Get specific academic period for the requested term
     const academicPeriods = await sql`
       SELECT id, academic_year, semester, term, start_date, end_date
       FROM academic_year 
-      WHERE semester = ${requestedSemester}
-      ORDER BY academic_year, term
+      WHERE id = ${academic_period_id}
     `;
     
     if (academicPeriods.length === 0) {
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `No academic periods found for semester ${requestedSemester}` })
+        body: JSON.stringify({ error: `No academic period found for ID ${academic_period_id}` })
       };
     }
     
-    console.log('Academic periods for semester', requestedSemester, ':', academicPeriods);
+    console.log('Academic period for term ID', academic_period_id, ':', academicPeriods[0]);
     
-    // Extract academic period IDs for the query
-    const academicPeriodIds = academicPeriods.map(period => period.id);
-    console.log('Academic period IDs to query:', academicPeriodIds);
+    // Use specific academic period ID for the query
+    const academicPeriodIds = [academic_period_id];
+    console.log('Academic period ID to query:', academicPeriodIds);
     
     // Query all test result tables with UNION to get comprehensive results
     const results = await sql`
@@ -176,7 +171,8 @@ exports.handler = async (event, context) => {
         m.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM matching_type_test_results m
       LEFT JOIN subjects s ON m.subject_id = s.subject_id
       LEFT JOIN teachers t ON m.teacher_id = t.teacher_id
@@ -227,7 +223,8 @@ exports.handler = async (event, context) => {
         mc.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM multiple_choice_test_results mc
       LEFT JOIN subjects s ON mc.subject_id = s.subject_id
       LEFT JOIN teachers t ON mc.teacher_id = t.teacher_id
@@ -278,7 +275,8 @@ exports.handler = async (event, context) => {
         tf.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM true_false_test_results tf
       LEFT JOIN subjects s ON tf.subject_id = s.subject_id
       LEFT JOIN teachers t ON tf.teacher_id = t.teacher_id
@@ -329,7 +327,8 @@ exports.handler = async (event, context) => {
         i.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM input_test_results i
       LEFT JOIN subjects s ON i.subject_id = s.subject_id
       LEFT JOIN teachers t ON i.teacher_id = t.teacher_id
@@ -380,7 +379,8 @@ exports.handler = async (event, context) => {
         w.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM word_matching_test_results w
       LEFT JOIN subjects s ON w.subject_id = s.subject_id
       LEFT JOIN teachers t ON w.teacher_id = t.teacher_id
@@ -432,7 +432,8 @@ exports.handler = async (event, context) => {
         d.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM drawing_test_results d
       LEFT JOIN subjects s ON d.subject_id = s.subject_id
       LEFT JOIN teachers t ON d.teacher_id = t.teacher_id
@@ -483,7 +484,8 @@ exports.handler = async (event, context) => {
         fb.academic_period_id,
         NULL::jsonb as ai_feedback,
         s.subject,
-        CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        t.first_name as teacher_name,
+        NULL::text as audio_url
       FROM fill_blanks_test_results fb
       LEFT JOIN subjects s ON fb.subject_id = s.subject_id
       LEFT JOIN teachers t ON fb.teacher_id = t.teacher_id
@@ -526,13 +528,15 @@ exports.handler = async (event, context) => {
             'vocabulary_mistakes', s.vocabulary_mistakes
           )
         ) as ai_feedback,
-        subj.subject, CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+        subj.subject, t.first_name as teacher_name,
+        COALESCE(s_best.best_audio_url, s.audio_url) AS audio_url
       FROM speaking_test_results s
       LEFT JOIN subjects subj ON s.subject_id = subj.subject_id
       LEFT JOIN teachers t ON s.teacher_id = t.teacher_id
       LEFT JOIN LATERAL (
         SELECT ta.score AS best_score, ta.max_score AS best_max, 
                ta.answers AS best_answers,
+               COALESCE(ta.audio_url, NULLIF(ta.answers->>'audio_url', '')) AS best_audio_url,
                ta.caught_cheating AS best_caught_cheating, 
                ta.visibility_change_times AS best_visibility_change_times
         FROM test_attempts ta
@@ -550,7 +554,7 @@ exports.handler = async (event, context) => {
       ORDER BY student_id, test_name, created_at DESC
     `;
     
-    console.log(`Found ${results.length} test results for teacher ${actualTeacherId} in semester ${requestedSemester}`);
+    console.log(`Found ${results.length} test results for teacher ${actualTeacherId} in academic period ${academic_period_id}`);
     
     // Debug: Check if there are any results at all for this teacher
     if (results.length === 0) {
@@ -690,7 +694,6 @@ exports.handler = async (event, context) => {
         teacher_id: actualTeacherId,
         grade,
         class: className,
-        semester,
         academic_period_id
       })
     };

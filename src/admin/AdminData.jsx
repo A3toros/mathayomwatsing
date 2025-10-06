@@ -78,10 +78,9 @@ const AdminData = () => {
       setError(null);
       
       // Load all admin data in parallel for better performance
-      const [teachersResult, subjectsResult, academicYearsResult, usersResult] = await Promise.allSettled([
+      const [teachersResult, subjectsResult, usersResult] = await Promise.allSettled([
         loadAllTeachers(),
         loadAllSubjects(),
-        loadAcademicYear(),
         getAllUsers()
       ]);
       
@@ -169,27 +168,6 @@ const AdminData = () => {
     }
   }, [apiGet]);
 
-  // ✅ COMPLETED: loadAcademicYear() → loadAcademicYear()
-  const loadAcademicYear = useCallback(async () => {
-    try {
-      setLoadingStates(prev => ({ ...prev, academicYears: true }));
-      const response = await apiGet('/.netlify/functions/get-academic-year');
-      
-      if (response.success) {
-        const academicYears = response.academic_years || [];
-        setAdminData(prev => ({ ...prev, academicYears }));
-        return academicYears;
-      } else {
-        console.error('Failed to load academic year:', response.message);
-        return [];
-      }
-    } catch (error) {
-      console.error('Error loading academic year:', error);
-      return [];
-    } finally {
-      setLoadingStates(prev => ({ ...prev, academicYears: false }));
-    }
-  }, [apiGet]);
 
   // ✅ COMPLETED: getAllUsers() → getUsers()
   const getAllUsers = useCallback(async () => {
@@ -240,9 +218,6 @@ const AdminData = () => {
     loadAllSubjects();
   }, [loadAllSubjects]);
 
-  const refreshAcademicYears = useCallback(() => {
-    loadAcademicYear();
-  }, [loadAcademicYear]);
 
   const refreshUsers = useCallback(() => {
     getAllUsers();

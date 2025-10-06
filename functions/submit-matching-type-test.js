@@ -102,15 +102,10 @@ exports.handler = async function(event, context) {
     console.log('Transaction started successfully');
     
     try {
-      // Get current academic period ID
-      const academicPeriod = await sql`
-        SELECT id FROM academic_year 
-        WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
-        ORDER BY created_at DESC LIMIT 1
-      `;
-      
-      const academicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
-      console.log('Academic period ID:', academicPeriodId);
+      // Get academic period ID from frontend (no database query needed)
+      const { academic_period_id } = JSON.parse(event.body);
+      const academicPeriodId = academic_period_id;
+      console.log('Academic period ID from frontend:', academicPeriodId);
       
       // Retest checks
       let attemptNumber = null;

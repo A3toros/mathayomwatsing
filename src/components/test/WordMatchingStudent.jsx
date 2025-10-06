@@ -360,12 +360,23 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       const studentId = user.student_id;
       const retestAssignKey = `retest_assignment_id_${studentId}_word_matching_${testData.id}`;
       const retestAssignmentId = localStorage.getItem(retestAssignKey);
+      // Get current academic period ID from academic calendar service
+      const { academicCalendarService } = await import('../../services/AcademicCalendarService');
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const academic_period_id = currentTerm?.id;
+      
+      if (!academic_period_id) {
+        throw new Error('No current academic period found');
+      }
+
       const submissionData = {
         test_id: testData.id,
         test_name: testData.test_name,
         teacher_id: testData.teacher_id || null,
         subject_id: testData.subject_id || null,
         student_id: studentId,
+        academic_period_id: academic_period_id,
         parent_test_id: testData.id,
         retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         interaction_type: testData.interaction_type,

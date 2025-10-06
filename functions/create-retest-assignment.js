@@ -70,6 +70,14 @@ exports.handler = async (event, context) => {
       `;
       // Mark retest offered in the student's original result row(s)
       await sql`SELECT set_retest_offered(${sid}, ${test_id}, true)`;
+      
+      // Persist retest assignment id to speaking originals so UI can read it directly
+      // Note: Safe no-op if no speaking result row exists yet
+      await sql`
+        UPDATE speaking_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
     }
 
     // Clear completion keys for students who will get retests

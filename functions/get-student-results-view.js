@@ -52,18 +52,14 @@ exports.handler = async (event, context) => {
         ORDER BY test_name, created_at DESC
       `;
     } else {
-      // Get current academic period if not specified
-      const currentPeriod = await sql`
-        SELECT id FROM academic_year 
-        WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
-        ORDER BY created_at DESC LIMIT 1
-      `;
+      // Get academic period ID from frontend (no database query needed)
+      const { academic_period_id } = event.queryStringParameters;
       
-      if (currentPeriod.length > 0) {
+      if (academic_period_id) {
         results = await sql`
           SELECT * FROM student_results_view 
           WHERE student_id = ${student_id}
-          AND academic_period_id = ${currentPeriod[0].id}
+          AND academic_period_id = ${academic_period_id}
           ORDER BY test_name, created_at DESC
         `;
       } else {

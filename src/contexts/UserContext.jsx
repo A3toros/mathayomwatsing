@@ -220,7 +220,6 @@ export const UserProvider = ({ children }) => {
       await Promise.all([
         loadAllTeachers(),
         loadAllSubjects(),
-        loadAcademicYear(),
         getAllUsers()
       ]);
     } catch (error) {
@@ -464,35 +463,6 @@ export const UserProvider = ({ children }) => {
     setEditingSubject(subject);
   };
 
-  // Load academic year
-  const loadAcademicYear = useCallback(async () => {
-    try {
-      // Check cache first
-      const cacheKey = 'admin_academic_years_';
-      const cachedData = getCachedData(cacheKey);
-      if (cachedData) {
-        setAcademicYears(cachedData);
-        displayAcademicYear(cachedData);
-        return;
-      }
-      
-      // Cache miss - fetch from API
-      const response = await userService.getAcademicYear();
-      
-      if (response.success) {
-        setAcademicYears(response.academicYears);
-        displayAcademicYear(response.academicYears);
-        
-        // Cache the result
-        setCachedData(cacheKey, response.academicYears, CACHE_TTL.admin_academic_years);
-      } else {
-        throw new Error(response.message || 'Failed to load academic year');
-      }
-    } catch (error) {
-      setError(error.message || 'Failed to load academic year');
-      console.error('Error loading academic year:', error);
-    }
-  }, []);
 
   // Display academic year
   const displayAcademicYear = (academicYears) => {
@@ -627,7 +597,6 @@ export const UserProvider = ({ children }) => {
     editSubjectRow,
     
     // Academic Year Management
-    loadAcademicYear,
     displayAcademicYear,
     showAddAcademicYearForm,
     hideAddAcademicYearForm,

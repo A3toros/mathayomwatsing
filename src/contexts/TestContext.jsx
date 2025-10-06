@@ -329,11 +329,15 @@ export const TestProvider = ({ children }) => {
         markTestCompleted(testType, testId, userId);
         clearTestProgress(testType, testId);
         
-        // Cache the test results immediately after successful submission
+        // Cache the test results immediately after successful submission (skip for drawing)
         if (userId) {
           const cacheKey = `student_results_table_${userId}`;
-          console.log('🎓 TestContext: Caching test results after submission with key:', cacheKey);
-          setCachedData(cacheKey, response.result, CACHE_TTL.student_results_table);
+          if (testType !== 'drawing') {
+            console.log('🎓 TestContext: Caching test results after submission with key:', cacheKey);
+            setCachedData(cacheKey, response.result, CACHE_TTL.student_results_table);
+          } else {
+            console.log('🎨 TestContext: Skipping cache for drawing test submission (teacher-scored).');
+          }
         }
         
         // Clear test data from cache after successful submission

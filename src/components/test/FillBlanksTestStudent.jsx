@@ -360,12 +360,23 @@ const FillBlanksTestStudent = ({
       const studentId = user.student_id;
       const retestAssignKey = `retest_assignment_id_${studentId}_fill_blanks_${testId}`;
       const retestAssignmentId = localStorage.getItem(retestAssignKey);
+      // Get current academic period ID from academic calendar service
+      const { academicCalendarService } = await import('../../services/AcademicCalendarService');
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const academic_period_id = currentTerm?.id;
+      
+      if (!academic_period_id) {
+        throw new Error('No current academic period found');
+      }
+
       const submissionData = {
         test_id: testId,
         test_name: testName,
         teacher_id: teacherId || null,
         subject_id: subjectId || null,
         student_id: studentId,
+        academic_period_id: academic_period_id,
         parent_test_id: testId,
         retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         answers: answers,

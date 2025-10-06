@@ -8,13 +8,13 @@
 
 import tokenManager from '@/templates/token-manager';
 
-// Get teacher student results from view table
-export const getTeacherStudentResults = async (teacherId, grade, className, semester, academicPeriodId) => {
+// Get teacher student results from view table (term-based)
+export const getTeacherStudentResults = async (teacherId, grade, className, termId) => {
   try {
-    console.log('📊 Fetching teacher student results:', { teacherId, grade, className, semester, academicPeriodId });
+    console.log('📊 Fetching teacher student results:', { teacherId, grade, className, termId });
     
     const response = await tokenManager.makeAuthenticatedRequest(
-      `/.netlify/functions/get-teacher-student-results?teacher_id=${teacherId}&grade=${grade}&class=${className}&semester=${semester}&academic_period_id=${academicPeriodId}`
+      `/.netlify/functions/get-teacher-student-results?teacher_id=${teacherId}&grade=${grade}&class=${className}&academic_period_id=${termId}`
     );
     
     const data = await response.json();
@@ -107,10 +107,10 @@ export const getClassSummary = async (teacherId, grade, className, academicPerio
   }
 };
 
-// Get teacher student results with enhanced filtering
-export const getTeacherStudentResultsFiltered = async (teacherId, grade, className, semester, academicPeriodId, filters = {}) => {
+// Get teacher student results with enhanced filtering (term-based)
+export const getTeacherStudentResultsFiltered = async (teacherId, grade, className, termId, filters = {}) => {
   try {
-    const baseResults = await getTeacherStudentResults(teacherId, grade, className, semester, academicPeriodId);
+    const baseResults = await getTeacherStudentResults(teacherId, grade, className, termId);
     
     if (!baseResults.success) {
       return baseResults;

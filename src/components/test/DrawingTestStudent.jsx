@@ -48,6 +48,10 @@ const DrawingCanvas = ({
   const containerRef = useRef(null);
   const [fitZoom, setFitZoom] = useState(0.25);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const textCreateCandidateRef = useRef(null); // { x, y } in canvas coords
+  const pointerStartPosRef = useRef(null);     // { x, y } in screen coords
+  const stageDragTempDisabledRef = useRef(false);
+  const MOVE_THRESHOLD_PX = 6;
 
   useEffect(() => {
     const computeFit = () => {
@@ -68,31 +72,22 @@ const DrawingCanvas = ({
     const pos = stage.getPointerPosition();
     
     if (currentTool === 'pan') {
-      // Pan handling is now done by Konva's draggable property
-      return;
+      // If starting on a text box, temporarily disable stage drag to allow text interactions
+      if (isTextBoxNode(e.target)) {
+        try { stage.draggable(false); stageDragTempDisabledRef.current = true; } catch {}
+      }
+      return; // Stage handles pan drag
     }
     
     // Handle text box creation
     if (currentTool === 'text') {
+      // Candidate-only on down; create on mouse up if no significant move and on background
       const adjustedPos = {
         x: (pos.x - stage.x()) / stage.scaleX(),
         y: (pos.y - stage.y()) / stage.scaleY()
       };
-      
-      const newTextBox = {
-        id: Date.now(),
-        x: adjustedPos.x,
-        y: adjustedPos.y,
-        width: 150,
-        height: 60,
-        text: 'Double-click to edit',
-        fontSize: 14,
-        color: '#000000'
-      };
-      
-      setTextBoxes(prev => [...prev, newTextBox]);
-      setSelectedTextBox(newTextBox.id);
-      // Do NOT auto-switch to pan; remain in text/select mode
+      textCreateCandidateRef.current = { ...adjustedPos };
+      pointerStartPosRef.current = { x: pos.x, y: pos.y };
       return;
     }
     
@@ -139,6 +134,15 @@ const DrawingCanvas = ({
       return;
     }
     
+    // Cancel text creation candidate on movement beyond threshold
+    if (currentTool === 'text' && textCreateCandidateRef.current && pointerStartPosRef.current) {
+      const dx = Math.abs(point.x - pointerStartPosRef.current.x);
+      const dy = Math.abs(point.y - pointerStartPosRef.current.y);
+      if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX) {
+        textCreateCandidateRef.current = null;
+      }
+    }
+
     if (!isDrawing) return;
     
     if (currentTool === 'pencil') {
@@ -157,12 +161,39 @@ const DrawingCanvas = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e) => {
+    const stage = stageRef.current;
     if (currentTool === 'pan') {
-      // Pan handling is now done by Konva's draggable property
+      // Restore stage drag if we temporarily disabled it
+      if (stageDragTempDisabledRef.current) {
+        try { stage.draggable(true); } catch {}
+        stageDragTempDisabledRef.current = false;
+      }
       return;
     }
     
+    // If we were in text tool and candidate exists, only create if mouse up on background and no large move
+    if (currentTool === 'text' && textCreateCandidateRef.current) {
+      const target = e && e.target;
+      const isBg = target && typeof target.name === 'function' && target.name() === 'canvas-bg';
+      if (isBg) {
+        const newTextBox = {
+          id: Date.now(),
+          x: textCreateCandidateRef.current.x,
+          y: textCreateCandidateRef.current.y,
+          width: 150,
+          height: 60,
+          text: 'Double-click to edit',
+          fontSize: 14,
+          color: '#000000'
+        };
+        setTextBoxes(prev => [...prev, newTextBox]);
+        setSelectedTextBox(newTextBox.id);
+      }
+      textCreateCandidateRef.current = null;
+      pointerStartPosRef.current = null;
+    }
+
     if (isDrawing) {
       if (currentTool === 'pencil') {
         const newLines = [...lines, currentLine];
@@ -423,6 +454,10 @@ const DrawingCanvas = ({
     const target = e.target;
     // If touching a text box, do not start stage-level gestures
     if (isTextBoxNode(target)) {
+      // Also ensure stage won't drag if pan tool is active
+      if (currentTool === 'pan' && stageRef.current) {
+        try { stageRef.current.draggable(false); stageDragTempDisabledRef.current = true; } catch {}
+      }
       return;
     }
     
@@ -439,6 +474,7 @@ const DrawingCanvas = ({
       // Allow single finger to work naturally
       setIsGestureActive(false);
       setGestureType(null);
+      // For text tool, stage creation candidate should be deferred; reuse mouse down path
       handleMouseDown(e);
     }
   };
@@ -520,7 +556,7 @@ const DrawingCanvas = ({
     
     if (touches.length === 0) {
       // All fingers lifted - save line first, then clean reset
-      handleMouseUp(); // Save the line first
+      handleMouseUp(e); // Save/create first
       resetGestureState(); // Then reset gesture state
       setIsZooming(false);
     } else if (touches.length === 1) {
@@ -642,6 +678,7 @@ const DrawingCanvas = ({
                     width={canvasSize.width}
                     height={canvasSize.height}
                     fill="white"
+                    name="canvas-bg"
                   />
                   
                   {/* Existing drawings */}

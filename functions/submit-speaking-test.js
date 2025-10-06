@@ -588,16 +588,10 @@ exports.handler = async function(event, context) {
          console.log('Audio upload completed, audioUrl:', audioUrl);
          console.log('=== END AFTER SUPABASE UPLOAD DEBUG ===');
          
-         // Get current academic period
-        console.log('Getting current academic period...');
-        const academicPeriod = await sql`
-          SELECT id FROM academic_year 
-          WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
-          ORDER BY created_at DESC LIMIT 1
-        `;
-        
-        const academicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
-        console.log('Current academic period ID:', academicPeriodId);
+         // Get academic period ID from frontend (no database query needed)
+        const { academic_period_id } = JSON.parse(event.body);
+        const academicPeriodId = academic_period_id;
+        console.log('Academic period ID from frontend:', academicPeriodId);
 
         // Handle retest logic
         let attemptNumber = 1;
@@ -630,24 +624,43 @@ exports.handler = async function(event, context) {
         });
         console.log('=== END DATABASE WRITE DEBUG ===');
         
+        // Construct answers JSON for speaking tests (store audio only in top-level column)
+        const speakingAnswers = {
+          transcript: transcript,
+          overall_score: Math.round(scores.overall_score),
+          word_count: scores.word_count,
+          grammar_mistakes: scores.grammar_mistakes,
+          vocabulary_mistakes: scores.vocabulary_mistakes,
+          grammar_corrections: scores.grammar_corrections || [],
+          vocabulary_corrections: scores.vocabulary_corrections || [],
+          language_use_corrections: scores.language_use_corrections || []
+        };
+        
         await sql`
           INSERT INTO test_attempts (
             student_id, test_id, attempt_number, score, max_score, percentage,
             time_taken, started_at, submitted_at, is_completed,
             answers, answers_by_id, question_order, caught_cheating, visibility_change_times,
             retest_assignment_id, test_name, teacher_id, subject_id, grade, class, number,
-            name, surname, nickname, academic_period_id
+            name, surname, nickname, academic_period_id, audio_url
           )
           VALUES (
-            ${userInfo.student_id}, ${test_id}, ${attemptNumber}, ${Math.round(scores.overall_score)}, 100, ${Math.round(scores.overall_score)},
+            ${userInfo.student_id}, ${test_id}, ${attemptNumber}, ${Math.round(scores.overall_score / 10)}, 10, ${Math.round(scores.overall_score)},
             ${time_taken || null}, ${started_at || null}, ${submitted_at || new Date().toISOString()}, ${is_completed || true},
-            ${JSON.stringify({transcript, scores, audio_url: audioUrl})}, ${JSON.stringify({})}, ${JSON.stringify([])}, ${caught_cheating || false}, ${visibility_change_times || 0},
+            ${JSON.stringify(speakingAnswers)}, ${JSON.stringify({})}, ${JSON.stringify([])}, ${caught_cheating || false}, ${visibility_change_times || 0},
             ${retest_assignment_id}, ${test_name}, ${teacher_id}, ${subject_id}, ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
-            ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname}, ${academicPeriodId}
+            ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname}, ${academicPeriodId}, ${audioUrl}
           )
         `;
         
         console.log('Test attempt recorded successfully');
+        
+        // Update best retest values if this is a retest
+        if (retest_assignment_id) {
+          console.log('Updating best retest values...');
+          await sql`SELECT update_best_retest_values(${userInfo.student_id}, ${test_id})`;
+          console.log('Best retest values updated');
+        }
         
         // Commit transaction
         await sql`COMMIT`;
@@ -751,155 +764,7 @@ exports.handler = async function(event, context) {
         };
       }
 
-      // Get current academic period
-      console.log('Getting current academic period...');
-      const academicPeriod = await sql`
-        SELECT id FROM academic_year 
-        WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
-        ORDER BY created_at DESC LIMIT 1
-      `;
-      
-      const academicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
-      console.log('Current academic period ID:', academicPeriodId);
-
-      // Handle retest logic
-      let attemptNumber = 1;
-      let effectiveParentTestId = test_id;
-      
-      if (retest_assignment_id) {
-        console.log('Processing retest submission...');
-        const target = await sql`
-          SELECT tgt.attempt_count, ra.max_attempts, ra.window_start, ra.window_end
-          FROM retest_targets tgt
-          JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
-          WHERE tgt.retest_assignment_id = ${retest_assignment_id} 
-            AND tgt.student_id = ${userInfo.student_id}
-        `;
-        
-        if (target.length === 0) {
-          throw new Error('Retest not found or not assigned to this student');
-        }
-        
-        const row = target[0];
-        const nowTs = new Date();
-        if (!(new Date(row.window_start) <= nowTs && nowTs <= new Date(row.window_end))) {
-          throw new Error('Retest window is not active');
-        }
-        
-        if (row.attempt_count >= row.max_attempts) {
-          throw new Error('Maximum retest attempts reached');
-        }
-        
-        attemptNumber = Number(row.attempt_count || 0) + 1;
-        effectiveParentTestId = parent_test_id || test_id;
-      }
-
-      // Insert speaking test result
-      console.log('Inserting speaking test result...');
-      const result = await sql`
-        INSERT INTO speaking_test_results (
-          test_id, test_name, teacher_id, subject_id, grade, class, number,
-          student_id, name, surname, nickname, academic_period_id,
-          question_id, audio_url, transcript, word_count,
-          grammar_mistakes, vocabulary_mistakes, stt_confidence,
-          overall_score, time_taken, started_at, submitted_at, caught_cheating,
-          visibility_change_times, is_completed, created_at, ai_feedback
-        )
-        VALUES (
-          ${test_id}, ${test_name}, ${teacher_id}, ${subject_id}, 
-          ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
-          ${userInfo.student_id}, ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname},
-          ${academicPeriodId}, ${question_id}, ${audioUrl}, ${transcript}, ${scores.word_count},
-          ${scores.grammar_mistakes}, ${scores.vocabulary_mistakes}, ${scores.stt_confidence},
-          ${Math.round(scores.overall_score)}, ${time_taken || null}, ${started_at || null}, 
-          ${submitted_at || new Date().toISOString()}, ${caught_cheating}, ${visibility_change_times}, 
-          ${is_completed}, NOW(), ${scores.ai_feedback ? JSON.stringify(scores.ai_feedback) : null}
-        )
-        RETURNING id, percentage, is_completed
-      `;
-
-      const resultId = result[0].id;
-      const percentage = result[0].percentage;
-      console.log('Speaking test result inserted with ID:', resultId);
-
-      // Insert into test_attempts
-      console.log('Inserting test attempt...');
-      const percentageVal = Math.round((scores.overall_score / 100) * 10000) / 100;
-
-      await sql`
-        INSERT INTO test_attempts (
-          student_id, test_id, attempt_number, score, max_score, percentage,
-          time_taken, started_at, submitted_at, is_completed,
-          answers, answers_by_id, question_order, caught_cheating, visibility_change_times,
-          retest_assignment_id, test_name, teacher_id, subject_id, grade, class, number,
-          name, surname, nickname, academic_period_id
-        )
-        VALUES (
-          ${userInfo.student_id}, ${effectiveParentTestId}, ${attemptNumber}, 
-          ${Math.round(scores.overall_score)}, 100, ${Math.round(percentageVal)},
-          ${time_taken || null}, ${started_at || null}, ${submitted_at || new Date().toISOString()}, 
-          ${is_completed},
-          ${JSON.stringify({transcript, word_count: scores.word_count, grammar_mistakes: scores.grammar_mistakes, vocab_mistakes: scores.vocabulary_mistakes})}, 
-          ${JSON.stringify({})}, ${JSON.stringify([])}, ${caught_cheating}, ${visibility_change_times},
-          ${retest_assignment_id}, ${test_name}, ${teacher_id}, ${subject_id}, ${userInfo.grade}, ${userInfo.class}, ${userInfo.number},
-          ${userInfo.name}, ${userInfo.surname}, ${userInfo.nickname}, ${academicPeriodId}
-        )
-      `;
-
-      // Handle retest target updates
-      if (retest_assignment_id) {
-        console.log('Updating retest targets...');
-        if (percentageVal >= 50) {
-          await sql`
-            UPDATE retest_targets tgt
-            SET attempt_count = ra.max_attempts,
-                last_attempt_at = NOW(),
-                status = 'PASSED'
-            FROM retest_assignments ra
-            WHERE tgt.retest_assignment_id = ra.id
-              AND tgt.retest_assignment_id = ${retest_assignment_id} 
-              AND student_id = ${userInfo.student_id}
-          `;
-        } else {
-          await sql`
-            UPDATE retest_targets 
-            SET attempt_count = GREATEST(attempt_count + 1, ${attemptNumber}),
-                last_attempt_at = NOW(),
-                status = 'FAILED'
-            WHERE retest_assignment_id = ${retest_assignment_id} 
-              AND student_id = ${userInfo.student_id}
-          `;
-        }
-      }
-
-      // Commit transaction
-      console.log('Committing transaction...');
-      await sql`COMMIT`;
-      console.log('Transaction committed successfully');
-      
-      return {
-        statusCode: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: true,
-          message: 'Speaking test submitted successfully',
-          result_id: resultId,
-          score: Math.round(scores.overall_score),
-          max_score: 100,
-          percentage: Math.round(scores.overall_score),
-          score_breakdown: {
-            word_score: scores.word_score,
-            grammar_score: scores.grammar_score,
-            vocab_score: scores.vocab_score,
-            word_count: scores.word_count,
-            grammar_mistakes: scores.grammar_mistakes,
-            vocabulary_mistakes: scores.vocabulary_mistakes
-          },
-          transcript: transcript,
-          audio_url: audioUrl
-        })
-      };
-      
+   
     } catch (error) {
       // Rollback transaction on error
       console.error('Error during database operations, rolling back transaction...');

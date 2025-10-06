@@ -672,6 +672,7 @@ CREATE INDEX idx_test_results_test_id ON input_test_results(test_id);
 CREATE INDEX idx_test_results_test_id ON matching_type_test_results(test_id);
 
 CREATE INDEX idx_test_attempts_student_test ON test_attempts(student_id, test_id);
+CREATE INDEX IF NOT EXISTS idx_test_attempts_student_test_percentage ON test_attempts(student_id, test_id, percentage DESC, attempt_number DESC) INCLUDE (score, max_score, submitted_at) WHERE retest_assignment_id IS NOT NULL;
 CREATE INDEX idx_test_analytics_test_period ON test_analytics(test_id, academic_period_id);
 
 -- Additional useful tables for enhanced functionality
@@ -1761,6 +1762,10 @@ ALTER TABLE test_attempts
 ADD CONSTRAINT fk_test_attempts_academic_period 
 FOREIGN KEY (academic_period_id) REFERENCES academic_year(id) ON DELETE CASCADE;
 
+-- Store speaking audio URL at top level for easy playback (default NULL; other tests don't set it)
+ALTER TABLE test_attempts 
+ADD COLUMN IF NOT EXISTS audio_url text DEFAULT NULL;
+
 -- Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_test_attempts_retest_assignment ON test_attempts(retest_assignment_id);
 CREATE INDEX IF NOT EXISTS idx_test_attempts_subject ON test_attempts(subject_id);
@@ -2212,3 +2217,21 @@ SELECT
 -- Optional index for teacher queries filtering by presence
 CREATE INDEX IF NOT EXISTS idx_speaking_results_ai_feedback
   ON speaking_test_results USING GIN (ai_feedback);
+
+-- ========================================
+-- MIGRATION: Restore set_retest_offered to update ALL result tables
+-- ========================================
+
+CREATE OR REPLACE FUNCTION set_retest_offered(p_student_id text, p_test_id integer, p_flag boolean DEFAULT true)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE multiple_choice_test_results  SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE true_false_test_results       SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE input_test_results            SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE matching_type_test_results    SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE word_matching_test_results    SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE drawing_test_results          SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE fill_blanks_test_results      SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+  UPDATE speaking_test_results         SET retest_offered = p_flag WHERE student_id = p_student_id AND test_id = p_test_id;
+END;
+$$;

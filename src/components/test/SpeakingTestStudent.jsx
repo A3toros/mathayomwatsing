@@ -263,9 +263,25 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     return false; // No data was loaded
   }, [testData, user]);
 
-  // Load speaking test data from cache on component mount
+  // Load speaking test data from cache on component mount, but clear if retest
   useEffect(() => {
     if (testData?.test_id && user?.student_id) {
+      try {
+        const studentId = user.student_id;
+        const retestAssignKey = `retest_assignment_id_${studentId}_speaking_${testData.test_id}`;
+        const inProgressKey = `retest_in_progress_${studentId}_speaking_${testData.test_id}`;
+        const isRetest = !!localStorage.getItem(retestAssignKey) || !!localStorage.getItem(inProgressKey);
+        if (isRetest) {
+          // Clear stored per-test data so previous attempt UI is not shown
+          const cacheKey = `speaking_test_data_${studentId}_${testData.test_id}`;
+          const antiCheatKey = `anti_cheating_${studentId}_speaking_${testData.test_id}`;
+          const progressKey = `speaking_progress_${testData.test_id}`;
+          localStorage.removeItem(cacheKey);
+          localStorage.removeItem(antiCheatKey);
+          localStorage.removeItem(progressKey);
+          console.log('🧹 Cleared speaking per-test cache for retest start:', { cacheKey, antiCheatKey, progressKey });
+        }
+      } catch (_) {}
       loadSpeakingTestData();
     }
   }, [testData, user, loadSpeakingTestData]);
@@ -370,6 +386,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           // Add detailed corrections
           grammar_corrections: result.grammar_corrections || [],
           vocabulary_corrections: result.vocabulary_corrections || [],
+          language_use_corrections: result.language_use_corrections || [],
           // Include full AI feedback object for persistence on final submit
           ai_feedback: result.ai_feedback || null
         };
@@ -446,6 +463,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       const retestAssignKey = `retest_assignment_id_${studentId}_speaking_${testData.test_id}`;
       const retestAssignmentId = localStorage.getItem(retestAssignKey);
       
+      // Get current academic period ID from academic calendar service
+      const { academicCalendarService } = await import('../../services/AcademicCalendarService');
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const academic_period_id = currentTerm?.id;
+      
+      if (!academic_period_id) {
+        throw new Error('No current academic period found');
+      }
+
       // Prepare final submission data (AI processing already done)
       const finalSubmissionData = {
         test_id: testData.test_id,
@@ -453,6 +480,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         teacher_id: testData.teacher_id || null,
         subject_id: testData.subject_id || null,
         student_id: studentId,
+        academic_period_id: academic_period_id,
         question_id: testData.question_id || 1,
         audio_blob: audioBlob ? await blobToBase64(audioBlob) : null,
         audio_duration: audioBlob?.duration || 0,
@@ -490,6 +518,11 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           const completionKey = `test_completed_${user.student_id}_speaking_${testData.test_id}`;
           localStorage.setItem(completionKey, 'true');
           console.log('✅ Speaking test marked as completed in localStorage:', completionKey);
+
+          // Clear in-progress retest lock key on successful submit
+          const inProgressKey = `retest_in_progress_${user.student_id}_speaking_${testData.test_id}`;
+          localStorage.removeItem(inProgressKey);
+          console.log('🗑️ Cleared in-progress retest lock:', inProgressKey);
           
         // Clear attempts from localStorage upon successful submission
         const attemptsKey = `speaking_attempts_${user.student_id}_${testData.test_id}`;
@@ -500,55 +533,87 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         const { clearTestData } = await import('../../utils/cacheUtils');
         clearTestData(user.student_id, 'speaking_test_data', testData.test_id);
         console.log('🗑️ Cleared speaking test data from cache upon submission');
+        
+        // Clear anti-cheating state (mirror other tests)
+        try {
+          const antiCheatKey = `anti_cheating_${user.student_id}_speaking_${testData.test_id}`;
+          localStorage.removeItem(antiCheatKey);
+          console.log('🗑️ Cleared anti-cheating key:', antiCheatKey);
+        } catch (_) {}
         }
         
         // Cache the test results immediately after successful submission (like other tests)
         console.log('🎤 Caching speaking test results after submission...');
         const studentIdCache = user?.student_id || user?.id || 'unknown';
         const cacheKey = `student_results_table_${studentIdCache}`;
-        const { setCachedData, CACHE_TTL, clearTestData } = await import('../../utils/cacheUtils');
-        
-        // Create result object in the format expected by the results table
-        const resultData = {
-          success: true,
-          results: [{
-            id: Date.now(), // Temporary ID
-            test_id: testData.test_id,
-            test_type: 'speaking',
-            test_name: testData.test_name,
-            score: Math.round(scores.overall_score / 10),
-            max_score: 10,
-            percentage: scores.overall_score,
-            caught_cheating: false,
-            visibility_change_times: 0,
-            is_completed: true,
-            submitted_at: new Date().toISOString(),
-            academic_period_id: 3, // Default period
-            subject: 'Listening and Speaking', // Default subject
-            teacher_name: testData.teacher_name || 'Unknown'
-          }]
+        const { setCachedData, getCachedData, CACHE_TTL, clearTestData } = await import('../../utils/cacheUtils');
+
+        // Build the new result row
+        const newRow = {
+          id: Date.now(),
+          test_id: testData.test_id,
+          test_type: 'speaking',
+          test_name: testData.test_name,
+          score: Math.round(scores.overall_score / 10),
+          max_score: 10,
+          percentage: scores.overall_score,
+          caught_cheating: false,
+          visibility_change_times: 0,
+          is_completed: true,
+          submitted_at: new Date().toISOString(),
+          subject: 'Listening and Speaking',
+          teacher_name: testData.teacher_name || 'Unknown'
         };
-        
-        setCachedData(cacheKey, resultData, CACHE_TTL.student_results_table);
-        console.log('🎤 Speaking test results cached with key:', cacheKey);
+
+        // Merge with existing cached results instead of overwriting
+        let merged = { success: true, results: [], count: 0 };
+        try {
+          const existing = getCachedData(cacheKey);
+          if (existing && Array.isArray(existing.results)) {
+            merged.results = existing.results.slice();
+          }
+        } catch (_) {}
+        merged.results.unshift(newRow);
+        merged.count = merged.results.length;
+
+        setCachedData(cacheKey, merged, CACHE_TTL.student_results_table);
+        console.log('🎤 Speaking test results cached (merged) with key:', cacheKey);
         
         // Clear test data from cache (like other tests)
         if (user?.student_id) {
           clearTestData(user.student_id, 'speaking', testData.test_id);
         }
         
-        setCurrentStep('completed');
-        onComplete({
-          test_id: testData.test_id,
-          transcript,
-          scores,
-          attempt_number: attemptNumber
-        });
-        
-        // Call onTestComplete like other tests (for redirect to cabinet)
-        if (onTestComplete) {
-          onTestComplete(scores.overall_score);
+        // Mirror other tests: track retest attempts meta and clear retest keys
+        try {
+          const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
+          const prevMetaRaw = localStorage.getItem(attemptsMetaKey);
+          let used = 0;
+          if (prevMetaRaw) {
+            try { used = JSON.parse(prevMetaRaw)?.used || 0; } catch (_) { used = 0; }
+          }
+          const nextMeta = { used: used + 1, max: maxAttempts };
+          localStorage.setItem(attemptsMetaKey, JSON.stringify(nextMeta));
+          // Clear retest keys so Start Retest button behaves like other tests
+          const retestKey = `retest1_${user.student_id}_speaking_${testData.test_id}`;
+          const retestAssignKey = `retest_assignment_id_${user.student_id}_speaking_${testData.test_id}`;
+          localStorage.removeItem(retestKey);
+          localStorage.removeItem(retestAssignKey);
+          console.log('💾 Updated retest attempts meta and cleared retest keys:', nextMeta);
+        } catch (e) {
+          console.warn('⚠️ Failed to update retest attempts meta/keys', e);
         }
+
+        // Skip results page for speaking (mirror drawing behavior) and return to cabinet
+        try {
+          if (onTestComplete) {
+            onTestComplete(scores.overall_score);
+          }
+          if (typeof onExit === 'function') {
+            onExit();
+          }
+        } catch (_) {}
+        return;
       } else {
         throw new Error(result.message || 'Failed to submit speaking test');
       }

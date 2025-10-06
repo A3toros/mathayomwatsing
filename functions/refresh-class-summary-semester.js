@@ -34,17 +34,7 @@ exports.handler = async function(event, context) {
     
     console.log('✅ Materialized view refreshed successfully');
     
-    // Get current semester info for confirmation
-    const currentSemester = await sql`
-      SELECT 
-        academic_year,
-        semester,
-        start_date,
-        end_date
-      FROM academic_year 
-      WHERE CURRENT_DATE BETWEEN start_date AND end_date
-      LIMIT 1
-    `;
+    // No DB-based period detection here; frontend provides term context when needed
     
     return {
       statusCode: 200,
@@ -55,7 +45,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({
         success: true,
         message: 'Materialized view refreshed successfully',
-        current_semester: currentSemester.length > 0 ? currentSemester[0] : null,
+        current_semester: null,
         refreshed_at: new Date().toISOString()
       })
     };

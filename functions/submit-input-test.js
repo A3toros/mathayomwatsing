@@ -136,14 +136,9 @@ exports.handler = async function(event, context) {
     // Connect to database using @neondatabase/serverless
     const sql = neon(process.env.NEON_DATABASE_URL);
 
-    // Get current academic period
-    const currentPeriod = await sql`
-      SELECT id FROM academic_year 
-      WHERE CURRENT_DATE BETWEEN start_date AND end_date 
-      ORDER BY start_date DESC LIMIT 1
-    `;
-    
-    const academicPeriodId = currentPeriod.length > 0 ? currentPeriod[0].id : null;
+    // Get academic period ID from frontend (no database query needed)
+    const { academic_period_id } = JSON.parse(event.body);
+    const academicPeriodId = academic_period_id;
 
     // Use frontend calculated score directly - frontend calculation is correct
     const actualScore = score;

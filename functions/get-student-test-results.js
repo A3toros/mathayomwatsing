@@ -106,30 +106,14 @@ exports.handler = async function(event, context) {
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection established');
 
-    // Get current academic period
-    const currentAcademicYear = await sql`
-      SELECT id, academic_year, semester, term, start_date, end_date
-      FROM academic_year 
-      WHERE CURRENT_DATE BETWEEN start_date AND end_date
-      ORDER BY start_date DESC
-      LIMIT 1
-    `;
-    
-    let currentPeriodId = null;
-    if (currentAcademicYear.length > 0) {
-      currentPeriodId = currentAcademicYear[0].id;
-      console.log('Current academic period ID:', currentPeriodId);
+    // Use academic period from frontend (term id)
+    const qs = event.queryStringParameters || {};
+    const currentPeriodId = qs.academic_period_id ? parseInt(qs.academic_period_id, 10) : null;
+    if (currentPeriodId) {
+      console.log('Academic period ID from frontend:', currentPeriodId);
     } else {
-      console.log('No current academic period found, will show all results');
+      console.log('No academic_period_id provided; returning all results for student');
     }
-
-    // Also check what academic periods exist
-    const allPeriods = await sql`
-      SELECT id, academic_year, semester, term, start_date, end_date
-      FROM academic_year 
-      ORDER BY start_date DESC
-    `;
-    console.log('All academic periods:', allPeriods);
 
     // Query actual test results tables directly
     let results = [];
@@ -374,7 +358,7 @@ exports.handler = async function(event, context) {
                 d.created_at as submitted_at,
                 d.academic_period_id,
                 s.subject,
-                CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+                t.first_name as teacher_name
               FROM drawing_test_results d
               LEFT JOIN subjects s ON d.subject_id = s.subject_id
               LEFT JOIN teachers t ON d.teacher_id = t.teacher_id
@@ -396,7 +380,7 @@ exports.handler = async function(event, context) {
                 d.created_at as submitted_at,
                 d.academic_period_id,
                 s.subject,
-                CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+                t.first_name as teacher_name
               FROM drawing_test_results d
               LEFT JOIN subjects s ON d.subject_id = s.subject_id
               LEFT JOIN teachers t ON d.teacher_id = t.teacher_id

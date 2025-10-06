@@ -312,6 +312,34 @@ const FeedbackDisplay = ({
                 </div>
               )}
             </div>
+
+            {/* Language Use Suggestions */}
+            {scores?.language_use_corrections && scores.language_use_corrections.length > 0 && (
+              <div>
+                <span className="font-medium">Language Use Suggestions:</span>
+                <div className="mt-2 space-y-2">
+                  {scores.language_use_corrections.map((item, index) => (
+                    <div key={index} className="bg-blue-50 border border-blue-200 rounded p-2 sm:p-3">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-blue-600 font-mono text-sm">💡</span>
+                        <div className="flex-1">
+                          <div className="text-sm">
+                            <span className="font-medium text-blue-700">{item.mistake}</span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-green-700">{item.suggestion}</span>
+                          </div>
+                          {item.explanation && (
+                            <div className="text-xs text-blue-700 mt-1">
+                              <strong>Why:</strong> {item.explanation}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

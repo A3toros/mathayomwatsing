@@ -113,7 +113,7 @@ exports.handler = async function(event, context) {
             st.id, st.test_name, st.teacher_id, st.subject_id, 
             st.time_limit, st.min_duration, st.max_duration,
             st.min_words, st.passing_score, st.created_at, st.updated_at,
-            s.subject, CONCAT(t.first_name, ' ', t.last_name) as teacher_name,
+            s.subject, t.first_name as teacher_name,
             COUNT(stq.id) as question_count
           FROM speaking_tests st
           LEFT JOIN subjects s ON st.subject_id = s.subject_id
@@ -164,7 +164,7 @@ exports.handler = async function(event, context) {
             st.time_limit, st.min_duration, st.max_duration,
             st.max_attempts, st.min_words, st.passing_score, st.allowed_time,
             st.created_at, st.updated_at,
-            s.subject, CONCAT(t.first_name, ' ', t.last_name) as teacher_name
+            s.subject, t.first_name as teacher_name
           FROM speaking_tests st
           LEFT JOIN subjects s ON st.subject_id = s.subject_id
           LEFT JOIN teachers t ON st.teacher_id = t.teacher_id

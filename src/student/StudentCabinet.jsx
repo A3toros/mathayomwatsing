@@ -139,10 +139,10 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         return;
       }
       
-      // Load data in parallel
-      console.log('🎓 Loading student data, active tests, and results in parallel...');
+      // Load only active tests (single API call on login)
+      console.log('🎓 Loading active tests (single API call)...');
       const studentId = user?.student_id || user?.id || '';
-      await loadStudentData();
+      // Skip separate student data/results fetch here to keep one call
       
       // OPTIMIZATION: Selective cache busting - only clear if needed
       const shouldRefreshCache = checkForCacheRefreshTriggers(studentId);
@@ -159,14 +159,11 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         console.log('🎓 Using existing cache - no refresh needed');
       }
       
-      await Promise.all([
-        loadActiveTests(studentId),
-        loadTestResults(studentId)
-      ]);
+      // Force-bust active tests cache to ensure fresh retest flags on first load
+      try { localStorage.removeItem(`student_active_tests_${studentId}`); } catch (_) {}
+      await loadActiveTests(studentId);
       
-      // Calculate average score
-      console.log('🎓 Calculating average score...');
-      await calculateAverageScore();
+      // Optionally compute average later when results are fetched elsewhere
       
       console.log('🎓 Student Cabinet initialization complete!');
       
@@ -212,6 +209,17 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       }
     }
     
+    // Retest keys present → refresh
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`retest_assignment_id_${studentId}_`)) {
+          console.log('🎓 Retest assignment key detected, forcing cache refresh:', key);
+          return true;
+        }
+      }
+    } catch (_) {}
+
     // Default to using existing cache
     console.log('🎓 No refresh triggers - using existing cache');
     return false;
@@ -441,6 +449,51 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       const retestKey = `retest1_${studentId}_${test.test_type}_${test.test_id}`;
       localStorage.setItem(retestKey, 'true');
       console.log('🎓 Set retest key:', retestKey);
+      // Mirror other tests: clear completion flags so UI doesn't show Completed badge
+      try {
+        const completedKeyNew = `test_completed_${studentId}_${test.test_type}_${test.test_id}`;
+        localStorage.removeItem(completedKeyNew);
+        const legacyCompletedKey = `${test.test_type}_${test.test_id}`;
+        localStorage.removeItem(legacyCompletedKey);
+        console.log('🗑️ Cleared completion keys for retest:', completedKeyNew, legacyCompletedKey);
+        // Set in-progress retest lock and clear per-test caches so old results don't appear
+        const inProgressKey = `retest_in_progress_${studentId}_${test.test_type}_${test.test_id}`;
+        localStorage.setItem(inProgressKey, '1');
+        console.log('🔒 Set in-progress retest lock:', inProgressKey);
+        // Clear per-test cached data (speaking-specific keys and generic patterns)
+        try {
+          const antiCheatKey = `anti_cheating_${studentId}_${test.test_type}_${test.test_id}`;
+          localStorage.removeItem(antiCheatKey);
+          // Speaking cached bundle
+          const speakingCacheKey = `speaking_test_data_${studentId}_${test.test_id}`;
+          localStorage.removeItem(speakingCacheKey);
+          const speakingProgressKey = `speaking_progress_${test.test_id}`;
+          localStorage.removeItem(speakingProgressKey);
+          // Generic sweep: remove any cached answers/progress for this test (pre-picked answers in retests)
+          const suffix = `_${studentId}_${test.test_type}_${test.test_id}`;
+          const toDelete = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            // Common prefixes for saved answers/state across tests
+            if (
+              key.endsWith(suffix) ||
+              key.includes(`answers_${studentId}_${test.test_type}_${test.test_id}`) ||
+              key.includes(`progress_${studentId}_${test.test_type}_${test.test_id}`) ||
+              key.includes(`state_${studentId}_${test.test_type}_${test.test_id}`) ||
+              key.includes(`selected_${studentId}_${test.test_type}_${test.test_id}`)
+            ) {
+              toDelete.push(key);
+            }
+          }
+          toDelete.forEach(k => localStorage.removeItem(k));
+          console.log('🗑️ Cleared generic cached keys for retest start:', toDelete);
+          // Attempts meta used by retest UI
+          const attemptsMetaKey = `retest_attempts_${studentId}_${test.test_type}_${test.test_id}`;
+          // Do not delete attempts meta here; it's used to cap attempts. Keep it.
+          console.log('🗑️ Cleared per-test cached keys for retest start:', { antiCheatKey, speakingCacheKey, speakingProgressKey });
+        } catch (_) {}
+      } catch (_) {}
       // Persist retest assignment id for the test page to submit properly
       console.log('🎓 Test retest_assignment_id:', test.retest_assignment_id);
       console.log('🎓 Test retest_assignment_id type:', typeof test.retest_assignment_id);
@@ -832,6 +885,30 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
 
                                 // Allow retest start even if completed, when backend flags retest_available
                                 if (isCompleted && test?.retest_available) {
+                                  // When local attempts meta reached max, show Completed immediately (mirror other tests)
+                                  const studentId = user?.student_id || user?.id || '';
+                                  let attemptsDisabled = false;
+                                  try {
+                                    const metaRaw = localStorage.getItem(`retest_attempts_${studentId}_${test.test_type}_${test.test_id}`);
+                                    if (metaRaw) {
+                                      const meta = JSON.parse(metaRaw);
+                                      if (typeof meta?.used === 'number' && typeof meta?.max === 'number' && meta.used >= meta.max) {
+                                        attemptsDisabled = true;
+                                      }
+                                    }
+                                  } catch (_) {}
+                                  if (attemptsDisabled) {
+                                    return (
+                                      <Button
+                                        variant="secondary"
+                                        size="xs"
+                                        disabled
+                                        className="bg-green-100 text-green-800 border-green-200"
+                                      >
+                                        ✓ Completed
+                                      </Button>
+                                    );
+                                  }
                                   return (
                                     <Button
                                       variant="primary"

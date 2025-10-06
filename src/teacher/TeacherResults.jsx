@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, LoadingSpinner, Notification } from '@/components/ui/components-ui-index';
 import { userService, testService, resultService } from '@/services/services-index';
+import { academicCalendarService } from '@/services/AcademicCalendarService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
 import { useNotification } from '@/components/ui/Notification';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
@@ -80,16 +81,16 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     if (maxNum > 0) {
       derived = Math.round((scoreNum / maxNum) * 100);
     }
-    console.debug('[TeacherResults] Computed percentage', { score: result?.score, max_score: result?.max_score, retest_best_score: result?.retest_best_score, retest_best_max_score: result?.retest_best_max_score, derived, result });
+    // debug removed
     return derived;
   }, []);
 
   const getColorClassForResult = useCallback((result) => {
     const pct = computePercentage(result);
-    if (pct === null) return 'bg-gray-100 text-gray-800';
-    if (pct < 50) return 'bg-red-100 text-red-700';
-    if (pct < 70) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-green-100 text-green-700';
+    if (pct === null) return 'text-gray-600';
+    if (pct < 50) return 'text-red-600 font-semibold';
+    if (pct < 70) return 'text-yellow-600';
+    return 'text-green-600';
   }, [computePercentage]);
 
   const isRedResult = useCallback((result) => {
@@ -126,6 +127,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [collapsedTests, setCollapsedTests] = useState(new Set());
   const [isStudentCollapsed, setIsStudentCollapsed] = useState(true);
+  
+  // NEW: Term-based state for academic calendar service
+  const [selectedTerm, setSelectedTerm] = useState(null);
+  const [currentSemesterTerms, setCurrentSemesterTerms] = useState(null);
+  const [isLoadingAcademicCalendar, setIsLoadingAcademicCalendar] = useState(false);
   const [showScrollLeft, setShowScrollLeft] = useState(false);
   const [showScrollRight, setShowScrollRight] = useState(false);
   const tableRef = useRef(null);
@@ -220,99 +226,20 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     console.log('📋 Current collapsed tests state:', Array.from(collapsedTests));
   }, [collapsedTests]);
 
-  // Enhanced loadClassResults from legacy code - NOW USES NEW VIEW TABLE API
-  const loadResults = useCallback(async (grade, className, semester) => {
-    console.log('👨‍🏫 Loading class results for:', grade, className, semester);
-    setIsLoadingResults(true);
+
+  // NEW: Load results for specific term
+  const loadResultsForTerm = useCallback(async (termId) => {
     try {
-      // Format className to the expected format (e.g., 15 -> "1/15")
-      const formattedClassName = `${grade}/${className}`;
-      console.log('👨‍🏫 Formatted class name:', formattedClassName);
-      
-      // Ensure teacherData is loaded
-      let currentTeacherData = teacherData;
-      if (!currentTeacherData) {
-        console.log('👨‍🏫 Teacher data not loaded, loading now...');
-        currentTeacherData = await userService.getTeacherData();
-        setTeacherData(currentTeacherData);
-      }
-      
-      // Get teacher_id from JWT token (more reliable than loaded data)
+      setIsLoadingResults(true);
       const teacherId = user?.teacher_id;
+      const formattedClassName = `${currentSelectedGrade}/${currentSelectedClass}`;
       
-      // Find academic period based on current academic year and requested semester
-      let academicPeriodId = null;
-      
-      // Ensure academic year data is loaded
-      let currentAcademicYearData = academicYear;
-      if (!currentAcademicYearData) {
-        console.log('👨‍🏫 Academic year data not loaded, loading now...');
-        currentAcademicYearData = await loadAcademicYearData();
-      }
-      
-      if (currentAcademicYearData && Array.isArray(currentAcademicYearData) && currentAcademicYearData.length > 0) {
-        const requestedSemester = parseInt(semester);
-        console.log('👨‍🏫 Looking for semester', requestedSemester, 'in current academic year');
-        
-        // 1. Determine current academic year
-        const currentDate = new Date();
-        const currentPeriod = currentAcademicYearData.find(period => {
-          const startDate = new Date(period.start_date);
-          const endDate = new Date(period.end_date);
-          return currentDate >= startDate && currentDate <= endDate;
-        });
-        
-        const currentAcademicYear = currentPeriod ? currentPeriod.academic_year : currentAcademicYearData[0].academic_year;
-        console.log('👨‍🏫 Current academic year:', currentAcademicYear);
-        
-        // 2. Find all periods for the current academic year
-        const currentYearPeriods = currentAcademicYearData.filter(period => 
-          period.academic_year === currentAcademicYear
-        );
-        console.log('👨‍🏫 Current year periods:', currentYearPeriods);
-        
-        // 3. Find semester periods for current year
-        const semester1Periods = currentYearPeriods.filter(period => 
-          parseInt(period.semester) === 1
-        );
-        const semester2Periods = currentYearPeriods.filter(period => 
-          parseInt(period.semester) === 2
-        );
-        console.log('👨‍🏫 Semester 1 periods:', semester1Periods);
-        console.log('👨‍🏫 Semester 2 periods:', semester2Periods);
-        
-        // 4. Select appropriate period based on requested semester
-        if (requestedSemester === 1) {
-          academicPeriodId = semester1Periods[0]?.id;
-          console.log('👨‍🏫 Using semester 1 period:', semester1Periods[0]);
-        } else if (requestedSemester === 2) {
-          academicPeriodId = semester2Periods[0]?.id;
-          console.log('👨‍🏫 Using semester 2 period:', semester2Periods[0]);
-        }
-        
-        // 5. Error handling - no fallback
-        if (!academicPeriodId) {
-          throw new Error(`No ${requestedSemester === 1 ? 'Semester 1' : 'Semester 2'} data available for academic year ${currentAcademicYear}`);
-        }
-      }
-      
-      if (!teacherId || !academicPeriodId) {
-        console.error('👨‍🏫 Missing data:', { teacherId, academicPeriodId, academicYear });
-        throw new Error('Missing teacher ID or academic period ID');
-      }
-      
-      // Use new resultService for enhanced data retrieval
-      // Note: We pass the semester directly, the backend will find all academic periods for that semester
-      const data = await resultService.getTeacherStudentResults(teacherId, grade, formattedClassName, semester, academicPeriodId);
-      console.log('👨‍🏫 Class results response:', data);
+      // Use termId directly (no academic year calculations)
+      const data = await resultService.getTeacherStudentResults(teacherId, currentSelectedGrade, formattedClassName, termId);
       
       if (data.success) {
-        console.log('👨‍🏫 API Response details:', {
-          results: data.results,
-          students: data.students,
-          count: data.count,
-          student_count: data.student_count
-        });
+        console.log('📅 Results loaded for term:', termId, data.results?.length || 0, 'results');
+        console.log('📅 Students loaded:', data.students?.length || 0, 'students');
         
         // Extract unique tests from results
         const uniqueTests = [];
@@ -336,30 +263,16 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         }
         
         // Map test results to students
-        console.log('🔍 RAW RESULTS DATA:', data.results);
-        console.log('🔍 RAW STUDENTS DATA:', data.students);
         const studentsWithScores = (data.students || []).map(student => {
           const studentResults = {};
           
           // Find all results for this student
-          const studentTestResults = (data.results || []).filter(result => {
-            console.log(`🔍 Checking result ${result.id} for student ${student.student_id}:`, {
-              result_student_id: result.student_id,
-              student_id: student.student_id,
-              match: result.student_id === student.student_id,
-              test_type: result.test_type
-            });
-            return result.student_id === student.student_id;
-          });
+          const studentTestResults = (data.results || []).filter(result => 
+            result.student_id === student.student_id
+          );
           
           // Map each test result to the student
           studentTestResults.forEach(result => {
-            console.log(`🔍 Mapping result ${result.id} (${result.test_type}) to student ${student.student_id}:`, {
-              test_name: result.test_name,
-              test_type: result.test_type,
-              score: result.score,
-              answers: result.answers
-            });
             if (result.test_name) {
               // Store full result data including test_type and answers for drawing tests
               studentResults[result.test_name] = {
@@ -379,7 +292,6 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                 surname: result.surname,
                 test_name: result.test_name
               };
-              console.log(`🔍 MAPPED: ${result.test_name} -> student ${student.student_id}:`, studentResults[result.test_name]);
             }
           });
           
@@ -400,7 +312,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
           student_count: data.student_count || 0
         };
         
-        console.log('👨‍🏫 Processed results data:', {
+        console.log('📅 Processed results data:', {
           uniqueTests: uniqueTests.length,
           subjects: Array.from(subjects),
           resultsCount: data.results?.length || 0,
@@ -412,101 +324,55 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         setResults(resultsData);
         setClassResults(resultsData);
         setLastUpdated(new Date());
-        
-        // Log student information
-        if (data.students && data.students.length > 0) {
-          console.log('👨‍🏫 Student list loaded:', data.students.length, 'students');
-          console.log('👨‍🏫 Sample student:', data.students[0]);
-        } else {
-          console.log('👨‍🏫 No students found for this class');
-        }
-      } else {
-        console.log('👨‍🏫 API call failed for this class');
-        setResults(null);
-        setClassResults(null);
       }
     } catch (error) {
-      console.error('👨‍🏫 Error loading class results:', error);
-      showNotification('Error loading class results', 'error');
+      console.error('📅 Error loading results for term:', error);
       setResults(null);
       setClassResults(null);
     } finally {
       setIsLoadingResults(false);
     }
-  }, [teacherData, user, academicYear, showNotification]);
+  }, [user, currentSelectedGrade, currentSelectedClass]);
 
-  // Enhanced determineAndOpenCurrentSemester from legacy code
-  const determineAndOpenCurrentSemester = useCallback(async (grade, classNum) => {
-    console.log('👨‍🏫 Determining current semester for:', grade, classNum);
-    
-    try {
-      if (academicYear && academicYear.length > 0) {
-        const currentDate = new Date();
-        let currentSemester = 1; // Default to semester 1
-        let currentPeriod = null;
+  // Initialize academic calendar and auto-select current term
+  useEffect(() => {
+    const initializeAcademicCalendar = async () => {
+      try {
+        setIsLoadingAcademicCalendar(true);
+        await academicCalendarService.loadAcademicCalendar();
+        const terms = academicCalendarService.getCurrentSemesterTerms();
+        setCurrentSemesterTerms(terms);
         
-        for (const period of academicYear) {
-          const startDate = new Date(period.start_date);
-          const endDate = new Date(period.end_date);
-          
-          console.log('👨‍🏫 Checking period:', {
-            period: period,
-            semester: period.semester,
-            semesterType: typeof period.semester,
-            startDate: startDate,
-            endDate: endDate,
-            currentDate: currentDate,
-            isInRange: currentDate >= startDate && currentDate <= endDate
-          });
-          
-          // Check if current date falls within this period
-          if (currentDate >= startDate && currentDate <= endDate) {
-            currentPeriod = period;
-            currentSemester = period.semester;
-            console.log('👨‍🏫 Found matching period:', {
-              period: period,
-              semester: period.semester,
-              semesterType: typeof period.semester
-            });
-            break;
+        // Auto-select current term
+        if (terms?.currentTerm) {
+          setSelectedTerm(terms.currentTerm.id);
+          // Auto-load results for current term
+          if (currentSelectedGrade && currentSelectedClass) {
+            loadResultsForTerm(terms.currentTerm.id);
           }
         }
-        
-        if (currentPeriod) {
-          console.log('👨‍🏫 Current academic period found:', currentPeriod);
-          console.log('👨‍🏫 Current semester:', currentSemester);
-          
-          // Ensure semester is a valid number, default to 1 if undefined or NaN
-          const validSemester = currentSemester && !isNaN(currentSemester) ? currentSemester : 1;
-          console.log('👨‍🏫 Using semester:', validSemester);
-          setSelectedSemester(validSemester);
-          await loadResults(grade, classNum, validSemester);
-        } else {
-          console.log('👨‍🏫 No current academic period found, using default semester 1');
-          setSelectedSemester(1);
-          await loadResults(grade, classNum, 1);
-        }
-      } else {
-        console.log('👨‍🏫 No academic year data, using default semester 1');
-        setSelectedSemester(1);
-        await loadResults(grade, classNum, 1);
+      } catch (error) {
+        console.error('📅 Error initializing academic calendar:', error);
+      } finally {
+        setIsLoadingAcademicCalendar(false);
       }
-    } catch (error) {
-      console.error('👨‍🏫 Error determining current semester:', error);
-      setSelectedSemester(1);
-      await loadResults(grade, classNum, 1);
-    }
-  }, [academicYear, loadResults]);
+    };
+    
+    initializeAcademicCalendar();
+  }, [currentSelectedGrade, currentSelectedClass]);
 
   // Handle props for pre-selected class
   useEffect(() => {
     if (selectedGrade && selectedClass) {
       console.log('👨‍🏫 Props detected:', { grade: selectedGrade, class: selectedClass });
       
-      // Auto-select current semester and load results
-      determineAndOpenCurrentSemester(selectedGrade, selectedClass);
+      // Auto-select current term and load results
+      if (currentSemesterTerms?.currentTerm) {
+        setSelectedTerm(currentSemesterTerms.currentTerm.id);
+        loadResultsForTerm(currentSemesterTerms.currentTerm.id);
+      }
     }
-  }, [selectedGrade, selectedClass, determineAndOpenCurrentSemester]);
+  }, [selectedGrade, selectedClass, currentSemesterTerms]);
   
   // Enhanced initializeGradeButtons from legacy code
   const initializeTeacherResults = useCallback(async () => {
@@ -534,9 +400,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       console.log('👨‍🏫 Loading teacher assignments...');
       await loadAssignments();
       
-      // Load academic year data
-      console.log('👨‍🏫 Loading academic year data...');
-      await loadAcademicYear();
+      // TODO: Replace with academic calendar service
+      console.log('👨‍🏫 TODO: Load academic calendar service');
       
       console.log('👨‍🏫 Teacher results initialization complete!');
       
@@ -643,76 +508,6 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     }
   }, [showNotification]);
   
-  // Enhanced loadAcademicYear from legacy code
-  const loadAcademicYear = useCallback(async () => {
-    console.log('👨‍🏫 Loading academic year data...');
-    try {
-      // Check cache first
-      const cacheKey = 'admin_academic_years_';
-      let response = getCachedData(cacheKey);
-      
-      if (!response) {
-        console.log('👨‍🏫 Cache MISS! Fetching academic year from API');
-        response = await userService.getAcademicYear();
-        console.log('👨‍🏫 Academic year response:', response);
-        
-        // Cache the result
-        setCachedData(cacheKey, response, CACHE_TTL.admin_academic_years);
-      } else {
-        console.log('👨‍🏫 Cache HIT! Using cached academic year data');
-      }
-      console.log('👨‍🏫 First academic year record:', response?.[0] || response?.academic_years?.[0]);
-      
-      if (response && Array.isArray(response)) {
-        setAcademicYear(response);
-        console.log('👨‍🏫 Academic year data loaded:', response.length);
-        console.log('👨‍🏫 Sample record fields:', Object.keys(response[0] || {}));
-      } else if (response && response.academic_years) {
-        setAcademicYear(response.academic_years);
-        console.log('👨‍🏫 Academic year data loaded:', response.academic_years.length);
-        console.log('👨‍🏫 Sample record fields:', Object.keys(response.academic_years[0] || {}));
-      } else {
-        console.warn('👨‍🏫 Failed to load academic year data:', response?.error || 'No data received');
-      }
-    } catch (error) {
-      console.error('👨‍🏫 Error loading academic year data:', error);
-    }
-  }, []);
-
-  // Helper function that returns data directly (for synchronous use)
-  const loadAcademicYearData = useCallback(async () => {
-    console.log('👨‍🏫 Loading academic year data (direct return)...');
-    try {
-      // Check cache first
-      const cacheKey = 'admin_academic_years_';
-      let response = getCachedData(cacheKey);
-      
-      if (!response) {
-        console.log('👨‍🏫 Cache MISS! Fetching academic year from API');
-        response = await userService.getAcademicYear();
-        console.log('👨‍🏫 Academic year response:', response);
-        
-        // Cache the result
-        setCachedData(cacheKey, response, CACHE_TTL.admin_academic_years);
-      } else {
-        console.log('👨‍🏫 Cache HIT! Using cached academic year data');
-      }
-      
-      if (response && Array.isArray(response)) {
-        console.log('👨‍🏫 Returning academic year data:', response.length);
-        return response;
-      } else if (response && response.academic_years) {
-        console.log('👨‍🏫 Returning academic year data:', response.academic_years.length);
-        return response.academic_years;
-      } else {
-        console.warn('👨‍🏫 Failed to load academic year data:', response?.error || 'No data received');
-        return null;
-      }
-    } catch (error) {
-      console.error('👨‍🏫 Error loading academic year data:', error);
-      return null;
-    }
-  }, []);
   
   // Enhanced showClassesForGrade from legacy code
   const showClasses = useCallback(async (grade, classNum) => {
@@ -724,11 +519,11 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     setSelectedSemester(null);
     setResults(null);
     
-    // Auto-select current semester and load results
+    // TODO: Replace with academic calendar service
     if (grade && classNum) {
-      await determineAndOpenCurrentSemester(grade, classNum);
+      console.log('👨‍🏫 TODO: Implement academic calendar service for term selection');
     }
-  }, [determineAndOpenCurrentSemester]);
+  }, []);
   
   // Enhanced showSemestersForClass from legacy code
   const showSemesters = useCallback((grade, classNum) => {
@@ -737,68 +532,74 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     setSelectedSemester(null);
     setResults(null);
     
-    // Automatically determine and open current semester
-    determineAndOpenCurrentSemester(grade, classNum);
+    // TODO: Replace with academic calendar service
+    console.log('👨‍🏫 TODO: Implement academic calendar service for term selection');
   }, []);
 
   // NEW: Enhanced class click handler with semester selection
   const handleClassClick = useCallback((grade, classNum) => {
     console.log('👨‍🏫 Class clicked:', grade, classNum);
     setShowSemesterSelection(true);
-    determineAndOpenCurrentSemester(grade, classNum);
+    // TODO: Replace with academic calendar service
+    console.log('👨‍🏫 TODO: Implement academic calendar service for term selection');
   }, []);
 
 
-  // NEW: Load results for selected semester
+  // NEW: Load results for selected semester (now uses term-based approach)
   const loadResultsForSemester = useCallback(async (semester) => {
     if (!currentSelectedGrade || !currentSelectedClass) return;
     
     console.log('👨‍🏫 Loading results for semester:', semester);
     setSelectedSemester(semester);
     
-    // Load results without navigation
-    await loadResults(currentSelectedGrade, currentSelectedClass, semester);
-  }, [currentSelectedGrade, currentSelectedClass, loadResults]);
+    // Use current term for loading results
+    if (currentSemesterTerms?.currentTerm) {
+      await loadResultsForTerm(currentSemesterTerms.currentTerm.id);
+    }
+  }, [currentSelectedGrade, currentSelectedClass, currentSemesterTerms, loadResultsForTerm]);
 
-  // NEW: Render semester buttons
-  const renderSemesterButtons = useCallback(() => {
-    // Determine current semester using same logic as determineAndOpenCurrentSemester
-    let currentSemester = 1; // Default
-    if (academicYear && academicYear.length > 0) {
-      const currentDate = new Date();
-      for (const period of academicYear) {
-        const startDate = new Date(period.start_date);
-        const endDate = new Date(period.end_date);
-        if (currentDate >= startDate && currentDate <= endDate) {
-          currentSemester = period.semester;
-          break;
-        }
-      }
+  // NEW: Render term buttons for current semester
+  const renderTermButtons = useCallback(() => {
+    if (!currentSemesterTerms) {
+      return (
+        <div className="flex space-x-4 mb-6">
+          <div className="px-6 py-3 rounded-lg bg-gray-200 text-gray-500">
+            Loading terms...
+          </div>
+        </div>
+      );
     }
     
     return (
-      <div className="flex space-x-4 mb-6">
-        {[1, 2].map(semester => (
-          <motion.button
-            key={semester}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
-              selectedSemester === semester
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-            onClick={() => loadResultsForSemester(semester)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Semester {semester}
-            {semester === currentSemester && (
-              <span className="ml-2 text-xs">(Current)</span>
-            )}
-          </motion.button>
-        ))}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Current Semester: {currentSemesterTerms?.semester === 1 ? 'Semester 1' : 'Semester 2'}
+        </h2>
+        <div className="flex space-x-4">
+          {currentSemesterTerms?.terms.map(term => (
+            <motion.button
+              key={term.id}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                term.isCurrent
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : selectedTerm === term.id
+                  ? 'bg-green-500 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              onClick={() => {
+                setSelectedTerm(term.id);
+                loadResultsForTerm(term.id);
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {term.label}
+            </motion.button>
+          ))}
+        </div>
       </div>
     );
-  }, [selectedSemester, loadResultsForSemester, academicYear]);
+  }, [currentSemesterTerms, selectedTerm, loadResultsForTerm]);
 
   // NEW: Group results by student for enhanced display
   const groupResultsByStudent = useCallback((results) => {
@@ -1429,14 +1230,51 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             const displayScore = Number.isFinite(testResult?.score) ? testResult.score : 0;
                             const displayMax = 10;
                             if (!isEditing) {
+                              const pct = computePercentage(testResult);
+                              const isRed = pct !== null && pct < 50;
+                              const isYellow = pct !== null && pct >= 50 && pct < 70;
+                              const isGreen = pct !== null && pct >= 70;
+                              const blueOffered = testResult?.retest_offered === true;
+                              const colorClass = pct === null
+                                ? 'text-gray-600'
+                                : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                              
                               return (
-                                <div 
-                                  className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors"
-                                  onClick={() => { setInlineDrawingEdit(key); setInlineDrawingValue(String(displayScore)); }}
-                                  title="Click to edit score"
+                                <motion.div
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                  style={isRed ? { color: '#b91c1c' } : undefined}
+                                  whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                  transition={{ duration: 0.2 }}
+                                  onClick={() => { 
+                                    if (isRed && !blueOffered) {
+                                      openRetestModal({
+                                        failedStudentIds: [student.student_id],
+                                        test_type: test.test_type,
+                                        original_test_id: testResult?.test_id || test.test_id,
+                                        subject_id: testResult?.subject_id || test.subject_id,
+                                        grade: selectedGrade,
+                                        class: selectedClass
+                                      });
+                                    } else {
+                                      setInlineDrawingEdit(key); 
+                                      setInlineDrawingValue(String(displayScore)); 
+                                    }
+                                  }}
+                                  title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to edit score')}
                                 >
-                                  {displayScore}/{displayMax}
-                                </div>
+                                  {(() => {
+                                    const displayScore = (testResult.retest_best_score ?? testResult.score);
+                                    const displayMax = (testResult.retest_best_max_score ?? testResult.max_score);
+                                    return (
+                                      <>
+                                        <span className={isRed ? 'text-red-700' : ''}>{displayScore}</span>/<span>{displayMax}</span>
+                                      </>
+                                    );
+                                  })()}
+                                  {testResult.caught_cheating && (
+                                    <span className="ml-1">⚠️</span>
+                                  )}
+                                </motion.div>
                               );
                             }
                             return (
@@ -1509,7 +1347,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                               audioUrl = a.audio_url;
                             }
                             if (!audioUrl && testResult?.audio_url) audioUrl = testResult.audio_url;
-                            console.log('🎧 Final computed audioUrl (main table):', { studentId: student.student_id, testName: test.test_name, audioUrl });
+                            // debug removed
                             return (
                               <>
                                 <button
@@ -1555,7 +1393,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             </div>
                           ) : (
                             <div 
-                              className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors"
+                              className="px-2 py-1 rounded-full text-xs font-medium"
                               onDoubleClick={() => {
                                 console.log('🎯 Double-clicked on speaking test score:', test.test_name);
                                 console.log('🎯 Results state at double-click:', results);
@@ -1632,7 +1470,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             const isRed = pct !== null && pct < 50;
                             const isYellow = pct !== null && pct >= 50 && pct < 70;
                             const isGreen = pct !== null && pct >= 70;
-                            console.debug('[TeacherResults] Main table pill', { studentId: student.student_id, pct, isRed, isYellow, isGreen, testResult });
+                            // debug removed
                             const colorClass = pct === null
                               ? 'text-gray-600'
                               : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
@@ -1651,7 +1489,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                     return;
                                   }
                                   if (isRed) {
-                                    console.debug('[TeacherResults] Main table pill clicked -> opening retest modal', { studentId: student.student_id, test }); 
+                                    // debug removed
                                     openRetestModal({ 
                                       failedStudentIds: [student.student_id],
                                       test_type: test.test_type,
@@ -2031,12 +1869,6 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                   </>
                                 ) : (testResult.test_type === 'speaking' || test.test_type === 'speaking') ? (
                                   <>
-                                    {console.log('🎧 Rendering speaking link (compact table):', {
-                                      studentId: student.student_id,
-                                      testName: test.test_name,
-                                      testType: testResult?.test_type,
-                                      answers: testResult?.answers
-                                    })}
                                     <button
                                       onClick={() => handleViewSpeakingTest({ ...testResult, __studentId: student.student_id }, 'audio')}
                                       className="text-blue-600 hover:text-blue-800 underline text-xs font-medium px-1 py-0.5 rounded hover:bg-blue-50"
@@ -2126,7 +1958,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         ? 'text-gray-600'
                                         : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
                                       const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90 pointer-events-auto' : ''}`;
-                                      console.debug('[TeacherResults] Pill classes', { classNameStr, pct, isRed, isYellow, isGreen });
+                                      // debug removed
                                       return (
                                         <motion.div 
                                           className={classNameStr}
@@ -2465,57 +2297,15 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
           </div>
           
           
-          {/* Semester Selection */}
-          {currentSelectedClass && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Select Semester for {currentSelectedGrade}/{currentSelectedClass}
-              </h2>
-              <div className="flex space-x-4">
-                {[1, 2].map(semester => {
-                  // Determine current semester using same logic as determineAndOpenCurrentSemester
-                  let currentSemester = 1; // Default
-                  if (academicYear && academicYear.length > 0) {
-                    const currentDate = new Date();
-                    for (const period of academicYear) {
-                      const startDate = new Date(period.start_date);
-                      const endDate = new Date(period.end_date);
-                      if (currentDate >= startDate && currentDate <= endDate) {
-                        currentSemester = period.semester;
-                        break;
-                      }
-                    }
-                  }
-                  
-                  return (
-                    <motion.button
-                      key={semester}
-                      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
-                        selectedSemester === semester
-                          ? 'bg-blue-600 text-white shadow-lg'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => loadResultsForSemester(semester)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      Semester {semester}
-                      {semester === currentSemester && (
-                        <span className="ml-2 text-xs">(Current)</span>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Term Selection */}
+          {currentSelectedClass && renderTermButtons()}
 
           {/* Results Display */}
           {currentSelectedClass && results && (
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {currentSelectedGrade} {currentSelectedClass} - Test Results (Semester {selectedSemester})
+                  {currentSelectedGrade} {currentSelectedClass} - Test Results {selectedTerm ? `(Term ${currentSemesterTerms?.terms.find(t => t.id === selectedTerm)?.term})` : ''}
                 </h2>
                 <div className="flex space-x-3">
                   <button

@@ -150,14 +150,9 @@ exports.handler = async function(event, context) {
           subjectId = teacherAccess[0].subject_id;
         }
 
-        // Get current academic period ID (same logic as test results)
-        const academicPeriod = await sql`
-          SELECT id FROM academic_year 
-          WHERE start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE 
-          ORDER BY created_at DESC LIMIT 1
-        `;
-        
-        const currentAcademicPeriodId = academicPeriod.length > 0 ? academicPeriod[0].id : null;
+        // Get academic period ID from frontend (no database query needed)
+        const { academic_period_id } = JSON.parse(event.body);
+        const currentAcademicPeriodId = academic_period_id;
         console.log('Current academic period ID for assignment:', currentAcademicPeriodId);
 
         // Insert test assignment with subject_id and new fields

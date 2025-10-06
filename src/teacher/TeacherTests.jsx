@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTestProgress } from '../hooks/useTestProgress';
 import userService from '../services/userService';
 import testService from '../services/testService';
+import { academicCalendarService } from '../services/AcademicCalendarService';
 import { Button, LoadingSpinner, Notification, useNotification } from '../components/ui/components-ui-index';
 import Card from '../components/ui/Card';
 import MatchingTestCreator from '../components/test/MatchingTestCreator';
@@ -825,13 +826,22 @@ const TeacherTests = () => {
     try {
       console.log('📤 Preparing test + assignment request...');
       
+      // Get current academic period ID from academic calendar service
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const currentAcademicPeriodId = currentTerm?.id;
+      
+      if (!currentAcademicPeriodId) {
+        throw new Error('No current academic period found');
+      }
+      
       // Prepare assignments data with subject_id
       const assignments = selectedClasses.map(classObj => {
         const assignment = {
           grade: parseInt(classObj.grade),
           class: parseInt(classObj.class),
           subject_id: parseInt(classObj.subject_id),
-          academic_period_id: 8, // Default academic period
+          academic_period_id: currentAcademicPeriodId, // Dynamic academic period
           due_date: null
         };
         console.log('🔍 Created assignment:', assignment);

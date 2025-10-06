@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { calculateTestScore } from '../utils/scoreCalculation';
+import { academicCalendarService } from './AcademicCalendarService';
 
 // TEST SERVICE - Test service for all test-related API calls
 // ⚠️  IMPORTANT: Always consult with Legacy_src/ before making any changes!
@@ -245,6 +246,15 @@ export const testService = {
       const student_id = user?.student_id || user?.id || 
         (window.tokenManager?.getCurrentUser ? window.tokenManager.getCurrentUser()?.student_id || window.tokenManager.getCurrentUser()?.id : null);
 
+      // Get current academic period ID from academic calendar service
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const academic_period_id = currentTerm?.id;
+      
+      if (!academic_period_id) {
+        throw new Error('No current academic period found');
+      }
+
       // Prepare common data for all test types
       const commonData = {
         test_id: testId,
@@ -253,6 +263,7 @@ export const testService = {
         teacher_id: teacher_id,
         subject_id: subject_id,
         student_id: student_id,
+        academic_period_id: academic_period_id,
         answers: transformedAnswers,
         score: score,
         maxScore: maxScore,

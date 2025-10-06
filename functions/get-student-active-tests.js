@@ -165,6 +165,7 @@ exports.handler = async function(event, context) {
 
     // Then, get detailed information for each test
     const activeTests = [];
+    let overallHasRetests = false;
     
     for (const assignment of assignments) {
       try {
@@ -313,26 +314,47 @@ exports.handler = async function(event, context) {
         let retestAssignmentId = null;
         try {
           console.log('Checking retest availability using ra.test_id and current window for', assignment.test_type, assignment.test_id, 'student:', student_id);
+          console.log('Retest query params:', {
+            student_id,
+            test_type: assignment.test_type,
+            test_id: assignment.test_id
+          });
           const retestRows = await sql`
-            SELECT rt.id as retest_target_id, rt.attempt_count, ra.id as retest_assignment_id, ra.max_attempts, ra.window_start, ra.window_end, rt.status
+            SELECT rt.id as retest_target_id, COALESCE(rt.attempt_count, 0) as attempt_count,
+                   ra.id as retest_assignment_id, ra.max_attempts, ra.window_start, ra.window_end, rt.status
             FROM retest_targets rt
             JOIN retest_assignments ra ON ra.id = rt.retest_assignment_id
             WHERE rt.student_id = ${student_id}
               AND ra.test_type = ${assignment.test_type}
               AND ra.test_id = ${assignment.test_id}
               AND NOW() BETWEEN ra.window_start AND ra.window_end
-              AND (rt.status = 'PENDING' OR rt.status = 'FAILED')
-              AND (ra.max_attempts IS NULL OR rt.attempt_count < ra.max_attempts)
+              AND (rt.status IS NULL OR rt.status = 'PENDING' OR rt.status = 'FAILED')
+              AND (ra.max_attempts IS NULL OR COALESCE(rt.attempt_count, 0) < ra.max_attempts)
           `;
           retestAvailable = Array.isArray(retestRows) && retestRows.length > 0;
           console.log('Retest availability rows:', retestRows.length, 'available:', retestAvailable);
+          try {
+            console.log('Retest rows sample:', JSON.stringify(retestRows.slice(0, 2), null, 2));
+          } catch (_) {
+            console.log('Retest rows sample: <unserializable>');
+          }
           if (retestAvailable) {
             const row = retestRows[0];
             retestAssignmentId = row.retest_assignment_id;
             if (row.max_attempts != null) {
               retestAttemptsLeft = Math.max(0, row.max_attempts - (row.attempt_count || 0));
             }
+            console.log('Retest computed fields:', {
+              retest_assignment_id: retestAssignmentId,
+              attempt_count: row.attempt_count,
+              max_attempts: row.max_attempts,
+              attempts_left: retestAttemptsLeft,
+              status: row.status,
+              window_start: row.window_start,
+              window_end: row.window_end
+            });
             retestKey = `retest1_${student_id}_${assignment.test_type}_${assignment.test_id}`;
+            overallHasRetests = true;
           }
         } catch (e) {
           console.warn('Retest availability check failed for', assignment.test_type, assignment.test_id, e.message);
@@ -429,6 +451,7 @@ exports.handler = async function(event, context) {
         student_grade: grade,
         student_class: className,
         debug_message: "FUNCTION IS RUNNING WITH UPDATED CODE - CLASS FORMAT CONVERSION FIX IS ACTIVE",
+        has_retests: overallHasRetests,
         debug_info: debugInfo
       })
     };

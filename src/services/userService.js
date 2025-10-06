@@ -195,17 +195,15 @@ export const userService = {
       }
       
       // Load all admin data in parallel
-      const [teachers, subjects, academicYear, users] = await Promise.allSettled([
+      const [teachers, subjects, users] = await Promise.allSettled([
         this.getAllTeachers(),
         this.getAllSubjects(),
-        this.getAcademicYear(),
         this.getAllUsers()
       ]);
       
       return {
         teachers: teachers.status === 'fulfilled' ? teachers.value : [],
         subjects: subjects.status === 'fulfilled' ? subjects.value : [],
-        academicYear: academicYear.status === 'fulfilled' ? academicYear.value : [],
         users: users.status === 'fulfilled' ? users.value : [],
         loadedAt: new Date().toISOString()
       };
@@ -411,36 +409,6 @@ export const userService = {
   },
 
 
-  // Enhanced getAcademicYear from legacy code (loadAcademicYear)
-  async getAcademicYear() {
-    console.log('getAcademicYear called');
-    
-    try {
-      const response = await window.tokenManager.makeAuthenticatedRequest(
-        '/.netlify/functions/get-academic-year'
-      );
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('Academic year loaded successfully');
-        return data.academic_years.map(year => ({
-          id: year.id,
-          year: year.academic_year,
-          semester: year.semester,
-          term: year.term,
-          start_date: year.start_date,
-          end_date: year.end_date,
-          is_current: year.is_current
-        }));
-      } else {
-        throw new Error(data.error || 'Failed to load academic year');
-      }
-    } catch (error) {
-      console.error('Error loading academic year:', error);
-      throw error;
-    }
-  },
 
   // Enhanced addAcademicYear from legacy code (handleAddAcademicYear)
   async addAcademicYear(academicYearData) {

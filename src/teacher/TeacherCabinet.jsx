@@ -13,6 +13,7 @@ import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
 import { useNotification } from '@/components/ui/Notification';
 import TeacherResults from './TeacherResults';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
+import { academicCalendarService } from '@/services/AcademicCalendarService';
 
 // TEACHER CABINET - React Component for Teacher Main Interface
 // ✅ COMPLETED: All teacher cabinet functionality from legacy src/ converted to React
@@ -628,8 +629,17 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       const [grade, className] = classKey.split('/');
       const gradeFormat = grade.startsWith('M') ? grade : `M${grade}`;
       
+      // Get current term from academic calendar service
+      await academicCalendarService.loadAcademicCalendar();
+      const currentTerm = academicCalendarService.getCurrentTerm();
+      const currentAcademicPeriodId = currentTerm?.id;
+      
+      if (!currentAcademicPeriodId) {
+        throw new Error('No current academic period found');
+      }
+      
       // Smart refresh on cache expiry (1h)
-      const cacheKey = `class_summary_${user.teacher_id}_${gradeFormat}_${className}_${CONFIG.CURRENT_ACADEMIC_YEAR}_${CONFIG.CURRENT_SEMESTER}`;
+      const cacheKey = `class_summary_${user.teacher_id}_${gradeFormat}_${className}_${currentAcademicPeriodId}`;
       const cached = getCachedData(cacheKey);
       const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
       const cacheTTL = 3600000;
@@ -640,10 +650,10 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           console.warn('Materialized view refresh failed (continuing):', e.message);
         }
       }
-
-      // Use new semester-based API
+      
+      // Use new term-based API
       const response = await window.tokenManager.makeAuthenticatedRequest(
-        `/.netlify/functions/get-class-summary-semester?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${className}&semester=${CONFIG.CURRENT_SEMESTER}&academic_year=${CONFIG.CURRENT_ACADEMIC_YEAR}`
+        `/.netlify/functions/get-class-summary-term?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${className}&term_id=${currentAcademicPeriodId}`
       );
       console.log('📊 API response status:', response.status);
       const data = await response.json();
@@ -666,25 +676,27 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           cheating_incidents: summary.cheating_incidents
         });
         
-        // Create semester performance data structure
-        const semesterData = {
+        // Create term-based performance data structure
+        const termData = {
           summary: summary,
-          semester: CONFIG.CURRENT_SEMESTER,
-          academicYear: CONFIG.CURRENT_ACADEMIC_YEAR,
+          term: currentTerm.term,
+          semester: currentTerm.semester,
+          academicYear: currentTerm.academic_year,
+          termId: currentAcademicPeriodId,
           overallAverage: summary.average_class_score || 0,
           totalTests: summary.total_tests || 0,
           completedTests: summary.completed_tests || 0,
           passRate: summary.pass_rate || 0,
           cheatingIncidents: summary.cheating_incidents || 0,
           lastTestDate: summary.last_test_date,
-          semesterProgress: calculateSemesterProgress(summary)
+          termProgress: calculateTermProgress(summary, currentTerm)
         };
 
-        console.log('📊 Semester performance data:', semesterData);
+        console.log('📊 Term performance data:', termData);
 
         setPerformanceData(prev => ({
           ...prev,
-          [classKey]: semesterData
+          [classKey]: termData
         }));
       } else {
         console.log('📊 No performance data available for class:', classKey);
@@ -705,17 +717,17 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [user]);
 
-  // Helper function to calculate semester progress
-  const calculateSemesterProgress = useCallback((summary) => {
-    if (!summary.last_test_date) return 0;
+  // Helper function to calculate term progress
+  const calculateTermProgress = useCallback((summary, currentTerm) => {
+    if (!summary.last_test_date || !currentTerm) return 0;
     
-    // Get semester dates from academic_year table or use fixed dates
-    const semesterStart = new Date('2025-05-01'); // Adjust based on your semester start
-    const semesterEnd = new Date('2025-09-30');   // Adjust based on your semester end
+    // Get term dates from academic calendar
+    const termStart = new Date(currentTerm.start_date);
+    const termEnd = new Date(currentTerm.end_date);
     const now = new Date();
     
-    const totalDays = semesterEnd - semesterStart;
-    const elapsedDays = Math.min(now - semesterStart, totalDays);
+    const totalDays = termEnd - termStart;
+    const elapsedDays = Math.min(now - termStart, totalDays);
     
     return Math.round((elapsedDays / totalDays) * 100);
   }, []);
@@ -815,6 +827,9 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         window_start: now.toISOString(),
         window_end: windowEnd.toISOString()
       };
+
+      console.debug('[Retest][TeacherCabinet] Prepared payload:', JSON.stringify(payload));
+      console.debug('[Retest][TeacherCabinet] Selected students count:', (payload.student_ids || []).length, 'IDs:', payload.student_ids);
       
       await mod.retestService.createRetestAssignment(payload);
       showNotification('Retest created', 'success');
