@@ -143,13 +143,22 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       console.log('🎓 Loading student data, active tests, and results in parallel...');
       const studentId = user?.student_id || user?.id || '';
       await loadStudentData();
-      // Bust per-student caches on cabinet entry to reflect newly created assignments
-      try {
-        const activeKey = `student_active_tests_${studentId}`;
-        const resultsKey = `student_results_table_${studentId}`;
-        localStorage.removeItem(activeKey);
-        localStorage.removeItem(resultsKey);
-      } catch (e) { /* ignore */ }
+      
+      // OPTIMIZATION: Selective cache busting - only clear if needed
+      const shouldRefreshCache = checkForCacheRefreshTriggers(studentId);
+      
+      if (shouldRefreshCache) {
+        console.log('🎓 Cache refresh triggered - clearing cache');
+        try {
+          const activeKey = `student_active_tests_${studentId}`;
+          const resultsKey = `student_results_table_${studentId}`;
+          localStorage.removeItem(activeKey);
+          localStorage.removeItem(resultsKey);
+        } catch (e) { /* ignore */ }
+      } else {
+        console.log('🎓 Using existing cache - no refresh needed');
+      }
+      
       await Promise.all([
         loadActiveTests(studentId),
         loadTestResults(studentId)
@@ -168,6 +177,47 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       setIsLoading(false);
     }
   }, [isAuthenticated, user, navigate]);
+  
+  // OPTIMIZATION: Smart cache refresh triggers
+  const checkForCacheRefreshTriggers = useCallback((studentId) => {
+    // Only refresh cache if we have a specific trigger
+    // 1. User explicitly requested refresh (manual refresh button)
+    // 2. Cache is corrupted or invalid
+    // 3. Specific time-based refresh (e.g., every 30 minutes)
+    // 4. User completed a test (detected via custom events)
+    // 5. First login of the day
+    // 6. Cache TTL has expired (let existing system handle this)
+    
+    // Check for manual refresh trigger
+    if (window.studentCabinetRefreshRequested) {
+      window.studentCabinetRefreshRequested = false;
+      console.log('🎓 Manual refresh requested');
+      return true;
+    }
+    
+    // Check for test completion events
+    if (window.recentTestCompleted) {
+      window.recentTestCompleted = false;
+      console.log('🎓 Test completed - cache refresh triggered');
+      return true;
+    }
+    
+    // Check for time-based refresh (every 30 minutes)
+    const lastRefresh = localStorage.getItem(`last_cabinet_refresh_${studentId}`);
+    if (lastRefresh) {
+      const timeSinceRefresh = Date.now() - parseInt(lastRefresh);
+      if (timeSinceRefresh > 30 * 60 * 1000) { // 30 minutes
+        console.log('🎓 Time-based refresh triggered');
+        return true;
+      }
+    }
+    
+    // Default to using existing cache
+    console.log('🎓 No refresh triggers - using existing cache');
+    return false;
+  }, []);
+  
+
   
   // Removed local retest key logic; rely solely on backend retest_available
 
@@ -598,6 +648,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                 </p>
               </div>
             </motion.div>
+            
             
             {/* Menu Button */}
             <motion.div

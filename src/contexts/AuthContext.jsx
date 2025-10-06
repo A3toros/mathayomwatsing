@@ -106,11 +106,41 @@ export const AuthProvider = ({ children }) => {
   const isTokenExpired = (token) => {
     if (!token) return true;
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      // Validate token format first
+      if (typeof token !== 'string' || !token.includes('.')) {
+        console.warn('[AUTH] Invalid token format - not a JWT');
+        return true;
+      }
+      
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.warn('[AUTH] Invalid token format - not 3 parts');
+        return true;
+      }
+      
+      // Try to decode the payload
+      const payload = JSON.parse(atob(parts[1]));
       const currentTime = Date.now() / 1000;
       return payload.exp <= currentTime;
     } catch (error) {
       console.error('[AUTH] Error decoding token:', error);
+      console.warn('[AUTH] Token appears to be corrupted - clearing authentication');
+      
+      // Clear corrupted tokens
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('userData');
+      
+      // Clear token manager if available
+      if (window.tokenManager) {
+        try {
+          window.tokenManager.clearTokens();
+        } catch (e) {
+          console.warn('[AUTH] Error clearing token manager:', e);
+        }
+      }
+      
       return true;
     }
   };

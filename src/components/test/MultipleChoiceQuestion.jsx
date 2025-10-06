@@ -40,6 +40,7 @@ export const MultipleChoiceQuestion = ({
   testId, 
   testType = 'multiple_choice',
   mode = 'student', // 'student' or 'teacher'
+  studentAnswer, // Add studentAnswer prop to sync with parent state
   onAnswerChange,
   onQuestionChange,
   onOptionAdd,
@@ -84,6 +85,14 @@ export const MultipleChoiceQuestion = ({
       }
     }
   }, [question, testId, testType, mode, getItem]);
+
+  // OPTIMIZATION: Sync with parent studentAnswer prop when it changes
+  useEffect(() => {
+    if (mode === 'student' && studentAnswer !== undefined && studentAnswer !== null) {
+      console.log('🔄 MultipleChoiceQuestion syncing with parent studentAnswer:', studentAnswer);
+      setSelectedAnswer(studentAnswer);
+    }
+  }, [studentAnswer, mode]);
 
   // Auto-save functionality
   useEffect(() => {

@@ -141,8 +141,10 @@ exports.handler = async (event, context) => {
       content_score: analysis.content_score,
       grammar_mistakes: analysis.grammar_mistakes,
       vocabulary_mistakes: analysis.vocabulary_mistakes,
+      language_use_mistakes: analysis.language_use_mistakes,
       grammar_corrections: analysis.grammar_corrections || [],
       vocabulary_corrections: analysis.vocabulary_corrections || [],
+      language_use_corrections: analysis.language_use_corrections || [],
       prompt: config.prompt,
       difficulty_level: config.difficulty_level
     };
@@ -161,6 +163,7 @@ exports.handler = async (event, context) => {
         // Use existing columns only
         grammar_mistakes: analysis.grammar_mistakes,
         vocabulary_mistakes: analysis.vocabulary_mistakes,
+        language_use_mistakes: analysis.language_use_mistakes,
         word_count: analysis.word_count,
         overall_score: overallScore,
         // Store detailed feedback in transcript or as JSON in existing fields
@@ -168,6 +171,7 @@ exports.handler = async (event, context) => {
         improved_transcript: analysis.improved_transcript,
         grammar_corrections: analysis.grammar_corrections || [],
         vocabulary_corrections: analysis.vocabulary_corrections || [],
+        language_use_corrections: analysis.language_use_corrections || [],
         // Add individual category scores for frontend display
         grammar_score: analysis.grammar_score,
         vocabulary_score: analysis.vocabulary_score,
@@ -265,7 +269,16 @@ async function transcribeAudioWithAssemblyAI(audioBlob) {
 async function analyzeWithGPT4oMini(transcript, prompt, difficultyLevel) {
   try {
     const analysisPrompt = `
-You are an expert ESL speaking test evaluator. Analyze this student's response:
+You are a language evaluation assistant. 
+Evaluate spoken transcripts for grammar, vocabulary, pronunciation, fluency, and content accuracy. 
+
+Rules:
+- Do NOT evaluate inclusivity, cultural, or stylistic preferences. 
+- Do NOT correct capitalization, casing, spelling, or punctuation from speech transcripts. 
+- Accept multiple valid variants (gerund vs. infinitive, tense variations, dialectal differences like US/UK English). 
+- Do NOT mark something as incorrect just because one form is more common or "sounds more natural." 
+- Do NOT rewrite correct sentences or offer stylistic alternatives. Only correct actual errors in grammar, vocabulary, or clarity. 
+- Provide clear, constructive feedback focused ONLY on language learning improvement. 
 
 PROMPT: "${prompt}"
 STUDENT RESPONSE: "${transcript}"
@@ -279,14 +292,6 @@ IMPORTANT: Evaluate the student based on their CURRENT LEVEL (${difficultyLevel}
 - For C1 students: Expect nuanced vocabulary, complex grammar, native-like structures
 - For C2 students: Expect expert-level vocabulary, perfect grammar, native-like fluency
 
-CRITICAL: Focus ONLY on grammar, vocabulary, pronunciation, fluency, and content accuracy. 
-- Do NOT make corrections based on inclusivity, diversity, or political correctness
-- Do NOT suggest changes for social or cultural reasons
-- Only correct actual grammar errors, vocabulary misuse, or clarity issues
-- "A person" vs "people" is NOT a grammar error - both are grammatically correct
-- Focus on language learning, not social commentary
- - Do NOT correct capitalization or case (uppercase/lowercase) or purely stylistic punctuation issues because transcripts come from speech; casing is not meaningful in evaluation
-
 Evaluate on these 5 categories and return JSON:
 {
   "grammar_score": 0-25,        // Grammar accuracy appropriate for ${difficultyLevel} level
@@ -296,6 +301,7 @@ Evaluate on these 5 categories and return JSON:
   "content_score": 0-20,        // How well they addressed the prompt (appropriate for ${difficultyLevel} level)
   "grammar_mistakes": number,   // Count of grammar errors for ${difficultyLevel} level
   "vocabulary_mistakes": number, // Count of vocabulary issues for ${difficultyLevel} level
+  "language_use_mistakes": number, // Count of unnatural/awkward usage issues for ${difficultyLevel} level
   "word_count": number,         // Total words spoken
   "feedback": "string",         // Teacher-style feedback message appropriate for ${difficultyLevel} level
   "improved_transcript": "string", // Corrected version of the transcript with grammar and vocabulary improvements
@@ -311,6 +317,13 @@ Evaluate on these 5 categories and return JSON:
       "mistake": "original word/phrase",
       "correction": "better word/phrase",
       "explanation": "why this is better and when to use it"
+    }
+  ],
+  "language_use_corrections": [   // Array of natural/idiomatic usage suggestions (not errors) appropriate for ${difficultyLevel} level
+    {
+      "mistake": "original correct but awkward phrase",
+      "suggestion": "more natural/idiomatic phrase",
+      "explanation": "why the suggestion sounds more natural or clearer in English"
     }
   ]
 }

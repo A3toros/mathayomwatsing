@@ -36,6 +36,7 @@ export const InputQuestion = ({
   testType = 'input',
   mode = 'student', // 'student' or 'teacher'
   displayNumber,
+  studentAnswer, // Add studentAnswer prop to sync with parent state
   onAnswerChange,
   onQuestionChange,
   onAnswerAdd,
@@ -70,6 +71,14 @@ export const InputQuestion = ({
       }
     }
   }, [question?.question_id, testType, testId, mode, studentId, getItem]);
+
+  // OPTIMIZATION: Sync with parent studentAnswer prop when it changes
+  useEffect(() => {
+    if (mode === 'student' && studentAnswer !== undefined && studentAnswer !== null) {
+      console.log('🔄 InputQuestion syncing with parent studentAnswer:', studentAnswer);
+      setAnswer(studentAnswer);
+    }
+  }, [studentAnswer, mode]);
 
   // Load answers for teacher mode
   useEffect(() => {

@@ -38,6 +38,7 @@ export const TrueFalseQuestion = ({
   testType = 'true_false',
   mode = 'student', // 'student' or 'teacher'
   displayNumber,
+  studentAnswer, // Add studentAnswer prop to sync with parent state
   onAnswerChange,
   onQuestionChange,
   onSave,
@@ -77,6 +78,14 @@ export const TrueFalseQuestion = ({
       }
     }
   }, [question, testId, testType, mode, getItem]);
+
+  // OPTIMIZATION: Sync with parent studentAnswer prop when it changes
+  useEffect(() => {
+    if (mode === 'student' && studentAnswer !== undefined && studentAnswer !== null) {
+      console.log('🔄 TrueFalseQuestion syncing with parent studentAnswer:', studentAnswer);
+      setSelectedAnswer(studentAnswer);
+    }
+  }, [studentAnswer, mode]);
 
   // Auto-save functionality
   useEffect(() => {

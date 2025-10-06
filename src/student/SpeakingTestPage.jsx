@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
+import { useAntiCheating } from '../hooks/useAntiCheating';
+import { useNotification } from '../components/ui/Notification';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
 import TestResults from '../components/test/TestResults';
 import Button from '../components/ui/Button';
@@ -11,6 +13,7 @@ const SpeakingTestPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const api = useApi();
+  const { showNotification } = useNotification();
   
   const [testData, setTestData] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -19,10 +22,70 @@ const SpeakingTestPage = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
+  // Anti-cheating tracking
+  const { startTracking, stopTracking, getCheatingData, clearData, isCheating, tabSwitches } = useAntiCheating(
+    'speaking', 
+    testId,
+    user?.student_id || user?.id
+  );
+
   useEffect(() => {
     loadTestData();
     checkCompletionStatus();
   }, [testId]);
+
+  // Initialize anti-cheating tracking when test data is loaded
+  useEffect(() => {
+    if (testData && !isCompleted) {
+      console.log('🛡️ Speaking test - initializing anti-cheating tracking');
+      
+      // Check for existing anti-cheating data for this test
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const antiCheatingKey = `anti_cheating_${studentId}_speaking_${testId}`;
+      const existingAntiCheatingData = localStorage.getItem(antiCheatingKey);
+      
+      console.log('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
+      console.log('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
+      console.log('🛡️ Current test details:', { testType: 'speaking', testId, studentId });
+      
+      if (existingAntiCheatingData) {
+        try {
+          const parsedData = JSON.parse(existingAntiCheatingData);
+          console.log('🛡️ Found existing anti-cheating data for THIS speaking test:', parsedData);
+          console.log('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
+          console.log('🛡️ Cheating status for this test:', parsedData.isCheating || false);
+          
+          // Show warning if student has been caught cheating in THIS test
+          if (parsedData.isCheating) {
+            console.log('⚠️ WARNING: Student has been flagged for cheating in THIS speaking test!');
+            console.log('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
+            
+            // Show notification to user
+            showNotification(
+              `⚠️ Warning: Suspicious activity detected in this speaking test (${parsedData.tabSwitches} tab switches). Continued violations may result in test disqualification.`, 
+              'warning'
+            );
+          }
+        } catch (error) {
+          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+        }
+      } else {
+        console.log('🛡️ No existing anti-cheating data found for this speaking test - starting fresh');
+      }
+      
+      // Start anti-cheating tracking
+      startTracking();
+      console.log('🛡️ Anti-cheating tracking started for speaking test');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (testData) {
+        console.log('🛡️ Cleaning up anti-cheating tracking for speaking test');
+        stopTracking();
+      }
+    };
+  }, [testData, isCompleted, testId, user?.student_id, user?.id, startTracking, stopTracking, showNotification]);
 
   const loadTestData = async () => {
     try {
@@ -90,6 +153,48 @@ const SpeakingTestPage = () => {
   };
 
   const handleExit = () => {
+    console.log('🎓 Navigating back to cabinet from speaking test...');
+    
+    // OPTIMIZATION: Count cabinet navigation as a cheating attempt
+    if (testData && user?.student_id) {
+      console.log('🛡️ Cabinet navigation detected - counting as cheating attempt');
+      
+      // Manually increment the tab switch count
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const antiCheatingKey = `anti_cheating_${studentId}_speaking_${testId}`;
+      
+      // Get current data
+      const existingData = localStorage.getItem(antiCheatingKey);
+      let currentTabSwitches = 0;
+      let currentIsCheating = false;
+      
+      if (existingData) {
+        try {
+          const parsed = JSON.parse(existingData);
+          currentTabSwitches = parsed.tabSwitches || 0;
+          currentIsCheating = parsed.isCheating || false;
+        } catch (error) {
+          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+        }
+      }
+      
+      // Increment tab switch count
+      const newTabSwitches = currentTabSwitches + 1;
+      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
+      
+      console.log(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+      
+      // Save updated data
+      const updatedData = {
+        tabSwitches: newTabSwitches,
+        isCheating: newIsCheating,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
+      console.log('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+    }
+    
     navigate('/student');
   };
 

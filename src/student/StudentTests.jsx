@@ -8,6 +8,7 @@ import { Button, LoadingSpinner, Notification, PerfectModal } from '@/components
 import { TrueFalseQuestion, MultipleChoiceQuestion, InputQuestion, DrawingTestStudent, FillBlanksTestStudent } from '@/components/test/components-test-index';
 import TestResultsDisplay from '@/components/test/TestResultsDisplay';
 import TestDetailsModal from '@/components/test/TestDetailsModal';
+import apiDeduplication from '@/utils/apiDeduplication';
 import ProgressTracker from '@/components/test/ProgressTracker';
 import { testService } from '@/services/testService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG, TEST_TYPES } from '@/shared/shared-index';
@@ -87,21 +88,60 @@ import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '..
 // ✅ COMPLETED: Documentation: Comprehensive component documentation
 // ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
 
+// Simple debounce utility
+const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(null, args), delay);
+  };
+};
+
 const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { activeTests, loadActiveTests: loadActiveTestsFromContext } = useTest();
   // Test progress functions
+  // OPTIMIZATION: Debounced progress saving to reduce localStorage writes
+  const debouncedSaveProgress = useCallback(
+    debounce((testType, testId, progress) => {
+      try {
+        // OPTIMIZATION: Skip saving if we're in the middle of restoring progress
+        if (window.skipInitialProgressSave && progress.answers && progress.answers.length === 0) {
+          console.log('🛡️ Skipping empty progress save during restoration');
+          window.skipInitialProgressSave = false; // Reset the flag
+          return;
+        }
+
+        // OPTIMIZATION: Check if we have existing progress that's better than what we're trying to save
+        const studentId = user?.student_id || user?.id || 'unknown';
+        const progressKey = `test_progress_${studentId}_${testType}_${testId}`;
+        const existingProgress = localStorage.getItem(progressKey);
+
+        if (existingProgress && progress.answers && progress.answers.length === 0) {
+          try {
+            const existing = JSON.parse(existingProgress);
+            if (existing.answers && existing.answers.length > 0) {
+              console.log('🛡️ Skipping empty progress save - existing progress is better:', existing.answers);
+              return;
+            }
+          } catch (e) {
+            // If parsing fails, continue with normal save
+          }
+        }
+
+        localStorage.setItem(progressKey, JSON.stringify(progress));
+        console.log(`Saved test progress for ${testType}_${testId}:`, progress);
+      } catch (error) {
+        console.error('Error saving test progress:', error);
+      }
+    }, 1000), // 1 second debounce
+    [user?.student_id, user?.id]
+  );
+
   const saveTestProgress = useCallback((testType, testId, progress) => {
-    try {
-      const studentId = user?.student_id || user?.id || 'unknown';
-      const progressKey = `test_progress_${studentId}_${testType}_${testId}`;
-      localStorage.setItem(progressKey, JSON.stringify(progress));
-      console.log(`Saved test progress for ${testType}_${testId}:`, progress);
-    } catch (error) {
-      console.error('Error saving test progress:', error);
-    }
-  }, [user?.student_id, user?.id]);
+    debouncedSaveProgress(testType, testId, progress);
+  }, [debouncedSaveProgress]);
 
   const getTestProgress = useCallback((testType, testId) => {
     try {
@@ -160,6 +200,21 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const [selectedTest, setSelectedTest] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   
+  // OPTIMIZATION: Initialization protection state
+  const [initializationState, setInitializationState] = useState({
+    isInitialized: false,
+    initializationId: null,
+    lastTestId: null,
+    initializationCount: 0
+  });
+  
+  // OPTIMIZATION: Progress restoration state
+  const [progressRestorationState, setProgressRestorationState] = useState({
+    isRestored: false,
+    restoredTestId: null,
+    restorationCount: 0
+  });
+  
   // Anti-cheating tracking
   const { startTracking, stopTracking, getCheatingData, clearData, isCheating, tabSwitches, isTracking } = useAntiCheating(
     currentTest?.test_type, 
@@ -190,20 +245,51 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     clearOldCache();
   }, []);
 
-  // Initialize student tests on component mount
-  useEffect(() => {
-    initializeStudentTests();
+  // OPTIMIZATION: Initialization protection functions
+  const preventMultipleInitializations = useCallback(() => {
+    const currentTestId = currentTest?.test_id;
+    const studentId = user?.student_id || user?.id;
+    
+    // GUARD: Don't initialize if we don't have required data
+    if (!studentId || !currentTestId) {
+      console.log('🛡️ Skipping initialization - missing required data:', { studentId, currentTestId });
+      return false;
+    }
+    
+    const currentInitId = `${studentId}_${currentTestId}_${Date.now()}`;
+    
+    // Check if already initialized for this test
+    if (initializationState.isInitialized && 
+        initializationState.lastTestId === currentTestId) {
+      console.log('🛡️ Already initialized for this test - skipping');
+      return false;
+    }
+    
+    // Check if initialization is in progress
+    if (initializationState.initializationId) {
+      console.log('🛡️ Initialization in progress - skipping duplicate');
+      return false;
+    }
+    
+    console.log('🚀 Starting initialization:', currentInitId);
+    setInitializationState({
+      isInitialized: false,
+      initializationId: currentInitId,
+      lastTestId: currentTestId
+    });
+    
+    return true;
+  }, [initializationState, currentTest, user?.student_id, user?.id]);
+
+  const markInitializationComplete = useCallback(() => {
+    setInitializationState(prev => ({
+      ...prev,
+      isInitialized: true,
+      initializationId: null
+    }));
+    console.log('✅ Initialization completed');
   }, []);
 
-  // Auto-start test if propCurrentTest is provided
-  useEffect(() => {
-    if (propCurrentTest) {
-      console.log('🎯 Auto-starting test from prop:', propCurrentTest);
-      setIsAutoStarting(true);
-      startTest(propCurrentTest);
-    }
-  }, [propCurrentTest]);
-  
   // Enhanced initializeStudentTests from legacy code
   const initializeStudentTests = useCallback(async () => {
     console.log('🎓 Initializing Student Tests...');
@@ -230,6 +316,9 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       console.log('🎓 Loading active tests...');
       await loadActiveTestsFromContext();
       
+      // OPTIMIZATION: Mark initialization as complete
+      markInitializationComplete();
+      
       console.log('🎓 Student Tests initialization complete!');
       
     } catch (error) {
@@ -238,7 +327,24 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user, loadActiveTestsFromContext]);
+  }, [isAuthenticated, user, loadActiveTestsFromContext, markInitializationComplete]);
+
+  // Initialize student tests on component mount
+  useEffect(() => {
+    if (!preventMultipleInitializations()) {
+      return;
+    }
+    initializeStudentTests();
+  }, [preventMultipleInitializations, initializeStudentTests]);
+
+  // Auto-start test if propCurrentTest is provided
+  useEffect(() => {
+    if (propCurrentTest) {
+      console.log('🎯 Auto-starting test from prop:', propCurrentTest);
+      setIsAutoStarting(true);
+      startTest(propCurrentTest);
+    }
+  }, [propCurrentTest]);
   
   // Enhanced loadStudentActiveTests from legacy code - ENHANCED FOR NEW STRUCTURE
   const loadStudentActiveTests = useCallback(async () => {
@@ -406,10 +512,27 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       setCurrentTest(test);
       setTestType(test.test_type);
       
-      // Load test info and questions
+      // Reset progress restoration state for new test
+      setProgressRestorationState({
+        isRestored: false,
+        restoredTestId: null,
+        restorationCount: 0
+      });
+      
+      // Load test info and questions with deduplication
       const [testInfo, questions] = await Promise.all([
-        testService.getTestInfo(test.test_type, test.test_id),
-        testService.getTestQuestions(test.test_type, test.test_id)
+        apiDeduplication.deduplicateApiCall(
+          'GET',
+          `test-info-${test.test_type}-${test.test_id}`,
+          { testType: test.test_type, testId: test.test_id },
+          () => testService.getTestInfo(test.test_type, test.test_id)
+        ),
+        apiDeduplication.deduplicateApiCall(
+          'GET',
+          `test-questions-${test.test_type}-${test.test_id}`,
+          { testType: test.test_type, testId: test.test_id },
+          () => testService.getTestQuestions(test.test_type, test.test_id)
+        )
       ]);
       
       setTestInfo(testInfo);
@@ -447,32 +570,93 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // End loading as soon as core data is ready
       endLoading();
       
-      // Initialize student answers
-      const savedProgress = getTestProgress(test.test_type, test.test_id);
-      let initialAnswers = savedProgress?.answers || new Array(questions.length).fill('');
+      // OPTIMIZATION: Enhanced progress restoration with deduplication
+      const currentTestId = test.test_id;
+      
+      // Check if progress has already been restored for this test
+      if (progressRestorationState.isRestored && 
+          progressRestorationState.restoredTestId === currentTestId) {
+        console.log('🛡️ Progress already restored for this test - skipping');
+        return;
+      }
+      
+      console.log('🔄 Starting progress restoration for test:', test.test_type, test.test_id);
+      
+      // Mark restoration as in progress
+      setProgressRestorationState(prev => ({
+        ...prev,
+        restorationCount: prev.restorationCount + 1
+      }));
+      
+      // First, check the main progress key directly
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const mainProgressKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}`;
+      const mainProgressData = localStorage.getItem(mainProgressKey);
+      console.log('🔍 Checking main progress key:', mainProgressKey);
+      console.log('🔍 Main progress data:', mainProgressData);
+      
+      let initialAnswers = new Array(questions.length).fill('');
+      
+      if (mainProgressData) {
+        try {
+          const parsedProgress = JSON.parse(mainProgressData);
+          console.log('🔍 Parsed progress data:', parsedProgress);
+          if (parsedProgress.answers && Array.isArray(parsedProgress.answers)) {
+            initialAnswers = parsedProgress.answers;
+            console.log('✅ Loaded answers from main progress:', initialAnswers);
+          }
+        } catch (error) {
+          console.error('🔍 Error parsing main progress:', error);
+        }
+      }
       
       // Also check individual question keys (for compatibility with individual question saving)
       questions.forEach((question, index) => {
-        const studentIdPerQ = user?.student_id || user?.id || 'unknown';
-        const individualKey = `test_progress_${studentIdPerQ}_${test.test_type}_${test.test_id}_${question.question_id}`;
+        const individualKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}_${question.question_id}`;
         const individualAnswer = localStorage.getItem(individualKey);
         console.log(`🔍 Checking individual answer for question ${question.question_id}:`, individualAnswer);
         if (individualAnswer) {
-          initialAnswers[index] = individualAnswer;
-          console.log(`✅ Loaded individual answer for question ${question.question_id}:`, individualAnswer);
+          // Remove extra quotes if present
+          const cleanAnswer = individualAnswer.replace(/^"(.*)"$/, '$1');
+          initialAnswers[index] = cleanAnswer;
+          console.log(`✅ Loaded individual answer for question ${question.question_id}:`, cleanAnswer);
         }
       });
       
-      console.log('🔍 Initial answers after loading individual saves:', initialAnswers);
-      setStudentAnswers(initialAnswers);
+      console.log('🔍 Final initial answers after loading all sources:', initialAnswers);
       
-      // Calculate and set initial progress
+      // OPTIMIZATION: Only set answers if we have meaningful progress
       const answeredCount = initialAnswers.filter(answer => {
         return answer && typeof answer === 'string' && answer.trim() !== '';
       }).length;
-      const initialProgress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
-      console.log('🔍 Calculated progress:', answeredCount, 'answered out of', questions.length, '=', initialProgress + '%');
-      setProgress(initialProgress);
+      
+      if (answeredCount > 0) {
+        console.log(`🔄 Restoring progress: ${answeredCount}/${questions.length} questions answered`);
+        setStudentAnswers(initialAnswers);
+        
+        const initialProgress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+        setProgress(initialProgress);
+        console.log(`🔄 Progress restored: ${initialProgress}% complete`);
+      } else {
+        console.log('🆕 No existing progress found - starting fresh');
+        setStudentAnswers(initialAnswers);
+        setProgress(0);
+      }
+      
+      // Mark progress restoration as complete
+      setProgressRestorationState(prev => ({
+        ...prev,
+        isRestored: true,
+        restoredTestId: currentTestId
+      }));
+      
+      // OPTIMIZATION: Prevent progress from being overwritten during initialization
+      // If we found existing progress, don't let the initialization overwrite it
+      if (answeredCount > 0) {
+        console.log('🛡️ Existing progress found - preventing overwrite during initialization');
+        // Set a flag to prevent the initial empty progress save
+        window.skipInitialProgressSave = true;
+      }
       
       // Initialize timer from allowed_time with persistent cache
       const allowedSeconds = Number(testInfo?.allowed_time || 0);
@@ -509,6 +693,49 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const startTime = new Date();
       setTestStartTime(startTime);
       console.log('⏱️ Test timer started at:', startTime.toISOString());
+      
+      // OPTIMIZATION: Only restore anti-cheating data for the SAME test
+      const studentIdForAntiCheating = user?.student_id || user?.id || 'unknown';
+      const antiCheatingKey = `anti_cheating_${studentIdForAntiCheating}_${test.test_type}_${test.test_id}`;
+      const existingAntiCheatingData = localStorage.getItem(antiCheatingKey);
+      
+      console.log('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
+      console.log('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
+      console.log('🛡️ Current test details:', { testType: test.test_type, testId: test.test_id, studentId: studentIdForAntiCheating });
+      
+      if (existingAntiCheatingData) {
+        try {
+          const parsedData = JSON.parse(existingAntiCheatingData);
+          console.log('🛡️ Found existing anti-cheating data for THIS test:', parsedData);
+          console.log('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
+          console.log('🛡️ Cheating status for this test:', parsedData.isCheating || false);
+          
+          // Show warning if student has been caught cheating in THIS test
+          if (parsedData.isCheating) {
+            console.log('⚠️ WARNING: Student has been flagged for cheating in THIS test!');
+            console.log('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
+            
+            // Show notification to user
+            showNotification(
+              `⚠️ Warning: Suspicious activity detected in this test (${parsedData.tabSwitches} tab switches). Continued violations may result in test disqualification.`, 
+              'warning'
+            );
+          }
+          // The useAntiCheating hook will automatically load this data in its useEffect
+        } catch (error) {
+          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+        }
+      } else {
+        console.log('🛡️ No existing anti-cheating data found for this test - starting fresh');
+      }
+      
+      // OPTIMIZATION: Test scenario - simulate visibility change count of 2
+      // This is for testing the preservation logic
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🛡️ [DEV] Testing anti-cheating data preservation...');
+        // You can manually set this in localStorage to test: 
+        // localStorage.setItem(antiCheatingKey, JSON.stringify({tabSwitches: 2, isCheating: true}));
+      }
       
       // Start anti-cheating tracking
       startTracking();
@@ -618,6 +845,10 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       console.log('🎓 Test submission result:', result);
       
       if (result.success) {
+        // OPTIMIZATION: Trigger cache refresh for cabinet
+        window.recentTestCompleted = true;
+        console.log('🎓 Test completed - cache refresh triggered');
+        
         // Check if this is a retest and increment attempt counter
         const studentId = user?.student_id || user?.id || '';
         const retestKey = `retest1_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
@@ -702,22 +933,27 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           console.warn('Failed to clear retest keys:', e);
         }
         
-        // Clear test progress and anti-cheating data (but keep test_completed keys)
-        console.log('🧹 Clearing test progress and anti-cheating data...');
+        // Clear test progress and anti-cheating data for THIS SPECIFIC TEST ONLY (but keep test_completed keys)
+        console.log('🧹 Clearing test progress and anti-cheating data for THIS test only...');
         const studentIdCleanup = user?.student_id || user?.id || 'unknown';
         const keysToRemove = [];
+        
+        // Only clear keys for the current test
+        const currentTestProgressKey = `test_progress_${studentIdCleanup}_${currentTest.test_type}_${currentTest.test_id}`;
+        const currentTestAntiCheatingKey = `anti_cheating_${studentIdCleanup}_${currentTest.test_type}_${currentTest.test_id}`;
+        
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && (
-            key.startsWith(`test_progress_${studentIdCleanup}_`) ||
-            key.startsWith(`anti_cheating_${studentIdCleanup}_`)
+            key === currentTestProgressKey ||
+            key === currentTestAntiCheatingKey
           )) {
             keysToRemove.push(key);
           }
         }
         keysToRemove.forEach(key => {
           localStorage.removeItem(key);
-          console.log(`🧹 Cleared: ${key}`);
+          console.log(`🧹 Cleared for THIS test only: ${key}`);
         });
         
         // Clear anti-cheating data
@@ -800,12 +1036,53 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   // Enhanced navigateBackToCabinet from legacy code
   const goBack = useCallback(() => {
     console.log('🎓 Navigating back to cabinet...');
+    
+    // OPTIMIZATION: Count cabinet navigation as a cheating attempt
+    if (currentTest && user?.student_id) {
+      console.log('🛡️ Cabinet navigation detected - counting as cheating attempt');
+      
+      // Manually increment the tab switch count
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const antiCheatingKey = `anti_cheating_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+      
+      // Get current data
+      const existingData = localStorage.getItem(antiCheatingKey);
+      let currentTabSwitches = 0;
+      let currentIsCheating = false;
+      
+      if (existingData) {
+        try {
+          const parsed = JSON.parse(existingData);
+          currentTabSwitches = parsed.tabSwitches || 0;
+          currentIsCheating = parsed.isCheating || false;
+        } catch (error) {
+          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+        }
+      }
+      
+      // Increment tab switch count
+      const newTabSwitches = currentTabSwitches + 1;
+      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
+      
+      console.log(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+      
+      // Save updated data
+      const updatedData = {
+        tabSwitches: newTabSwitches,
+        isCheating: newIsCheating,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
+      console.log('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+    }
+    
     if (onBackToCabinet) {
       onBackToCabinet();
     } else {
       navigate('/student');
     }
-  }, [onBackToCabinet, navigate]);
+  }, [onBackToCabinet, navigate, currentTest, user?.student_id]);
   
   // Enhanced showResults from legacy code
   const showResults = useCallback(() => {
