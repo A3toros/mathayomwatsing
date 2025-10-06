@@ -2322,11 +2322,14 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
             </div>
           )}
           
-          {/* No Results Message */}
+          {/* No Results Message → Inline spinner instead of phrase */}
           {currentSelectedClass && !results && (
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-center py-8">
-                <p className="text-gray-500">No test results available for this class and semester.</p>
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-200 border-t-blue-500" />
+                  <span className="text-gray-600">Loading results…</span>
+                </div>
               </div>
             </div>
           )}
