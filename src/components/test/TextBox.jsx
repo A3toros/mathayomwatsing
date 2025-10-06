@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Group, Rect, Text } from 'react-konva';
 
 const TextBox = ({ 
@@ -15,17 +15,31 @@ const TextBox = ({
   onUpdate, 
   onDelete 
 }) => {
-  // ✅ Add drag state management
-  const dragEnabledFor = useRef(new Set());
-  const longPressTimers = useRef(new Map());
+  // ✅ Individual drag state for this TextBox instance
+  const [isDragEnabled, setIsDragEnabled] = useState(false);
+  const longPressTimer = useRef(null);
 
-  const enableDragForIndex = (index) => {
-    dragEnabledFor.current.add(index);
+  const enableDrag = () => {
+    setIsDragEnabled(true);
   };
 
-  const disableDragForIndex = (index) => {
-    dragEnabledFor.current.delete(index);
+  const disableDrag = () => {
+    setIsDragEnabled(false);
   };
+
+  const clearTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // ✅ Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      clearTimer();
+    };
+  }, []);
 
   const handleDoubleClick = (e) => {
     e.cancelBubble = true;
@@ -43,7 +57,7 @@ const TextBox = ({
     <Group
       x={x}
       y={y}
-      draggable={dragEnabledFor.current.has(id)}  // ✅ Conditional dragging
+      draggable={isDragEnabled}  // ✅ Individual drag state
       onClick={(e) => {
         e.cancelBubble = true;
         onSelect(id);
@@ -52,27 +66,19 @@ const TextBox = ({
       onDblTap={handleDoubleClick}     // ✅ Mobile double-tap
       onPointerDown={(e) => {          // ✅ Long-press activation
         e.cancelBubble = true;
-        const timerId = setTimeout(() => {
-          enableDragForIndex(id);
+        clearTimer(); // Clear any existing timer
+        longPressTimer.current = setTimeout(() => {
+          enableDrag();
         }, 400);
-        longPressTimers.current.set(id, timerId);
       }}
-      onPointerUp={(e) => {            // ✅ Timer cleanup
+      onPointerUp={(e) => {            // ✅ Immediate cleanup
         e.cancelBubble = true;
-        const timerId = longPressTimers.current.get(id);
-        if (timerId) {
-          clearTimeout(timerId);
-          longPressTimers.current.delete(id);
-        }
-        setTimeout(() => disableDragForIndex(id), 0);
+        clearTimer();
+        disableDrag(); // Immediate disable, no setTimeout
       }}
-      onPointerLeave={() => {          // ✅ Timer cleanup on leave
-        const timerId = longPressTimers.current.get(id);
-        if (timerId) {
-          clearTimeout(timerId);
-          longPressTimers.current.delete(id);
-        }
-        disableDragForIndex(id);
+      onPointerLeave={() => {          // ✅ Immediate cleanup on leave
+        clearTimer();
+        disableDrag(); // Immediate disable
       }}
       onDragEnd={handleDragEnd}
     >
