@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Group, Rect, Text } from 'react-konva';
 
 const TextBox = ({ 
@@ -15,6 +15,18 @@ const TextBox = ({
   onUpdate, 
   onDelete 
 }) => {
+  // ✅ Add drag state management
+  const dragEnabledFor = useRef(new Set());
+  const longPressTimers = useRef(new Map());
+
+  const enableDragForIndex = (index) => {
+    dragEnabledFor.current.add(index);
+  };
+
+  const disableDragForIndex = (index) => {
+    dragEnabledFor.current.delete(index);
+  };
+
   const handleDoubleClick = (e) => {
     e.cancelBubble = true;
     onUpdate(id, { isEditing: true });
@@ -31,12 +43,37 @@ const TextBox = ({
     <Group
       x={x}
       y={y}
-      draggable
+      draggable={dragEnabledFor.current.has(id)}  // ✅ Conditional dragging
       onClick={(e) => {
         e.cancelBubble = true;
         onSelect(id);
       }}
-      onDblClick={handleDoubleClick}
+      onDblClick={handleDoubleClick}  // ✅ Desktop double-click
+      onDblTap={handleDoubleClick}     // ✅ Mobile double-tap
+      onPointerDown={(e) => {          // ✅ Long-press activation
+        e.cancelBubble = true;
+        const timerId = setTimeout(() => {
+          enableDragForIndex(id);
+        }, 400);
+        longPressTimers.current.set(id, timerId);
+      }}
+      onPointerUp={(e) => {            // ✅ Timer cleanup
+        e.cancelBubble = true;
+        const timerId = longPressTimers.current.get(id);
+        if (timerId) {
+          clearTimeout(timerId);
+          longPressTimers.current.delete(id);
+        }
+        setTimeout(() => disableDragForIndex(id), 0);
+      }}
+      onPointerLeave={() => {          // ✅ Timer cleanup on leave
+        const timerId = longPressTimers.current.get(id);
+        if (timerId) {
+          clearTimeout(timerId);
+          longPressTimers.current.delete(id);
+        }
+        disableDragForIndex(id);
+      }}
       onDragEnd={handleDragEnd}
     >
       <Rect

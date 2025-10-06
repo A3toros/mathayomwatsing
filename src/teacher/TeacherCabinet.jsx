@@ -140,6 +140,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  const [isSavingSubjects, setIsSavingSubjects] = useState(false);
   const [currentSubject, setCurrentSubject] = useState(null);
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [showClassSelection, setShowClassSelection] = useState(false);
@@ -509,6 +510,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       return;
     }
 
+    setIsSavingSubjects(true);
     try {
       const result = await userService.saveTeacherSubjects(selectedSubjects);
       if (result.success) {
@@ -524,6 +526,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     } catch (error) {
       console.error('👨‍🏫 Error saving teacher subjects:', error);
       showNotification('Failed to save subjects', 'error');
+    } finally {
+      setIsSavingSubjects(false);
     }
   }, [selectedSubjects, loadSubjects]);
   
@@ -1282,24 +1286,36 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                   
                   <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-4">
                     <div className="grid grid-cols-3 gap-3">
-                      {[1, 2, 3, 4, 5, 6].map(grade => (
-                        <div key={grade} className="space-y-2">
-                          <h4 className="font-medium text-gray-700 text-sm">Grade {grade}</h4>
-                          <div className="space-y-1">
-                            {[15, 16].map(classNum => (
-                              <label key={classNum} className="flex items-center space-x-2 py-1">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedClasses.some(c => c.grade === grade.toString() && c.class === classNum.toString())}
-                                  onChange={() => handleClassSelect(grade.toString(), classNum.toString())}
-                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span className="text-xs text-gray-700">Class {classNum}</span>
-                              </label>
-                            ))}
+                      {[1, 2, 3, 4, 5, 6].map(grade => {
+                        // Determine classes based on grade
+                        let classes;
+                        if (grade === 1 || grade === 2 || grade === 3) {
+                          classes = [15, 16];
+                        } else if (grade === 4 || grade === 5 || grade === 6) {
+                          classes = [13, 14];
+                        } else {
+                          classes = [];
+                        }
+                        
+                        return (
+                          <div key={grade} className="space-y-2">
+                            <h4 className="font-medium text-gray-700 text-sm">Grade {grade}</h4>
+                            <div className="space-y-1">
+                              {classes.map(classNum => (
+                                <label key={classNum} className="flex items-center space-x-2 py-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedClasses.some(c => c.grade === grade.toString() && c.class === classNum.toString())}
+                                    onChange={() => handleClassSelect(grade.toString(), classNum.toString())}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-700">Class {classNum}</span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1382,8 +1398,20 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     <Button
                       variant="primary"
                       onClick={saveAllSubjects}
+                      disabled={isSavingSubjects}
+                      className="relative"
                     >
-                      Save All Subjects
+                      {isSavingSubjects ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save All Subjects'
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -1476,6 +1504,23 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               <span className="text-sm font-medium text-gray-500">Created:</span>
               <p className="text-sm text-gray-900">{new Date(selectedTest.created_at).toLocaleDateString()}</p>
             </div>
+            
+            {/* Classes Information */}
+            {selectedTest.assignments && selectedTest.assignments.length > 0 && (
+              <div>
+                <span className="text-sm font-medium text-gray-500">Classes:</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {selectedTest.assignments.map((assignment, index) => (
+                    <span 
+                      key={index}
+                      className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium"
+                    >
+                      {assignment.grade}/{assignment.class}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="flex justify-end space-x-3 mt-6">
@@ -1578,7 +1623,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           isOpen={showPasswordChange}
           onClose={hideChangePasswordTab}
           title="Change Password"
-          size="sm"
+          size="small"
         >
           <div className="space-y-4">
             <div>
@@ -2005,8 +2050,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                           {test.test_name}
                         </h3>
                         
-                        {/* Test Type Badge */}
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
+                        {/* Test Type Badge - Hidden on mobile */}
+                        <span className="hidden sm:inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
                           {test.test_type}
                         </span>
                         
@@ -2052,7 +2097,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                             onClick={() => handleShowTestDetails(test)}
                             size="sm"
                             className="text-xs"
-                            title={`Assignments: ${test.assignments?.length || 0} | Classes: ${test.assignments?.map(a => `${a.grade}/${a.class}`).join(', ') || 'None'} | ${new Date(test.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}`}
+                            title={`Type: ${test.test_type} | Assignments: ${test.assignments?.length || 0} | Classes: ${test.assignments?.map(a => `${a.grade}/${a.class}`).join(', ') || 'None'} | ${new Date(test.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}`}
                           >
                             Details
                           </Button>

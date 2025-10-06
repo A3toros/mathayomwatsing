@@ -556,6 +556,18 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       const teacherCacheKey = `teacher_data_${user?.teacher_id || user?.id || ''}`;
       let teacherData = getCachedData(teacherCacheKey);
       
+      // Force refresh if cached data doesn't have proper subject structure
+      if (teacherData && teacherData.subjects && teacherData.subjects.length > 0) {
+        const hasValidSubjects = teacherData.subjects.some(subject => 
+          subject.subject && subject.classes && subject.classes.length > 0
+        );
+        if (!hasValidSubjects) {
+          console.log('👨‍🏫 Cached data has invalid subject structure, forcing refresh');
+          localStorage.removeItem(teacherCacheKey);
+          teacherData = null;
+        }
+      }
+      
       if (!teacherData) {
         console.log('👨‍🏫 Cache MISS! Fetching teacher data from API');
         // Load teacher data to get all grades and classes
@@ -573,14 +585,16 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       // Extract all classes from teacher's subjects
       const allClasses = [];
       if (teacherData && teacherData.subjects) {
+        console.log('👨‍🏫 Teacher subjects structure:', teacherData.subjects);
         teacherData.subjects.forEach(subject => {
+          console.log('👨‍🏫 Processing subject:', subject);
           if (subject.classes) {
             subject.classes.forEach(cls => {
               if (cls.grade && cls.class) {
                 allClasses.push({
                   grade: cls.grade,
                   class: cls.class,
-                  subject: subject.name
+                  subject: subject.subject || subject.name || 'Unknown Subject'
                 });
               }
             });
@@ -1974,22 +1988,45 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         />
                                       </div>
                                     ) : (
-                                      <motion.div 
-                                        className={`px-1 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors ${
-                                          testResult.caught_cheating
-                                            ? 'bg-red-100 text-red-800 border border-red-300' 
-                                            : 'bg-gray-100 text-gray-800'
-                                        }`}
-                                        whileHover={{ scale: 1.05 }}
-                                        transition={{ duration: 0.15 }}
-                                        onDoubleClick={() => handleStartColumnEditing(test.test_name)}
-                                        title="Double-click to edit column"
-                                      >
-                                        {testResult.score}/{testResult.max_score}
-                                        {testResult.caught_cheating && (
-                                          <span className="ml-1">⚠️</span>
-                                        )}
-                                      </motion.div>
+                                      (() => {
+                                        const pct = computePercentage(testResult);
+                                        const isRed = pct !== null && pct < 50;
+                                        const isYellow = pct !== null && pct >= 50 && pct < 70;
+                                        const isGreen = pct !== null && pct >= 70;
+                                        const blueOffered = testResult.retest_offered;
+                                        const colorClass = pct === null ? 'text-gray-600' : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                                        return (
+                                          <motion.div
+                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                            style={isRed ? { color: '#b91c1c' } : undefined}
+                                            whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                            transition={{ duration: 0.15 }}
+                                            onDoubleClick={() => handleStartColumnEditing(test.test_name)}
+                                            onClick={isRed ? (e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              if (testResult?.retest_offered) {
+                                                showNotification('Retest is already offered', 'info');
+                                                return;
+                                              }
+                                              openRetestModal({
+                                                failedStudentIds: [student.student_id],
+                                                test_type: test.test_type,
+                                                original_test_id: testResult?.test_id || test.test_id,
+                                                subject_id: testResult?.subject_id || test.subject_id,
+                                                grade: selectedGrade,
+                                                class: selectedClass
+                                              });
+                                            } : undefined}
+                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Double-click to edit column')}
+                                          >
+                                            <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
+                                            {testResult.caught_cheating && (
+                                              <span className="ml-1">⚠️</span>
+                                            )}
+                                          </motion.div>
+                                        );
+                                      })()
                                     )}
                                   </>
                                 ) : (testResult.test_type === 'speaking' || test.test_type === 'speaking') ? (
@@ -2007,44 +2044,75 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       View Audio
                                     </button>
                                     {/* No direct link; only modal trigger per request */}
-                                    {editingColumnsRef.current.has(test.test_name) ? (
+                                    {editingSpeakingScore && editingSpeakingScore.resultId === testResult.result_id ? (
                                       <div className="flex items-center gap-1">
                                         <input
                                           type="number"
                                           min="0"
                                           max={testResult.max_score || 100}
-                                          value={columnScoresRef.current[test.test_name]?.[student.student_id]?.score || testResult.score || ''}
-                                          onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'score', e.target.value)}
+                                          value={tempSpeakingScore}
+                                          onChange={(e) => setTempSpeakingScore(e.target.value)}
                                           className="w-12 px-1 py-0.5 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                           placeholder="Score"
                                         />
-                                        <span className="text-xs text-gray-500">/</span>
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          value={columnScoresRef.current[test.test_name]?.[student.student_id]?.maxScore || testResult.max_score || 100}
-                                          onChange={(e) => handleColumnScoreChange(test.test_name, student.student_id, 'maxScore', e.target.value)}
-                                          className="w-12 px-1 py-0.5 text-xs border border-blue-500 bg-blue-50 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                          placeholder="Max"
-                                        />
+                                        <button
+                                          onClick={() => handleSaveSpeakingScore()}
+                                          disabled={isSavingSpeakingScore}
+                                          className="px-1 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                                        >
+                                          {isSavingSpeakingScore ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button
+                                          onClick={() => handleCancelSpeakingScoreEdit()}
+                                          disabled={isSavingSpeakingScore}
+                                          className="px-1 py-0.5 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                                        >
+                                          Cancel
+                                        </button>
                                       </div>
                                     ) : (
-                                      <motion.div 
-                                        className={`px-1 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 cursor-pointer hover:bg-gray-200 transition-colors ${
-                                          testResult.caught_cheating
-                                            ? 'bg-red-100 text-red-800 border border-red-300' 
-                                            : 'bg-gray-100 text-gray-800'
-                                        }`}
-                                        whileHover={{ scale: 1.05 }}
-                                        transition={{ duration: 0.15 }}
-                                        onDoubleClick={() => handleStartColumnEditing(test.test_name)}
-                                        title="Double-click to edit scores"
-                                      >
-                                        {testResult.score || 0}/{testResult.max_score || 100}
-                                        {testResult.caught_cheating && (
-                                          <span className="ml-1">⚠️</span>
-                                        )}
-                                      </motion.div>
+                                      (() => {
+                                        const pct = computePercentage(testResult);
+                                        const isRed = pct !== null && pct < 50;
+                                        const isYellow = pct !== null && pct >= 50 && pct < 70;
+                                        const isGreen = pct !== null && pct >= 70;
+                                        const blueOffered = testResult.retest_offered;
+                                        const colorClass = pct === null ? 'text-gray-600' : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
+                                        return (
+                                          <motion.div
+                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                            style={isRed ? { color: '#b91c1c' } : undefined}
+                                            whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                            transition={{ duration: 0.15 }}
+                                            onDoubleClick={() => {
+                                              setEditingSpeakingScore({ resultId: testResult.result_id, score: testResult.score });
+                                              setTempSpeakingScore(testResult.score?.toString() || '');
+                                            }}
+                                            onClick={isRed ? (e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              if (testResult?.retest_offered) {
+                                                showNotification('Retest is already offered', 'info');
+                                                return;
+                                              }
+                                              openRetestModal({
+                                                failedStudentIds: [student.student_id],
+                                                test_type: test.test_type,
+                                                original_test_id: testResult?.test_id || test.test_id,
+                                                subject_id: testResult?.subject_id || test.subject_id,
+                                                grade: selectedGrade,
+                                                class: selectedClass
+                                              });
+                                            } : undefined}
+                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Double-click to edit score')}
+                                          >
+                                            <span className={isRed ? 'text-red-700' : ''}>{testResult.score || 0}</span>/<span>{testResult.max_score || 100}</span>
+                                            {testResult.caught_cheating && (
+                                              <span className="ml-1">⚠️</span>
+                                            )}
+                                          </motion.div>
+                                        );
+                                      })()
                                     )}
                                   </>
                                 ) : (
@@ -2348,22 +2416,49 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Class Selection */}
+          {/* Class Selection - Grouped by Subject */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Class</h2>
             {availableClasses.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {availableClasses.map((classInfo, index) => (
-                  <Button
-                    key={`${classInfo.grade}-${classInfo.class}-${index}`}
-                    variant={currentSelectedGrade === classInfo.grade && currentSelectedClass === classInfo.class ? "primary" : "outline"}
-                    onClick={() => showClasses(classInfo.grade, classInfo.class)}
-                    className="w-full"
-                  >
-                    {classInfo.grade}/{classInfo.class}
-                  </Button>
-                ))}
-              </div>
+              (() => {
+                // Group classes by subject
+                const classesBySubject = availableClasses.reduce((acc, classInfo) => {
+                  const subject = classInfo.subject || 'Unknown Subject';
+                  if (!acc[subject]) {
+                    acc[subject] = [];
+                  }
+                  acc[subject].push(classInfo);
+                  return acc;
+                }, {});
+
+                return (
+                  <div className="space-y-6">
+                    {Object.entries(classesBySubject).map(([subject, classes]) => (
+                      <div key={subject} className="border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-md font-semibold text-gray-800 mb-3 flex flex-col sm:flex-row sm:items-center items-center">
+                          <div className="flex items-center">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                            {subject}
+                          </div>
+                          <span className="ml-0 sm:ml-2 text-sm text-gray-500 mt-1 sm:mt-0">({classes.length} classes)</span>
+                        </h3>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {classes.map((classInfo, index) => (
+                            <Button
+                              key={`${classInfo.grade}-${classInfo.class}-${index}`}
+                              variant={currentSelectedGrade === classInfo.grade && currentSelectedClass === classInfo.class ? "primary" : "outline"}
+                              onClick={() => showClasses(classInfo.grade, classInfo.class)}
+                              className="px-3 py-1 text-xs font-medium min-w-[60px]"
+                            >
+                              {classInfo.grade}/{classInfo.class}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
             ) : (
               <p className="text-gray-500">No classes available</p>
             )}

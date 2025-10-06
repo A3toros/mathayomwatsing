@@ -44,11 +44,11 @@ const PerfectModal = ({
     };
   }, [isOpen, onClose]);
 
-  // Size classes
+  // Size classes - made bigger
   const sizeClasses = {
-    small: 'max-w-sm',
-    medium: 'max-w-md',
-    large: 'max-w-2xl'
+    small: 'max-w-md',
+    medium: 'max-w-lg',
+    large: 'max-w-4xl'
   };
 
   return (
@@ -63,7 +63,7 @@ const PerfectModal = ({
     >
       <div
         className={`
-          bg-white rounded-xl shadow-md border border-gray-200 p-6
+          bg-white rounded-xl shadow-md border border-gray-200 p-8
           hover:shadow-lg hover:-translate-y-1 transition-all duration-200
           w-full ${sizeClasses[size]} mx-auto
           ${className}
@@ -79,15 +79,13 @@ const PerfectModal = ({
               </h3>
             )}
             {showCloseButton && (
-              <Button
-                variant="secondary"
-                size="small"
+              <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 transition-all duration-200 rounded-full p-2 text-2xl font-bold leading-none"
                 aria-label="Close modal"
               >
                 ×
-              </Button>
+              </button>
             )}
           </div>
         )}

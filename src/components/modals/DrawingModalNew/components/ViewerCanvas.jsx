@@ -235,24 +235,7 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
   // Simple mouse pan when zoomed in
   const isDraggingRef = useRef(false);
   const lastPosRef = useRef({ x: 0, y: 0 });
-  const dragEnabledFor = useRef(new Set());
-  const longPressTimers = useRef(new Map());
-
-  const enableDragForIndex = useCallback((index) => {
-    const set = new Set(dragEnabledFor.current);
-    set.add(index);
-    dragEnabledFor.current = set;
-    // force render by updating a noop state via scale which exists
-    setScale((s) => ({ ...s }));
-  }, []);
-
-  const disableDragForIndex = useCallback((index) => {
-    if (!dragEnabledFor.current.has(index)) return;
-    const set = new Set(dragEnabledFor.current);
-    set.delete(index);
-    dragEnabledFor.current = set;
-    setScale((s) => ({ ...s }));
-  }, []);
+  // ✅ Removed text box drag logic - teachers need pan/zoom but text boxes should be read-only
 
   const computeFitScale = () => {
     const el = containerRef.current;
@@ -466,49 +449,13 @@ const ViewerCanvas = forwardRef(({ drawingData, textBoxes = [], canvasSize, rota
                       console.log('[ViewerCanvas] Rendering', drawingData.length, 'drawing elements');
                       return drawingData.map((item, index) => renderDrawingElement(item, index));
                     })() : null}
-                    {Array.isArray(textBoxes) && textBoxes.map((tb, i) => (
-                      <Group 
-                        key={`tb-${i}`} 
-                        x={tb.x} 
-                        y={tb.y}
-                        draggable={dragEnabledFor.current.has(i)}
-                        onPointerDown={(e) => {
-                          e.cancelBubble = true;
-                          // Start long-press timer (400ms) to enable dragging
-                          const timerId = setTimeout(() => {
-                            enableDragForIndex(i);
-                          }, 400);
-                          longPressTimers.current.set(i, timerId);
-                        }}
-                        onPointerUp={(e) => {
-                          e.cancelBubble = true;
-                          const timerId = longPressTimers.current.get(i);
-                          if (timerId) {
-                            clearTimeout(timerId);
-                            longPressTimers.current.delete(i);
-                          }
-                          // Disable drag shortly after pointer up to avoid accidental drags
-                          setTimeout(() => disableDragForIndex(i), 0);
-                        }}
-                        onPointerLeave={() => {
-                          const timerId = longPressTimers.current.get(i);
-                          if (timerId) {
-                            clearTimeout(timerId);
-                            longPressTimers.current.delete(i);
-                          }
-                          disableDragForIndex(i);
-                        }}
-                        onDblClick={(e) => {
-                          e.cancelBubble = true;
-                          if (typeof onTextBoxEdit === 'function') onTextBoxEdit({ index: i, textBox: tb, event: e });
-                          try { window.dispatchEvent(new CustomEvent('drawingTextEdit', { detail: { index: i, textBox: tb } })); } catch {}
-                        }}
-                        onDblTap={(e) => {
-                          e.cancelBubble = true;
-                          if (typeof onTextBoxEdit === 'function') onTextBoxEdit({ index: i, textBox: tb, event: e });
-                          try { window.dispatchEvent(new CustomEvent('drawingTextEdit', { detail: { index: i, textBox: tb } })); } catch {}
-                        }}
-                      >
+                     {Array.isArray(textBoxes) && textBoxes.map((tb, i) => (
+                       <Group 
+                         key={`tb-${i}`} 
+                         x={tb.x} 
+                         y={tb.y}
+                         // ✅ Text boxes are read-only in teacher view - no drag/edit functionality
+                       >
                         <Rect
                           width={tb.width}
                           height={tb.height}
