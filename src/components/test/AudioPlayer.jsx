@@ -84,6 +84,8 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
           const { url: signed } = await resp.json();
           if (!aborted && !unmountedRef.current) {
             setSignedTried(true);
+            // Do a tiny byte-range preflight to nudge storage/CDN, then set URL
+            try { await fetch(signed, { headers: { Range: 'bytes=0-1' }, mode: 'cors' }); } catch (_) {}
             setAudioObjectUrl(signed);
           }
           return signed;
@@ -95,6 +97,8 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
     (async () => {
       if (audioUrl) {
         const resolved = await getSignedUrlIfNeeded(audioUrl);
+        // Do a tiny byte-range preflight before assigning to audio element
+        try { await fetch(resolved, { headers: { Range: 'bytes=0-1' }, mode: 'cors' }); } catch (_) {}
         if (!aborted && !unmountedRef.current && !signedTried) {
           setAudioObjectUrl(resolved);
         }
