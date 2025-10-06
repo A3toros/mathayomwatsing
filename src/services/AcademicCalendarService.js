@@ -26,9 +26,35 @@ class AcademicCalendarService {
     if (this.loaded) return this.academicCalendar;
     
     try {
-      // Load from static JSON file (no database call)
-      const response = await fetch('/academic_year.json');
-      this.academicCalendar = await response.json();
+      // Try Netlify function first to avoid SPA HTML responses
+      const tryFetch = async (url) => {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'include' });
+        const ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!ct.includes('application/json')) throw new Error('Non-JSON response');
+        return await res.json();
+      };
+
+      let data = null;
+      try {
+        data = await tryFetch('/.netlify/functions/get-academic-calendar');
+      } catch (_) {
+        // Fallback to static JSON
+        try {
+          data = await tryFetch('/academic_year.json');
+        } catch (e2) {
+          // Final fallback: bundled JSON import (Vite supports JSON imports)
+          try {
+            const mod = await import('../../academic_year.json');
+            data = (mod && (mod.default || mod)) || null;
+          } catch (e3) {
+            throw e2; // surface last network error
+          }
+        }
+      }
+
+      if (!Array.isArray(data)) throw new Error('Invalid academic calendar format');
+      this.academicCalendar = data;
       this.loaded = true;
       console.log('📅 Academic calendar loaded:', this.academicCalendar.length, 'terms');
       return this.academicCalendar;
