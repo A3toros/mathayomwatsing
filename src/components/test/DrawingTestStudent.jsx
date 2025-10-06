@@ -92,9 +92,7 @@ const DrawingCanvas = ({
       
       setTextBoxes(prev => [...prev, newTextBox]);
       setSelectedTextBox(newTextBox.id);
-      
-      // Automatically switch to pan tool after creating text box
-      setCurrentTool('pan');
+      // Do NOT auto-switch to pan; remain in text/select mode
       return;
     }
     
@@ -412,8 +410,21 @@ const DrawingCanvas = ({
   };
 
   // Touch event handlers for mobile devices with two-finger gesture support
+  const isTextBoxNode = (target) => {
+    if (!target || typeof target.name !== 'function') return false;
+    const n = target.name() || '';
+    if (n.includes('textbox-')) return true;
+    const parent = target.getParent && target.getParent();
+    return parent && typeof parent.name === 'function' && (parent.name() || '').includes('textbox-');
+  };
+
   const handleTouchStart = (e) => {
     const touches = e.evt.touches;
+    const target = e.target;
+    // If touching a text box, do not start stage-level gestures
+    if (isTextBoxNode(target)) {
+      return;
+    }
     
     if (touches.length === 2) {
       // Only prevent default for two-finger gestures
@@ -434,6 +445,10 @@ const DrawingCanvas = ({
 
   const handleTouchMove = (e) => {
     const touches = e.evt.touches;
+    const target = e.target;
+    if (isTextBoxNode(target)) {
+      return;
+    }
     
     if (touches.length === 2 && isGestureActive) {
       // Only prevent default for two-finger gestures
@@ -498,6 +513,10 @@ const DrawingCanvas = ({
 
   const handleTouchEnd = (e) => {
     const touches = e.evt.touches;
+    const target = e.target;
+    if (isTextBoxNode(target)) {
+      return;
+    }
     
     if (touches.length === 0) {
       // All fingers lifted - save line first, then clean reset
@@ -553,7 +572,7 @@ const DrawingCanvas = ({
             overflow: 'hidden'
           }}
         >
-            <div ref={containerRef} className="w-full h-full">
+            <div ref={containerRef} className="w-full h-full" style={{ touchAction: 'manipulation' }}>
             <Stage
               ref={stageRef}
               width={responsiveDimensions.width}
