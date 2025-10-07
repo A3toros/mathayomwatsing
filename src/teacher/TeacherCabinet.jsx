@@ -96,14 +96,14 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   // Password change functions
   const showChangePasswordTab = useCallback(() => {
-    console.log('🔧 showChangePasswordTab called');
+    logger.debug('🔧 showChangePasswordTab called');
     setShowPasswordChange(true);
     setShowUserMenu(false);
     setShowMobileMenu(false);
   }, []);
 
   const hideChangePasswordTab = useCallback(() => {
-    console.log('🔧 hideChangePasswordTab called');
+    logger.debug('🔧 hideChangePasswordTab called');
     setShowPasswordChange(false);
     setPasswordForm({
       currentPassword: '',
@@ -330,7 +330,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced showSubjectSelectionPrompt from legacy code
   const showPrompt = useCallback(() => {
-    console.log('👨‍🏫 Showing subject selection prompt...');
+    logger.debug('👨‍🏫 Showing subject selection prompt...');
     setShowSubjectModal(true);
     loadAvailableSubjects();
     setSubjectSelectionStep('subject');
@@ -338,14 +338,14 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   // Load available subjects for selection
   const loadAvailableSubjects = useCallback(async () => {
-    console.log('👨‍🏫 Loading available subjects...');
+    logger.debug('👨‍🏫 Loading available subjects...');
     setIsLoadingSubjects(true);
     try {
       const subjects = await userService.getSubjectsForSelection();
       setAvailableSubjects(subjects);
-      console.log('👨‍🏫 Available subjects loaded:', subjects);
+      logger.debug('👨‍🏫 Available subjects loaded:', subjects);
     } catch (error) {
-      console.error('👨‍🏫 Error loading available subjects:', error);
+      logger.error('👨‍🏫 Error loading available subjects:', error);
       showNotification('Failed to load subjects', 'error');
     } finally {
       setIsLoadingSubjects(false);
@@ -408,7 +408,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   // Delete teacher subject assignment
   const deleteTeacherSubject = useCallback(async (subjectId, grade, classNumber) => {
-    console.log('👨‍🏫 Deleting teacher subject:', { subjectId, grade, classNumber });
+    logger.debug('👨‍🏫 Deleting teacher subject:', { subjectId, grade, classNumber });
     
     try {
       const requestData = {
@@ -416,7 +416,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         grade,
         class: classNumber
       };
-      console.log('👨‍🏫 Sending delete request with data:', requestData);
+      logger.debug('👨‍🏫 Sending delete request with data:', requestData);
       
       const response = await userService.deleteTeacherSubject(requestData);
       
@@ -489,7 +489,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced saveTeacherSubjects from legacy code (now uses saveAllSubjects)
   const saveSubjects = useCallback(async (subjectsData) => {
-    console.log('👨‍🏫 Saving teacher subjects:', subjectsData);
+    logger.debug('👨‍🏫 Saving teacher subjects:', subjectsData);
     try {
       const result = await userService.saveTeacherSubjects(subjectsData);
       if (result.success) {
@@ -507,20 +507,20 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced showActiveTests from legacy code
   const showTests = useCallback(() => {
-    console.log('👨‍🏫 Showing active tests...');
+    logger.debug('👨‍🏫 Showing active tests...');
     setCurrentView('tests');
   }, []);
   
   // Enhanced viewTeacherTestDetails from legacy code
   const handleShowTestDetails = useCallback((test) => {
-    console.log('👨‍🏫 Showing test details:', test);
+    logger.debug('👨‍🏫 Showing test details:', test);
     setSelectedTest(test);
     setShowTestDetails(true);
   }, []);
   
   // Enhanced removeClassAssignment from legacy code
   const removeAssignment = useCallback(async (testType, testId, assignmentId) => {
-    console.log('👨‍🏫 Removing class assignment:', testType, testId, assignmentId);
+    logger.debug('👨‍🏫 Removing class assignment:', testType, testId, assignmentId);
     try {
       const result = await testService.removeClassAssignment(testType, testId, assignmentId);
       if (result.success) {
@@ -537,7 +537,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced markTestCompletedInUI from legacy code
   const markCompleted = useCallback(async (testType, testId) => {
-    console.log('👨‍🏫 Marking test as completed:', testType, testId);
+    logger.debug('👨‍🏫 Marking test as completed:', testType, testId);
     try {
       const result = await testService.markTestCompleted(testType, testId);
       if (result.success) {
@@ -546,7 +546,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         // Clear the cache to force fresh data
         const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
         localStorage.removeItem(cacheKey);
-        console.log('👨‍🏫 Cleared teacher tests cache');
+        logger.debug('👨‍🏫 Cleared teacher tests cache');
         
         await loadTests();
       } else {
@@ -560,12 +560,12 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced refreshActiveTestsData from legacy code
   const refreshTests = useCallback(async () => {
-    console.log('👨‍🏫 Refreshing active tests data...');
+    logger.debug('👨‍🏫 Refreshing active tests data...');
     try {
       await loadTests();
       showNotification('Tests refreshed successfully!', 'success');
     } catch (error) {
-      console.error('👨‍🏫 Error refreshing tests:', error);
+      logger.error('👨‍🏫 Error refreshing tests:', error);
       showNotification('Failed to refresh tests', 'error');
     }
   }, [loadTests]);
@@ -577,8 +577,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [isLoadingModal, setIsLoadingModal] = useState(false);
 
   const loadPerformanceData = useCallback(async (classKey) => {
-    console.log('📊 Loading performance data for class:', classKey);
-    console.log('📊 Current selectedClassForChart:', selectedClassForChart);
+    logger.debug('📊 Loading performance data for class:', classKey);
+    logger.debug('📊 Current selectedClassForChart:', selectedClassForChart);
     try {
       setIsLoadingModal(true);
       const [grade, className] = classKey.split('/');
@@ -610,19 +610,19 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       const response = await window.tokenManager.makeAuthenticatedRequest(
         `/.netlify/functions/get-class-summary-term?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${className}&term_id=${currentAcademicPeriodId}`
       );
-      console.log('📊 API response status:', response.status);
+      logger.debug('📊 API response status:', response.status);
       const data = await response.json();
       
-      console.log('📊 Performance API response:', data);
-      console.log('📊 API success:', data.success);
-      console.log('📊 API summary:', data.summary);
+      logger.debug('📊 Performance API response:', data);
+      logger.debug('📊 API success:', data.success);
+      logger.debug('📊 API summary:', data.summary);
       
       if (data.success && data.summary) {
-        console.log('📊 Processing semester performance data:', data.summary);
+        logger.debug('📊 Processing semester performance data:', data.summary);
         
         // Process semester-based summary data
         const summary = data.summary;
-        console.log('📊 Semester summary:', {
+        logger.debug('📊 Semester summary:', {
           total_students: summary.total_students,
           total_tests: summary.total_tests,
           completed_tests: summary.completed_tests,
@@ -647,21 +647,21 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           termProgress: calculateTermProgress(summary, currentTerm)
         };
 
-        console.log('📊 Term performance data:', termData);
+        logger.debug('📊 Term performance data:', termData);
 
         setPerformanceData(prev => ({
           ...prev,
           [classKey]: termData
         }));
       } else {
-        console.log('📊 No performance data available for class:', classKey);
+        logger.debug('📊 No performance data available for class:', classKey);
         setPerformanceData(prev => ({
           ...prev,
           [classKey]: { tests: [], overallAverage: 0 }
         }));
       }
     } catch (error) {
-      console.error('📊 Error loading performance data:', error);
+      logger.error('📊 Error loading performance data:', error);
       console.error('📊 Error details:', error.message);
       setPerformanceData(prev => ({
         ...prev,
@@ -689,15 +689,15 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   // Enhanced showClassResults from legacy code
   const showResults = useCallback((grade, className) => {
-    console.log('👨‍🏫 Showing class results:', grade, className);
-    console.log('👨‍🏫 Class click - grade:', grade, 'className:', className);
+    logger.debug('👨‍🏫 Showing class results:', grade, className);
+    logger.debug('👨‍🏫 Class click - grade:', grade, 'className:', className);
     setSelectedGrade(grade);
     setSelectedClass(className);
     setCurrentView('results');
     
     // Also load performance data for this class
     const classKey = `${grade}/${className}`;
-    console.log('📊 Loading performance data for clicked class:', classKey);
+    logger.debug('📊 Loading performance data for clicked class:', classKey);
     setSelectedClassForChart(classKey);
     loadPerformanceData(classKey);
   }, [loadPerformanceData]);
@@ -1724,7 +1724,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                       <button
                         key={classInfo.key}
                         onClick={() => {
-                          console.log('🎯 Class button clicked:', classInfo.key);
+                          logger.debug('🎯 Class button clicked:', classInfo.key);
                           setSelectedClassForChart(classInfo.key);
                           loadTestPerformanceData(classInfo.key);
                         }}
