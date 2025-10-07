@@ -1788,6 +1788,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                 console.debug('[TeacherResults] TD -> opening retest modal', { studentId: student.student_id });
                                 openRetestModal({ 
                                   failedStudentIds: [student.student_id],
+                                  test_type: testResult.test_type,
+                                  original_test_id: testResult.test_id,
+                                  subject_id: testResult.subject_id,
                                   grade: selectedGrade,
                                   class: selectedClass
                                 });

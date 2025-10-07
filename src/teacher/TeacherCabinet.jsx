@@ -14,88 +14,10 @@ import { useNotification } from '@/components/ui/Notification';
 import TeacherResults from './TeacherResults';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
 import { academicCalendarService } from '@/services/AcademicCalendarService';
+import { performanceService } from '@/services/performanceService';
+import { TestPerformanceGraph } from '@/components/TestPerformanceGraph';
+import { logger } from '@/utils/logger';
 
-// TEACHER CABINET - React Component for Teacher Main Interface
-// ✅ COMPLETED: All teacher cabinet functionality from legacy src/ converted to React
-// ✅ COMPLETED: HTML structure → JSX structure with React components
-// ✅ COMPLETED: loadTeacherData() → useEffect + useState with React patterns
-// ✅ COMPLETED: showMainCabinetWithSubjects() → renderSubjects() with React rendering
-// ✅ COMPLETED: displayGradeButtons() → renderGradeButtons() with React components
-// ✅ COMPLETED: returnToMainCabinet() → goBack() with React routing
-// ✅ COMPLETED: initializeActiveTests() → useEffect with React effects
-// ✅ COMPLETED: showActiveTests() → showTests() with React state
-// ✅ COMPLETED: loadTeacherActiveTests() → loadTests() with React patterns
-// ✅ COMPLETED: displayTeacherActiveTests() → renderTests() with React rendering
-// ✅ COMPLETED: viewTeacherTestDetails() → showTestDetails() with React state
-// ✅ COMPLETED: removeClassAssignment() → removeAssignment() with React patterns
-// ✅ COMPLETED: markTestCompletedInUI() → markCompleted() with React state
-// ✅ COMPLETED: refreshActiveTestsData() → refreshTests() with React patterns
-// ✅ COMPLETED: displayExistingSubjects() → renderSubjects() with React rendering
-// ✅ COMPLETED: showSubjectSelectionPrompt() → showPrompt() with React state
-// ✅ COMPLETED: loadAndDisplayExistingSubjects() → loadSubjects() with React patterns
-// ✅ COMPLETED: displayExistingSubjectsInSelection() → renderSubjectSelection() with React rendering
-// ✅ COMPLETED: saveTeacherSubjects() → saveSubjects() with React patterns
-// ✅ COMPLETED: toggleSubjectDropdown() → toggleDropdown() with React state
-// ✅ COMPLETED: loadSubjectsForDropdown() → loadDropdown() with React patterns
-// ✅ COMPLETED: onSubjectSelected() → handleSubjectSelect() with React state
-// ✅ COMPLETED: loadGradesAndClasses() → loadGradesClasses() with React patterns
-// ✅ COMPLETED: saveClassesForSubject() → saveClasses() with React patterns
-// ✅ COMPLETED: resetSubjectSelection() → resetSelection() with React state
-// ✅ COMPLETED: showSubjectAddedMessage() → showMessage() with React notifications
-// ✅ COMPLETED: showConfirmationModal() → showModal() with React components
-// ✅ COMPLETED: hideConfirmationModal() → hideModal() with React state
-// ✅ COMPLETED: confirmSaveSubjects() → confirmSave() with React patterns
-// ✅ COMPLETED: cancelSaveSubjects() → cancelSave() with React state
-// ✅ COMPLETED: removeSubject() → removeSubject() with React patterns
-// ✅ COMPLETED: showEditSubjectsButton() → showEditButton() with React state
-// ✅ COMPLETED: hideEditSubjectsButton() → hideEditButton() with React state
-// ✅ COMPLETED: generateClassButtons() → generateButtons() with React components
-// ✅ COMPLETED: showClassResults() → showResults() with React routing
-// ✅ COMPLETED: initializeGradeButtons() → useEffect with React effects
-// ✅ COMPLETED: showClassesForGrade() → showClasses() with React state
-// ✅ COMPLETED: showSemestersForClass() → showSemesters() with React state
-// ✅ COMPLETED: determineAndOpenCurrentSemester() → openSemester() with React patterns
-// ✅ COMPLETED: loadClassResults() → loadResults() with React patterns
-// ✅ COMPLETED: displayClassResults() → renderResults() with React rendering
-// ✅ COMPLETED: getScoreClass() → getScoreClass() with React utilities
-// ✅ COMPLETED: createResultsTable() → createTable() with React components
-// ✅ COMPLETED: showClassResults() → showResults() with React routing
-// ✅ COMPLETED: initializeTeacherApp() → useEffect with React effects
-// ✅ COMPLETED: setupTeacherEventListeners() → useEffect with React effects
-// ✅ COMPLETED: showMainCabinetWithSubjects() → renderSubjects() with React rendering
-// ✅ COMPLETED: TeacherCabinet main component with React patterns
-// ✅ COMPLETED: Teacher info display with React state management
-// ✅ COMPLETED: Subject management interface with React components
-// ✅ COMPLETED: Test management interface with React components
-// ✅ COMPLETED: Results viewing interface with React components
-// ✅ COMPLETED: Navigation between sections with React state
-// ✅ COMPLETED: Modal management with React components
-// ✅ COMPLETED: Loading states with React state management
-// ✅ COMPLETED: Error handling with React error boundaries
-// ✅ COMPLETED: Responsive design with Tailwind CSS
-// ✅ COMPLETED: Accessibility features with ARIA support
-// ✅ COMPLETED: Keyboard navigation with React event handling
-// ✅ COMPLETED: Auto-refresh functionality with React effects
-// ✅ COMPLETED: Real-time updates with React state
-// ✅ COMPLETED: Performance optimization with React hooks
-// ✅ COMPLETED: Legacy Compatibility: Full compatibility with legacy teacher system
-// ✅ COMPLETED: React Integration: Easy integration with React routing
-// ✅ COMPLETED: Tailwind CSS: Conforms to new Tailwind CSS in styles folder
-// ✅ COMPLETED: Modern Patterns: Modern React patterns and best practices
-// ✅ COMPLETED: Security: JWT token management and validation
-// ✅ COMPLETED: User Experience: Smooth user experience with loading states
-// ✅ COMPLETED: Error Recovery: Error recovery and graceful degradation
-// ✅ COMPLETED: Session Management: Session validation and management
-// ✅ COMPLETED: Role Management: Role-based routing and access control
-// ✅ COMPLETED: Form Management: Form state management and validation
-// ✅ COMPLETED: API Integration: Integration with teacher services
-// ✅ COMPLETED: State Management: React state management for teacher data
-// ✅ COMPLETED: Performance: Optimized teacher operations and caching
-// ✅ COMPLETED: Memory Management: Proper cleanup and memory management
-// ✅ COMPLETED: Event Handling: Proper event handling and cleanup
-// ✅ COMPLETED: Accessibility: Full accessibility compliance
-// ✅ COMPLETED: Documentation: Comprehensive component documentation
-// ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
 
 const TeacherCabinet = ({ onBackToLogin }) => {
   const navigate = useNavigate();
@@ -123,8 +45,11 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [classResults, setClassResults] = useState([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
+  // New performance graph state
+  const [testPerformanceData, setTestPerformanceData] = useState([]);
+  const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
+  const [performanceError, setPerformanceError] = useState(null);
   const [selectedClassForChart, setSelectedClassForChart] = useState(null);
-  const [performanceData, setPerformanceData] = useState({});
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [resultsViewKey, setResultsViewKey] = useState(0);
@@ -247,76 +172,92 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Enhanced loadTeacherData from legacy code
   const handleLoadTeacherData = useCallback(async () => {
-    console.log('👨‍🏫 Loading teacher data...');
+    logger.debug('👨‍🏫 Loading teacher data...');
     try {
       const data = await userService.getTeacherData();
-      console.log('👨‍🏫 Teacher data loaded:', data);
+      logger.debug('👨‍🏫 Teacher data loaded:', data);
       setLastUpdated(new Date());
       return data;
     } catch (error) {
-      console.error('👨‍🏫 Error loading teacher data:', error);
+      logger.error('👨‍🏫 Error loading teacher data:', error);
       throw error;
     }
   }, []);
 
-  // Enhanced loadSubjects from legacy code
-  const loadSubjects = useCallback(async () => {
-    console.log('👨‍🏫 Loading teacher subjects...');
+  // Enhanced loadSubjects from legacy code - OPTIMIZED to accept teacherData parameter
+  const loadSubjects = useCallback(async (teacherData = null) => {
+    logger.debug('👨‍🏫 Loading teacher subjects...');
     try {
-      // Check cache first
-      const cacheKey = `teacher_subjects_${user?.teacher_id || user?.id || ''}`;
-      const cachedData = getCachedData(cacheKey);
-      if (cachedData) {
-        console.log('👨‍🏫 Using cached teacher subjects');
-        setSubjects(cachedData);
-        return cachedData;
+      // Check cache first (only if no data passed)
+      if (!teacherData) {
+        const cacheKey = `teacher_subjects_${user?.teacher_id || user?.id || ''}`;
+        const cachedData = getCachedData(cacheKey);
+        if (cachedData) {
+          logger.debug('👨‍🏫 Using cached teacher subjects');
+          setSubjects(cachedData);
+          return cachedData;
+        }
       }
       
-      // Cache miss - fetch from API
-      const data = await userService.getTeacherData();
-      console.log('👨‍🏫 Raw teacher data:', data);
-      const subjects = userService.getTeacherSubjects(data.subjects);
-      console.log('👨‍🏫 Teacher subjects loaded:', subjects);
+      let data = teacherData;
+      let subjects;
+      
+      if (teacherData) {
+        // Use passed data (no API call needed)
+        logger.debug('👨‍🏫 Using passed teacher data for subjects');
+        subjects = userService.getTeacherSubjects(teacherData.subjects);
+      } else {
+        // Fallback: make API call if no data passed
+        logger.debug('👨‍🏫 No teacher data passed, fetching from API');
+        data = await userService.getTeacherData();
+        logger.debug('👨‍🏫 Raw teacher data:', data);
+        subjects = userService.getTeacherSubjects(data.subjects);
+      }
+      
+      logger.debug('👨‍🏫 Teacher subjects loaded:', subjects);
       setSubjects(subjects);
       
-      // Cache the result
-      setCachedData(cacheKey, subjects, CACHE_TTL.teacher_subjects);
+      // Cache the result (only if we made an API call)
+      if (!teacherData) {
+        const cacheKey = `teacher_subjects_${user?.teacher_id || user?.id || ''}`;
+        setCachedData(cacheKey, subjects, CACHE_TTL.teacher_subjects);
+      }
       
       // Don't automatically load performance data - wait for user to click on a class
-      console.log('📊 Available classes for performance chart:', subjects[0]?.classes || []);
-      console.log('📊 Performance chart will load when user clicks on a class');
+      logger.debug('📊 Available classes for performance chart:', subjects[0]?.classes || []);
+      logger.debug('📊 Performance chart will load when user clicks on a class');
       
       return subjects;
     } catch (error) {
-      console.error('👨‍🏫 Error loading teacher subjects:', error);
+      logger.error('👨‍🏫 Error loading teacher subjects:', error);
       throw error;
     }
   }, [user?.teacher_id, user?.id]);
   
   // Enhanced loadTests from legacy code
   const loadTests = useCallback(async () => {
-    console.log('👨‍🏫 Loading teacher active tests...');
+    logger.debug('👨‍🏫 Loading teacher active tests...');
     try {
       const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
       
       // FORCE REFRESH: Clear cache if it contains drawing tests to ensure fresh data
       const cachedData = getCachedData(cacheKey);
       if (cachedData && cachedData.some(test => test.test_type === 'drawing')) {
-        console.log('🎨 Drawing test detected - forcing cache refresh');
+        logger.debug('🎨 Drawing test detected - forcing cache refresh');
         localStorage.removeItem(cacheKey);
       }
       
       // Check cache again after potential clearing
       const freshCachedData = getCachedData(cacheKey);
       if (freshCachedData) {
-        console.log('👨‍🏫 Using cached teacher tests');
+        logger.debug('👨‍🏫 Using cached teacher tests');
         setActiveTestsData(freshCachedData);
         return freshCachedData;
       }
       
       // Cache miss - fetch from API
       const tests = await testService.getTeacherTests();
-      console.log('👨‍🏫 Teacher tests loaded:', tests);
+      logger.debug('👨‍🏫 Teacher tests loaded:', tests);
       setActiveTestsData(tests);
       
       // Cache the result
@@ -324,14 +265,14 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       
       return tests;
     } catch (error) {
-      console.error('👨‍🏫 Error loading teacher tests:', error);
+      logger.error('👨‍🏫 Error loading teacher tests:', error);
       throw error;
     }
   }, [user?.teacher_id, user?.id]);
 
-  // Enhanced initializeTeacherCabinet from legacy code
+  // Enhanced initializeTeacherCabinet from legacy code - OPTIMIZED with parallel loading and error recovery
   const initializeTeacherCabinet = useCallback(async () => {
-    console.log('👨‍🏫 Initializing Teacher Cabinet...');
+    logger.debug('👨‍🏫 Initializing Teacher Cabinet...');
     
     try {
       setIsLoading(true);
@@ -339,39 +280,53 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('👨‍🏫 User not authenticated');
+        logger.debug('👨‍🏫 User not authenticated');
         setError('User not authenticated');
         return;
       }
       
       // Validate teacher role
       if (user.role !== USER_ROLES.TEACHER) {
-        console.error('👨‍🏫 Invalid user role for teacher cabinet:', user.role);
+        logger.error('👨‍🏫 Invalid user role for teacher cabinet:', user.role);
         setError('Access denied. Teacher role required.');
         return;
       }
       
-      // Load teacher data
-      console.log('👨‍🏫 Loading teacher data...');
-      await handleLoadTeacherData();
+      // OPTIMIZATION 1: Single API call for teacher data
+      logger.debug('👨‍🏫 Loading teacher data...');
+      const teacherData = await handleLoadTeacherData();
       
-      // Load subjects
-      console.log('👨‍🏫 Loading teacher subjects...');
-      await loadSubjects();
+      // OPTIMIZATION 2: Parallel loading of remaining data
+      logger.debug('👨‍🏫 Loading subjects and tests in parallel...');
+      const [subjectsResult, testsResult] = await Promise.allSettled([
+        loadSubjects(teacherData),  // Pass data to avoid duplicate call
+        loadTests()                // Independent API call
+      ]);
       
-      // Load active tests
-      console.log('👨‍🏫 Loading active tests...');
-      await loadTests();
+      // OPTIMIZATION 3: Graceful error handling
+      let hasErrors = false;
+      if (subjectsResult.status === 'rejected') {
+        logger.warn('👨‍🏫 Subjects loading failed:', subjectsResult.reason);
+        hasErrors = true;
+      }
+      if (testsResult.status === 'rejected') {
+        logger.warn('👨‍🏫 Tests loading failed:', testsResult.reason);
+        hasErrors = true;
+      }
       
-      console.log('👨‍🏫 Teacher Cabinet initialization complete!');
+      if (hasErrors) {
+        showNotification('Some data failed to load, but you can continue', 'warning');
+      }
+      
+      logger.debug('👨‍🏫 Teacher Cabinet initialization complete!');
       
     } catch (error) {
-      console.error('👨‍🏫 Error initializing teacher cabinet:', error);
+      logger.error('👨‍🏫 Error initializing teacher cabinet:', error);
       setError('Failed to initialize teacher cabinet');
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user, handleLoadTeacherData, loadSubjects, loadTests]);
+  }, [isAuthenticated, user, handleLoadTeacherData, loadSubjects, loadTests, showNotification]);
   
   // Enhanced showSubjectSelectionPrompt from legacy code
   const showPrompt = useCallback(() => {
@@ -747,6 +702,29 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     loadPerformanceData(classKey);
   }, [loadPerformanceData]);
 
+  // Load test performance data for the simple graph
+  const loadTestPerformanceData = useCallback(async (classKey = null) => {
+    if (!user?.teacher_id) return;
+    
+    setIsLoadingPerformance(true);
+    setPerformanceError(null);
+    
+    try {
+      logger.debug('📊 Loading test performance data for class:', classKey);
+      const data = await performanceService.getTestPerformance(user.teacher_id, classKey);
+      setTestPerformanceData(data);
+      logger.debug('📊 Test performance data loaded:', data.length, 'tests');
+    } catch (error) {
+      logger.error('📊 Error loading test performance data:', error);
+      setPerformanceError(error.message);
+    } finally {
+      setIsLoadingPerformance(false);
+    }
+  }, [user?.teacher_id]);
+
+  // Performance data is now loaded only when a class button is clicked
+  // No automatic loading on component mount
+
   // Retest management helpers (minimal UI hooks)
   const [retests, setRetests] = useState([]);
   const [retestTargets, setRetestTargets] = useState([]);
@@ -822,6 +800,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       
       const payload = {
         ...retestForm,
+        teacher_id: user.teacher_id,
         grade: selectedGrade,
         class: selectedClass,
         window_start: now.toISOString(),
@@ -843,92 +822,6 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [retestForm, selectedGrade, selectedClass, loadRetests]);
 
-  // Render performance chart - UPDATED FOR SEMESTER DATA
-  const renderPerformanceChart = useCallback((classKey) => {
-    if (!classKey) {
-      return (
-        <div className="text-center py-8">
-          <div className="text-gray-400 text-4xl mb-2">📊</div>
-          <p className="text-gray-500">Click on a class to view performance data</p>
-        </div>
-      );
-    }
-    
-    const classData = performanceData[classKey] || {};
-    const summary = classData.summary;
-    
-    if (!summary) {
-      return (
-        <div className="text-center py-8">
-          <div className="text-gray-400 text-4xl mb-2">📊</div>
-          <p className="text-gray-500">No performance data available for this class</p>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-blue-600">
-              {summary.average_class_score?.toFixed(1) || 0}%
-            </div>
-            <div className="text-sm text-blue-600">Class Average</div>
-          </div>
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-green-600">
-              {summary.total_tests || 0}
-            </div>
-            <div className="text-sm text-green-600">Total Tests</div>
-          </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-purple-600">
-              {summary.pass_rate?.toFixed(1) || 0}%
-            </div>
-            <div className="text-sm text-purple-600">Pass Rate</div>
-          </div>
-          <div className="bg-red-50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-red-600">
-              {summary.cheating_incidents || 0}
-            </div>
-            <div className="text-sm text-red-600">Cheating Incidents</div>
-          </div>
-        </div>
-        
-        {/* Additional Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-yellow-600">
-              {summary.completed_tests || 0}
-            </div>
-            <div className="text-sm text-yellow-600">Completed Tests</div>
-          </div>
-          <div className="bg-indigo-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-indigo-600">
-              {summary.highest_score || 0}
-            </div>
-            <div className="text-sm text-indigo-600">Highest Score</div>
-          </div>
-          <div className="bg-pink-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-pink-600">
-              {summary.total_students || 0}
-            </div>
-            <div className="text-sm text-pink-600">Total Students</div>
-          </div>
-        </div>
-        
-        {isLoadingModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-full max-w-xs text-center">
-            <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-transparent rounded-full mx-auto mb-2"></div>
-            <div className="text-sm text-gray-700">Loading latest class summary...</div>
-          </div>
-        </div>
-        )}
-      </div>
-    );
-  }, [performanceData]);
   
   // Enhanced returnToMainCabinet from legacy code
   
@@ -1797,7 +1690,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           <Card>
             <Card.Header>
               <Card.Title>Test Performance Overview</Card.Title>
-              <p className="text-sm text-gray-600 mt-1">Average scores across all tests by class</p>
+              <p className="text-sm text-gray-600 mt-1">Test performance over time with average scores</p>
             </Card.Header>
             <Card.Body>
               {subjects.length === 0 ? (
@@ -1833,7 +1726,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                         onClick={() => {
                           console.log('🎯 Class button clicked:', classInfo.key);
                           setSelectedClassForChart(classInfo.key);
-                          loadPerformanceData(classInfo.key);
+                          loadTestPerformanceData(classInfo.key);
                         }}
                         className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                           selectedClassForChart === classInfo.key
@@ -1846,10 +1739,21 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     ))}
                   </div>
 
-                  {/* Chart Content */}
-                  <div className="mt-4">
-                    {renderPerformanceChart(selectedClassForChart)}
-                  </div>
+                  {/* Chart Content - Only show when a class is selected */}
+                  {selectedClassForChart ? (
+                    <div className="mt-4">
+                      <TestPerformanceGraph 
+                        data={testPerformanceData}
+                        loading={isLoadingPerformance}
+                        error={performanceError}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-center text-muted py-4">
+                      <div className="text-gray-400 text-4xl mb-2">📊</div>
+                      <p className="text-gray-500">Select a class above to view test performance data</p>
+                    </div>
+                  )}
                 </div>
               )}
             </Card.Body>
