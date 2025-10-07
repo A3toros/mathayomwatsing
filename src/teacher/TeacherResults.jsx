@@ -1956,11 +1956,12 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       const isRed = pct !== null && pct < 50;
                                       const isYellow = pct !== null && pct >= 50 && pct < 70;
                                       const isGreen = pct !== null && pct >= 70;
+                                      const blueOffered = testResult?.retest_offered === true;
                                       console.debug('[TeacherResults] Render pill', { studentId: student.student_id, pct, isRed, isYellow, isGreen, score: testResult.score, max: testResult.max_score, percentageField: testResult.percentage });
                                       const colorClass = pct === null
                                         ? 'text-gray-600'
                                         : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
-                                      const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90 pointer-events-auto' : ''}`;
+                                      const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90 pointer-events-auto' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`;
                                       // debug removed
                                       return (
                                         <motion.div 
@@ -1971,15 +1972,22 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                           onClick={isRed ? (e) => { 
                                             e.preventDefault();
                                             e.stopPropagation();
+                                            if (testResult?.retest_offered) {
+                                              showNotification('Retest is already offered', 'info');
+                                              return;
+                                            }
                                             const computedColor = window.getComputedStyle(e.currentTarget).color;
                                             console.debug('[TeacherResults] Red pill clicked -> opening retest modal', { studentId: student.student_id, className: classNameStr, computedColor }); 
                                             openRetestModal({ 
                                               failedStudentIds: [student.student_id],
+                                              test_type: test.test_type,
+                                              original_test_id: testResult?.test_id || test.test_id,
+                                              subject_id: testResult?.subject_id || test.subject_id,
                                               grade: selectedGrade,
                                               class: selectedClass
                                             }); 
                                           } : undefined}
-                                          title={isRed ? 'Offer retest' : ''}
+                                          title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
                                         >
                                           <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
                                           {testResult.caught_cheating && (

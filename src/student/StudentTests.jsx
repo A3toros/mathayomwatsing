@@ -12,6 +12,7 @@ import apiDeduplication from '@/utils/apiDeduplication';
 import ProgressTracker from '@/components/test/ProgressTracker';
 import { testService } from '@/services/testService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG, TEST_TYPES } from '@/shared/shared-index';
+import { logger } from '@/utils/logger';
 import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
 // STUDENT TESTS - React Component for Student Test Taking - ENHANCED FOR NEW STRUCTURE
@@ -108,7 +109,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       try {
         // OPTIMIZATION: Skip saving if we're in the middle of restoring progress
         if (window.skipInitialProgressSave && progress.answers && progress.answers.length === 0) {
-          console.log('🛡️ Skipping empty progress save during restoration');
+          logger.debug('🛡️ Skipping empty progress save during restoration');
           window.skipInitialProgressSave = false; // Reset the flag
           return;
         }
@@ -122,7 +123,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           try {
             const existing = JSON.parse(existingProgress);
             if (existing.answers && existing.answers.length > 0) {
-              console.log('🛡️ Skipping empty progress save - existing progress is better:', existing.answers);
+              logger.debug('🛡️ Skipping empty progress save - existing progress is better:', existing.answers);
               return;
             }
           } catch (e) {
@@ -131,9 +132,9 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         }
 
         localStorage.setItem(progressKey, JSON.stringify(progress));
-        console.log(`Saved test progress for ${testType}_${testId}:`, progress);
+        logger.debug(`Saved test progress for ${testType}_${testId}:`, progress);
       } catch (error) {
-        console.error('Error saving test progress:', error);
+        logger.error('Error saving test progress:', error);
       }
     }, 1000), // 1 second debounce
     [user?.student_id, user?.id]
@@ -150,7 +151,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const progress = localStorage.getItem(progressKey);
       return progress ? JSON.parse(progress) : null;
     } catch (error) {
-      console.error('Error getting test progress:', error);
+      logger.error('Error getting test progress:', error);
       return null;
     }
   }, [user?.student_id, user?.id]);
@@ -166,13 +167,13 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         const key = localStorage.key(i);
         if (key && key.startsWith(`test_progress_${studentId}_${testType}_${testId}_`)) {
           localStorage.removeItem(key);
-          console.log(`🧹 Cleared individual question key: ${key}`);
+          logger.debug(`🧹 Cleared individual question key: ${key}`);
         }
       }
       
-      console.log(`Cleared test progress for ${testType}_${testId}`);
+      logger.debug(`Cleared test progress for ${testType}_${testId}`);
     } catch (error) {
-      console.error('Error clearing test progress:', error);
+      logger.error('Error clearing test progress:', error);
     }
   }, [user?.student_id, user?.id]);
   
@@ -238,7 +239,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       }
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log('🧹 Cleared old cache key:', key);
+        logger.debug('🧹 Cleared old cache key:', key);
       });
     };
     
@@ -252,7 +253,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     
     // GUARD: Don't initialize if we don't have required data
     if (!studentId || !currentTestId) {
-      console.log('🛡️ Skipping initialization - missing required data:', { studentId, currentTestId });
+      logger.debug('🛡️ Skipping initialization - missing required data:', { studentId, currentTestId });
       return false;
     }
     
@@ -261,17 +262,17 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     // Check if already initialized for this test
     if (initializationState.isInitialized && 
         initializationState.lastTestId === currentTestId) {
-      console.log('🛡️ Already initialized for this test - skipping');
+      logger.debug('🛡️ Already initialized for this test - skipping');
       return false;
     }
     
     // Check if initialization is in progress
     if (initializationState.initializationId) {
-      console.log('🛡️ Initialization in progress - skipping duplicate');
+      logger.debug('🛡️ Initialization in progress - skipping duplicate');
       return false;
     }
     
-    console.log('🚀 Starting initialization:', currentInitId);
+    logger.debug('🚀 Starting initialization:', currentInitId);
     setInitializationState({
       isInitialized: false,
       initializationId: currentInitId,
@@ -287,12 +288,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       isInitialized: true,
       initializationId: null
     }));
-    console.log('✅ Initialization completed');
+    logger.debug('✅ Initialization completed');
   }, []);
 
   // Enhanced initializeStudentTests from legacy code
   const initializeStudentTests = useCallback(async () => {
-    console.log('🎓 Initializing Student Tests...');
+    logger.debug('🎓 Initializing Student Tests...');
     
     try {
       setIsLoading(true);
@@ -300,29 +301,29 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('🎓 User not authenticated');
+        logger.debug('🎓 User not authenticated');
         setError('User not authenticated');
         return;
       }
       
       // Validate student role
       if (user.role !== USER_ROLES.STUDENT) {
-        console.error('🎓 Invalid user role for student tests:', user.role);
+        logger.error('🎓 Invalid user role for student tests:', user.role);
         setError('Access denied. Student role required.');
         return;
       }
       
       // Load active tests
-      console.log('🎓 Loading active tests...');
+      logger.debug('🎓 Loading active tests...');
       await loadActiveTestsFromContext();
       
       // OPTIMIZATION: Mark initialization as complete
       markInitializationComplete();
       
-      console.log('🎓 Student Tests initialization complete!');
+      logger.debug('🎓 Student Tests initialization complete!');
       
     } catch (error) {
-      console.error('🎓 Error initializing student tests:', error);
+      logger.error('🎓 Error initializing student tests:', error);
       setError('Failed to initialize student tests');
     } finally {
       setIsLoading(false);
@@ -340,7 +341,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   // Auto-start test if propCurrentTest is provided
   useEffect(() => {
     if (propCurrentTest) {
-      console.log('🎯 Auto-starting test from prop:', propCurrentTest);
+      logger.debug('🎯 Auto-starting test from prop:', propCurrentTest);
       setIsAutoStarting(true);
       startTest(propCurrentTest);
     }
@@ -348,11 +349,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   
   // Enhanced loadStudentActiveTests from legacy code - ENHANCED FOR NEW STRUCTURE
   const loadStudentActiveTests = useCallback(async () => {
-    console.log('🎓 Loading student active tests...');
+    logger.debug('🎓 Loading student active tests...');
     try {
       // NEW: Enhanced test loading for new structure
       const tests = await testService.getActiveTests();
-      console.log('🎓 Active tests loaded:', tests);
+      logger.debug('🎓 Active tests loaded:', tests);
       
       // NEW: Enhanced test structure processing
       const enhancedTests = tests.map(test => ({
@@ -368,19 +369,19 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       setLastUpdated(new Date());
       return enhancedTests;
     } catch (error) {
-      console.error('🎓 Error loading active tests:', error);
+      logger.error('🎓 Error loading active tests:', error);
       throw error;
     }
   }, []);
   
   // Enhanced isTestCompleted from legacy code
   const checkTestCompletion = useCallback(async (testType, testId) => {
-    console.log('🎓 Checking test completion:', testType, testId);
+    logger.debug('🎓 Checking test completion:', testType, testId);
     try {
       const progress = getTestProgress(testType, testId);
       return progress && progress.completed;
     } catch (error) {
-      console.error('🎓 Error checking test completion:', error);
+      logger.error('🎓 Error checking test completion:', error);
       return false;
     }
   }, [getTestProgress]);
@@ -426,7 +427,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
 
   // Enhanced markTestCompleted from legacy code
   const markCompleted = useCallback(async (testType, testId) => {
-    console.log('🎓 Marking test as completed:', testType, testId);
+    logger.debug('🎓 Marking test as completed:', testType, testId);
     try {
       const progress = getTestProgress(testType, testId) || {};
       progress.completed = true;
@@ -437,26 +438,26 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const studentId = user?.student_id || user?.id || '';
       const completedKey = `test_completed_${studentId}_${testType}_${testId}`;
       localStorage.setItem(completedKey, 'true');
-      console.log('🎓 Test completion marked in localStorage:', completedKey);
-      console.log('🎓 localStorage value after setting:', localStorage.getItem(completedKey));
+      logger.debug('🎓 Test completion marked in localStorage:', completedKey);
+      logger.debug('🎓 localStorage value after setting:', localStorage.getItem(completedKey));
       
       showNotification('Test marked as completed', 'success');
     } catch (error) {
-      console.error('🎓 Error marking test as completed:', error);
+      logger.error('🎓 Error marking test as completed:', error);
       showNotification('Failed to mark test as completed', 'error');
     }
   }, [getTestProgress, saveTestProgress]);
   
   // Enhanced viewTestDetails from legacy code
   const viewTestDetails = useCallback((test) => {
-    console.log('🎓 Showing test details:', test);
+    logger.debug('🎓 Showing test details:', test);
     setSelectedTest(test);
     setShowTestDetails(true);
   }, []);
   
   // Enhanced navigateToTest from legacy code
   const startTest = useCallback(async (test) => {
-    console.log('🎓 Starting test:', test);
+    logger.debug('🎓 Starting test:', test);
     let loadStart = Date.now();
     let timeoutId;
     try {
@@ -484,26 +485,26 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const isCompleted = localStorage.getItem(completedKey) === 'true';
       
       if (isCompleted && !test?.retest_available) {
-        console.log('🎓 Test already completed, redirecting to main cabinet');
+        logger.debug('🎓 Test already completed, redirecting to main cabinet');
         showNotification('This test has already been completed', 'info');
         navigate('/student');
         return;
       }
       
       if (isCompleted && test?.retest_available) {
-        console.log('🎓 Test completed but retest available, allowing retest');
+        logger.debug('🎓 Test completed but retest available, allowing retest');
       }
       
       // Special handling for matching tests - redirect to dedicated page
       if (test.test_type === TEST_TYPES.MATCHING) {
-        console.log('🎯 Redirecting to matching test page for testId:', test.test_id);
+        logger.debug('🎯 Redirecting to matching test page for testId:', test.test_id);
         navigate(`/student/matching-test/${test.test_id}`);
         return;
       }
       
       // Special handling for word matching tests - redirect to dedicated page
       if (test.test_type === TEST_TYPES.WORD_MATCHING) {
-        console.log('🎯 Redirecting to word matching test page for testId:', test.test_id);
+        logger.debug('🎯 Redirecting to word matching test page for testId:', test.test_id);
         navigate(`/student/word-matching-test/${test.test_id}`);
         return;
       }
@@ -564,7 +565,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           }
         }
       } catch (e) {
-        console.error('Shuffle error (ignored):', e);
+        logger.error('Shuffle error (ignored):', e);
       }
       setQuestions(finalQuestions);
       // End loading as soon as core data is ready
@@ -576,11 +577,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // Check if progress has already been restored for this test
       if (progressRestorationState.isRestored && 
           progressRestorationState.restoredTestId === currentTestId) {
-        console.log('🛡️ Progress already restored for this test - skipping');
+        logger.debug('🛡️ Progress already restored for this test - skipping');
         return;
       }
       
-      console.log('🔄 Starting progress restoration for test:', test.test_type, test.test_id);
+      logger.debug('🔄 Starting progress restoration for test:', test.test_type, test.test_id);
       
       // Mark restoration as in progress
       setProgressRestorationState(prev => ({
@@ -592,21 +593,21 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const studentId = user?.student_id || user?.id || 'unknown';
       const mainProgressKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}`;
       const mainProgressData = localStorage.getItem(mainProgressKey);
-      console.log('🔍 Checking main progress key:', mainProgressKey);
-      console.log('🔍 Main progress data:', mainProgressData);
+      logger.debug('🔍 Checking main progress key:', mainProgressKey);
+      logger.debug('🔍 Main progress data:', mainProgressData);
       
       let initialAnswers = new Array(questions.length).fill('');
       
       if (mainProgressData) {
         try {
           const parsedProgress = JSON.parse(mainProgressData);
-          console.log('🔍 Parsed progress data:', parsedProgress);
+          logger.debug('🔍 Parsed progress data:', parsedProgress);
           if (parsedProgress.answers && Array.isArray(parsedProgress.answers)) {
             initialAnswers = parsedProgress.answers;
-            console.log('✅ Loaded answers from main progress:', initialAnswers);
+            logger.debug('✅ Loaded answers from main progress:', initialAnswers);
           }
         } catch (error) {
-          console.error('🔍 Error parsing main progress:', error);
+          logger.error('🔍 Error parsing main progress:', error);
         }
       }
       
@@ -614,16 +615,16 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       questions.forEach((question, index) => {
         const individualKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}_${question.question_id}`;
         const individualAnswer = localStorage.getItem(individualKey);
-        console.log(`🔍 Checking individual answer for question ${question.question_id}:`, individualAnswer);
+        logger.debug(`🔍 Checking individual answer for question ${question.question_id}:`, individualAnswer);
         if (individualAnswer) {
           // Remove extra quotes if present
           const cleanAnswer = individualAnswer.replace(/^"(.*)"$/, '$1');
           initialAnswers[index] = cleanAnswer;
-          console.log(`✅ Loaded individual answer for question ${question.question_id}:`, cleanAnswer);
+          logger.debug(`✅ Loaded individual answer for question ${question.question_id}:`, cleanAnswer);
         }
       });
       
-      console.log('🔍 Final initial answers after loading all sources:', initialAnswers);
+      logger.debug('🔍 Final initial answers after loading all sources:', initialAnswers);
       
       // OPTIMIZATION: Only set answers if we have meaningful progress
       const answeredCount = initialAnswers.filter(answer => {
@@ -631,14 +632,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       }).length;
       
       if (answeredCount > 0) {
-        console.log(`🔄 Restoring progress: ${answeredCount}/${questions.length} questions answered`);
+        logger.debug(`🔄 Restoring progress: ${answeredCount}/${questions.length} questions answered`);
         setStudentAnswers(initialAnswers);
         
         const initialProgress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
         setProgress(initialProgress);
-        console.log(`🔄 Progress restored: ${initialProgress}% complete`);
+        logger.debug(`🔄 Progress restored: ${initialProgress}% complete`);
       } else {
-        console.log('🆕 No existing progress found - starting fresh');
+        logger.debug('🆕 No existing progress found - starting fresh');
         setStudentAnswers(initialAnswers);
         setProgress(0);
       }
@@ -653,7 +654,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // OPTIMIZATION: Prevent progress from being overwritten during initialization
       // If we found existing progress, don't let the initialization overwrite it
       if (answeredCount > 0) {
-        console.log('🛡️ Existing progress found - preventing overwrite during initialization');
+        logger.debug('🛡️ Existing progress found - preventing overwrite during initialization');
         // Set a flag to prevent the initial empty progress save
         window.skipInitialProgressSave = true;
       }
@@ -682,7 +683,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             }));
           }
         } catch (e) {
-          console.error('Timer cache init error:', e);
+          logger.error('Timer cache init error:', e);
           setTimeRemaining(allowedSeconds);
         }
       } else {
@@ -692,28 +693,28 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // Set test start time for timing tracking
       const startTime = new Date();
       setTestStartTime(startTime);
-      console.log('⏱️ Test timer started at:', startTime.toISOString());
+      logger.debug('⏱️ Test timer started at:', startTime.toISOString());
       
       // OPTIMIZATION: Only restore anti-cheating data for the SAME test
       const studentIdForAntiCheating = user?.student_id || user?.id || 'unknown';
       const antiCheatingKey = `anti_cheating_${studentIdForAntiCheating}_${test.test_type}_${test.test_id}`;
       const existingAntiCheatingData = localStorage.getItem(antiCheatingKey);
       
-      console.log('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
-      console.log('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
-      console.log('🛡️ Current test details:', { testType: test.test_type, testId: test.test_id, studentId: studentIdForAntiCheating });
+      logger.debug('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
+      logger.debug('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
+      logger.debug('🛡️ Current test details:', { testType: test.test_type, testId: test.test_id, studentId: studentIdForAntiCheating });
       
       if (existingAntiCheatingData) {
         try {
           const parsedData = JSON.parse(existingAntiCheatingData);
-          console.log('🛡️ Found existing anti-cheating data for THIS test:', parsedData);
-          console.log('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
-          console.log('🛡️ Cheating status for this test:', parsedData.isCheating || false);
+          logger.debug('🛡️ Found existing anti-cheating data for THIS test:', parsedData);
+          logger.debug('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
+          logger.debug('🛡️ Cheating status for this test:', parsedData.isCheating || false);
           
           // Show warning if student has been caught cheating in THIS test
           if (parsedData.isCheating) {
-            console.log('⚠️ WARNING: Student has been flagged for cheating in THIS test!');
-            console.log('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
+            logger.debug('⚠️ WARNING: Student has been flagged for cheating in THIS test!');
+            logger.debug('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
             
             // Show notification to user
             showNotification(
@@ -723,31 +724,31 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           }
           // The useAntiCheating hook will automatically load this data in its useEffect
         } catch (error) {
-          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
         }
       } else {
-        console.log('🛡️ No existing anti-cheating data found for this test - starting fresh');
+        logger.debug('🛡️ No existing anti-cheating data found for this test - starting fresh');
       }
       
       // OPTIMIZATION: Test scenario - simulate visibility change count of 2
       // This is for testing the preservation logic
       if (process.env.NODE_ENV === 'development') {
-        console.log('🛡️ [DEV] Testing anti-cheating data preservation...');
+        logger.debug('🛡️ [DEV] Testing anti-cheating data preservation...');
         // You can manually set this in localStorage to test: 
         // localStorage.setItem(antiCheatingKey, JSON.stringify({tabSwitches: 2, isCheating: true}));
       }
       
       // Start anti-cheating tracking
       startTracking();
-      console.log('🛡️ Anti-cheating tracking started');
+      logger.debug('🛡️ Anti-cheating tracking started');
       
       // Switch to test view
       setCurrentView('test');
       
-      console.log('🎓 Test started successfully');
+      logger.debug('🎓 Test started successfully');
       
     } catch (error) {
-      console.error('🎓 Error starting test:', error);
+      logger.error('🎓 Error starting test:', error);
       showNotification('Failed to start test', 'error');
       setTestLoadError('Failed to load test data. Please try again.');
     } finally {
@@ -771,7 +772,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       return;
     }
     
-    console.log('🎓 Submitting test:', currentTest);
+    logger.debug('🎓 Submitting test:', currentTest);
     
     try {
       setIsSubmitting(true);
@@ -784,7 +785,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const timeTaken = testStartTime ? Math.round((endTime - testStartTime) / 1000) : 0; // in seconds
       const startedAt = testStartTime ? testStartTime.toISOString() : endTime.toISOString();
       
-      console.log('⏱️ Test timing:', {
+      logger.debug('⏱️ Test timing:', {
         startedAt,
         endTime: endTime.toISOString(),
         timeTaken: `${timeTaken} seconds`
@@ -792,7 +793,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       
       // Get anti-cheating data
       const cheatingData = getCheatingData();
-      console.log('🛡️ Anti-cheating data for submission:', cheatingData);
+      logger.debug('🛡️ Anti-cheating data for submission:', cheatingData);
       
       // Submit test with timing data and anti-cheating data
       // Build answers_by_id for order-agnostic scoring
@@ -803,9 +804,9 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       
       // Debug: Log answers for drawing tests
       if (currentTest.test_type === 'drawing') {
-        console.log('🎨 Drawing test answers being submitted:', studentAnswers);
-        console.log('🎨 Drawing test answers type:', typeof studentAnswers[0]);
-        console.log('🎨 Drawing test answers content:', studentAnswers[0]);
+        logger.debug('🎨 Drawing test answers being submitted:', studentAnswers);
+        logger.debug('🎨 Drawing test answers type:', typeof studentAnswers[0]);
+        logger.debug('🎨 Drawing test answers content:', studentAnswers[0]);
       }
       
       const result = await testService.submitTest(
@@ -830,11 +831,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             const studentId = user?.student_id || user?.id || '';
             const retestAssignKey = `retest_assignment_id_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             const retestAssignmentId = localStorage.getItem(retestAssignKey);
-            console.log('🎨 Frontend retest key:', retestAssignKey);
-            console.log('🎨 Frontend retest assignment ID from localStorage:', retestAssignmentId);
-            console.log('🎨 Frontend retest assignment ID converted:', retestAssignmentId ? Number(retestAssignmentId) : null);
-            console.log('🎨 Frontend current test data:', currentTest);
-            console.log('🎨 Frontend current test retest_assignment_id:', currentTest.retest_assignment_id);
+            logger.debug('🎨 Frontend retest key:', retestAssignKey);
+            logger.debug('🎨 Frontend retest assignment ID from localStorage:', retestAssignmentId);
+            logger.debug('🎨 Frontend retest assignment ID converted:', retestAssignmentId ? Number(retestAssignmentId) : null);
+            logger.debug('🎨 Frontend current test data:', currentTest);
+            logger.debug('🎨 Frontend current test retest_assignment_id:', currentTest.retest_assignment_id);
             return retestAssignmentId ? Number(retestAssignmentId) : null;
           })(),
           parent_test_id: currentTest.test_id
@@ -842,12 +843,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         user // Pass user data directly
       );
       
-      console.log('🎓 Test submission result:', result);
+      logger.debug('🎓 Test submission result:', result);
       
       if (result.success) {
         // OPTIMIZATION: Trigger cache refresh for cabinet
         window.recentTestCompleted = true;
-        console.log('🎓 Test completed - cache refresh triggered');
+        logger.debug('🎓 Test completed - cache refresh triggered');
         
         // Check if this is a retest and increment attempt counter
         const studentId = user?.student_id || user?.id || '';
@@ -862,7 +863,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           if (passed) {
             const lastSlotKey = `retest_attempt${maxAttempts}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             localStorage.setItem(lastSlotKey, 'true');
-            console.log('🎓 Passed retest, marking last-slot key:', lastSlotKey);
+            logger.debug('🎓 Passed retest, marking last-slot key:', lastSlotKey);
             // Remove the retest availability key locally
             localStorage.removeItem(retestKey);
           } else {
@@ -878,7 +879,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             // Mark this specific attempt as completed
             const attemptKey = `retest_attempt${nextAttemptNumber}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             localStorage.setItem(attemptKey, 'true');
-            console.log('🎓 Marked retest attempt as completed:', attemptKey);
+            logger.debug('🎓 Marked retest attempt as completed:', attemptKey);
 
             // If this consumed max attempts, remove retest flag
             if (nextAttemptNumber >= maxAttempts) {
@@ -888,23 +889,23 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         }
         
         // Mark test as completed FIRST (before showing results)
-        console.log('🎓 Marking test as completed...');
+        logger.debug('🎓 Marking test as completed...');
         await markCompleted(currentTest.test_type, currentTest.test_id);
         
         // Cache the test results immediately after successful submission (except for drawing tests)
         if (currentTest.test_type !== 'drawing') {
-          console.log('🎓 Caching test results after submission...');
+          logger.debug('🎓 Caching test results after submission...');
           const studentIdCache = user?.student_id || user?.id || 'unknown';
           const cacheKey = `student_results_table_${studentIdCache}`;
           const { setCachedData, CACHE_TTL } = await import('@/utils/cacheUtils');
           setCachedData(cacheKey, result, CACHE_TTL.student_results_table);
-          console.log('🎓 Test results cached with key:', cacheKey);
+          logger.debug('🎓 Test results cached with key:', cacheKey);
         } else {
-          console.log('🎓 Drawing test submitted - not caching results (will appear after teacher grades)');
+          logger.debug('🎓 Drawing test submitted - not caching results (will appear after teacher grades)');
         }
         
         // Clear test progress and timer cache
-        console.log('🎓 Clearing test progress...');
+        logger.debug('🎓 Clearing test progress...');
         clearTestProgress(currentTest.test_type, currentTest.test_id);
         try {
           const studentIdTimer = user?.student_id || user?.id || 'unknown';
@@ -918,7 +919,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         if (user?.student_id) {
           const completionKey = `test_completed_${user.student_id}_${currentTest.test_type}_${currentTest.test_id}`;
           localStorage.setItem(completionKey, 'true');
-          console.log('✅ Test marked as completed in localStorage:', completionKey);
+          logger.debug('✅ Test marked as completed in localStorage:', completionKey);
         }
         
         // Clear retest keys (for centralized test types: input, drawing, true_false, multiple_choice)
@@ -928,13 +929,13 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           const retestAssignKey = `retest_assignment_id_${studentIdCleanup}_${currentTest.test_type}_${currentTest.test_id}`;
           localStorage.removeItem(retestKey);
           localStorage.removeItem(retestAssignKey);
-          console.log('🧹 Cleared retest keys:', retestKey, retestAssignKey);
+          logger.debug('🧹 Cleared retest keys:', retestKey, retestAssignKey);
         } catch (e) {
-          console.warn('Failed to clear retest keys:', e);
+          logger.warn('Failed to clear retest keys:', e);
         }
         
         // Clear test progress and anti-cheating data for THIS SPECIFIC TEST ONLY (but keep test_completed keys)
-        console.log('🧹 Clearing test progress and anti-cheating data for THIS test only...');
+        logger.debug('🧹 Clearing test progress and anti-cheating data for THIS test only...');
         const studentIdCleanup = user?.student_id || user?.id || 'unknown';
         const keysToRemove = [];
         
@@ -953,11 +954,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         }
         keysToRemove.forEach(key => {
           localStorage.removeItem(key);
-          console.log(`🧹 Cleared for THIS test only: ${key}`);
+          logger.debug(`🧹 Cleared for THIS test only: ${key}`);
         });
         
         // Clear anti-cheating data
-        console.log('🛡️ Clearing anti-cheating data...');
+        logger.debug('🛡️ Clearing anti-cheating data...');
         stopTracking();
         clearData();
         
@@ -970,14 +971,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         }
         showNotification('Test submitted successfully!', 'success');
         
-        console.log('🎓 Test submitted successfully');
+        logger.debug('🎓 Test submitted successfully');
       } else {
-        console.error('🎓 Test submission failed:', result.error);
+        logger.error('🎓 Test submission failed:', result.error);
         throw new Error(result.error || 'Failed to submit test');
       }
       
     } catch (error) {
-      console.error('🎓 Error submitting test:', error);
+      logger.error('🎓 Error submitting test:', error);
       showNotification('Failed to submit test', 'error');
     } finally {
       setIsSubmitting(false);
@@ -989,7 +990,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   
   // Enhanced collectTestAnswers from legacy code
   const collectAnswers = useCallback(() => {
-    console.log('🎓 Collecting test answers...');
+    logger.debug('🎓 Collecting test answers...');
     return studentAnswers;
   }, [studentAnswers]);
   
@@ -1004,7 +1005,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
     setProgress(progressPercentage);
     
-    console.log(`🎓 Progress updated: ${answeredCount}/${questions.length} questions answered (${Math.round(progressPercentage)}%)`);
+    logger.debug(`🎓 Progress updated: ${answeredCount}/${questions.length} questions answered (${Math.round(progressPercentage)}%)`);
     
     // Auto-save progress
     if (currentTest) {
@@ -1029,17 +1030,17 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // Check if answer exists and is a string before calling trim
       return answer && typeof answer === 'string' && answer.trim() !== '';
     }).length;
-    console.log('🎓 getAnsweredCount:', { studentAnswers, answeredCount, totalQuestions: questions?.length });
+    logger.debug('🎓 getAnsweredCount:', { studentAnswers, answeredCount, totalQuestions: questions?.length });
     return answeredCount;
   }, [studentAnswers, questions]);
   
   // Enhanced navigateBackToCabinet from legacy code
   const goBack = useCallback(() => {
-    console.log('🎓 Navigating back to cabinet...');
+    logger.debug('🎓 Navigating back to cabinet...');
     
     // OPTIMIZATION: Count cabinet navigation as a cheating attempt
     if (currentTest && user?.student_id) {
-      console.log('🛡️ Cabinet navigation detected - counting as cheating attempt');
+      logger.debug('🛡️ Cabinet navigation detected - counting as cheating attempt');
       
       // Manually increment the tab switch count
       const studentId = user?.student_id || user?.id || 'unknown';
@@ -1056,7 +1057,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           currentTabSwitches = parsed.tabSwitches || 0;
           currentIsCheating = parsed.isCheating || false;
         } catch (error) {
-          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
         }
       }
       
@@ -1064,7 +1065,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const newTabSwitches = currentTabSwitches + 1;
       const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
       
-      console.log(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+      logger.debug(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
       
       // Save updated data
       const updatedData = {
@@ -1074,7 +1075,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       };
       
       localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
-      console.log('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+      logger.debug('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
     }
     
     if (onBackToCabinet) {
@@ -1086,13 +1087,13 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   
   // Enhanced showResults from legacy code
   const showResults = useCallback(() => {
-    console.log('🎓 Showing test results...');
+    logger.debug('🎓 Showing test results...');
     setCurrentView('results');
   }, []);
   
   // Enhanced formatStudentAnswerForDisplay from legacy code
   const formatStudentAnswerForDisplay = useCallback((studentAnswer, testType, question = null) => {
-    console.log('🎓 Formatting student answer for display:', studentAnswer, 'testType:', testType, 'question:', question);
+    logger.debug('🎓 Formatting student answer for display:', studentAnswer, 'testType:', testType, 'question:', question);
     
     switch (testType) {
       case TEST_TYPES.MULTIPLE_CHOICE:
@@ -1106,22 +1107,22 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           const optionKey = `option_${String.fromCharCode(97 + letterIndex)}`; // a, b, c, d
           const optionText = question[optionKey];
           if (optionText) {
-            console.log('🎓 Converted', studentAnswer, 'to option text:', optionText);
+            logger.debug('🎓 Converted', studentAnswer, 'to option text:', optionText);
             return optionText;
           } else {
             // Fallback to letter if option text not found
             const letterAnswer = String.fromCharCode(65 + letterIndex);
-            console.log('🎓 Converted', studentAnswer, 'to', letterAnswer);
+            logger.debug('🎓 Converted', studentAnswer, 'to', letterAnswer);
             return letterAnswer;
           }
         } else if (typeof studentAnswer === 'string' && isNaN(parseInt(studentAnswer))) {
           // Already formatted text (like "Good", "Fine"), return as is
-          console.log('🎓 Already formatted text:', studentAnswer);
+          logger.debug('🎓 Already formatted text:', studentAnswer);
           return studentAnswer;
         } else {
           // Convert integer answer to letter for display (0→A, 1→B, 2→C, etc.)
           const letterAnswer = String.fromCharCode(65 + parseInt(studentAnswer));
-          console.log('🎓 Converted', studentAnswer, 'to', letterAnswer);
+          logger.debug('🎓 Converted', studentAnswer, 'to', letterAnswer);
           return letterAnswer;
         }
       case TEST_TYPES.TRUE_FALSE:
@@ -1143,7 +1144,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         // For fill blanks, show the letter answer (A, B, C, etc.)
         return studentAnswer;
       default:
-        console.warn('🎓 Unknown test type for answer formatting:', testType);
+        logger.warn('🎓 Unknown test type for answer formatting:', testType);
         return studentAnswer;
     }
   }, []);
@@ -1206,8 +1207,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const newAnswers = [...studentAnswers];
       newAnswers[questionIndex] = answer;
       setStudentAnswers(newAnswers);
-      console.log(`🎓 Answer changed: question ${questionId} = ${answer}`);
-      console.log(`🎓 Updated studentAnswers:`, newAnswers);
+      logger.debug(`🎓 Answer changed: question ${questionId} = ${answer}`);
+      logger.debug(`🎓 Updated studentAnswers:`, newAnswers);
     };
     
     switch (currentTest.test_type) {
@@ -1252,7 +1253,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         );
       case TEST_TYPES.MATCHING:
         // This should never be reached - matching tests redirect to dedicated page
-        console.error('Matching test reached renderQuestion - this should not happen');
+        logger.error('Matching test reached renderQuestion - this should not happen');
         return (
           <div className="text-center p-8">
             <h2 className="text-xl font-semibold text-gray-600 mb-4">Matching Test</h2>
@@ -1301,7 +1302,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                   const newAnswers = [...studentAnswers];
                   newAnswers[questionIndex] = answer;
                   setStudentAnswers(newAnswers);
-                  console.log(`🎓 Fill Blanks answer changed: question ${questionId} = ${answer}`);
+                  logger.debug(`🎓 Fill Blanks answer changed: question ${questionId} = ${answer}`);
                 }
               }}
             />
@@ -1565,12 +1566,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       if (questions[index]) {
         const questionId = questions[index].question_id || questions[index].id || index;
         answersObject[String(questionId)] = answer;
-        console.log('🔍 Converting answer:', { index, questionId, answer, question: questions[index] });
+        logger.debug('🔍 Converting answer:', { index, questionId, answer, question: questions[index] });
       }
     });
     
-    console.log('🔍 Final answersObject:', answersObject);
-    console.log('🔍 Questions structure:', questions.map(q => ({ id: q.question_id, correct_answer: q.correct_answer })));
+    logger.debug('🔍 Final answersObject:', answersObject);
+    logger.debug('🔍 Questions structure:', questions.map(q => ({ id: q.question_id, correct_answer: q.correct_answer })));
     
     return (
       <TestResultsDisplay

@@ -429,17 +429,16 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
         }
         
         // Navigate back to student cabinet with score
-        setTimeout(() => {
-          if (onTestComplete) {
-            onTestComplete(score);
-          }
-        }, 2000);
+        if (onTestComplete) {
+          onTestComplete(score);
+        }
+        // Stop loading spinner after results are shown
+        setIsSubmitting(false);
       } else {
         throw new Error(result.message || 'Failed to submit test');
       }
     } catch (error) {
       console.error('Error submitting test:', error);
-    } finally {
       setIsSubmitting(false);
     }
   }, [displayData, studentAnswers, studentArrows, testData, user, testStartTime, getCheatingData, stopTracking, clearData, makeAuthenticatedRequest, onTestComplete]);

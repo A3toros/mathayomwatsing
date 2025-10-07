@@ -7,6 +7,7 @@ import { useNotification } from '../components/ui/Notification';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
 import TestResults from '../components/test/TestResults';
 import Button from '../components/ui/Button';
+import { logger } from '../utils/logger';
 
 const SpeakingTestPage = () => {
   const { testId } = useParams();
@@ -37,28 +38,28 @@ const SpeakingTestPage = () => {
   // Initialize anti-cheating tracking when test data is loaded
   useEffect(() => {
     if (testData && !isCompleted) {
-      console.log('🛡️ Speaking test - initializing anti-cheating tracking');
+      logger.debug('🛡️ Speaking test - initializing anti-cheating tracking');
       
       // Check for existing anti-cheating data for this test
       const studentId = user?.student_id || user?.id || 'unknown';
       const antiCheatingKey = `anti_cheating_${studentId}_speaking_${testId}`;
       const existingAntiCheatingData = localStorage.getItem(antiCheatingKey);
       
-      console.log('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
-      console.log('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
-      console.log('🛡️ Current test details:', { testType: 'speaking', testId, studentId });
+      logger.debug('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
+      logger.debug('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
+      logger.debug('🛡️ Current test details:', { testType: 'speaking', testId, studentId });
       
       if (existingAntiCheatingData) {
         try {
           const parsedData = JSON.parse(existingAntiCheatingData);
-          console.log('🛡️ Found existing anti-cheating data for THIS speaking test:', parsedData);
-          console.log('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
-          console.log('🛡️ Cheating status for this test:', parsedData.isCheating || false);
+          logger.debug('🛡️ Found existing anti-cheating data for THIS speaking test:', parsedData);
+          logger.debug('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
+          logger.debug('🛡️ Cheating status for this test:', parsedData.isCheating || false);
           
           // Show warning if student has been caught cheating in THIS test
           if (parsedData.isCheating) {
-            console.log('⚠️ WARNING: Student has been flagged for cheating in THIS speaking test!');
-            console.log('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
+            logger.debug('⚠️ WARNING: Student has been flagged for cheating in THIS speaking test!');
+            logger.debug('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
             
             // Show notification to user
             showNotification(
@@ -67,21 +68,21 @@ const SpeakingTestPage = () => {
             );
           }
         } catch (error) {
-          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
         }
       } else {
-        console.log('🛡️ No existing anti-cheating data found for this speaking test - starting fresh');
+        logger.debug('🛡️ No existing anti-cheating data found for this speaking test - starting fresh');
       }
       
       // Start anti-cheating tracking
       startTracking();
-      console.log('🛡️ Anti-cheating tracking started for speaking test');
+      logger.debug('🛡️ Anti-cheating tracking started for speaking test');
     }
     
     // Cleanup on unmount
     return () => {
       if (testData) {
-        console.log('🛡️ Cleaning up anti-cheating tracking for speaking test');
+        logger.debug('🛡️ Cleaning up anti-cheating tracking for speaking test');
         stopTracking();
       }
     };
@@ -106,7 +107,7 @@ const SpeakingTestPage = () => {
       }
 
     } catch (error) {
-      console.error('Error loading test data:', error);
+      logger.error('Error loading test data:', error);
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -148,16 +149,16 @@ const SpeakingTestPage = () => {
       }, 2000);
       
     } catch (error) {
-      console.error('Error handling test completion:', error);
+      logger.error('Error handling test completion:', error);
     }
   };
 
   const handleExit = () => {
-    console.log('🎓 Navigating back to cabinet from speaking test...');
+    logger.debug('🎓 Navigating back to cabinet from speaking test...');
     
     // OPTIMIZATION: Count cabinet navigation as a cheating attempt
     if (testData && user?.student_id) {
-      console.log('🛡️ Cabinet navigation detected - counting as cheating attempt');
+      logger.debug('🛡️ Cabinet navigation detected - counting as cheating attempt');
       
       // Manually increment the tab switch count
       const studentId = user?.student_id || user?.id || 'unknown';
@@ -174,7 +175,7 @@ const SpeakingTestPage = () => {
           currentTabSwitches = parsed.tabSwitches || 0;
           currentIsCheating = parsed.isCheating || false;
         } catch (error) {
-          console.error('🛡️ Error parsing existing anti-cheating data:', error);
+          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
         }
       }
       
@@ -182,7 +183,7 @@ const SpeakingTestPage = () => {
       const newTabSwitches = currentTabSwitches + 1;
       const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
       
-      console.log(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+      logger.debug(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
       
       // Save updated data
       const updatedData = {
@@ -192,7 +193,7 @@ const SpeakingTestPage = () => {
       };
       
       localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
-      console.log('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+      logger.debug('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
     }
     
     navigate('/student');

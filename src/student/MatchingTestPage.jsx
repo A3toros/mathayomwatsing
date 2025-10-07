@@ -8,6 +8,7 @@ import MatchingTestStudent from '../components/test/MatchingTestStudent';
 import TestResults from '../components/test/TestResults';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Card from '../components/ui/Card';
+import { logger } from '../utils/logger';
 
 const MatchingTestPage = () => {
   const { testId } = useParams();
@@ -39,7 +40,7 @@ const MatchingTestPage = () => {
     const hasRetest = localStorage.getItem(retestKey) === 'true';
     
     if (isCompleted && !hasRetest) {
-      console.log('🎓 Test already completed, redirecting to cabinet');
+      logger.debug('🎓 Test already completed, redirecting to cabinet');
       showNotification('This test has already been completed', 'info');
       navigate('/student');
       return true;
@@ -82,7 +83,7 @@ const MatchingTestPage = () => {
       }
 
       const test = testResult.data;
-      console.log('🔍 Test data from get-matching-type-test:', test);
+      logger.debug('🔍 Test data from get-matching-type-test:', test);
       
       // Load test questions (blocks) using GET method
       const questionsResponse = await makeAuthenticatedRequest(`/.netlify/functions/get-test-questions?test_id=${testId}&test_type=matching_type`, {
@@ -100,7 +101,7 @@ const MatchingTestPage = () => {
         throw new Error(questionsResult.message || 'Failed to load test questions');
       }
 
-      console.log('🔍 Questions data from get-test-questions:', questionsResult);
+      logger.debug('🔍 Questions data from get-test-questions:', questionsResult);
 
       // Process test data for the component (matching legacy structure)
       const processedTestData = {
@@ -143,7 +144,7 @@ const MatchingTestPage = () => {
             }
             // Legacy flat format
             return questionsResult.questions.map((question) => {
-              console.log('🔍 Processing question:', question);
+              logger.debug('🔍 Processing question:', question);
               let coordinates;
               try {
                 coordinates = typeof question.block_coordinates === 'string' 
@@ -215,7 +216,7 @@ const MatchingTestPage = () => {
         
         // Process arrows exactly like legacy
         arrows: test.arrows ? test.arrows.map(arrow => {
-          console.log('🔍 Processing arrow:', arrow);
+          logger.debug('🔍 Processing arrow:', arrow);
           return {
           id: arrow.id,
           questionId: arrow.question_id,
@@ -251,7 +252,7 @@ const MatchingTestPage = () => {
           setIsLoading(false);
         };
         image.onerror = () => {
-          console.warn('Failed to load test image');
+          logger.warn('Failed to load test image');
           setTestData(processedTestData);
           setIsLoading(false);
         };
@@ -262,7 +263,7 @@ const MatchingTestPage = () => {
       }
 
     } catch (error) {
-      console.error('Error loading test data:', error);
+      logger.error('Error loading test data:', error);
       setError(error.message || 'Failed to load test');
       setIsLoading(false);
     }
@@ -277,7 +278,7 @@ const MatchingTestPage = () => {
 
   // Handle test completion
   const handleTestComplete = useCallback(async (result) => {
-    console.log('Test completed:', result);
+    logger.debug('Test completed:', result);
     showNotification('Test completed successfully!', 'success');
     
     // Use the result data from the component directly (like regular tests)
@@ -314,7 +315,7 @@ const MatchingTestPage = () => {
       visibility_change_times: 0
     };
     
-    console.log('🎯 Using test results data:', testResultsData);
+    logger.debug('🎯 Using test results data:', testResultsData);
     setTestResults(testResultsData);
     setShowResults(true);
   }, [testData, showNotification]);

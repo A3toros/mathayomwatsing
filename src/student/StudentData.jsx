@@ -4,6 +4,7 @@ import { useUser } from '@/contexts/UserContext';
 import { Button, LoadingSpinner, Notification } from '@/components/ui/components-ui-index';
 import { userService } from '@/services/userService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
+import { logger } from '@/utils/logger';
 
 // STUDENT DATA - React Component for Student Data Management
 // ✅ COMPLETED: All student data functionality from legacy src/ converted to React
@@ -59,7 +60,7 @@ const StudentData = ({ onDataLoaded, onError }) => {
   
   // Enhanced initializeStudentData from legacy code
   const initializeStudentData = useCallback(async () => {
-    console.log('🎓 Initializing Student Data...');
+    logger.debug('🎓 Initializing Student Data...');
     
     try {
       setIsLoading(true);
@@ -67,27 +68,27 @@ const StudentData = ({ onDataLoaded, onError }) => {
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('🎓 User not authenticated');
+        logger.debug('🎓 User not authenticated');
         setError('User not authenticated');
         return;
       }
       
       // Validate student role
       if (user.role !== USER_ROLES.STUDENT) {
-        console.error('🎓 Invalid user role for student data:', user.role);
+        logger.error('🎓 Invalid user role for student data:', user.role);
         setError('Access denied. Student role required.');
         return;
       }
       
       // Load student data
-      console.log('🎓 Loading student data...');
+      logger.debug('🎓 Loading student data...');
       await loadStudentDataFromAPI();
       
       // Populate student info
-      console.log('🎓 Populating student info...');
+      logger.debug('🎓 Populating student info...');
       await populateStudentInfo();
       
-      console.log('🎓 Student Data initialization complete!');
+      logger.debug('🎓 Student Data initialization complete!');
       
       // Notify parent component
       if (onDataLoaded) {
@@ -99,7 +100,7 @@ const StudentData = ({ onDataLoaded, onError }) => {
       }
       
     } catch (error) {
-      console.error('🎓 Error initializing student data:', error);
+      logger.error('🎓 Error initializing student data:', error);
       setError('Failed to initialize student data');
       
       // Notify parent component of error
@@ -113,22 +114,22 @@ const StudentData = ({ onDataLoaded, onError }) => {
   
   // Enhanced loadStudentDataFromAPI from legacy code
   const loadStudentDataFromAPI = useCallback(async () => {
-    console.log('🎓 Loading student data from API...');
+    logger.debug('🎓 Loading student data from API...');
     try {
       const subjects = await userService.getStudentData();
-      console.log('🎓 Student subjects loaded:', subjects);
+      logger.debug('🎓 Student subjects loaded:', subjects);
       setSubjects(subjects);
       setLastUpdated(new Date());
       return subjects;
     } catch (error) {
-      console.error('🎓 Error loading student data from API:', error);
+      logger.error('🎓 Error loading student data from API:', error);
       throw error;
     }
   }, []);
   
   // Enhanced populateStudentInfo from legacy code
   const populateStudentInfo = useCallback(async () => {
-    console.log('🎓 Populating student info...');
+    logger.debug('🎓 Populating student info...');
     try {
       if (user) {
         const studentInfo = {
@@ -141,7 +142,7 @@ const StudentData = ({ onDataLoaded, onError }) => {
           number: user.number
         };
         
-        console.log('🎓 Student info populated:', studentInfo);
+        logger.debug('🎓 Student info populated:', studentInfo);
         setStudentInfo(studentInfo);
         
         // Update user context
@@ -150,14 +151,14 @@ const StudentData = ({ onDataLoaded, onError }) => {
         }
       }
     } catch (error) {
-      console.error('🎓 Error populating student info:', error);
+      logger.error('🎓 Error populating student info:', error);
       throw error;
     }
   }, [user, updateStudentData]);
   
   // Enhanced displayStudentSubjects from legacy code
   const renderSubjects = useCallback(() => {
-    console.log('🎓 Rendering subjects:', subjects);
+    logger.debug('🎓 Rendering subjects:', subjects);
     
     if (!subjects || subjects.length === 0) {
       return (
@@ -200,13 +201,13 @@ const StudentData = ({ onDataLoaded, onError }) => {
   
   // Refresh student data
   const refreshStudentData = useCallback(async () => {
-    console.log('🎓 Refreshing student data...');
+    logger.debug('🎓 Refreshing student data...');
     try {
       setIsLoading(true);
       await loadStudentDataFromAPI();
       showNotification('Student data refreshed successfully', 'success');
     } catch (error) {
-      console.error('🎓 Error refreshing student data:', error);
+      logger.error('🎓 Error refreshing student data:', error);
       showNotification('Failed to refresh student data', 'error');
     } finally {
       setIsLoading(false);

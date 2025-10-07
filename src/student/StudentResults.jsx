@@ -8,6 +8,7 @@ import { Notification } from '@/components/ui/Notification';
 import { testService } from '@/services/testService';
 import { resultService } from '@/services/resultService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
+import { logger } from '@/utils/logger';
 import { DrawingModal } from '@/components/modals';
 import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
@@ -76,6 +77,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   
+  // Helper function to get display scores (prefer retest if available)
+  const getDisplayScores = useCallback((result) => {
+    const displayScore = result.best_retest_score || result.score;
+    const displayMaxScore = result.best_retest_max_score || result.max_score;
+    const displayPercentage = Math.round((displayScore / displayMaxScore) * 100);
+    
+    return {
+      score: displayScore,
+      maxScore: displayMaxScore,
+      percentage: displayPercentage
+    };
+  }, []);
+  
   // Initialize student results on component mount
   useEffect(() => {
     initializeStudentResults();
@@ -86,7 +100,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
     if (!testType && !testId) {
       // Use cached data from TestContext instead of making API call
       if (testResults && testResults.results) {
-        console.log('🎓 Using cached test results from TestContext');
+        logger.debug('🎓 Using cached test results from TestContext');
         setResults(testResults.results);
         setIsLoading(false);
       } else {
@@ -98,7 +112,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   
   // Enhanced initializeStudentResults from legacy code
   const initializeStudentResults = useCallback(async () => {
-    console.log('🎓 Initializing Student Results...');
+    logger.debug('🎓 Initializing Student Results...');
     
     try {
       setIsLoading(true);
@@ -106,32 +120,32 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('🎓 User not authenticated');
+        logger.debug('🎓 User not authenticated');
         setError('User not authenticated');
         return;
       }
       
       // Validate student role
       if (user.role !== USER_ROLES.STUDENT) {
-        console.error('🎓 Invalid user role for student results:', user.role);
+        logger.error('🎓 Invalid user role for student results:', user.role);
         setError('Access denied. Student role required.');
         return;
       }
       
       // Load test results
-      console.log('🎓 Loading test results...');
+      logger.debug('🎓 Loading test results...');
       await loadTestResults(user?.student_id || user?.id || '');
       
       // If specific test results requested, load them
       if (testType && testId && studentAnswers) {
-        console.log('🎓 Loading specific test results...');
+        logger.debug('🎓 Loading specific test results...');
         await loadSpecificTestResults(testType, testId, studentAnswers);
       }
       
-      console.log('🎓 Student Results initialization complete!');
+      logger.debug('🎓 Student Results initialization complete!');
       
     } catch (error) {
-      console.error('🎓 Error initializing student results:', error);
+      logger.error('🎓 Error initializing student results:', error);
       setError('Failed to initialize student results');
     } finally {
       setIsLoading(false);
@@ -141,16 +155,16 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   
   // Enhanced loadSpecificTestResults from legacy code
   const loadSpecificTestResults = useCallback(async (testType, testId, studentAnswers) => {
-    console.log('🎓 Loading specific test results:', testType, testId);
+    logger.debug('🎓 Loading specific test results:', testType, testId);
     try {
       // Get test info
       const testInfo = await testService.getTestInfo(testType, testId);
-      console.log('🎓 Test info loaded:', testInfo);
+      logger.debug('🎓 Test info loaded:', testInfo);
       setTestInfo(testInfo);
       
       // Get test questions
       const questions = await testService.getTestQuestions(testType, testId);
-      console.log('🎓 Test questions loaded:', questions);
+      logger.debug('🎓 Test questions loaded:', questions);
       setQuestions(questions);
       
       // Calculate score
@@ -159,17 +173,17 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
       setScore(score);
       setPercentage(percentage);
       
-      console.log('🎓 Test results calculated:', { score, percentage });
+      logger.debug('🎓 Test results calculated:', { score, percentage });
       
     } catch (error) {
-      console.error('🎓 Error loading specific test results:', error);
+      logger.error('🎓 Error loading specific test results:', error);
       throw error;
     }
   }, []);
 
   // NEW: Load all student results using existing test results API
   const loadAllStudentResults = useCallback(async (retryCount = 0) => {
-    console.log('🎓 Loading all student results using existing test results API...', retryCount > 0 ? `(retry ${retryCount})` : '');
+    logger.debug('🎓 Loading all student results using existing test results API...', retryCount > 0 ? `(retry ${retryCount})` : '');
     try {
       const studentId = user?.student_id || user?.sub;
       
@@ -181,7 +195,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
       const data = await testService.getStudentTestResults();
       
       if (data.success) {
-        console.log('🎓 All student results loaded:', data.results.length, 'results');
+        logger.debug('🎓 All student results loaded:', data.results.length, 'results');
         // Ensure cheating data is included in results
         const resultsWithCheating = data.results.map(result => ({
           ...result,
@@ -193,7 +207,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
         
         // If no results and this is the first attempt, retry once after a delay
         if (data.results.length === 0 && retryCount === 0) {
-          console.log('🎓 No results found, retrying in 2 seconds...');
+          logger.debug('🎓 No results found, retrying in 2 seconds...');
           setTimeout(() => {
             loadAllStudentResults(1);
           }, 2000);
@@ -202,7 +216,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
         throw new Error(data.error || 'Failed to load student results');
       }
     } catch (error) {
-      console.error('🎓 Error loading all student results:', error);
+      logger.error('🎓 Error loading all student results:', error);
       setError(error.message);
     }
   }, [user]);
@@ -275,13 +289,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                     {result.test_type === 'drawing' ? (
                       result.score !== null ? (
                         <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold ${
-                          Math.round((result.score / result.max_score) * 100) >= 80 
-                            ? 'bg-green-100 text-green-800' 
-                            : Math.round((result.score / result.max_score) * 100) >= 60 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-red-100 text-red-800'
+                          (() => {
+                            const { score, maxScore, percentage } = getDisplayScores(result);
+                            return percentage >= 80 
+                              ? 'bg-green-100 text-green-800' 
+                              : percentage >= 60 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : 'bg-red-100 text-red-800';
+                          })()
                         }`}>
-                          {result.score}/{result.max_score} ({Math.round((result.score / result.max_score) * 100)}%)
+                          {(() => {
+                            const { score, maxScore, percentage } = getDisplayScores(result);
+                            return `${score}/${maxScore} (${percentage}%)`;
+                          })()}
                         </span>
                       ) : (
                         <span className="px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800">
@@ -291,13 +311,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                     ) : result.test_type === 'speaking' ? (
                       result.score !== null ? (
                         <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold ${
-                          Math.round((result.score / result.max_score) * 100) >= 80 
-                            ? 'bg-green-100 text-green-800' 
-                            : Math.round((result.score / result.max_score) * 100) >= 60 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-red-100 text-red-800'
+                          (() => {
+                            const { score, maxScore, percentage } = getDisplayScores(result);
+                            return percentage >= 80 
+                              ? 'bg-green-100 text-green-800' 
+                              : percentage >= 60 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : 'bg-red-100 text-red-800';
+                          })()
                         }`}>
-                          {result.score}/{result.max_score} ({Math.round((result.score / result.max_score) * 100)}%)
+                          {(() => {
+                            const { score, maxScore, percentage } = getDisplayScores(result);
+                            return `${score}/${maxScore} (${percentage}%)`;
+                          })()}
                         </span>
                       ) : (
                         <span className="px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800">
@@ -306,13 +332,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                       )
                     ) : (
                       <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold ${
-                        Math.round((result.score / result.max_score) * 100) >= 80 
-                          ? 'bg-green-100 text-green-800' 
-                          : Math.round((result.score / result.max_score) * 100) >= 60 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : 'bg-red-100 text-red-800'
+                        (() => {
+                          const { score, maxScore, percentage } = getDisplayScores(result);
+                          return percentage >= 80 
+                            ? 'bg-green-100 text-green-800' 
+                            : percentage >= 60 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-red-100 text-red-800';
+                        })()
                       }`}>
-                        {result.score}/{result.max_score} ({Math.round((result.score / result.max_score) * 100)}%)
+                        {(() => {
+                          const { score, maxScore, percentage } = getDisplayScores(result);
+                          return `${score}/${maxScore} (${percentage}%)`;
+                        })()}
                       </span>
                     )}
                   </div>
@@ -345,14 +377,14 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   
   // Enhanced formatStudentAnswerForDisplay from legacy code
   const formatAnswer = useCallback((answer, testType) => {
-    console.log('🔍 formatAnswer called with:', { answer, testType, answerType: typeof answer });
+    logger.debug('🔍 formatAnswer called with:', { answer, testType, answerType: typeof answer });
     if (!answer) return 'No answer';
     
     switch (testType) {
       case 'true_false':
         // Handle both boolean and string answers
         const boolAnswer = typeof answer === 'boolean' ? answer : answer === 'true';
-        console.log('🔍 Boolean answer processed:', boolAnswer);
+        logger.debug('🔍 Boolean answer processed:', boolAnswer);
         return boolAnswer ? 'True' : 'False';
       case 'multiple_choice':
         return answer.toUpperCase();
@@ -491,8 +523,8 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {subjectResults.map((result, index) => {
-                    const scorePercentage = Math.round((result.score / result.max_score) * 100);
-                    const scoreClass = scorePercentage >= 80 ? 'text-green-600' : scorePercentage >= 60 ? 'text-yellow-600' : 'text-red-600';
+                    const { score, maxScore, percentage } = getDisplayScores(result);
+                    const scoreClass = percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-yellow-600' : 'text-red-600';
                     
                     return (
                       <tr key={index} className="hover:bg-gray-50">
@@ -504,7 +536,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={scoreClass}>
-                            {result.score}/{result.max_score} ({scorePercentage}%)
+                            {score}/{maxScore} ({percentage}%)
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -524,7 +556,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   
   // Enhanced clearTestDataAndReturnToCabinet from legacy code
   const clearAndReturn = useCallback(() => {
-    console.log('🎓 Clearing test data and returning to cabinet...');
+    logger.debug('🎓 Clearing test data and returning to cabinet...');
     setTestInfo(null);
     setQuestions([]);
     setStudentAnswers(null);
@@ -542,7 +574,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   
   // Enhanced navigateBackToCabinet from legacy code
   const goBack = useCallback(() => {
-    console.log('🎓 Navigating back to cabinet...');
+    logger.debug('🎓 Navigating back to cabinet...');
     if (onBackToCabinet) {
       onBackToCabinet();
     } else {

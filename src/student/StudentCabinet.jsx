@@ -13,6 +13,7 @@ import { testService } from '@/services/testService';
 import { TestResults, TestDetailsModal } from '@/components/test/components-test-index';
 import StudentResults from './StudentResults';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
+import { logger } from '@/utils/logger';
 
 // STUDENT CABINET - React Component for Student Main Interface - ENHANCED FOR NEW STRUCTURE
 // ✅ COMPLETED: All student cabinet functionality from legacy src/ converted to React
@@ -119,7 +120,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   // Enhanced initializeStudentCabinet from legacy code
   const initializeStudentCabinet = useCallback(async () => {
-    console.log('🎓 Initializing Student Cabinet...');
+    logger.debug('🎓 Initializing Student Cabinet...');
     
     try {
       setIsLoading(true);
@@ -127,20 +128,20 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('🎓 User not authenticated, redirecting to login');
+        logger.debug('🎓 User not authenticated, redirecting to login');
         navigate('/login');
         return;
       }
       
       // Validate student role
       if (user.role !== USER_ROLES.STUDENT) {
-        console.error('🎓 Invalid user role for student cabinet:', user.role);
+        logger.error('🎓 Invalid user role for student cabinet:', user.role);
         setError('Access denied. Student role required.');
         return;
       }
       
       // Load only active tests (single API call on login)
-      console.log('🎓 Loading active tests (single API call)...');
+      logger.debug('🎓 Loading active tests (single API call)...');
       const studentId = user?.student_id || user?.id || '';
       // Skip separate student data/results fetch here to keep one call
       
@@ -148,7 +149,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       const shouldRefreshCache = checkForCacheRefreshTriggers(studentId);
       
       if (shouldRefreshCache) {
-        console.log('🎓 Cache refresh triggered - clearing cache');
+        logger.debug('🎓 Cache refresh triggered - clearing cache');
         try {
           const activeKey = `student_active_tests_${studentId}`;
           const resultsKey = `student_results_table_${studentId}`;
@@ -156,7 +157,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
           localStorage.removeItem(resultsKey);
         } catch (e) { /* ignore */ }
       } else {
-        console.log('🎓 Using existing cache - no refresh needed');
+        logger.debug('🎓 Using existing cache - no refresh needed');
       }
       
       // Force-bust active tests cache to ensure fresh retest flags on first load
@@ -165,10 +166,10 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       
       // Optionally compute average later when results are fetched elsewhere
       
-      console.log('🎓 Student Cabinet initialization complete!');
+      logger.debug('🎓 Student Cabinet initialization complete!');
       
     } catch (error) {
-      console.error('🎓 Error initializing student cabinet:', error);
+      logger.error('🎓 Error initializing student cabinet:', error);
       setError('Failed to initialize student cabinet');
     } finally {
       setIsLoading(false);
@@ -188,14 +189,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     // Check for manual refresh trigger
     if (window.studentCabinetRefreshRequested) {
       window.studentCabinetRefreshRequested = false;
-      console.log('🎓 Manual refresh requested');
+      logger.debug('🎓 Manual refresh requested');
       return true;
     }
     
     // Check for test completion events
     if (window.recentTestCompleted) {
       window.recentTestCompleted = false;
-      console.log('🎓 Test completed - cache refresh triggered');
+      logger.debug('🎓 Test completed - cache refresh triggered');
       return true;
     }
     
@@ -204,7 +205,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     if (lastRefresh) {
       const timeSinceRefresh = Date.now() - parseInt(lastRefresh);
       if (timeSinceRefresh > 30 * 60 * 1000) { // 30 minutes
-        console.log('🎓 Time-based refresh triggered');
+        logger.debug('🎓 Time-based refresh triggered');
         return true;
       }
     }
@@ -214,14 +215,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith(`retest_assignment_id_${studentId}_`)) {
-          console.log('🎓 Retest assignment key detected, forcing cache refresh:', key);
+          logger.debug('🎓 Retest assignment key detected, forcing cache refresh:', key);
           return true;
         }
       }
     } catch (_) {}
 
     // Default to using existing cache
-    console.log('🎓 No refresh triggers - using existing cache');
+    logger.debug('🎓 No refresh triggers - using existing cache');
     return false;
   }, []);
   
@@ -231,22 +232,26 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
 
   // Enhanced calculateAverageScore from legacy code - ENHANCED FOR NEW STRUCTURE
   const calculateAverageScore = useCallback(async () => {
-    console.log('🎓 Calculating average score...');
+    logger.debug('🎓 Calculating average score...');
     try {
       if (testResults && testResults.length > 0) {
         const sum = testResults.reduce((acc, result) => {
+          // Use best retest score if available, otherwise use original score
+          const scoreToUse = result.best_retest_score || result.score;
+          const maxScoreToUse = result.best_retest_max_score || result.max_score;
+          
           // Always calculate percentage with Math.round() to avoid decimal places from database
-          if (typeof result.score === 'number' && typeof result.max_score === 'number' && result.max_score > 0) {
-            return acc + Math.round((result.score / result.max_score) * 100);
+          if (typeof scoreToUse === 'number' && typeof maxScoreToUse === 'number' && maxScoreToUse > 0) {
+            return acc + Math.round((scoreToUse / maxScoreToUse) * 100);
           }
           return acc;
         }, 0);
         const average = Math.round(sum / testResults.length);
         setAverageScore(average);
-        console.log('🎓 Average score calculated:', average);
+        logger.debug('🎓 Average score calculated:', average);
       }
     } catch (error) {
-      console.error('🎓 Error calculating average score:', error);
+      logger.error('🎓 Error calculating average score:', error);
     }
   }, [testResults]);
   
@@ -254,14 +259,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   useEffect(() => {
     // Don't reinitialize during navigation to prevent race conditions
     if (isStartingTest) {
-      console.log('🎓 Skipping completed tests initialization during navigation');
+      logger.debug('🎓 Skipping completed tests initialization during navigation');
       return;
     }
     
     // Wait for student ID to be available
     const studentId = user?.student_id || user?.id;
     if (!studentId) {
-      console.log('🎓 Student ID not available yet, skipping localStorage initialization');
+      logger.debug('🎓 Student ID not available yet, skipping localStorage initialization');
       return;
     }
     
@@ -280,22 +285,22 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             const testId = parts.slice(1).join('_');
             const testKey = `${testType}_${testId}`;
             completed.add(testKey);
-            console.log('🎓 Found completed test in localStorage:', testKey);
+            logger.debug('🎓 Found completed test in localStorage:', testKey);
           }
         }
       }
     }
     setCompletedTests(completed);
     setIsCompletionStatusLoaded(true);
-    console.log('🎓 Initialized completed tests from localStorage:', Array.from(completed));
+    logger.debug('🎓 Initialized completed tests from localStorage:', Array.from(completed));
   }, [user?.student_id, user?.id, isStartingTest]);
 
 
   // Check and update completed tests when testResults change
   useEffect(() => {
-    console.log('🎓 testResults structure:', testResults);
+    logger.debug('🎓 testResults structure:', testResults);
     const resultsArray = testResults?.results || testResults;
-    console.log('🎓 resultsArray:', resultsArray);
+    logger.debug('🎓 resultsArray:', resultsArray);
     if (resultsArray && resultsArray.length > 0) {
       const studentId = user?.student_id || user?.id || '';
       const newCompleted = new Set();
@@ -310,7 +315,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       // Merge with existing completed tests instead of overwriting
       setCompletedTests(prev => {
         const merged = new Set([...prev, ...newCompleted]);
-        console.log('🎓 Updated completed tests (merged):', Array.from(merged));
+        logger.debug('🎓 Updated completed tests (merged):', Array.from(merged));
         return merged;
       });
     }
@@ -318,13 +323,13 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   // Enhanced checkTestCompleted - check both localStorage AND database results
   const checkTestCompleted = useCallback(async (testType, testId, retestAvailable = false, testData = null) => {
-    console.log('🎓 Checking test completion:', testType, testId, 'retestAvailable:', retestAvailable);
+    logger.debug('🎓 Checking test completion:', testType, testId, 'retestAvailable:', retestAvailable);
     try {
       const studentId = user?.student_id || user?.id || '';
       
       // If retest is available from backend, check attempt limits
       if (retestAvailable) {
-        console.log('🎓 Retest available from backend, checking attempt limits.');
+        logger.debug('🎓 Retest available from backend, checking attempt limits.');
         
         // Check localStorage attempt tracking with descriptive keys
         const attemptKeys = [];
@@ -339,59 +344,59 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         // Get max attempts from the test data (passed from backend)
         const maxAttempts = testData?.retest_attempts_left || testData?.max_attempts || 3;
         
-        console.log('🎓 Current attempts:', currentAttempts, 'Max attempts:', maxAttempts, 'Attempt keys:', attemptKeys);
+        logger.debug('🎓 Current attempts:', currentAttempts, 'Max attempts:', maxAttempts, 'Attempt keys:', attemptKeys);
         
         if (currentAttempts >= maxAttempts) {
-          console.log('🎓 Maximum retest attempts reached in localStorage');
+          logger.debug('🎓 Maximum retest attempts reached in localStorage');
           return true; // Consider "completed" to block further attempts
         }
         
-        console.log('🎓 Retest attempts available, allowing start.');
+        logger.debug('🎓 Retest attempts available, allowing start.');
         return false; // Not considered "completed" for the purpose of starting a retest
       }
 
       // Check new format: test_completed_${studentId}_${testType}_${testId}
       const localKey = `test_completed_${studentId}_${testType}_${testId}`;
       const localStatus = localStorage.getItem(localKey);
-      console.log('🎓 localStorage key:', localKey);
-      console.log('🎓 localStorage value:', localStatus);
+      logger.debug('🎓 localStorage key:', localKey);
+      logger.debug('🎓 localStorage value:', localStatus);
       
       // Debug: Check all localStorage keys for this student
       if (testType === 'word_matching') {
-        console.log('🎓 Debug: All localStorage keys for student', studentId);
+        logger.debug('🎓 Debug: All localStorage keys for student', studentId);
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && key.includes(studentId) && key.includes('word_matching')) {
-            console.log('🎓 Found word_matching key:', key, '=', localStorage.getItem(key));
+            logger.debug('🎓 Found word_matching key:', key, '=', localStorage.getItem(key));
           }
         }
       }
       
       if (localStatus === 'true') {
-        console.log('✅ Found completion status in local storage:', localStatus);
+        logger.debug('✅ Found completion status in local storage:', localStatus);
         return true;
       }
       
       // Check database results - if student has results for this test, it's completed
       const resultsArray = testResults?.results || testResults;
       if (resultsArray && resultsArray.length > 0) {
-        console.log('🎓 Checking database results:', resultsArray.length, 'results');
+        logger.debug('🎓 Checking database results:', resultsArray.length, 'results');
         const hasResult = resultsArray.some(result => {
-          console.log('🎓 Checking result:', result.test_type, result.test_id, 'vs', testType, testId);
+          logger.debug('🎓 Checking result:', result.test_type, result.test_id, 'vs', testType, testId);
           return result.test_type === testType && result.test_id === testId;
         });
         if (hasResult) {
-          console.log('✅ Found completion status in database results');
+          logger.debug('✅ Found completion status in database results');
           // Mark in localStorage for future checks (new format)
           localStorage.setItem(localKey, 'true');
           return true;
         }
       }
       
-      console.log('❌ Test not completed according to local storage or database');
+      logger.debug('❌ Test not completed according to local storage or database');
       return false;
     } catch (error) {
-      console.error('🎓 Error checking test completion:', error);
+      logger.error('🎓 Error checking test completion:', error);
       return false; // Allow test if we can't check
     }
   }, [testResults, user?.student_id, user?.id]);
@@ -414,13 +419,13 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   // Enhanced showTestDetails from legacy code - NOW USES TestContext
   const handleShowTestDetails = useCallback(async (test) => {
-    console.log('🎓 Showing test details:', test);
+    logger.debug('🎓 Showing test details:', test);
     
     // Use TestContext's viewTestDetails to load questions and show modal
     try {
       await viewTestDetails(test.test_type, test.test_id, test.test_name);
     } catch (error) {
-      console.error('Error loading test details:', error);
+      logger.error('Error loading test details:', error);
       showNotification('Failed to load test details', 'error');
     }
   }, [viewTestDetails, showNotification]);
@@ -428,7 +433,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   // Enhanced startTest from legacy code
   const startTest = useCallback((test) => {
-    console.log('🎓 Starting test:', test);
+    logger.debug('🎓 Starting test:', test);
     
     // Check if test is already completed (but allow retests)
     const testKey = `${test.test_type}_${test.test_id}`;
@@ -438,28 +443,28 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     }
     
     // Set retest1_ key if this is a retest (regardless of completion status)
-    console.log('🎓 Checking retest conditions:');
-    console.log('🎓 test.retest_available:', test?.retest_available);
-    console.log('🎓 testKey:', testKey);
-    console.log('🎓 completedTests.has(testKey):', completedTests.has(testKey));
-    console.log('🎓 completedTests:', Array.from(completedTests));
+    logger.debug('🎓 Checking retest conditions:');
+    logger.debug('🎓 test.retest_available:', test?.retest_available);
+    logger.debug('🎓 testKey:', testKey);
+    logger.debug('🎓 completedTests.has(testKey):', completedTests.has(testKey));
+    logger.debug('🎓 completedTests:', Array.from(completedTests));
     
     if (test?.retest_available) {
       const studentId = user?.student_id || user?.id || '';
       const retestKey = `retest1_${studentId}_${test.test_type}_${test.test_id}`;
       localStorage.setItem(retestKey, 'true');
-      console.log('🎓 Set retest key:', retestKey);
+      logger.debug('🎓 Set retest key:', retestKey);
       // Mirror other tests: clear completion flags so UI doesn't show Completed badge
       try {
         const completedKeyNew = `test_completed_${studentId}_${test.test_type}_${test.test_id}`;
         localStorage.removeItem(completedKeyNew);
         const legacyCompletedKey = `${test.test_type}_${test.test_id}`;
         localStorage.removeItem(legacyCompletedKey);
-        console.log('🗑️ Cleared completion keys for retest:', completedKeyNew, legacyCompletedKey);
+        logger.debug('🗑️ Cleared completion keys for retest:', completedKeyNew, legacyCompletedKey);
         // Set in-progress retest lock and clear per-test caches so old results don't appear
         const inProgressKey = `retest_in_progress_${studentId}_${test.test_type}_${test.test_id}`;
         localStorage.setItem(inProgressKey, '1');
-        console.log('🔒 Set in-progress retest lock:', inProgressKey);
+        logger.debug('🔒 Set in-progress retest lock:', inProgressKey);
         // Clear per-test cached data (speaking-specific keys and generic patterns)
         try {
           const antiCheatKey = `anti_cheating_${studentId}_${test.test_type}_${test.test_id}`;
@@ -487,48 +492,48 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             }
           }
           toDelete.forEach(k => localStorage.removeItem(k));
-          console.log('🗑️ Cleared generic cached keys for retest start:', toDelete);
+          logger.debug('🗑️ Cleared generic cached keys for retest start:', toDelete);
           // Attempts meta used by retest UI
           const attemptsMetaKey = `retest_attempts_${studentId}_${test.test_type}_${test.test_id}`;
           // Do not delete attempts meta here; it's used to cap attempts. Keep it.
-          console.log('🗑️ Cleared per-test cached keys for retest start:', { antiCheatKey, speakingCacheKey, speakingProgressKey });
+          logger.debug('🗑️ Cleared per-test cached keys for retest start:', { antiCheatKey, speakingCacheKey, speakingProgressKey });
         } catch (_) {}
       } catch (_) {}
       // Persist retest assignment id for the test page to submit properly
-      console.log('🎓 Test retest_assignment_id:', test.retest_assignment_id);
-      console.log('🎓 Test retest_assignment_id type:', typeof test.retest_assignment_id);
+      logger.debug('🎓 Test retest_assignment_id:', test.retest_assignment_id);
+      logger.debug('🎓 Test retest_assignment_id type:', typeof test.retest_assignment_id);
       if (test?.retest_assignment_id) {
         const retestAssignKey = `retest_assignment_id_${studentId}_${test.test_type}_${test.test_id}`;
         localStorage.setItem(retestAssignKey, String(test.retest_assignment_id));
-        console.log('🎓 Set retest assignment ID:', retestAssignKey, '=', test.retest_assignment_id);
+        logger.debug('🎓 Set retest assignment ID:', retestAssignKey, '=', test.retest_assignment_id);
       } else {
-        console.log('🎓 No retest assignment ID found in test data');
+        logger.debug('🎓 No retest assignment ID found in test data');
       }
     } else {
-      console.log('🎓 Retest assignment ID storage skipped - retest not available');
+      logger.debug('🎓 Retest assignment ID storage skipped - retest not available');
     }
     
     // Show loading overlay
     setIsStartingTest(true);
-    console.log('🎓 Set isStartingTest to true for test:', test.test_type);
+    logger.debug('🎓 Set isStartingTest to true for test:', test.test_type);
     
     // Special handling for matching tests - redirect to dedicated page
     if (test.test_type === 'matching_type') {
-      console.log('🎯 Redirecting to matching test page for testId:', test.test_id);
+      logger.debug('🎯 Redirecting to matching test page for testId:', test.test_id);
       navigate(`/student/matching-test/${test.test_id}`);
       return;
     }
 
     // Special handling for word matching tests - redirect to dedicated page
     if (test.test_type === 'word_matching') {
-      console.log('🎯 Redirecting to word matching test page for testId:', test.test_id);
+      logger.debug('🎯 Redirecting to word matching test page for testId:', test.test_id);
       navigate(`/student/word-matching-test/${test.test_id}`);
       return;
     }
 
     // Special handling for speaking tests - redirect to dedicated page
     if (test.test_type === 'speaking') {
-      console.log('🎤 Redirecting to speaking test page for testId:', test.test_id);
+      logger.debug('🎤 Redirecting to speaking test page for testId:', test.test_id);
       navigate(`/student/speaking-test/${test.test_id}`);
       return;
     }
@@ -552,11 +557,11 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   // Handle test start
   const handleTestStart = useCallback(async (test) => {
-    console.log('🎓 Starting test:', test);
+    logger.debug('🎓 Starting test:', test);
     
     // Prevent multiple test starts
     if (isStartingTest) {
-      console.log('🎓 Test already starting, ignoring click');
+      logger.debug('🎓 Test already starting, ignoring click');
       return;
     }
     
@@ -572,14 +577,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       // Start the test (this handles the overlay like matching tests)
       startTest(test);
     } catch (error) {
-      console.error('🎓 Error starting test:', error);
+      logger.error('🎓 Error starting test:', error);
       showNotification('Failed to start test. Please try again.', 'error');
     }
   }, [checkTestCompleted, startTest, showNotification, isStartingTest]);
   
   // Handle test details view
   const handleTestDetails = useCallback((test) => {
-    console.log('🎓 Viewing test details:', test);
+    logger.debug('🎓 Viewing test details:', test);
     handleShowTestDetails(test);
   }, [handleShowTestDetails]);
   
@@ -829,7 +834,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                   {activeTests && activeTests.length > 0 ? (
                     <div className="relative">
                       {/* Loading Overlay */}
-                      {console.log('🎓 Rendering overlay, isStartingTest:', isStartingTest)}
+                      {logger.debug('🎓 Rendering overlay, isStartingTest:', isStartingTest)}
                       {isStartingTest && (
                         <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50 rounded-lg border-2 border-blue-200">
                           <div className="text-center">
@@ -934,7 +939,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                   );
                                 }
 
-                                console.log('🎓 Button render, isStartingTest:', isStartingTest, 'test:', test.test_type);
+                                logger.debug('🎓 Button render, isStartingTest:', isStartingTest, 'test:', test.test_type);
                                 return (
                                   <Button
                                     variant="primary"

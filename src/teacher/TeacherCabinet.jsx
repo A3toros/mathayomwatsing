@@ -638,6 +638,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
   // Retest creation modal state
   const [showRetestModal, setShowRetestModal] = useState(false);
+  const [isCreatingRetest, setIsCreatingRetest] = useState(false);
   
   // Debug state changes
   useEffect(() => {
@@ -679,6 +680,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   }, []);
 
   const createRetest = useCallback(async () => {
+    setIsCreatingRetest(true);
     try {
       const mod = await import('@/services/retestService');
       
@@ -707,6 +709,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     } catch (e) {
       logger.error('Create retest error', e);
       showNotification(e.message || 'Failed to create retest', 'error');
+    } finally {
+      setIsCreatingRetest(false);
     }
   }, [retestForm, selectedGrade, selectedClass, loadRetests]);
 
@@ -720,7 +724,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading Teacher Cabinet...</p>
+          <p className="mt-4 text-gray-600">Loading Teacher Cabinet...</p>       
         </div>
 
         {/* Retests quick actions (disabled during loading) */}
@@ -1261,15 +1265,24 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           <div className="flex justify-end gap-3 mt-6">
             <button 
               onClick={()=>setShowRetestModal(false)} 
-              className="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50"
+              disabled={isCreatingRetest}
+              className="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button 
               onClick={createRetest} 
-              className="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+              disabled={isCreatingRetest}
+              className="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Create Retest
+              {isCreatingRetest ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  Creating Retest...
+                </>
+              ) : (
+                'Create Retest'
+              )}
             </button>
           </div>
         </PerfectModal>

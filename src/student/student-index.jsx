@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/components-ui-index';
 import { LoadingSpinner, Notification } from '@/components/ui/components-ui-index';
 import { userService } from '@/services/userService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
+import { logger } from '@/utils/logger';
 import StudentCabinet from './StudentCabinet';
 import StudentTests from './StudentTests';
 import StudentResults from './StudentResults';
@@ -63,7 +64,7 @@ const StudentApp = () => {
   
   // Enhanced initializeStudentApp from legacy code
   const initializeStudentApp = useCallback(async () => {
-    console.log('🎓 Initializing Student Application...');
+    logger.debug('🎓 Initializing Student Application...');
     
     try {
       setIsLoading(true);
@@ -71,47 +72,47 @@ const StudentApp = () => {
       
       // Check authentication
       if (!isAuthenticated || !user) {
-        console.log('🎓 User not authenticated, redirecting to login');
+        logger.debug('🎓 User not authenticated, redirecting to login');
         navigate('/login');
         return;
       }
       
       // Validate student role
       if (user.role !== USER_ROLES.STUDENT) {
-        console.error('🎓 Invalid user role for student app:', user.role);
+        logger.error('🎓 Invalid user role for student app:', user.role);
         setError('Access denied. Student role required.');
         return;
       }
       
       // Initialize global events
-      console.log('🎓 Initializing event listeners...');
+      logger.debug('🎓 Initializing event listeners...');
       setupStudentEventListeners();
       
       // Set up back to cabinet button event listeners
-      console.log('🎓 Setting up back to cabinet button listeners...');
+      logger.debug('🎓 Setting up back to cabinet button listeners...');
       setupBackToCabinetListeners();
       
       // Set up password change form listener
-      console.log('🎓 Setting up password change form listener...');
+      logger.debug('🎓 Setting up password change form listener...');
       setupPasswordChangeForm();
       
       // Load student data
-      console.log('🎓 Loading student data...');
+      logger.debug('🎓 Loading student data...');
       await loadStudentData();
       
       // Make student functions available globally for HTML onclick handlers
-      console.log('🎓 Exposing student functions globally...');
+      logger.debug('🎓 Exposing student functions globally...');
       exposeStudentFunctions();
       
       // Populate student info from user data
-      console.log('🎓 Populating student info from user data...');
+      logger.debug('🎓 Populating student info from user data...');
       populateStudentInfoDirectly(user);
       
       setIsInitialized(true);
-      console.log('🎓 Student Application initialization complete!');
+      logger.debug('🎓 Student Application initialization complete!');
       
     } catch (error) {
-      console.error('🎓 Error initializing student app:', error);
+      logger.error('🎓 Error initializing student app:', error);
       setError('Failed to initialize student application');
     } finally {
       setIsLoading(false);
@@ -128,7 +129,7 @@ const StudentApp = () => {
   
   // Enhanced setupStudentEventListeners from legacy code
   const setupStudentEventListeners = useCallback(() => {
-    console.log('🎓 Setting up student event listeners...');
+    logger.debug('🎓 Setting up student event listeners...');
     
     // Global event listeners for student app
     const handleGlobalClick = (event) => {
@@ -157,31 +158,31 @@ const StudentApp = () => {
   
   // Enhanced setupBackToCabinetListeners from legacy code
   const setupBackToCabinetListeners = useCallback(() => {
-    console.log('🎓 Setting up back to cabinet listeners...');
+    logger.debug('🎓 Setting up back to cabinet listeners...');
     // React navigation handles this automatically
   }, []);
   
   // Enhanced setupPasswordChangeForm from legacy code
   const setupPasswordChangeForm = useCallback(() => {
-    console.log('🎓 Setting up password change form...');
+    logger.debug('🎓 Setting up password change form...');
     // React form handling manages this automatically
   }, []);
   
   // Enhanced loadStudentData from legacy code
   const loadStudentData = useCallback(async () => {
-    console.log('🎓 Loading student data...');
+    logger.debug('🎓 Loading student data...');
     try {
       // Student data loading is handled by UserContext
-      console.log('🎓 Student data loaded successfully');
+      logger.debug('🎓 Student data loaded successfully');
     } catch (error) {
-      console.error('🎓 Error loading student data:', error);
+      logger.error('🎓 Error loading student data:', error);
       throw error;
     }
   }, []);
   
   // Enhanced exposeStudentFunctions from legacy code
   const exposeStudentFunctions = useCallback(() => {
-    console.log('🎓 Exposing student functions globally...');
+    logger.debug('🎓 Exposing student functions globally...');
     
     // Expose student functions globally for HTML compatibility
     window.toggleStudentMenu = toggleStudentMenu;
@@ -191,30 +192,30 @@ const StudentApp = () => {
     window.handlePasswordChange = handlePasswordChange;
     window.populateStudentInfoDirectly = populateStudentInfoDirectly;
     
-    console.log('🎓 All student functions exposed globally');
+    logger.debug('🎓 All student functions exposed globally');
   }, []);
   
   // Enhanced toggleStudentMenu from legacy code
   const toggleStudentMenu = useCallback(() => {
-    console.log('🔧 toggleStudentMenu called');
+    logger.debug('🔧 toggleStudentMenu called');
     setIsMenuOpen(prev => {
       const newState = !prev;
-      console.log('🔧 Menu state changed from', prev, 'to', newState);
+      logger.debug('🔧 Menu state changed from', prev, 'to', newState);
       return newState;
     });
-    console.log('🔧 Toggled dropdown menu');
+    logger.debug('🔧 Toggled dropdown menu');
   }, []);
   
   // Enhanced showChangePasswordTab from legacy code
   const showChangePasswordTab = useCallback(() => {
-    console.log('🔧 showChangePasswordTab called');
+    logger.debug('🔧 showChangePasswordTab called');
     setShowPasswordChange(true);
     setIsMenuOpen(false);
   }, []);
   
   // Enhanced hideChangePasswordTab from legacy code
   const hideChangePasswordTab = useCallback(() => {
-    console.log('🔧 hideChangePasswordTab called');
+    logger.debug('🔧 hideChangePasswordTab called');
     setShowPasswordChange(false);
     setPasswordForm({
       currentPassword: '',
@@ -226,7 +227,7 @@ const StudentApp = () => {
   // Enhanced handlePasswordChange from legacy code
   const handlePasswordChange = useCallback(async (e) => {
     e.preventDefault();
-    console.log('🔧 handlePasswordChange called');
+    logger.debug('🔧 handlePasswordChange called');
     
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
     
@@ -285,7 +286,7 @@ const StudentApp = () => {
         showNotification(response.message || 'Failed to change password', 'error');
       }
     } catch (error) {
-      console.error('Password change error:', error);
+      logger.error('Password change error:', error);
       showNotification('Failed to change password. Please try again.', 'error');
     } finally {
       setIsLoading(false);
@@ -294,33 +295,33 @@ const StudentApp = () => {
   
   // Enhanced navigateBackToCabinet from legacy code
   const navigateBackToCabinet = useCallback(() => {
-    console.log('[DEBUG] navigateBackToCabinet called');
+    logger.debug('[DEBUG] navigateBackToCabinet called');
     
     // Use React navigation
     if (!isAuthenticated || !user) {
-      console.warn('[WARN] No valid user found, redirecting to login');
+      logger.warn('[WARN] No valid user found, redirecting to login');
       navigate('/login');
       return;
     }
     
     if (user.role === USER_ROLES.STUDENT) {
-      console.log('[DEBUG] Navigating to student cabinet');
+      logger.debug('[DEBUG] Navigating to student cabinet');
       navigate('/student');
     } else {
-      console.warn('[WARN] Unknown user role, redirecting to login');
+      logger.warn('[WARN] Unknown user role, redirecting to login');
       navigate('/login');
     }
   }, [isAuthenticated, user, navigate]);
   
   // Enhanced populateStudentInfoDirectly from legacy code
   const populateStudentInfoDirectly = useCallback((studentData) => {
-    console.log('🎓 populateStudentInfoDirectly called with:', studentData);
+    logger.debug('🎓 populateStudentInfoDirectly called with:', studentData);
     
     try {
       // Student info is managed by React state in UserContext
-      console.log('🎓 Student info populated successfully');
+      logger.debug('🎓 Student info populated successfully');
     } catch (error) {
-      console.error('🎓 Error populating student info:', error);
+      logger.error('🎓 Error populating student info:', error);
     }
   }, []);
   

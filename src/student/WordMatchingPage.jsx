@@ -10,6 +10,7 @@ import { useNotification } from '../components/ui/Notification';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { getCachedData, setCachedData, CACHE_TTL } from '../utils/cacheUtils';
+import { logger } from '../utils/logger';
 
 const WordMatchingPage = () => {
   const { testId } = useParams();
@@ -59,7 +60,7 @@ const WordMatchingPage = () => {
       const cachedData = getCachedData(cacheKey);
       
       if (cachedData) {
-        console.log('🎯 Word matching test loaded from cache:', cachedData);
+        logger.debug('🎯 Word matching test loaded from cache:', cachedData);
         // Check if cached data has the processed format (with id field)
         if (cachedData.id) {
           let dataToUse = cachedData;
@@ -149,12 +150,12 @@ const WordMatchingPage = () => {
         setTestData(dataToUse);
         // Cache the processed (shuffled) test data
         setCachedData(cacheKey, dataToUse, CACHE_TTL.word_matching_test);
-        console.log('🎯 Word matching test loaded from API and cached:', processedTestData);
+        logger.debug('🎯 Word matching test loaded from API and cached:', processedTestData);
       } else {
         throw new Error(result.message || 'Failed to load test');
       }
     } catch (error) {
-      console.error('Error loading word matching test:', error);
+      logger.error('Error loading word matching test:', error);
       setError(error.message);
       showNotification('Failed to load test: ' + error.message, 'error');
     } finally {
@@ -164,7 +165,7 @@ const WordMatchingPage = () => {
 
   // Handle test completion
   const handleTestComplete = useCallback(async (result) => {
-    console.log('Test completed:', result);
+    logger.debug('Test completed:', result);
     showNotification('Test completed successfully!', 'success');
     
     // Use the result data from the component directly (like regular tests)
@@ -200,7 +201,7 @@ const WordMatchingPage = () => {
       visibility_change_times: 0
     };
     
-    console.log('🎯 Using test results data:', testResultsData);
+    logger.debug('🎯 Using test results data:', testResultsData);
     setTestResults(testResultsData);
     setShowResults(true);
   }, [testData, showNotification]);
