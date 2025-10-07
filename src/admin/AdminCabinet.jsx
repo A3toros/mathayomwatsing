@@ -80,20 +80,6 @@ const AdminCabinet = () => {
   // State management
   const { user, isAdmin, logout } = useAuth();
   const { get: apiGet, post: apiPost, delete: apiDelete } = useApi();
-  const handleRefreshClassSummary = useCallback(async () => {
-    try {
-      setNotification({ type: 'info', message: 'Refreshing class summary view...' });
-      const res = await apiPost('/.netlify/functions/refresh-class-summary-semester', {});
-      if (res && (res.success || res.message)) {
-        setNotification({ type: 'success', message: 'Class summary view refreshed.' });
-      } else {
-        setNotification({ type: 'error', message: res?.error || 'Failed to refresh view' });
-      }
-    } catch (e) {
-      setNotification({ type: 'error', message: 'Failed to refresh view' });
-      console.error('Refresh class summary error:', e);
-    }
-  }, [apiPost]);
 
   const handleCheckOverdueAssignments = useCallback(async () => {
     try {
@@ -1368,13 +1354,6 @@ const AdminCabinet = () => {
               <Card.Header className={STYLES.cardHeader}>
                 <Card.Title className={STYLES.cardTitle}>Teacher Management</Card.Title>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={handleRefreshClassSummary}
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs whitespace-nowrap"
-                    title="Refresh materialized class summary view"
-                  >
-                    Refresh Class Summary View
-                  </button>
                   <button
                     onClick={handleCheckOverdueAssignments}
                     className="px-3 py-1.5 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-xs whitespace-nowrap"

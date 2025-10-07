@@ -6,11 +6,17 @@
  */
 
 // Detect if we're in a deployed production environment
-const isDeployed = window.location.hostname !== 'localhost' && 
-                   !window.location.hostname.includes('127.0.0.1') &&
-                   !window.location.hostname.includes('netlify.app') &&
-                   !window.location.hostname.includes('vercel.app') &&
-                   !window.location.hostname.includes('github.io');
+// Only suppress logs on the actual production domain, not on preview/staging domains
+const isDeployed = window.location.hostname === 'mathayomwatsing.netlify.app';
+
+// Override console methods globally in production to suppress all logs
+if (isDeployed) {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+  // Keep console.error for critical debugging
+}
 
 export const logger = {
   /**

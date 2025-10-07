@@ -156,7 +156,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         showNotification(response.message || 'Failed to change password', 'error');
       }
     } catch (error) {
-      console.error('Password change error:', error);
+      logger.error('Password change error:', error);
       showNotification('Failed to change password. Please try again.', 'error');
     }
   }, [user, passwordForm, showNotification]);
@@ -428,7 +428,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         throw new Error(response.error || 'Failed to delete subject assignment');
       }
     } catch (error) {
-      console.error('👨‍🏫 Error deleting subject assignment:', error);
+      logger.error('👨‍🏫 Error deleting subject assignment:', error);
       showNotification('Error deleting subject assignment. Please try again.', 'error');
     }
   }, [loadSubjects, showNotification]);
@@ -480,7 +480,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         throw new Error(result.error || 'Failed to save subjects');
       }
     } catch (error) {
-      console.error('👨‍🏫 Error saving teacher subjects:', error);
+      logger.error('👨‍🏫 Error saving teacher subjects:', error);
       showNotification('Failed to save subjects', 'error');
     } finally {
       setIsSavingSubjects(false);
@@ -500,7 +500,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         throw new Error(result.error || 'Failed to save subjects');
       }
     } catch (error) {
-      console.error('👨‍🏫 Error saving teacher subjects:', error);
+      logger.error('👨‍🏫 Error saving teacher subjects:', error);
       showNotification('Failed to save subjects', 'error');
     }
   }, [loadSubjects]);
@@ -530,7 +530,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         throw new Error(result.error || 'Failed to remove assignment');
       }
     } catch (error) {
-      console.error('👨‍🏫 Error removing class assignment:', error);
+      logger.error('👨‍🏫 Error removing class assignment:', error);
       showNotification('Failed to remove assignment', 'error');
     }
   }, [loadTests]);
@@ -553,7 +553,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         throw new Error(result.error || 'Failed to mark test as completed');
       }
     } catch (error) {
-      console.error('👨‍🏫 Error marking test as completed:', error);
+      logger.error('👨‍🏫 Error marking test as completed:', error);
       showNotification('Failed to mark test as completed', 'error');
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
@@ -573,134 +573,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Show notification helper
   
 
-  // Load performance data for chart - UPDATED FOR SEMESTER-BASED API
-  const [isLoadingModal, setIsLoadingModal] = useState(false);
 
-  const loadPerformanceData = useCallback(async (classKey) => {
-    logger.debug('📊 Loading performance data for class:', classKey);
-    logger.debug('📊 Current selectedClassForChart:', selectedClassForChart);
-    try {
-      setIsLoadingModal(true);
-      const [grade, className] = classKey.split('/');
-      const gradeFormat = grade.startsWith('M') ? grade : `M${grade}`;
-      
-      // Get current term from academic calendar service
-      await academicCalendarService.loadAcademicCalendar();
-      const currentTerm = academicCalendarService.getCurrentTerm();
-      const currentAcademicPeriodId = currentTerm?.id;
-      
-      if (!currentAcademicPeriodId) {
-        throw new Error('No current academic period found');
-      }
-      
-      // Smart refresh on cache expiry (1h)
-      const cacheKey = `class_summary_${user.teacher_id}_${gradeFormat}_${className}_${currentAcademicPeriodId}`;
-      const cached = getCachedData(cacheKey);
-      const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
-      const cacheTTL = 3600000;
-      if (cacheAge > cacheTTL) {
-        try {
-          await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/refresh-class-summary-semester');
-        } catch (e) {
-          console.warn('Materialized view refresh failed (continuing):', e.message);
-        }
-      }
-      
-      // Use new term-based API
-      const response = await window.tokenManager.makeAuthenticatedRequest(
-        `/.netlify/functions/get-class-summary-term?teacher_id=${user.teacher_id}&grade=${gradeFormat}&class=${className}&term_id=${currentAcademicPeriodId}`
-      );
-      logger.debug('📊 API response status:', response.status);
-      const data = await response.json();
-      
-      logger.debug('📊 Performance API response:', data);
-      logger.debug('📊 API success:', data.success);
-      logger.debug('📊 API summary:', data.summary);
-      
-      if (data.success && data.summary) {
-        logger.debug('📊 Processing semester performance data:', data.summary);
-        
-        // Process semester-based summary data
-        const summary = data.summary;
-        logger.debug('📊 Semester summary:', {
-          total_students: summary.total_students,
-          total_tests: summary.total_tests,
-          completed_tests: summary.completed_tests,
-          average_class_score: summary.average_class_score,
-          pass_rate: summary.pass_rate,
-          cheating_incidents: summary.cheating_incidents
-        });
-        
-        // Create term-based performance data structure
-        const termData = {
-          summary: summary,
-          term: currentTerm.term,
-          semester: currentTerm.semester,
-          academicYear: currentTerm.academic_year,
-          termId: currentAcademicPeriodId,
-          overallAverage: summary.average_class_score || 0,
-          totalTests: summary.total_tests || 0,
-          completedTests: summary.completed_tests || 0,
-          passRate: summary.pass_rate || 0,
-          cheatingIncidents: summary.cheating_incidents || 0,
-          lastTestDate: summary.last_test_date,
-          termProgress: calculateTermProgress(summary, currentTerm)
-        };
-
-        logger.debug('📊 Term performance data:', termData);
-
-        setPerformanceData(prev => ({
-          ...prev,
-          [classKey]: termData
-        }));
-      } else {
-        logger.debug('📊 No performance data available for class:', classKey);
-        setPerformanceData(prev => ({
-          ...prev,
-          [classKey]: { tests: [], overallAverage: 0 }
-        }));
-      }
-    } catch (error) {
-      logger.error('📊 Error loading performance data:', error);
-      console.error('📊 Error details:', error.message);
-      setPerformanceData(prev => ({
-        ...prev,
-        [classKey]: { tests: [], overallAverage: 0 }
-      }));
-    } finally {
-      setIsLoadingModal(false);
-    }
-  }, [user]);
-
-  // Helper function to calculate term progress
-  const calculateTermProgress = useCallback((summary, currentTerm) => {
-    if (!summary.last_test_date || !currentTerm) return 0;
-    
-    // Get term dates from academic calendar
-    const termStart = new Date(currentTerm.start_date);
-    const termEnd = new Date(currentTerm.end_date);
-    const now = new Date();
-    
-    const totalDays = termEnd - termStart;
-    const elapsedDays = Math.min(now - termStart, totalDays);
-    
-    return Math.round((elapsedDays / totalDays) * 100);
-  }, []);
-
-  // Enhanced showClassResults from legacy code
-  const showResults = useCallback((grade, className) => {
-    logger.debug('👨‍🏫 Showing class results:', grade, className);
-    logger.debug('👨‍🏫 Class click - grade:', grade, 'className:', className);
-    setSelectedGrade(grade);
-    setSelectedClass(className);
-    setCurrentView('results');
-    
-    // Also load performance data for this class
-    const classKey = `${grade}/${className}`;
-    logger.debug('📊 Loading performance data for clicked class:', classKey);
-    setSelectedClassForChart(classKey);
-    loadPerformanceData(classKey);
-  }, [loadPerformanceData]);
 
   // Load test performance data for the simple graph
   const loadTestPerformanceData = useCallback(async (classKey = null) => {
@@ -722,6 +595,21 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [user?.teacher_id]);
 
+  // Enhanced showClassResults from legacy code
+  const showResults = useCallback((grade, className) => {
+    logger.debug('👨‍🏫 Showing class results:', grade, className);
+    logger.debug('👨‍🏫 Class click - grade:', grade, 'className:', className);
+    setSelectedGrade(grade);
+    setSelectedClass(className);
+    setCurrentView('results');
+    
+    // Also load performance data for this class
+    const classKey = `${grade}/${className}`;
+    logger.debug('📊 Loading performance data for clicked class:', classKey);
+    setSelectedClassForChart(classKey);
+    loadTestPerformanceData(classKey);
+  }, [loadTestPerformanceData]);
+
   // Performance data is now loaded only when a class button is clicked
   // No automatic loading on component mount
 
@@ -734,7 +622,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       const list = await mod.retestService.getRetestAssignments(user.teacher_id);
       setRetests(list);
     } catch (e) {
-      console.warn('Failed to load retests', e);
+      logger.warn('Failed to load retests', e);
     }
   }, [user]);
 
@@ -744,7 +632,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       const items = await mod.retestService.getRetestTargets(retestId);
       setRetestTargets(items);
     } catch (e) {
-      console.warn('Failed to load retest targets', e);
+      logger.warn('Failed to load retest targets', e);
     }
   }, []);
 
@@ -753,7 +641,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   
   // Debug state changes
   useEffect(() => {
-    console.debug('[TeacherCabinet] showRetestModal state changed:', showRetestModal);
+    logger.debug('[TeacherCabinet] showRetestModal state changed:', showRetestModal);
   }, [showRetestModal]);
   const [retestForm, setRetestForm] = useState({
     test_type: '',
@@ -767,7 +655,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   });
 
   const openRetestModal = useCallback(async (opts) => {
-    console.debug('[TeacherCabinet] openRetestModal called with:', opts);
+    logger.debug('[TeacherCabinet] openRetestModal called with:', opts);
     const { test_type, original_test_id, subject_id, failedStudentIds = [], grade, class: className } = opts || {};
     
     // Pre-populate from existing test data
@@ -786,7 +674,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     if (grade !== undefined) setSelectedGrade(grade);
     if (className !== undefined) setSelectedClass(className);
     
-    console.debug('[TeacherCabinet] Setting showRetestModal to true');
+    logger.debug('[TeacherCabinet] Setting showRetestModal to true');
     setShowRetestModal(true);
   }, []);
 
@@ -807,8 +695,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         window_end: windowEnd.toISOString()
       };
 
-      console.debug('[Retest][TeacherCabinet] Prepared payload:', JSON.stringify(payload));
-      console.debug('[Retest][TeacherCabinet] Selected students count:', (payload.student_ids || []).length, 'IDs:', payload.student_ids);
+      logger.debug('[Retest][TeacherCabinet] Prepared payload:', JSON.stringify(payload));
+      logger.debug('[Retest][TeacherCabinet] Selected students count:', (payload.student_ids || []).length, 'IDs:', payload.student_ids);
       
       await mod.retestService.createRetestAssignment(payload);
       showNotification('Retest created', 'success');
@@ -817,7 +705,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       // Force immediate refresh of class results to show blue state
       setResultsViewKey(k => k + 1);
     } catch (e) {
-      console.error('Create retest error', e);
+      logger.error('Create retest error', e);
       showNotification(e.message || 'Failed to create retest', 'error');
     }
   }, [retestForm, selectedGrade, selectedClass, loadRetests]);
