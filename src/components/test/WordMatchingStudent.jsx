@@ -202,6 +202,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const STROKE_WIDTH = Math.max(1, 3 * scale);
   const [studentArrows, setStudentArrows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [testStartTime, setTestStartTime] = useState(null);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackModal, setShowBackModal] = useState(false);
@@ -471,9 +472,20 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           <p className="text-gray-500 text-sm mt-1">Please wait while we process your results</p>
         </div>
       </PerfectModal>
+      {/* Top-right Back button above header */}
+      <div className="flex justify-end mb-2">
+        <Button
+          onClick={handleBackToCabinet}
+          variant="outline"
+          size="sm"
+          disabled={isSubmitting}
+        >
+          Back to Cabinet
+        </Button>
+      </div>
       {/* Test Header */}
       <Card className="mb-6">
-        <div className="text-center">
+        <div className="text-left">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{testData.test_name}</h2>
           <p className="text-gray-600">
             {testData.interaction_type === 'drag' 
@@ -775,14 +787,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             Reset
           </Button>
           <Button
-            onClick={handleBackToCabinet}
-            variant="outline"
-            disabled={isSubmitting}
-          >
-            Back to Cabinet
-          </Button>
-          <Button
-            onClick={handleSubmitTest}
+            onClick={() => setShowSubmitModal(true)}
             disabled={isSubmitting}
             className="px-8"
           >
@@ -828,7 +833,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
 
       {/* Back to Cabinet Confirmation Modal */}
       <PerfectModal
-        isOpen={showBackModal && !isSubmitting}
+        isOpen={showBackModal}
         onClose={() => setShowBackModal(false)}
         title="Exit Test"
         size="small"
@@ -849,6 +854,34 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
               variant="primary"
             >
               Leave
+            </Button>
+          </div>
+        </div>
+      </PerfectModal>
+
+      {/* Submit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title="Submit Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to submit?
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={() => setShowSubmitModal(false)}
+              variant="secondary"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }}
+              variant="primary"
+            >
+              Submit
             </Button>
           </div>
         </div>

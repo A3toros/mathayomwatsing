@@ -200,6 +200,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
   
   // OPTIMIZATION: Initialization protection state
   const [initializationState, setInitializationState] = useState({
@@ -1364,7 +1366,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           <Button
             variant="primary"
             size="lg"
-            onClick={handleSubmit}
+            onClick={() => setShowSubmitModal(true)}
             disabled={isSubmitting || getAnsweredCount() < questions.length}
             loading={isSubmitting}
           >
@@ -1411,6 +1413,37 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   
   return (
     <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      {/* Exit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        title="Exit Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setShowExitModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={() => { setShowExitModal(false); goBack(); }} variant="primary">Go Back</Button>
+          </div>
+        </div>
+      </PerfectModal>
+
+      {/* Submit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title="Submit Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">Are you sure you want to submit?</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setShowSubmitModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={() => { setShowSubmitModal(false); handleSubmit(); }} variant="primary">Submit</Button>
+          </div>
+        </div>
+      </PerfectModal>
       {/* Student Tests Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1422,7 +1455,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             
             <Button
               variant="outline"
-              onClick={goBack}
+              onClick={() => setShowExitModal(true)}
             >
               Back to Cabinet
             </Button>

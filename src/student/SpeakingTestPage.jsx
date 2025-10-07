@@ -7,6 +7,7 @@ import { useNotification } from '../components/ui/Notification';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
 import TestResults from '../components/test/TestResults';
 import Button from '../components/ui/Button';
+import PerfectModal from '../components/ui/PerfectModal';
 import { logger } from '../utils/logger';
 
 const SpeakingTestPage = () => {
@@ -22,6 +23,7 @@ const SpeakingTestPage = () => {
   const [error, setError] = useState(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   // Anti-cheating tracking
   const { startTracking, stopTracking, getCheatingData, clearData, isCheating, tabSwitches } = useAntiCheating(
@@ -212,7 +214,7 @@ const SpeakingTestPage = () => {
               
               <Button
                 variant="outline"
-                onClick={handleExit}
+                onClick={() => setShowExitModal(true)}
               >
                 Back to Cabinet
               </Button>
@@ -245,7 +247,7 @@ const SpeakingTestPage = () => {
               
               <Button
                 variant="outline"
-                onClick={handleExit}
+                onClick={() => setShowExitModal(true)}
               >
                 Back to Cabinet
               </Button>
@@ -279,7 +281,7 @@ const SpeakingTestPage = () => {
               
               <Button
                 variant="outline"
-                onClick={handleExit}
+                onClick={() => setShowExitModal(true)}
               >
                 Back to Cabinet
               </Button>
@@ -317,7 +319,7 @@ const SpeakingTestPage = () => {
               
               <Button
                 variant="outline"
-                onClick={handleExit}
+                onClick={() => setShowExitModal(true)}
               >
                 Back to Cabinet
               </Button>
@@ -343,6 +345,21 @@ const SpeakingTestPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      {/* Exit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        title="Exit Speaking Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setShowExitModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={() => { setShowExitModal(false); handleExit(); }} variant="primary">Go Back</Button>
+          </div>
+        </div>
+      </PerfectModal>
       {/* Speaking Test Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -353,7 +370,7 @@ const SpeakingTestPage = () => {
             
             <Button
               variant="outline"
-              onClick={handleExit}
+              onClick={() => setShowExitModal(true)}
             >
               Back to Cabinet
             </Button>

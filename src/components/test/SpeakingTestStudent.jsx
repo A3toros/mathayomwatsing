@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import AudioRecorder from './AudioRecorder';
 import FeedbackDisplay from './FeedbackDisplay';
 import TestResults from './TestResults';
+import Button from '../ui/Button';
+import PerfectModal from '../ui/PerfectModal';
 
 const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) => {
   const [currentStep, setCurrentStep] = useState('recording'); // permission, recording, processing, feedback, completed
@@ -11,6 +13,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [transcript, setTranscript] = useState('');
   const [scores, setScores] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
   const [error, setError] = useState(null);
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [maxAttempts] = useState(testData.max_attempts || 3);
@@ -696,7 +700,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             audioBlob={audioBlob}
             recordingTime={recordingTime}
             onReRecord={handleReRecord}
-            onFinalSubmit={handleSubmitTest}
+            onFinalSubmit={() => setShowSubmitModal(true)}
             canReRecord={attemptNumber < maxAttempts}
             attemptNumber={attemptNumber}
             maxAttempts={maxAttempts}
@@ -736,7 +740,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           <div className="speaking-test-completed">
             <TestResults
               testResults={testResultsData}
-              onBackToCabinet={onExit}
+              onBackToCabinet={() => setShowExitModal(true)}
               onRetakeTest={() => {
                 setCurrentStep('recording');
                 setTranscript('');
@@ -756,6 +760,39 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
 
   return (
     <div>
+      {/* Submit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showSubmitModal && !isSubmitting}
+        onClose={() => setShowSubmitModal(false)}
+        title="Submit Speaking Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to submit? 
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setShowSubmitModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }} variant="primary">Submit</Button>
+          </div>
+        </div>
+      </PerfectModal>
+
+      {/* Exit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        title="Exit Speaking Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setShowExitModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={() => { setShowExitModal(false); if (typeof onExit === 'function') onExit(); }} variant="primary">Go Back</Button>
+          </div>
+        </div>
+      </PerfectModal>
       
       {/* Test Content */}
       <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">

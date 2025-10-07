@@ -15,9 +15,6 @@ const PerfectModal = ({
   className = '',
   ...props
 }) => {
-  // Don't render if not open
-  if (!isOpen) return null;
-
   // Handle backdrop click
   const handleBackdropClick = (e) => {
     if (closeOnBackdropClick && e.target === e.currentTarget) {
@@ -25,7 +22,7 @@ const PerfectModal = ({
     }
   };
 
-  // Handle escape key
+  // Handle escape key and safe body scroll locking
   React.useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -33,14 +30,33 @@ const PerfectModal = ({
       }
     };
 
+    // Simple ref counter to handle multiple modals
+    const win = window;
+    if (!win.__modalOpenCount) win.__modalOpenCount = 0;
+
+    let previousOverflow;
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      previousOverflow = document.body.style.overflow;
+      if (win.__modalOpenCount === 0) {
+        document.body.style.overflow = 'hidden';
+      }
+      win.__modalOpenCount += 1;
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      if (win.__modalOpenCount && win.__modalOpenCount > 0) {
+        win.__modalOpenCount -= 1;
+      }
+      if (win.__modalOpenCount === 0) {
+        // Restore to previous value if defined, else remove inline style
+        if (previousOverflow !== undefined) {
+          document.body.style.overflow = previousOverflow || '';
+        } else {
+          document.body.style.overflow = '';
+        }
+      }
     };
   }, [isOpen, onClose]);
 
@@ -50,6 +66,8 @@ const PerfectModal = ({
     medium: 'max-w-lg',
     large: 'max-w-4xl'
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

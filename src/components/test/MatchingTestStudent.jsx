@@ -71,6 +71,7 @@ const MatchingTestStudent = ({
   const [testStartTime, setTestStartTime] = useState(null);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackModal, setShowBackModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   
   const { showNotification } = useNotification();
   const { makeAuthenticatedRequest } = useApi();
@@ -682,6 +683,10 @@ const MatchingTestStudent = ({
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
+        {/* Top-right Back button above header */}
+        <div className="flex justify-end mb-2">
+          <Button onClick={handleBackToCabinet} variant="outline" size="sm">Back to Cabinet</Button>
+        </div>
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex justify-between items-center">
@@ -708,19 +713,13 @@ const MatchingTestStudent = ({
           {/* Single responsive canvas area (words inside canvas) */}
           <div className="lg:col-span-3">
             <Card className="p-4">
-              {/* Reset and Back Buttons - above image */}
-              <div className="mb-4 text-center space-x-4">
+              {/* Reset Button - above image */}
+              <div className="mb-4 text-center">
                 <Button
                   onClick={handleReset}
                   variant="secondary"
                 >
                   Reset
-                </Button>
-                <Button
-                  onClick={handleBackToCabinet}
-                  variant="secondary"
-                >
-                  Back to Cabinet
                 </Button>
               </div>
               <div 
@@ -773,7 +772,7 @@ const MatchingTestStudent = ({
               </div>
               <div className="mt-4 text-center">
                 <Button
-                  onClick={handleSubmitTest}
+                  onClick={() => setShowSubmitModal(true)}
                   disabled={isSubmitting || testProgress < 100}
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Test'}
@@ -838,6 +837,34 @@ const MatchingTestStudent = ({
             </div>
           </div>
         </PerfectModal>
+
+      {/* Submit Confirmation Modal */}
+      <PerfectModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title="Submit Test"
+        size="small"
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to submit?
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={() => setShowSubmitModal(false)}
+              variant="secondary"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }}
+              variant="primary"
+            >
+              Submit
+            </Button>
+          </div>
+        </div>
+      </PerfectModal>
 
       </div>
     </div>
