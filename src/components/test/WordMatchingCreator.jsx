@@ -111,12 +111,6 @@ const WordMatchingCreator = ({
       transition={{ duration: 0.3 }}
       className="max-w-6xl mx-auto p-6"
     >
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Word Matching Test</h2>
-        <p className="text-gray-600">Enter word pairs - position 1 left matches position 1 right</p>
-      </div>
-
       {/* Interaction Type Selection */}
       <Card className="mb-6">
         <div className="mb-6">

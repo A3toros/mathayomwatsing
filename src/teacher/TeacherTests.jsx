@@ -2737,7 +2737,7 @@ const TeacherTests = () => {
 
               {/* Drawing Test Interface */}
               {testType === 'drawing' && (
-                <div className="drawing-test-section">
+                <Card>
                   {console.log('🎨 Rendering DrawingTestCreator, testType:', testType)}
                   <DrawingTestCreator
                     testName={formData.testName}
@@ -2747,12 +2747,12 @@ const TeacherTests = () => {
                     isSaving={isSavingTest}
                     validationErrors={{}}
                   />
-                </div>
+                </Card>
               )}
 
               {/* Fill Blanks Test Interface */}
               {testType === 'fillBlanks' && (
-                <div className="fill-blanks-test-section">
+                <Card>
                   {console.log('📝 Rendering FillBlanksTestCreator, testType:', testType)}
                   <FillBlanksTestCreator
                     testName={formData.testName}
@@ -2763,7 +2763,7 @@ const TeacherTests = () => {
                     isSaving={isSavingTest}
                     validationErrors={{}}
                   />
-                </div>
+                </Card>
               )}
 
               {/* Speaking Test Interface */}

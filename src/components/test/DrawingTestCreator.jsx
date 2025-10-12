@@ -162,8 +162,7 @@ const DrawingTestCreator = ({
   };
 
   return (
-    <div className="drawing-test-creator max-w-4xl mx-auto p-6">
-      <Card className="p-6">
+    <div className="drawing-test-creator max-w-4xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Create Drawing Test</h2>
           <p className="text-gray-600">Create a test where students draw based on your instructions</p>
@@ -230,61 +229,6 @@ const DrawingTestCreator = ({
                   />
                 </div>
 
-                {/* Canvas Settings */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Canvas Dimensions
-                  </label>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Canvas is the actual drawing area, viewport is the initial display size
-                  </p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Viewport Width</label>
-                      <input
-                        type="number"
-                        value={question.canvas_width}
-                        onChange={(e) => updateQuestionCanvas(question.id, parseInt(e.target.value), question.canvas_height)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        min="200"
-                        max="2048"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Viewport Height</label>
-                      <input
-                        type="number"
-                        value={question.canvas_height}
-                        onChange={(e) => updateQuestionCanvas(question.id, question.canvas_width, parseInt(e.target.value))}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        min="200"
-                        max="2048"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Canvas Width</label>
-                      <input
-                        type="number"
-                        value={question.max_canvas_width}
-                        onChange={(e) => updateQuestionMaxCanvas(question.id, parseInt(e.target.value), question.max_canvas_height)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        min="200"
-                        max="4096"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Canvas Height</label>
-                      <input
-                        type="number"
-                        value={question.max_canvas_height}
-                        onChange={(e) => updateQuestionMaxCanvas(question.id, question.max_canvas_width, parseInt(e.target.value))}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        min="200"
-                        max="4096"
-                      />
-                    </div>
-                  </div>
-                </div>
               </motion.div>
             ))}
           </div>
@@ -322,7 +266,6 @@ const DrawingTestCreator = ({
             )}
           </Button>
         </div>
-      </Card>
     </div>
   );
 };

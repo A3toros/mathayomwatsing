@@ -1,4 +1,4 @@
-import React, { useReducer, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useReducer, useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import { Stage, Layer, Rect, Arrow, Image as KonvaImage, Text as KonvaText, Group, Transformer } from 'react-konva';
 import Konva from 'konva';
 import { motion } from 'framer-motion';
@@ -20,7 +20,6 @@ import { validateInput } from '../../utils/validation';
 
 // ✅ NEW CUSTOM HOOKS
 import { useKonvaCanvas } from '../../hooks/useKonvaCanvas';
-import { useEnhancedImageScaling } from '../../hooks/useEnhancedImageScaling';
 import { useResponsiveContainer } from '../../hooks/useResponsiveContainer';
 import { useCoordinateConversion } from '../../hooks/useCoordinateConversion';
 
@@ -156,7 +155,37 @@ const MatchingTestCreator = ({
   // Custom hooks
   const { canvasSize, stageRef, updateCanvasSize } = useKonvaCanvas(containerRef);
   const { containerSize, responsiveSettings } = useResponsiveContainer(containerRef);
-  const { imageInfo, isPortrait, isLandscape, isSquare } = useEnhancedImageScaling(state.canvas.image, containerSize);
+  // Use direct container height like student component
+  const [imageInfo, setImageInfo] = useState(null);
+  
+  // Image scaling logic (same as student)
+  useEffect(() => {
+    if (!state.canvas.image || !containerRef.current) return;
+    
+    const containerWidth = containerRef.current?.clientWidth || 800;
+    const containerHeight = containerRef.current?.clientHeight || 600;
+    
+    const scaleX = containerWidth / state.canvas.image.width;
+    const scaleY = containerHeight / state.canvas.image.height;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+    
+    const scaledWidth = state.canvas.image.width * scale;
+    const scaledHeight = state.canvas.image.height * scale;
+    
+    const x = (containerWidth - scaledWidth) / 2;
+    const y = (containerHeight - scaledHeight) / 2;
+    
+    setImageInfo({
+      x,
+      y,
+      width: scaledWidth,
+      height: scaledHeight,
+      scaleX: scale,
+      scaleY: scale,
+      scale: scale,
+      image: state.canvas.image
+    });
+  }, [state.canvas.image, containerRef.current?.clientWidth, containerRef.current?.clientHeight]);
   const { convertToOriginal, convertToCanvas } = useCoordinateConversion(imageInfo);
   
   // Update canvas size in state
@@ -442,6 +471,22 @@ const MatchingTestCreator = ({
     }
   }, [state.creation, state.testData.blocks, showNotification]);
   
+  // Touch handlers that prevent default and call mouse handlers
+  const handleCanvasTouchStart = useCallback((e) => {
+    e.evt.preventDefault();
+    handleCanvasMouseDown(e);
+  }, [handleCanvasMouseDown]);
+  
+  const handleCanvasTouchMove = useCallback((e) => {
+    e.evt.preventDefault();
+    handleCanvasMouseMove(e);
+  }, [handleCanvasMouseMove]);
+  
+  const handleCanvasTouchEnd = useCallback((e) => {
+    e.evt.preventDefault();
+    handleCanvasMouseUp(e);
+  }, [handleCanvasMouseUp]);
+  
   const handleSaveTest = useCallback(async () => {
     console.log('🟢 [MatchingTestCreator] handleSaveTest clicked');
     const errors = validateTestData();
@@ -626,6 +671,9 @@ const MatchingTestCreator = ({
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
+      onTouchStart={handleCanvasTouchStart}
+      onTouchMove={handleCanvasTouchMove}
+      onTouchEnd={handleCanvasTouchEnd}
       className={state.canvas.selectedTool === 'arrow' || state.canvas.selectedTool === 'create' ? 'cursor-crosshair' : 'cursor-default'}
     >
       <Layer>

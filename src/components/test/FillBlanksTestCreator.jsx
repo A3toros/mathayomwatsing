@@ -247,18 +247,10 @@ const FillBlanksTestCreator = ({
   };
 
   return (
-    <div className="fill-blanks-test-creator max-w-4xl mx-auto p-6">
-      <Card className="p-6">
+    <div className="fill-blanks-test-creator max-w-4xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Create Fill Blanks Test</h2>
-          <p className="text-gray-600">Create a test with rich text content and multiple choice blanks</p>
-          <div className="mt-2 text-sm text-gray-600">
-            <div className="flex items-center gap-4">
-              <span><strong>Test Name:</strong> {testName || 'Untitled Test'}</span>
-              <span><strong>Blanks:</strong> {testData.num_blanks} (auto-calculated)</span>
-              <span><strong>Timer:</strong> {testData.allowed_time ? `${testData.allowed_time} minutes` : 'No timer'}</span>
-            </div>
-          </div>
+          <p className="text-gray-600">Create a test with text content and multiple choice blanks</p>
           {ui.error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{ui.error}</p>
@@ -266,54 +258,55 @@ const FillBlanksTestCreator = ({
           )}
         </div>
 
-        {/* Blank Mode Toggle */}
+        {/* Text Content Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800">
-                Text Content with Blanks
-              </h3>
-              <p className="text-sm text-gray-500">Type your text and add blanks where needed</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Blank Mode Toggle */}
-              <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-700">Mode:</span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setTestData(prev => ({ ...prev, separate_type: true }))}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      testData.separate_type === true
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Separate
-                  </button>
-                  <button
-                    onClick={() => setTestData(prev => ({ ...prev, separate_type: false }))}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      testData.separate_type === false
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Inline
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+
           
-          {/* Mode Description */}
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>{testData.separate_type === true ? 'Separate Mode:' : 'Inline Mode:'}</strong>{' '}
-              {testData.separate_type === true 
-                ? 'Students see numbered blanks in text and answer questions below'
-                : 'Students see clickable blanks in text with dropdown options'
-              }
-            </p>
+          {/* Display Mode Selection - Card Style */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div 
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                testData.separate_type === true 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => setTestData(prev => ({ ...prev, separate_type: true }))}
+            >
+              <div className="flex items-center mb-2">
+                <input 
+                  type="radio" 
+                  checked={testData.separate_type === true} 
+                  onChange={() => setTestData(prev => ({ ...prev, separate_type: true }))}
+                  className="mr-3"
+                />
+                <h4 className="font-medium">Separate Mode</h4>
+              </div>
+              <p className="text-sm text-gray-600">
+                Multiple choice questions below the text
+              </p>
+            </div>
+            
+            <div 
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                testData.separate_type === false 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => setTestData(prev => ({ ...prev, separate_type: false }))}
+            >
+              <div className="flex items-center mb-2">
+                <input 
+                  type="radio" 
+                  checked={testData.separate_type === false} 
+                  onChange={() => setTestData(prev => ({ ...prev, separate_type: false }))}
+                  className="mr-3"
+                />
+                <h4 className="font-medium">Inline Mode</h4>
+              </div>
+              <p className="text-sm text-gray-600">
+                Dropdown for option inside the text
+              </p>
+            </div>
           </div>
 
           {/* Fill Blanks Lexical Editor with Integrated Add Blank Button */}
@@ -518,7 +511,6 @@ const FillBlanksTestCreator = ({
             {isSaving ? <LoadingSpinner size="sm" /> : 'Save Test'}
           </Button>
         </div>
-      </Card>
     </div>
   );
 };
