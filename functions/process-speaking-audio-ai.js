@@ -112,16 +112,21 @@ exports.handler = async (event, context) => {
 
     // Process audio with AssemblyAI for transcription
     console.log('Processing audio with AssemblyAI...');
-    const transcript = await transcribeAudioWithAssemblyAI(audio_blob);
-    console.log('Transcript:', transcript);
+    const transcriptionResult = await transcribeAudioWithAssemblyAI(audio_blob);
+    console.log('Transcription result:', transcriptionResult);
 
-    if (!transcript || transcript.trim().length === 0) {
+    if (!transcriptionResult.text || transcriptionResult.text.trim().length === 0) {
       throw new Error('Your speech was not recognized, please speak louder');
     }
 
-    // Analyze with GPT-4o Mini
+    // Analyze with GPT-4o Mini (enhanced with word confidence)
     console.log('Analyzing with GPT-4o Mini...');
-    const analysis = await analyzeWithGPT4oMini(transcript, config.prompt, config.difficulty_level);
+    const analysis = await analyzeWithGPT4oMiniEnhanced(
+      transcriptionResult.text, 
+      transcriptionResult.words, 
+      config.prompt, 
+      config.difficulty_level
+    );
     console.log('GPT-4o Mini analysis:', analysis);
 
     // Calculate overall score
@@ -145,6 +150,7 @@ exports.handler = async (event, context) => {
       grammar_corrections: analysis.grammar_corrections || [],
       vocabulary_corrections: analysis.vocabulary_corrections || [],
       language_use_corrections: analysis.language_use_corrections || [],
+      pronunciation_corrections: analysis.pronunciation_corrections || [], // NEW: Enhanced pronunciation feedback
       prompt: config.prompt,
       difficulty_level: config.difficulty_level
     };
@@ -159,7 +165,7 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         success: true,
-        transcript,
+        transcript: transcriptionResult.text,
         // Use existing columns only
         grammar_mistakes: analysis.grammar_mistakes,
         vocabulary_mistakes: analysis.vocabulary_mistakes,
@@ -172,6 +178,7 @@ exports.handler = async (event, context) => {
         grammar_corrections: analysis.grammar_corrections || [],
         vocabulary_corrections: analysis.vocabulary_corrections || [],
         language_use_corrections: analysis.language_use_corrections || [],
+        pronunciation_corrections: analysis.pronunciation_corrections || [], // NEW: Enhanced pronunciation feedback
         // Add individual category scores for frontend display
         grammar_score: analysis.grammar_score,
         vocabulary_score: analysis.vocabulary_score,
@@ -249,7 +256,11 @@ async function transcribeAudioWithAssemblyAI(audioBlob) {
       console.log(`Transcription status: ${status} (attempt ${attempts + 1})`);
 
       if (status === 'completed') {
-        return statusResponse.data.text;
+        return {
+          text: statusResponse.data.text,
+          words: statusResponse.data.words, // Word-level data with confidence
+          confidence: statusResponse.data.confidence // Overall confidence
+        };
       } else if (status === 'error') {
         throw new Error(`Transcription failed: ${statusResponse.data.error}`);
       }
@@ -266,7 +277,7 @@ async function transcribeAudioWithAssemblyAI(audioBlob) {
   }
 }
 
-async function analyzeWithGPT4oMini(transcript, prompt, difficultyLevel) {
+async function analyzeWithGPT4oMiniEnhanced(transcript, words, prompt, difficultyLevel) {
   try {
     const analysisPrompt = `
 You are a language evaluation assistant. 
@@ -275,6 +286,10 @@ Evaluate spoken transcripts for grammar, vocabulary, pronunciation, fluency, and
 Rules:
 - Do NOT evaluate inclusivity, cultural, or stylistic preferences. 
 - Do NOT correct capitalization, casing, spelling, or punctuation from speech transcripts. 
+- The transcript represents spoken language, not written text.
+- Ignore punctuation, capitalization, and spelling completely — these are artifacts of transcription, not speech.
+- Do not merge or split sentences based on writing conventions.
+- Sentence fragments like "Because…" or "So…" are natural in conversation and should not be corrected unless they make the meaning unclear.
 - Accept multiple valid variants (gerund vs. infinitive, tense variations, dialectal differences like US/UK English). 
 - Do NOT mark something as incorrect just because one form is more common or "sounds more natural." 
 - Do NOT rewrite correct sentences or offer stylistic alternatives. Only correct actual errors in grammar, vocabulary, or clarity. 
@@ -283,6 +298,14 @@ Rules:
 PROMPT: "${prompt}"
 STUDENT RESPONSE: "${transcript}"
 STUDENT LEVEL: ${difficultyLevel} (${getCEFRDescription(difficultyLevel)})
+
+Word Confidence Data (AssemblyAI format):
+${JSON.stringify(words, null, 2)}
+
+Each word object contains:
+- text: The word text
+- confidence: 0.0-1.0 (low confidence = potential pronunciation issues)
+- start/end: Timing in milliseconds
 
 IMPORTANT: Evaluate the student based on their CURRENT LEVEL (${difficultyLevel}). 
 - For A1 students: Expect basic vocabulary, simple present tense, basic sentence structure
@@ -296,14 +319,14 @@ Evaluate on these 5 categories and return JSON:
 {
   "grammar_score": 0-25,        // Grammar accuracy appropriate for ${difficultyLevel} level
   "vocabulary_score": 0-20,     // Word choice and variety appropriate for ${difficultyLevel} level
-  "pronunciation_score": 0-15,  // Clarity and accuracy appropriate for ${difficultyLevel} level
+  "pronunciation_score": 0-15,  // GPT-4 calculates based on transcript + word confidence
   "fluency_score": 0-20,        // Pace, pauses, flow appropriate for ${difficultyLevel} level
   "content_score": 0-20,        // How well they addressed the prompt (appropriate for ${difficultyLevel} level)
   "grammar_mistakes": number,   // Count of grammar errors for ${difficultyLevel} level
   "vocabulary_mistakes": number, // Count of vocabulary issues for ${difficultyLevel} level
   "language_use_mistakes": number, // Count of unnatural/awkward usage issues for ${difficultyLevel} level
   "word_count": number,         // Total words spoken
-  "feedback": "string",         // Teacher-style feedback message appropriate for ${difficultyLevel} level
+  "feedback": "string",         // Structured feedback with one paragraph per skill (Grammar, Vocabulary, Pronunciation, Fluency, Content) appropriate for ${difficultyLevel} level
   "improved_transcript": "string", // Corrected version of the transcript with grammar and vocabulary improvements
   "grammar_corrections": [      // Array of specific grammar mistakes with explanations
     {
@@ -325,8 +348,62 @@ Evaluate on these 5 categories and return JSON:
       "suggestion": "more natural/idiomatic phrase",
       "explanation": "why the suggestion sounds more natural or clearer in English"
     }
+  ],
+  "pronunciation_corrections": [   // NEW: Enhanced pronunciation feedback
+    {
+      "word": "problematic word",
+      "correction": "Simple correction tip"
+    }
   ]
 }
+
+For "pronunciation_score":
+- Analyze pronunciation accuracy based on transcript content and word confidence scores
+- Use word confidence data to identify potentially mispronounced words:
+  * confidence > 0.9 = excellent pronunciation
+  * confidence 0.7-0.9 = good pronunciation  
+  * confidence 0.5-0.7 = potential pronunciation issues
+  * confidence < 0.5 = likely pronunciation problems
+- Focus ONLY on actual sound substitutions or omissions that affect intelligibility (e.g., /TH/→/T/, /R/→/L/, /V/→/B/)
+- Consider overall clarity, stress, rhythm, and syllable emphasis appropriate for the student's proficiency level
+- Do NOT penalize minor accent-related variations if they do not reduce intelligibility
+- If multiple pronunciations are acceptable (e.g., American vs British), do NOT treat differences as errors
+- Provide clear, actionable feedback describing specific mispronunciations and how to improve them
+- Output score based on overall clarity and intelligibility, not accent neutrality or native-likeness
+
+For "vocabulary_score":
+- Score "range" based on the variety of words and phrases used appropriately for the student's CEFR level.
+  * A1–A2: Basic everyday words are fine; limited range is expected.
+  * B1: Some repetition is acceptable; occasional use of topic-related or descriptive words expected.
+  * B2: Should include some idiomatic or less common words; repetition lowers score.
+  * C1–C2: Wide lexical range; precise and flexible use of vocabulary.
+
+- Score "accuracy" based on the correctness and appropriacy of words used.
+  * Only mark as wrong if the word choice makes the meaning unclear or inappropriate for the context.
+  * Do NOT penalize if a simpler but correct word is used at lower levels.
+
+- Vocabulary feedback must describe both:
+  * what the student does well (e.g., "Good use of descriptive vocabulary related to acting.")
+  * and what could be improved (e.g., "Try using more varied adjectives instead of repeating 'behaves'.")
+
+Focus on actual pronunciation errors and provide specific, actionable feedback for improvement.
+
+FEEDBACK FORMAT:
+Provide structured feedback with one paragraph per skill area:
+- Grammar: Comment on accuracy and common issues for the student's level
+- Vocabulary: Note range, accuracy, and specific suggestions for improvement  
+- Pronunciation: Mention clarity, specific sounds, and rhythm/flow
+- Fluency: Comment on pace, pauses, and overall delivery
+- Content: Assess how well the student addressed the prompt
+
+Example format (MUST be a single string, not an object):
+"Grammar: Generally accurate with one article issue. 
+Vocabulary: Good range for B1 level; could use more varied adjectives (e.g., 'dedicated', 'intense'). 
+Pronunciation: Clear and easy to understand with minor rhythm issues. 
+Fluency: Smooth delivery with only brief pauses. 
+Content: Fully addresses the topic."
+
+IMPORTANT: The feedback field must be a single string, not an object with separate keys. Format it as one continuous string with line breaks between sections.
 
 SCORING GUIDELINES FOR ${difficultyLevel}:
 ${getScoringGuidelines(difficultyLevel)}

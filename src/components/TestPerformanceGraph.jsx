@@ -125,45 +125,58 @@ export const TestPerformanceGraph = ({ data = [], loading = false, error = null 
         <div className="row">
           <div className="col-md-3">
             <div className="text-center">
+              <span className="text-muted">Total Tests: </span>
               <strong>{graphData.length}</strong>
-              <br />
-              <small className="text-muted">Total Tests</small>
             </div>
           </div>
           <div className="col-md-3">
             <div className="text-center">
+              <span className="text-muted">Average Score: </span>
               <strong>
                 {graphData.length > 0 
-                  ? `${(graphData.reduce((sum, test) => sum + test.averageScore, 0) / graphData.length).toFixed(1)}%`
+                  ? (() => {
+                      const validScores = graphData.filter(test => 
+                        test.averageScore !== null && 
+                        test.averageScore !== undefined && 
+                        !isNaN(test.averageScore)
+                      );
+                      if (validScores.length === 0) return 'N/A';
+                      const average = validScores.reduce((sum, test) => sum + test.averageScore, 0) / validScores.length;
+                      return `${average.toFixed(1)}%`;
+                    })()
                   : 'N/A'
                 }
               </strong>
-              <br />
-              <small className="text-muted">Average Score</small>
             </div>
           </div>
           <div className="col-md-3">
             <div className="text-center">
+              <span className="text-muted">Best Test: </span>
               <strong>
                 {graphData.length > 0 
-                  ? graphData.reduce((best, test) => test.averageScore > best.averageScore ? test : best).testName
+                  ? (() => {
+                      const validScores = graphData.filter(test => 
+                        test.averageScore !== null && 
+                        test.averageScore !== undefined && 
+                        !isNaN(test.averageScore)
+                      );
+                      if (validScores.length === 0) return 'N/A';
+                      return validScores.reduce((best, test) => test.averageScore > best.averageScore ? test : best).testName;
+                    })()
                   : 'N/A'
                 }
               </strong>
-              <br />
-              <small className="text-muted">Best Test</small>
             </div>
           </div>
           <div className="col-md-3">
             <div className="text-center">
+              <span className="text-muted">Latest Test: </span>
               <strong>
                 {graphData.length > 0 
                   ? graphData[graphData.length - 1].testName
                   : 'N/A'
                 }
               </strong>
-              <br />
-              <small className="text-muted">Latest Test</small>
             </div>
           </div>
         </div>

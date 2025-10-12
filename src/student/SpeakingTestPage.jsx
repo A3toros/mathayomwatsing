@@ -10,6 +10,35 @@ import Button from '../components/ui/Button';
 import PerfectModal from '../components/ui/PerfectModal';
 import { logger } from '../utils/logger';
 
+// Seeded random number generator (mulberry32)
+const mulberry32 = (a) => {
+  return function() {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+};
+
+// Function to select a random question deterministically
+const selectRandomQuestion = (questions, testId, studentId) => {
+  // If only one question, return it
+  if (questions.length === 1) {
+    return questions[0];
+  }
+  
+  // Create deterministic seed from student ID and test ID
+  const seedStr = `${studentId}:speaking:${testId}`;
+  const seed = Array.from(seedStr).reduce((acc, c) => 
+    ((acc << 5) - acc) + c.charCodeAt(0), 0) >>> 0;
+  
+  // Use seeded RNG for consistent selection
+  const rng = mulberry32(seed);
+  const randomIndex = Math.floor(rng() * questions.length);
+  
+  return questions[randomIndex];
+};
+
 const SpeakingTestPage = () => {
   const { testId } = useParams();
   const navigate = useNavigate();
@@ -19,6 +48,7 @@ const SpeakingTestPage = () => {
   
   const [testData, setTestData] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -105,7 +135,21 @@ const SpeakingTestPage = () => {
       // Load questions
       const questionsResponse = await api.getSpeakingTestQuestions(testId);
       if (questionsResponse.success) {
-        setQuestions(questionsResponse.questions);
+        const allQuestions = questionsResponse.questions;
+        setQuestions(allQuestions);
+        
+        // Select random question for this student
+        const studentId = user?.student_id || user?.id;
+        const randomQuestion = selectRandomQuestion(allQuestions, testId, studentId);
+        setSelectedQuestion(randomQuestion);
+        
+        logger.debug('🎯 Selected question for student:', {
+          studentId,
+          testId,
+          totalQuestions: allQuestions.length,
+          selectedQuestion: randomQuestion?.id,
+          selectedPrompt: randomQuestion?.prompt?.substring(0, 50) + '...'
+        });
       }
 
     } catch (error) {
@@ -340,8 +384,8 @@ const SpeakingTestPage = () => {
     );
   }
 
-  // Get the first question (speaking tests typically have one question)
-  const currentQuestion = questions[0];
+  // Use the selected question (randomly chosen for this student)
+  const currentQuestion = selectedQuestion;
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-y-auto">
@@ -379,6 +423,29 @@ const SpeakingTestPage = () => {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Question Selection Info for Multiple Questions */}
+        {questions.length > 1 && selectedQuestion && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">i</span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Question Selection
+                </h3>
+                <div className="mt-1 text-sm text-blue-700">
+                  <p>
+                    This test has {questions.length} questions. You have been assigned <strong>Question {selectedQuestion.question_number}</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <SpeakingTestStudent
           testData={{
             ...testData,

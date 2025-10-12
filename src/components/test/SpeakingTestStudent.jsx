@@ -20,6 +20,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [maxAttempts] = useState(testData.max_attempts || 3);
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false); // NEW: Flag to prevent duplicate API calls
   
   // iOS detection function
   const isIOS = () => {
@@ -72,12 +73,10 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   }, [currentStep]);
 
 
-  // Automatically request microphone permission when component mounts
+  // Check microphone permission status without automatically requesting it
   useEffect(() => {
-    const requestPermission = async () => {
+    const checkPermissionStatus = async () => {
       try {
-        console.log('🎤 Automatically requesting microphone permission...');
-        
         // Check if we're in a secure context (required for iOS)
         if (!window.isSecureContext && !window.location.hostname.includes('localhost')) {
           setError('Microphone access requires HTTPS. Please use a secure connection.');
@@ -90,35 +89,26 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           return;
         }
         
-        // For iOS Safari, we need to request permission in a user interaction
-        if (isIOS()) {
-          // Don't show error message for iOS - let the user try the button
-          return;
+        // Check permission status without requesting it
+        if (navigator.permissions) {
+          try {
+            const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+            if (permissionStatus.state === 'granted') {
+              setHasMicPermission(true);
+              console.log('🎤 Microphone permission already granted');
+            } else {
+              console.log('🎤 Microphone permission not yet granted - user will need to click record button');
+            }
+          } catch (err) {
+            console.log('🎤 Could not check microphone permission status:', err);
+          }
         }
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          } 
-        });
-        console.log('🎤 Microphone permission granted!');
-        setHasMicPermission(true);
-        stream.getTracks().forEach(track => track.stop());
       } catch (err) {
-        console.error('🎤 Microphone permission denied:', err);
-        if (err.name === 'NotAllowedError') {
-          setError('Microphone access denied. Please allow microphone access in your browser settings and refresh the page.');
-        } else if (err.name === 'NotFoundError') {
-          setError('No microphone found. Please connect a microphone and try again.');
-        } else {
-          setError('Microphone access failed. Please check your browser settings and try again.');
-        }
+        console.error('🎤 Error checking microphone permission:', err);
       }
     };
     
-    requestPermission();
+    checkPermissionStatus();
   }, []);
 
   // Request microphone permission with forced popup
@@ -298,7 +288,14 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   }, [audioBlob, transcript, scores, recordingTime, currentStep, testData, user, saveSpeakingTestData]);
 
   const handleRecordingComplete = useCallback(async (audioBlobData, recordingDuration) => {
+    // Prevent duplicate processing
+    if (isProcessing) {
+      console.log('🎤 Already processing, skipping duplicate call');
+      return;
+    }
+    
     console.log('🎤 Recording completed, duration:', recordingDuration);
+    setIsProcessing(true); // Set flag to prevent duplicate calls
     setAudioBlob(audioBlobData);
     setRecordingTime(recordingDuration);
     setCurrentStep('processing');
@@ -391,6 +388,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           grammar_corrections: result.grammar_corrections || [],
           vocabulary_corrections: result.vocabulary_corrections || [],
           language_use_corrections: result.language_use_corrections || [],
+          pronunciation_corrections: result.pronunciation_corrections || [], // NEW: Enhanced pronunciation feedback
           // Include full AI feedback object for persistence on final submit
           ai_feedback: result.ai_feedback || null
         };
@@ -430,8 +428,24 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       console.error('Speaking test submission error:', error);
       setError(error.message);
       setCurrentStep('recording');
+    } finally {
+      setIsProcessing(false); // Clear flag when processing completes or fails
     }
-  }, [testData, user, makeAuthenticatedRequest, attemptNumber, saveAttemptsToStorage]);
+  }, [testData, user, makeAuthenticatedRequest, attemptNumber, saveAttemptsToStorage, isProcessing]);
+
+  // Recovery effect to handle page reload during processing
+  useEffect(() => {
+    if (currentStep === 'processing' && !transcript && !scores) {
+      console.log('🔁 Detected stuck "processing" state on reload. Attempting recovery...');
+      if (audioBlob) {
+        console.log('🔁 Resuming processing from cached audio blob...');
+        handleRecordingComplete(audioBlob, recordingTime);
+      } else {
+        console.log('🔁 No cached audio blob found. Resetting to recording step.');
+        setCurrentStep('recording');
+      }
+    }
+  }, [currentStep, transcript, scores, audioBlob, recordingTime, handleRecordingComplete]);
 
   const handleReRecord = useCallback(() => {
     if (attemptNumber < maxAttempts) {
@@ -439,6 +453,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       setTranscript('');
       setScores(null);
       setError(null);
+      setIsProcessing(false); // Reset processing flag for new attempt
       
       // Increment attempt when student decides to re-record after seeing results
       const newAttempt = attemptNumber + 1;

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import PerfectModal from '../ui/PerfectModal';
 import { Notification, useNotification } from '../ui/Notification';
 
 // ✅ REUSE EXISTING HOOKS
@@ -19,7 +20,8 @@ import { validateInput } from '../../utils/validation';
 
 // ✅ NEW CUSTOM HOOKS
 import { useKonvaCanvas } from '../../hooks/useKonvaCanvas';
-import { useImageScaling } from '../../hooks/useImageScaling';
+import { useEnhancedImageScaling } from '../../hooks/useEnhancedImageScaling';
+import { useResponsiveContainer } from '../../hooks/useResponsiveContainer';
 import { useCoordinateConversion } from '../../hooks/useCoordinateConversion';
 
 // ✅ NEW UTILITIES
@@ -27,6 +29,7 @@ import { blockUtils } from '../../utils/blockUtils';
 import { arrowUtils } from '../../utils/arrowUtils';
 import { wordUtils } from '../../utils/wordUtils';
 import { coordinateUtils } from '../../utils/coordinateUtils';
+import { validateImageFile, compressImage, fileToDataUrl, getMobileOptimizedSettings } from '../../utils/imageUtils';
 
 // CLEAN STATE MANAGEMENT - NO MORE 15+ useState HOOKS
 const initialState = {
@@ -61,7 +64,9 @@ const initialState = {
     selectedBlock: null,
     showWordPanel: false,
     isLoading: false,
-    error: null
+    error: null,
+    showImageSizeModal: false,
+    imageSizeError: null
   }
 };
 
@@ -113,6 +118,10 @@ const reducer = (state, action) => {
       return { ...state, ui: { ...state.ui, isLoading: action.payload } };
     case 'SET_ERROR':
       return { ...state, ui: { ...state.ui, error: action.payload } };
+    case 'SHOW_IMAGE_SIZE_MODAL':
+      return { ...state, ui: { ...state.ui, showImageSizeModal: true, imageSizeError: action.payload } };
+    case 'HIDE_IMAGE_SIZE_MODAL':
+      return { ...state, ui: { ...state.ui, showImageSizeModal: false, imageSizeError: null } };
     case 'RESET_TESTDATA':
       return {
         ...state,
@@ -146,7 +155,8 @@ const MatchingTestCreator = ({
   
   // Custom hooks
   const { canvasSize, stageRef, updateCanvasSize } = useKonvaCanvas(containerRef);
-  const imageInfo = useImageScaling(state.canvas.image, canvasSize);
+  const { containerSize, responsiveSettings } = useResponsiveContainer(containerRef);
+  const { imageInfo, isPortrait, isLandscape, isSquare } = useEnhancedImageScaling(state.canvas.image, containerSize);
   const { convertToOriginal, convertToCanvas } = useCoordinateConversion(imageInfo);
   
   // Update canvas size in state
@@ -184,16 +194,48 @@ const MatchingTestCreator = ({
   }, []);
   
   // Event handlers
-  const handleImageUpload = useCallback((event) => {
+  const handleImageUpload = useCallback(async (event) => {
     const file = event.target.files[0];
-    if (!file || !file.type.startsWith('image/')) {
-      showNotification('Please select a valid image file', 'error');
+    if (!file) {
+      showNotification('Please select a file', 'error');
       return;
     }
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target.result;
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      // Validate file
+      const validation = await validateImageFile(file);
+      if (!validation.valid) {
+        // Show modal with detailed error feedback
+        dispatch({ 
+          type: 'SHOW_IMAGE_SIZE_MODAL', 
+          payload: {
+            errors: validation.errors,
+            fileSize: (file.size / 1024).toFixed(1),
+            dimensions: validation.dimensions
+          }
+        });
+        return;
+      }
+      
+      // Compress if needed
+      let processedFile = file;
+      if (file.size > 500 * 1024) { // 500KB
+        showNotification('Image is large, compressing to meet size requirements...', 'info');
+        try {
+          processedFile = await compressImage(file, 500);
+          const originalSize = (file.size / 1024).toFixed(1);
+          const compressedSize = (processedFile.size / 1024).toFixed(1);
+          showNotification(`Image compressed from ${originalSize}KB to ${compressedSize}KB`, 'success');
+        } catch (compressionError) {
+          showNotification('Failed to compress image. Please try a smaller image.', 'error');
+          return;
+        }
+      }
+      
+      // Convert to data URL
+      const imageUrl = await fileToDataUrl(processedFile);
       const imageObj = new Image();
       imageObj.crossOrigin = 'anonymous';
       imageObj.onload = () => {
@@ -202,10 +244,18 @@ const MatchingTestCreator = ({
           type: 'SET_UI_STATE', 
           payload: { imageUrl } 
         });
+        showNotification('Image uploaded successfully!', 'success');
+      };
+      imageObj.onerror = () => {
+        showNotification('Failed to load image', 'error');
       };
       imageObj.src = imageUrl;
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Image upload error:', error);
+      showNotification('Error processing image', 'error');
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
   }, [showNotification]);
   
   const handleCanvasMouseDown = useCallback((e) => {
@@ -362,11 +412,17 @@ const MatchingTestCreator = ({
         const finalEndY = snappedEnd ? snappedEnd.y : pos.y;
         
         const arrowId = arrowUtils.generateId();
+        const mobileSettings = getMobileOptimizedSettings();
+        
         const newArrow = arrowUtils.create(
           finalStartX, finalStartY, finalEndX, finalEndY,
           snappedStart ? snappedStart.blockId : null,
           snappedEnd ? snappedEnd.blockId : null,
-          arrowId
+          arrowId,
+          {
+            strokeWidth: mobileSettings.arrowThickness,
+            isMobile: mobileSettings.isMobile
+          }
         );
         
         dispatch({ type: 'ADD_ARROW', payload: newArrow });
@@ -556,13 +612,16 @@ const MatchingTestCreator = ({
       >
         🖼️ Upload Image
       </Button>
+      <div className="text-xs text-gray-500 text-center col-span-full">
+        Max size: 500KB • Max dimensions: 4000x4000px
+      </div>
     </div>
   );
   
   const renderCanvas = () => (
     <Stage
-      width={canvasSize.width}
-      height={canvasSize.height}
+      width={containerSize.width}
+      height={responsiveSettings.stageHeight}
       ref={stageRef}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
@@ -656,7 +715,7 @@ const MatchingTestCreator = ({
               x={2}
               y={2}
               text={`${state.testData.blocks.indexOf(block) + 1}`}
-              fontSize={Math.min(12, Math.max(8, block.width / 4))}
+              fontSize={Math.min(responsiveSettings.fontSize, Math.max(8, block.width / 4))}
               fontFamily="Arial"
               fill="#333"
               fontStyle="bold"
@@ -688,7 +747,7 @@ const MatchingTestCreator = ({
             points={[arrow.startX, arrow.startY, arrow.endX, arrow.endY]}
             stroke={arrow.stroke}
             fill={arrow.fill}
-            strokeWidth={arrow.strokeWidth}
+            strokeWidth={arrow.strokeWidth || responsiveSettings.arrowThickness}
             pointerLength={arrow.pointerLength}
             pointerWidth={arrow.pointerWidth}
           />
@@ -788,15 +847,6 @@ const MatchingTestCreator = ({
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <Button
-              onClick={handleSaveTest}
-              disabled={isSaving || state.ui.isLoading}
-              variant="primary"
-            >
-              {isSaving || state.ui.isLoading ? <LoadingSpinner size="sm" /> : 'Save Test'}
-            </Button>
-          </div>
         </div>
       </div>
 
@@ -805,14 +855,15 @@ const MatchingTestCreator = ({
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Canvas Container - with max height to prevent overlap */}
+        {/* Canvas Container - responsive sizing */}
         <div 
           ref={containerRef} 
           className="bg-white border overflow-auto" 
           style={{ 
-            minHeight: '400px',
+            minHeight: `${responsiveSettings.stageHeight}px`,
             maxHeight: 'calc(100vh - 200px)', // Reserve space for header, toolbar, and word panel
-            height: 'auto'
+            height: 'auto',
+            padding: `${responsiveSettings.padding}px`
           }}
         >
           {renderCanvas()}
@@ -822,14 +873,98 @@ const MatchingTestCreator = ({
         {renderWordPanel}
       </div>
 
+      {/* Save Test Button - Bottom */}
+      <div className="bg-white border-t p-4">
+        <div className="flex justify-center">
+          <Button
+            onClick={handleSaveTest}
+            disabled={isSaving || state.ui.isLoading}
+            variant="primary"
+            size="lg"
+          >
+            {isSaving || state.ui.isLoading ? <LoadingSpinner size="sm" /> : 'Save Test'}
+          </Button>
+        </div>
+      </div>
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         onChange={handleImageUpload}
         className="hidden"
       />
+
+      {/* Image Size Modal */}
+      <PerfectModal
+        isOpen={state.ui.showImageSizeModal}
+        onClose={() => dispatch({ type: 'HIDE_IMAGE_SIZE_MODAL' })}
+        title="🖼️ Image Too Large"
+        size="medium"
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center mb-2">
+              <span className="text-red-600 text-2xl mr-2">⚠️</span>
+              <h4 className="text-lg font-semibold text-red-800">Image Size Issues</h4>
+            </div>
+            <div className="text-red-700">
+              {state.ui.imageSizeError?.errors.map((error, index) => (
+                <div key={index} className="mb-2">
+                  • {error}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h5 className="font-semibold text-blue-800 mb-2">📏 Current Image Details:</h5>
+            <div className="text-blue-700 space-y-1">
+              <div>• File size: {state.ui.imageSizeError?.fileSize}KB</div>
+              {state.ui.imageSizeError?.dimensions && (
+                <div>• Dimensions: {state.ui.imageSizeError.dimensions.width} × {state.ui.imageSizeError.dimensions.height} pixels</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h5 className="font-semibold text-green-800 mb-2">✅ Requirements:</h5>
+            <div className="text-green-700 space-y-1">
+              <div>• Maximum file size: 500KB</div>
+              <div>• Maximum dimensions: 4000 × 4000 pixels</div>
+              <div>• Supported formats: All image formats (JPEG, PNG, WebP, etc.)</div>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h5 className="font-semibold text-yellow-800 mb-2">💡 How to Fix:</h5>
+            <div className="text-yellow-700 space-y-1">
+              <div>• Use an image editor to resize your image</div>
+              <div>• Compress the image using online tools</div>
+              <div>• Try a different image with smaller dimensions</div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              onClick={() => dispatch({ type: 'HIDE_IMAGE_SIZE_MODAL' })}
+              variant="secondary"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                dispatch({ type: 'HIDE_IMAGE_SIZE_MODAL' });
+                fileInputRef.current?.click();
+              }}
+              variant="primary"
+            >
+              Try Another Image
+            </Button>
+          </div>
+        </div>
+      </PerfectModal>
     </motion.div>
   );
 };

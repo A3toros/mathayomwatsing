@@ -45,6 +45,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [classResults, setClassResults] = useState([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [completingTestId, setCompletingTestId] = useState(null);
   // New performance graph state
   const [testPerformanceData, setTestPerformanceData] = useState([]);
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
@@ -538,6 +539,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Enhanced markTestCompletedInUI from legacy code
   const markCompleted = useCallback(async (testType, testId) => {
     logger.debug('👨‍🏫 Marking test as completed:', testType, testId);
+    setCompletingTestId(testId);
     try {
       const result = await testService.markTestCompleted(testType, testId);
       if (result.success) {
@@ -555,6 +557,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     } catch (error) {
       logger.error('👨‍🏫 Error marking test as completed:', error);
       showNotification('Failed to mark test as completed', 'error');
+    } finally {
+      setCompletingTestId(null);
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
@@ -924,7 +928,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               <motion.button
                 key={tab.key}
                 onClick={() => tab.key === 'tests' ? showTests() : setCurrentView(tab.key)}
-                className={`py-2 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap flex-shrink-0 ${
+                className={`py-2 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none ${
                   currentView === tab.key
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1596,7 +1600,13 @@ const TeacherCabinet = ({ onBackToLogin }) => {
             <Card.Body>
               {subjects.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-gray-400 text-4xl mb-2">📊</div>
+                  <div className="mb-2">
+                    <img 
+                      src="/pics/Graph.png" 
+                      alt="Performance Graph" 
+                      className="w-16 h-16 object-contain mx-auto"
+                    />
+                  </div>
                   <p className="text-gray-500">No subjects assigned - no performance data available</p>
                 </div>
               ) : (
@@ -1651,7 +1661,13 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     </div>
                   ) : (
                     <div className="mt-4 text-center text-muted py-4">
-                      <div className="text-gray-400 text-4xl mb-2">📊</div>
+                      <div className="mb-2">
+                        <img 
+                          src="/pics/Graph.png" 
+                          alt="Performance Graph" 
+                          className="w-16 h-16 object-contain mx-auto"
+                        />
+                      </div>
                       <p className="text-gray-500">Select a class above to view test performance data</p>
                     </div>
                   )}
@@ -1938,8 +1954,16 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                           variant="success"
                           onClick={() => markCompleted(test.test_type, test.test_id)}
                           size="sm"
+                          disabled={completingTestId === test.test_id}
                         >
-                          Complete
+                          {completingTestId === test.test_id ? (
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Completing...
+                            </div>
+                          ) : (
+                            'Complete'
+                          )}
                         </Button>
                       </div>
                     </div>

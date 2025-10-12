@@ -312,6 +312,37 @@ const FeedbackDisplay = ({
                 </div>
               )}
             </div>
+            <div>
+              <span className="font-medium">Pronunciation Analysis:</span>
+              <span className="ml-2 text-gray-700">
+                {scores?.pronunciation_corrections && scores.pronunciation_corrections.length > 0 
+                  ? `Found ${scores.pronunciation_corrections.length} pronunciation ${scores.pronunciation_corrections.length === 1 ? 'tip' : 'tips'} to help improve clarity.`
+                  : 'Great pronunciation! Your speech was clear and easy to understand.'}
+              </span>
+            </div>
+
+            {/* Pronunciation Corrections */}
+            {scores?.pronunciation_corrections && scores.pronunciation_corrections.length > 0 && (
+              <div>
+                <span className="font-medium">Pronunciation Tips:</span>
+                <div className="mt-2 space-y-2">
+                  {scores.pronunciation_corrections.map((correction, index) => (
+                    <div key={index} className="bg-orange-50 border border-orange-200 rounded p-2 sm:p-3">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-orange-600 font-mono text-sm">🎯</span>
+                        <div className="flex-1">
+                          <div className="text-sm">
+                            <span className="font-medium text-orange-700">{correction.word}</span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-green-700">{correction.correction}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Language Use Suggestions */}
             {scores?.language_use_corrections && scores.language_use_corrections.length > 0 && (
