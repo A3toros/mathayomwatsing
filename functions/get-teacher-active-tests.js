@@ -63,402 +63,19 @@ exports.handler = async function(event, context) {
 
     const sql = neon(process.env.NEON_DATABASE_URL);
 
-    // Build query based on user role
+    // Use optimized view for teacher active tests
     let activeTests;
     if (userInfo.role === 'admin') {
       // Admin gets ALL tests from ALL teachers
       activeTests = await sql`
-        SELECT 
-          'multiple_choice' as test_type,
-          mct.id as test_id,
-          mct.test_name,
-          mct.num_questions,
-          mct.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM multiple_choice_tests mct
-        INNER JOIN test_assignments ta ON mct.id = ta.test_id AND ta.test_type = 'multiple_choice'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY mct.id, mct.test_name, mct.num_questions, mct.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'true_false' as test_type,
-          tft.id as test_id,
-          tft.test_name,
-          tft.num_questions,
-          tft.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM true_false_tests tft
-        INNER JOIN test_assignments ta ON tft.id = ta.test_id AND ta.test_type = 'true_false'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY tft.id, tft.test_name, tft.num_questions, tft.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'input' as test_type,
-          it.id as test_id,
-          it.test_name,
-          it.num_questions,
-          it.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM input_tests it
-        INNER JOIN test_assignments ta ON it.id = ta.test_id AND ta.test_type = 'input'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY it.id, it.test_name, it.num_questions, it.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'matching_type' as test_type,
-          mtt.id as test_id,
-          mtt.test_name,
-          mtt.num_blocks as num_questions,
-          mtt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM matching_type_tests mtt
-        INNER JOIN test_assignments ta ON mtt.id = ta.test_id AND ta.test_type = 'matching_type'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY mtt.id, mtt.test_name, mtt.num_blocks, mtt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'word_matching' as test_type,
-          wmt.id as test_id,
-          wmt.test_name,
-          wmt.num_questions,
-          wmt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM word_matching_tests wmt
-        INNER JOIN test_assignments ta ON wmt.id = ta.test_id AND ta.test_type = 'word_matching'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY wmt.id, wmt.test_name, wmt.num_questions, wmt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'drawing' as test_type,
-          dt.id as test_id,
-          dt.test_name,
-          dt.num_questions,
-          dt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM drawing_tests dt
-        INNER JOIN test_assignments ta ON dt.id = ta.test_id AND ta.test_type = 'drawing'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY dt.id, dt.test_name, dt.num_questions, dt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'speaking' as test_type,
-          st.id as test_id,
-          st.test_name,
-          st.min_words as num_questions,
-          st.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM speaking_tests st
-        INNER JOIN test_assignments ta ON st.id = ta.test_id AND ta.test_type = 'speaking'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE ta.is_active = true
-        GROUP BY st.id, st.test_name, st.min_words, st.created_at, ta.subject_id, s.subject
-        
+        SELECT * FROM teacher_active_tests_view 
         ORDER BY created_at DESC
       `;
     } else {
       // Teacher gets only their own tests
       activeTests = await sql`
-        SELECT 
-          'multiple_choice' as test_type,
-          mct.id as test_id,
-          mct.test_name,
-          mct.num_questions,
-          mct.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM multiple_choice_tests mct
-        INNER JOIN test_assignments ta ON mct.id = ta.test_id AND ta.test_type = 'multiple_choice'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE mct.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY mct.id, mct.test_name, mct.num_questions, mct.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'true_false' as test_type,
-          tft.id as test_id,
-          tft.test_name,
-          tft.num_questions,
-          tft.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM true_false_tests tft
-        INNER JOIN test_assignments ta ON tft.id = ta.test_id AND ta.test_type = 'true_false'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE tft.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY tft.id, tft.test_name, tft.num_questions, tft.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'input' as test_type,
-          it.id as test_id,
-          it.test_name,
-          it.num_questions,
-          it.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM input_tests it
-        INNER JOIN test_assignments ta ON it.id = ta.test_id AND ta.test_type = 'input'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE it.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY it.id, it.test_name, it.num_questions, it.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'matching_type' as test_type,
-          mtt.id as test_id,
-          mtt.test_name,
-          mtt.num_blocks as num_questions,
-          mtt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM matching_type_tests mtt
-        INNER JOIN test_assignments ta ON mtt.id = ta.test_id AND ta.test_type = 'matching_type'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE mtt.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY mtt.id, mtt.test_name, mtt.num_blocks, mtt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'word_matching' as test_type,
-          wmt.id as test_id,
-          wmt.test_name,
-          wmt.num_questions,
-          wmt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM word_matching_tests wmt
-        INNER JOIN test_assignments ta ON wmt.id = ta.test_id AND ta.test_type = 'word_matching'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE wmt.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY wmt.id, wmt.test_name, wmt.num_questions, wmt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'drawing' as test_type,
-          dt.id as test_id,
-          dt.test_name,
-          dt.num_questions,
-          dt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM drawing_tests dt
-        INNER JOIN test_assignments ta ON dt.id = ta.test_id AND ta.test_type = 'drawing'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE dt.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY dt.id, dt.test_name, dt.num_questions, dt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'fill_blanks' as test_type,
-          fbt.id as test_id,
-          fbt.test_name,
-          fbt.num_questions,
-          fbt.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM fill_blanks_tests fbt
-        INNER JOIN test_assignments ta ON fbt.id = ta.test_id AND ta.test_type = 'fill_blanks'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE fbt.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY fbt.id, fbt.test_name, fbt.num_questions, fbt.created_at, ta.subject_id, s.subject
-        
-        UNION ALL
-        
-        SELECT 
-          'speaking' as test_type,
-          st.id as test_id,
-          st.test_name,
-          st.min_words as num_questions,
-          st.created_at,
-          ta.subject_id,
-          s.subject,
-          COUNT(ta.id) as assignment_count,
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'assignment_id', ta.id,
-              'grade', ta.grade,
-              'class', ta.class,
-              'assigned_at', ta.assigned_at,
-              'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
-            )
-          ) FILTER (WHERE ta.id IS NOT NULL) as assignments
-        FROM speaking_tests st
-        INNER JOIN test_assignments ta ON st.id = ta.test_id AND ta.test_type = 'speaking'
-        LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-        WHERE st.teacher_id = ${teacher_id} AND ta.is_active = true
-        GROUP BY st.id, st.test_name, st.min_words, st.created_at, ta.subject_id, s.subject
-        
+        SELECT * FROM teacher_active_tests_view 
+        WHERE teacher_id = ${teacher_id}
         ORDER BY created_at DESC
       `;
     }
@@ -466,12 +83,14 @@ exports.handler = async function(event, context) {
     // Comprehensive debugging information
     const debugInfo = {
       request_parameters: {
-        teacher_id: teacher_id
+        teacher_id: teacher_id,
+        role: userInfo.role
       },
       query_execution: {
-        query_type: 'UNION ALL of 7 test types with INNER JOIN test_assignments',
-        test_types: ['multiple_choice', 'true_false', 'input', 'matching_type', 'word_matching', 'drawing', 'fill_blanks'],
-        join_strategy: 'INNER JOIN ensures only tests with assignments are returned'
+        data_source: 'teacher_active_tests_view',
+        filter_strategy: userInfo.role === 'admin' ? 'no teacher filter (all teachers)' : 'filtered by teacher_id',
+        ordering: 'created_at DESC',
+        guarantees: 'View returns only tests that have assignments and are active'
       },
       results_analysis: {
         total_tests_found: activeTests.length,
@@ -488,21 +107,22 @@ exports.handler = async function(event, context) {
           total_assignments: activeTests.reduce((sum, test) => sum + test.assignment_count, 0),
           average_assignments_per_test: activeTests.length > 0 ? 
             (activeTests.reduce((sum, test) => sum + test.assignment_count, 0) / activeTests.length).toFixed(2) : 0
-        }
+        },
+        created_at_range: activeTests.length > 0 ? {
+          newest: activeTests.reduce((max, t) => new Date(t.created_at) > new Date(max) ? t.created_at : max, activeTests[0].created_at),
+          oldest: activeTests.reduce((min, t) => new Date(t.created_at) < new Date(min) ? t.created_at : min, activeTests[0].created_at)
+        } : { newest: null, oldest: null }
       },
       sample_data: {
         first_test: activeTests.length > 0 ? activeTests[0] : null,
         test_with_most_assignments: activeTests.length > 0 ? 
           activeTests.reduce((max, test) => test.assignment_count > max.assignment_count ? test : max) : null
       },
-      query_details: {
-        multiple_choice: 'INNER JOIN test_assignments, filtered by teacher_id',
-        true_false: 'INNER JOIN test_assignments, filtered by teacher_id',
-        input: 'INNER JOIN test_assignments, filtered by teacher_id',
-        matching_type: 'INNER JOIN test_assignments, filtered by teacher_id',
-        word_matching: 'INNER JOIN test_assignments, filtered by teacher_id',
-        drawing: 'INNER JOIN test_assignments, filtered by teacher_id',
-        ordering: 'ORDER BY created_at DESC'
+      view_details: {
+        name: 'teacher_active_tests_view',
+        description: 'Unified, indexed view that consolidates active tests with assignment counts',
+        filtering_column: 'teacher_id',
+        ordering: 'created_at DESC'
       }
     };
     

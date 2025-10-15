@@ -74,35 +74,29 @@ exports.handler = async function(event, context) {
     console.log('get-teacher-assignments called with teacher_id:', teacher_id);
 
     const sql = neon(process.env.NEON_DATABASE_URL);
+
+
+
+
     
-    // Get all grades and classes where this teacher has subjects assigned
-    let assignments;
+    // Use consolidated view for teacher assignments overview
+    let rows;
     if (userInfo.role === 'admin' && teacher_id === null) {
-      // Admin gets all grades/classes from all teachers
-      assignments = await sql`
-        SELECT DISTINCT ts.grade, ts.class, ts.teacher_id
-        FROM teacher_subjects ts
+      rows = await sql`
+        SELECT *
+        FROM teacher_assignments_overview_view
+        ORDER BY assigned_at DESC
       `;
     } else {
-      // Teacher gets only their grades/classes
-      assignments = await sql`
-        SELECT DISTINCT ts.grade, ts.class
-        FROM teacher_subjects ts
-        WHERE ts.teacher_id = ${teacher_id}
+      rows = await sql`
+        SELECT *
+        FROM teacher_assignments_overview_view
+        WHERE teacher_id = ${teacher_id}
+        ORDER BY assigned_at DESC
       `;
     }
-    
-    console.log('Raw assignments from DB:', assignments);
-    
-    // Transform the data to match the frontend expectations
-    const transformedAssignments = assignments.map(assignment => ({
-      grade: assignment.grade,           // "1", "2", "3"
-      class: assignment.class,           // "15", "16"
-      gradeDisplay: `M${assignment.grade}`,  // "M1", "M2", "M3"
-      classDisplay: `${assignment.grade}/${assignment.class}`  // "1/15", "2/16"
-    }));
-    
-    console.log('Transformed assignments:', transformedAssignments);
+
+    console.log('Assignments from view:', rows.length);
 
     return {
       statusCode: 200,
@@ -112,7 +106,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({
         success: true,
-        assignments: transformedAssignments
+        assignments: rows
       })
     };
   } catch (error) {

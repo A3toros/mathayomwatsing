@@ -717,106 +717,106 @@ CREATE TABLE IF NOT EXISTS test_attempts (
 );
 
 -- ========================================
--- TEST ANALYTICS
--- ========================================
-
-CREATE TABLE IF NOT EXISTS test_analytics (
-    id SERIAL PRIMARY KEY,
-    test_id INTEGER NOT NULL,
-    academic_period_id INTEGER REFERENCES academic_year(id),
-    total_attempts INTEGER DEFAULT 0,
-    average_score DECIMAL(5,2),
-    highest_score INTEGER,
-    lowest_score INTEGER,
-    completion_rate DECIMAL(5,2),
-    average_time_taken INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(test_id, academic_period_id)
-);
-
--- ========================================
 -- MATERIALIZED VIEWS
 -- ========================================
 
--- Class Summary Materialized View
-CREATE MATERIALIZED VIEW IF NOT EXISTS class_summary_view AS
-WITH all_test_results AS (
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM multiple_choice_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM true_false_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM input_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM matching_type_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM word_matching_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM drawing_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM fill_blanks_test_results
-    UNION ALL
-    SELECT teacher_id, subject_id, grade, class, academic_period_id, test_id, test_name, student_id, score, max_score, percentage, submitted_at, caught_cheating, visibility_change_times, is_completed FROM speaking_test_results
-),
-semester_mapping AS (
-    SELECT ay.id as academic_period_id, ay.academic_year, ay.semester, ay.start_date, ay.end_date
-    FROM academic_year ay
-    WHERE ay.semester = (SELECT semester FROM academic_year WHERE CURRENT_DATE BETWEEN start_date AND end_date)
-),
-semester_results AS (
-    SELECT atr.*, sm.academic_year, sm.semester, sm.start_date as semester_start, sm.end_date as semester_end
-    FROM all_test_results atr
-    JOIN semester_mapping sm ON atr.academic_period_id = sm.academic_period_id
-),
-class_stats AS (
-    SELECT 
-        teacher_id, subject_id, grade, class, academic_year, semester,
-        COUNT(DISTINCT student_id) as total_students,
-        COUNT(DISTINCT test_id) as total_tests,
-        COUNT(*) as completed_tests,
-        ROUND(AVG(percentage), 2) as average_class_score,
-        MAX(score) as highest_score,
-        MIN(score) as lowest_score,
-        ROUND((COUNT(CASE WHEN percentage >= 60 THEN 1 END)::DECIMAL / COUNT(*)) * 100, 2) as pass_rate,
-        COUNT(CASE WHEN caught_cheating = true THEN 1 END) as cheating_incidents,
-        COUNT(CASE WHEN visibility_change_times > 5 THEN 1 END) as high_visibility_change_students,
-        MAX(submitted_at) as last_test_date,
-        CURRENT_TIMESTAMP as last_updated
-    FROM semester_results
-    GROUP BY teacher_id, subject_id, grade, class, academic_year, semester
-)
-SELECT 
-    ROW_NUMBER() OVER (ORDER BY teacher_id, subject_id, grade, class, academic_year, semester) as id,
-    teacher_id, subject_id, grade, class, academic_year, semester,
-    total_students, total_tests, completed_tests, average_class_score, highest_score, lowest_score,
-    pass_rate, cheating_incidents, high_visibility_change_students, last_test_date, last_updated,
-    CURRENT_TIMESTAMP as created_at, CURRENT_TIMESTAMP as updated_at
-FROM class_stats;
-
--- Test Performance View
+-- Test Performance View - FIXED: Single dot per test
 CREATE OR REPLACE VIEW test_performance_by_test AS
 WITH all_test_results AS (
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM multiple_choice_test_results WHERE is_completed = true
+    -- Union all test result tables with test_type identifier
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'multiple_choice' as test_type
+    FROM multiple_choice_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM true_false_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'true_false' as test_type
+    FROM true_false_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM input_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'input' as test_type
+    FROM input_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM matching_type_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'matching' as test_type
+    FROM matching_type_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM word_matching_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'word_matching' as test_type
+    FROM word_matching_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM drawing_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'drawing' as test_type
+    FROM drawing_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM fill_blanks_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'fill_blanks' as test_type
+    FROM fill_blanks_test_results 
+    WHERE is_completed = true
+    
     UNION ALL
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class FROM speaking_test_results WHERE is_completed = true
+    
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'speaking' as test_type
+    FROM speaking_test_results 
+    WHERE is_completed = true
 )
 SELECT 
-    teacher_id, test_id, test_name, AVG(percentage) as average_score, COUNT(*) as total_students,
-    submitted_at, academic_period_id, grade, class
+    teacher_id, 
+    test_id, 
+    test_name, 
+    test_type,
+    AVG(percentage) as average_score, 
+    COUNT(DISTINCT student_id) as total_students,
+    MIN(submitted_at) as submitted_at,  -- First submission date
+    academic_period_id, 
+    grade, 
+    class
 FROM all_test_results
-GROUP BY teacher_id, test_id, test_name, submitted_at, academic_period_id, grade, class
+GROUP BY 
+    teacher_id, 
+    test_id, 
+    test_name, 
+    test_type, 
+    academic_period_id, 
+    grade, 
+    class
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-- KEY FIX: Group by test_id + test_type, NOT submitted_at!
+-- This ensures exactly 1 dot per test regardless of student attempts
 ORDER BY submitted_at ASC;
 
 -- ========================================
@@ -975,15 +975,6 @@ CREATE INDEX IF NOT EXISTS idx_test_attempts_teacher ON test_attempts(teacher_id
 CREATE INDEX IF NOT EXISTS idx_test_attempts_grade_class ON test_attempts(grade, class);
 CREATE INDEX IF NOT EXISTS idx_test_attempts_best_pointer ON test_attempts (student_id, test_id, percentage DESC, attempt_number DESC) INCLUDE (score, max_score, submitted_at) WHERE retest_assignment_id IS NOT NULL;
 
--- Test analytics indexes
-CREATE INDEX IF NOT EXISTS idx_test_analytics_test_period ON test_analytics(test_id, academic_period_id);
-
--- Materialized view indexes
-CREATE INDEX IF NOT EXISTS idx_class_summary_teacher ON class_summary_view(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_class_summary_subject ON class_summary_view(subject_id);
-CREATE INDEX IF NOT EXISTS idx_class_summary_class ON class_summary_view(grade, class);
-CREATE INDEX IF NOT EXISTS idx_class_summary_semester ON class_summary_view(academic_year, semester);
-
 -- Teacher subjects indexes
 CREATE INDEX IF NOT EXISTS idx_teacher_subjects_unique_lookup ON teacher_subjects (teacher_id, subject_id, grade, class);
 
@@ -1052,9 +1043,19 @@ INSERT INTO academic_year (academic_year, semester, term, start_date, end_date) 
 ('2026-2027', 2, 2, '2027-01-11', '2027-04-30');
 
 -- Insert sample teachers
-INSERT INTO teachers (teacher_id, username, password) VALUES
-('Aleksandr_Petrov', 'Alex', '465'),
-('Charlie_Viernes', 'Charlie', '465');
+INSERT INTO teachers (teacher_id, username, password, first_name, last_name, is_active) VALUES
+('Aleksandr_Petrov', 'Alex', '465465i', 'Aleksandr', 'Petrov', true),
+('Charlie_Viernes', 'Charlie', '123456A', 'Charlie', 'Viernes', true),
+('Rowena_Panganiban', 'Rowena', '123456A', 'Rowena', 'Panganiban', true),
+('Lannys_Tianzon', 'Lannys', '123456A', 'Lannys', 'Tianzon', true),
+('Sylvie_Njawe', 'Sylvie', '123456A', 'Sylvie', 'Njawe', true),
+('Farai_Nkomon', 'Farai', '123456A', 'Farai', 'Nkomon', true),
+('Mariia_Kateshova', 'Mariia', '123456A', 'Mariia', 'Kateshova', true),
+('Rio_Sumagaysay', 'Rio', '123456A', 'Rio ', 'Sumagaysay', true),
+('Edrin_Santos', 'Edrin', '123456A', 'Edrin', 'Santos', true),
+('Roosevelt_Encabo', 'JR', '123456A', 'Roosevelt', 'Encabo', true),
+('Charlie_Viernes', 'Charlie', '123456A', 'Charlie', 'Viernes', true),
+('Cecyl_Lacson', 'Cecyl', '123456A', 'Cecyl', 'Lacson', true);
 
 -- Insert sample admin
 INSERT INTO admin (username, password) VALUES
@@ -1072,15 +1073,243 @@ INSERT INTO subjects (subject) VALUES
 ('Health'),
 ('Science Fundamental'),
 ('Science Supplementary'),
+('Chemistry'),
 ('Biology'),
 ('Math Fundamental'),
 ('Math Supplementary');
 
--- ========================================
--- REFRESH MATERIALIZED VIEWS
--- ========================================
+-- Insert all students from the original database
+INSERT INTO users (grade, class, number, student_id, name, surname, nickname, password) VALUES
 
-REFRESH MATERIALIZED VIEW class_summary_view;
+(1, 15, 1, '51706', 'Kittikhun', 'Siriwadtanakojaroen', 'Tong Tong', '51706'),
+(1, 15, 2, '51707', 'Jittiphat', 'Suksamai', 'Idea', '51707'),
+(1, 15, 3, '51708', 'Jiraphon', 'Sawanakasem', 'Tun', '51708'),
+(1, 15, 4, '51709', 'Nattawat', 'Prakobpanich', 'Pupha', '51709'),
+(1, 15, 5, '51710', 'Thanawat', 'Pungsati', 'Sprite', '51710'),
+(1, 15, 6, '51711', 'Bawonchai', 'Udomkhongmangmee', 'Sea', '51711'),
+(1, 15, 7, '51712', 'Pichaya', 'Chansate', 'Chirew', '51712'),
+(1, 15, 8, '51713', 'Kamonchat', 'Amornphongmongkol', 'Rose', '51713'),
+(1, 15, 9, '51714', 'Chanyanuch', 'Houyhuan', 'Tonhom', '51714'),
+(1, 15, 10, '51715', 'Napat', 'Mongkolwatcharoen', 'Bruda', '51715'),
+(1, 15, 11, '51716', 'Thanyaluk', 'Ueasiyaphan', 'Luck', '51716'),
+(1, 15, 12, '51717', 'Nicha', 'Jailak', 'Jewelry', '51717'),
+(1, 15, 13, '51718', 'Neeraphan', 'Tangpaopong', 'Nee', '51718'),
+(1, 15, 14, '51719', 'Phonnapphan', 'Settheepokha', 'Khaning', '51719'),
+(1, 15, 15, '51720', 'Patsorn', 'Jenkatkan', 'Éclair', '51720'),
+(1, 15, 16, '51721', 'Ploypaphat', 'Kittiwittayarom', 'Baifern', '51721'),
+(1, 15, 17, '51722', 'Wanvisa', 'Ratsamichai', 'Tus', '51722'),
+(1, 15, 18, '51723', 'Wipaporn', 'Muangsan', 'Winnie', '51723'),
+(1, 15, 19, '51724', 'Sasiwannaporn', 'Likitbannasak', 'Mei', '51724'),
+(1, 15, 20, '51725', 'Sarisa', 'Bhoosudsawaeng', 'Thien', '51725'),
+(1, 15, 21, '51726', 'Akanit', 'Kampimabouth', 'Meili', '51726'),
+(1, 15, 22, '51727', 'Uracha', 'Maolee', 'Khaohom', '51727'),
+(1, 15, 23, '51728', 'Aticia', 'Kesornsung', 'Pangko', '51728'),
+(1, 16, 1, '51729', 'Kamonlaphop', 'Prasertchroenphol', 'Pukan', '51729'),
+(1, 16, 2, '51730', 'Jumpon', 'Onlamul', 'Yoshi', '51730'),
+(1, 16, 3, '51731', 'Chinnapat', 'Prabthong', 'Title', '51731'),
+(1, 16, 4, '51732', 'Naphat', 'Yuadyan', 'Khaopun', '51732'),
+(1, 16, 5, '51733', 'Thanadol', 'Rakchanachai', 'austin', '51733'),
+(1, 16, 6, '51734', 'Thanatbodee', 'Hongwiset', 'Inkyu', '51734'),
+(1, 16, 7, '51735', 'Thitiwat', 'Srisaard', 'CC', '51735'),
+(1, 16, 8, '51736', 'Noppakrun', 'Kruaisawat', 'Nene', '51736'),
+(1, 16, 9, '51737', 'Nawin', 'Pongputtipak', 'Cino', '51737'),
+(1, 16, 10, '51738', 'Woradej', 'Boonto', 'August', '51738'),
+(1, 16, 11, '51739', 'Ongsa', 'Assanee', 'Ongsa', '51739'),
+(1, 16, 12, '51740', 'Chanyanas', 'Surawuthinak', 'Kaimook', '51740'),
+(1, 16, 13, '51741', 'Napattika', 'Imyaem', 'Elfie', '51741'),
+(1, 16, 14, '51742', 'Natthanun', 'Kunkhomit', 'Senior', '51742'),
+(1, 16, 15, '51743', 'Thepteeramumin', 'Boontarmteeraputi', 'Anda', '51743'),
+(1, 16, 16, '51744', 'Piyakarn', 'Kittisiriphan', 'Smile', '51744'),
+(1, 16, 17, '51745', 'Pobporn', 'Intarasorn', 'Ploy', '51745'),
+(1, 16, 18, '51747', 'Pitthayapat', 'Srithanakitwetin', 'Kwan Khao', '51747'),
+(1, 16, 19, '51748', 'Piriyapond', 'Kittimaensuriya', 'Dream', '51748'),
+(1, 16, 20, '51750', 'Atiporn', 'Promduang', 'Pream', '51750'),
+
+(2, 15, 1, '51007', 'Kittikhun', 'Rungsuk', 'Captain', '51007'),
+(2, 15, 2, '51008', 'Kongpop', 'Samanah', 'Cartoon', '51008'),
+(2, 15, 3, '51009', 'Natin', 'Ngaeprom', 'Boss', '51009'),
+(2, 15, 4, '51010', 'Thammadej', 'Dejharn', 'Dej', '51010'),
+(2, 15, 5, '51011', 'Bhumipat', 'Tiranasawad', 'Zen', '51011'),
+(2, 15, 6, '51012', 'Yotprasu', 'Yongprayoon', 'Harit', '51012'),
+(2, 15, 7, '51013', 'Winson', 'Chakhong', 'Winson', '51013'),
+(2, 15, 8, '51014', 'Piriyakorn', 'Soontornkumphonrat', 'First', '51014'),
+(2, 15, 9, '51015', 'Surathat', 'Fongnaree', 'Auto', '51015'),
+(2, 15, 10, '51016', 'Thanadej', 'Pichairat', 'Tonplam', '51016'),
+(2, 15, 11, '51017', 'Nattawat', 'Boonpitsit', 'Bright', '51017'),
+(2, 15, 12, '51881', 'Thepteeramungkorn', 'Boomthantiraput', 'Loma', '51881'),
+(2, 15, 13, '51018', 'Kanyanat', 'Saksakunkailerd', 'Bua', '51018'),
+(2, 15, 14, '51019', 'Kakanang', 'Boonlua', 'Nana', '51019'),
+(2, 15, 15, '51020', 'Nattanicha', 'Ruento', 'Maprang', '51020'),
+(2, 15, 16, '51021', 'Danaya', 'Saiwanna', 'North', '51021'),
+(2, 15, 17, '51022', 'Thannatsaorn', 'Anthipkul', 'Seiya', '51022'),
+(2, 15, 18, '51023', 'Thanuchmon', 'Suwiratwitayakit', 'E''clair', '51023'),
+(2, 15, 19, '51024', 'Thunchanok', 'Klongratsakul', 'tete', '51024'),
+(2, 15, 20, '51025', 'Pinyaphat', 'Supboontanakorn', 'cream', '51025'),
+(2, 15, 21, '51026', 'Waran', 'Kanwan', 'Nobell', '51026'),
+(2, 15, 22, '51027', 'Sukaksorn', 'Kanjanakunti', 'Viva', '51027'),
+(2, 15, 23, '51028', 'Supitchaya', 'Sukjit', 'Khaohom', '51028'),
+(2, 15, 24, '51029', 'Siriyapon', 'Ramunu', 'Nam', '51029'),
+(2, 15, 25, '51030', 'Hathaytip', 'Sawangruttaya', 'Waenpetch', '51030'),
+(2, 16, 1, '51032', 'Konakk', 'Rojanasupakul', 'Chirew', '51032'),
+(2, 16, 2, '51033', 'Kishna', 'Joshi', 'Kishna', '51033'),
+(2, 16, 3, '51034', 'Justin', 'Damayanti Luxameesathporn', 'Justin', '51034'),
+(2, 16, 4, '51035', 'Jiraphat', 'Chamnoi', 'Pun', '51035'),
+(2, 16, 5, '51036', 'Jirayu', 'Thanawiphakon', 'Pat', '51036'),
+(2, 16, 6, '51037', 'Chanthawat', 'Bowonaphiwong', 'Din', '51037'),
+(2, 16, 7, '51038', 'Napat', 'Uthaisang', 'Shiryu', '51038'),
+(2, 16, 8, '51039', 'Thianrawit', 'Ammaranon', 'Singto', '51039'),
+(2, 16, 9, '51040', 'Narawut', 'Meechaiudomdech', 'Prince', '51040'),
+(2, 16, 10, '51041', 'Papangkorn', 'Teeratanatanyaboon', 'Titan', '51041'),
+(2, 16, 11, '51042', 'Poptam', 'Sathongkham', 'Tim', '51042'),
+(2, 16, 12, '51043', 'Marwin', 'Phandumrongkul', 'Mark', '51043'),
+(2, 16, 13, '51044', 'Suwijak', 'kijrungsophun', 'Namo', '51044'),
+(2, 16, 14, '51045', 'Chonlada', 'Bonthong', 'Fifa', '51045'),
+(2, 16, 15, '51046', 'Nathathai', 'Sapparia', 'Chertam', '51046'),
+(2, 16, 16, '51047', 'Nopchanok', 'Reenavong', 'Pam Pam', '51047'),
+(2, 16, 17, '51048', 'Parita', 'Taetee', 'Namcha', '51048'),
+(2, 16, 18, '51049', 'Pimpreeya', 'Paensuwam', 'Pare', '51049'),
+(2, 16, 19, '51050', 'Wirunchana', 'Daungwijit', 'Focus', '51050'),
+(2, 16, 20, '51051', 'Supisala', 'Chesadatas', 'Jang Jang', '51051'),
+(2, 16, 21, '51052', 'Aaraya', 'Loamorrwach', 'MiMi', '51052'),
+(2, 16, 22, '51053', 'Ariyan', 'Ariyan', 'Mee Mee', '51053'),
+(2, 16, 23, '51152', 'Ploypaphat', 'Aphichatprasert', 'Boeing', '51152'),
+(2, 16, 24, '51153', 'Yang Yang', 'Yang Yang', 'Yang Yang', '51153'),
+
+(3, 15, 1, '50311', 'Fan', 'Shucheng', 'Michael', '50311'),
+(3, 15, 2, '50312', 'Koh', 'Shirato', 'Koh', '50312'),
+(3, 15, 3, '50313', 'Chalanthorn', 'Somabootr', 'Plangton', '50313'),
+(3, 15, 4, '50314', 'Napat', 'Phomvongtip', 'Han', '50314'),
+(3, 15, 5, '50315', 'Natthanon', 'Aungkanaworakul', 'August', '50315'),
+(3, 15, 6, '50316', 'Thanatsorn', 'Wasuntranijwipa', 'Sorn', '50316'),
+(3, 15, 7, '50317', 'Thannathorn', 'Keaw-on', 'Oscar', '50317'),
+(3, 15, 8, '50318', 'Teeraphat', 'Kitsato', 'Peach', '50318'),
+(3, 15, 9, '50319', 'Pitpibul', 'Notayos', 'Earth', '50319'),
+(3, 15, 10, '50320', 'Woradet', 'Premphueam', 'Fiat', '50320'),
+(3, 15, 11, '50321', 'Wiritphon', 'Niyomthai', 'Foam', '50321'),
+(3, 15, 12, '50322', 'Vishnu', 'Joshi Changchamrat', 'Vishnu', '50322'),
+(3, 15, 13, '51054', 'Kannawat', 'Noosap', 'Gus', '51054'),
+(3, 15, 14, '51055', 'Nuttakorn', 'Klongratsakul', 'Tar', '51055'),
+(3, 15, 15, '51056', 'Thitipat', 'Suknantasit', 'Ken', '51056'),
+(3, 15, 16, '50324', 'Chanutchanan', 'Rachatamethachot', 'Fah', '50324'),
+(3, 15, 17, '50325', 'Natpatsorn', 'Permruangtanapol', 'Aum', '50325'),
+(3, 15, 18, '50326', 'Tangsima', 'Sateanpong', 'Matoom', '50326'),
+(3, 15, 19, '50327', 'Nirinyanut', 'Techathanwisit', 'Ing', '50327'),
+(3, 15, 20, '50328', 'Punyanuch', 'Taninpong', 'Bam', '50328'),
+(3, 15, 21, '50329', 'Phatnarin', 'Suppakijchanchai', 'Pan', '50329'),
+(3, 15, 22, '50330', 'Wipawat', 'Muangsan', 'Sunny', '50330'),
+(3, 15, 23, '50331', 'Santamon', 'Sarakun', 'Night', '50331'),
+(3, 15, 24, '50332', 'Annatch', 'Sithchaisurakool', 'Annatch', '50332'),
+(3, 16, 1, '50333', 'Zin Myint', 'Mo Lin', 'Phat', '50333'),
+(3, 16, 2, '50334', 'Kantapon', 'Chinudomporn', 'Kun', '50334'),
+(3, 16, 3, '50335', 'Krirkwit', 'Meeto', 'Num', '50335'),
+(3, 16, 4, '50336', 'Natakorn', 'Ritthongpitak', 'Artid', '50336'),
+(3, 16, 5, '50337', 'Natthanon', 'Vanichsiripatr', 'Farm', '50337'),
+(3, 16, 6, '50339', 'Tanaphop', 'Bumrungrak', 'Zen', '50339'),
+(3, 16, 7, '50340', 'Teerat', 'Waratpaweetorn', 'Tarhai', '50340'),
+(3, 16, 8, '50341', 'Prart', 'Sirinarm', 'Skibidi', '50341'),
+(3, 16, 9, '50342', 'Peethong', 'Saenkhomor', 'Prom', '50342'),
+(3, 16, 10, '50343', 'Poom', 'Thongpaen', 'Poom', '50343'),
+(3, 16, 11, '50344', 'Phumphat', 'Lertwannaporn', 'Phumphat', '50344'),
+(3, 16, 12, '50345', 'Worakit', 'Krajangsri', 'Kit', '50345'),
+(3, 16, 13, '50346', 'Sukrit', 'Dechphol', 'Franc', '50346'),
+(3, 16, 14, '50347', 'Chachalee', 'Boonchuachan', 'Tripple', '50347'),
+(3, 16, 15, '50348', 'Yanisa', 'Raweepipat', 'Jiffy', '50348'),
+(3, 16, 16, '50349', 'Titapha', 'Yuthanom', 'Ingrak', '50349'),
+(3, 16, 17, '50350', 'Nutchanun', 'Suwannahong', 'Aunpan', '50350'),
+(3, 16, 18, '50351', 'Thanunchanok', 'Songrum', 'Ozon', '50351'),
+(3, 16, 19, '50352', 'Pakijra', 'Panjach', 'Cake', '50352'),
+(3, 16, 20, '50353', 'Phinyaphat', 'Chatthanawan', 'Tonaor', '50353'),
+(3, 16, 21, '50354', 'Supichaya', 'Suppasing', 'Hana', '50354'),
+
+(4, 13, 1, '49751', 'Sirawit', 'Antipkul', 'Data', '49751'),
+(4, 13, 2, '49761', 'Koedpol', 'Angsuwiroon', 'Ti', '49761'),
+(4, 13, 3, '49764', 'Nuttanapat', 'Lohakitsongkram', 'Yok', '49764'),
+(4, 13, 4, '49766', 'Mattcha', 'Sirirojwong', 'Gato', '49766'),
+(4, 13, 5, '51862', 'Nonprawit', 'Kampusa', 'Non', '51862'),
+(4, 13, 6, '49753', 'Channuntorn', 'Ringrod', 'Praew', '49753'),
+(4, 13, 7, '49758', 'Pansa', 'Hamontri', 'Aim', '49758'),
+(4, 13, 8, '49759', 'Phatsalliya', 'Pakkama', 'Zen', '49759'),
+(4, 13, 9, '49768', 'Kodchakon', 'Bookkaluck', 'Mint', '49768'),
+(4, 13, 10, '49769', 'Jindaporn', 'Tikpmporn', 'Plai', '49769'),
+(4, 13, 11, '49772', 'Papapinn', 'Thitirotjanawat', 'Ling Ling', '49772'),
+(4, 13, 12, '51863', 'Natthakan', 'Panitchareon', 'Amy', '51863'),
+(4, 14, 1, '49767', 'Sirasit', 'Panyasit', 'Tack', '49767'),
+(4, 14, 2, '51864', 'Mr Peerapat', 'Suktapot', 'Cfo', '51864'),
+(4, 14, 3, '51865', 'Wongsathorn', 'Rod-aree', 'Gui', '51865'),
+(4, 14, 4, '51866', 'Suwisith', 'Tempraserteudee', 'Tonkla', '51866'),
+(4, 14, 5, '49754', 'Chutikan', 'Pornvasin', 'Bebe', '49754'),
+(4, 14, 6, '49773', 'Praewan', 'Taecha-in', 'Prae', '49773'),
+(4, 14, 7, '51867', 'Chinapa', 'Chanumklang', 'Tar', '51867'),
+(4, 14, 8, '51868', 'Larita', 'Larpverachai', 'Ching Sin', '51868'),
+
+(5, 13, 1, '49003', 'Jaroenjit', 'Anatamsombat', 'Tek', '49003'),
+(5, 13, 2, '49089', 'Chayaphon', 'Kanchitavorakul', 'Nampai', '49089'),
+(5, 13, 3, '49092', 'Thananaj', 'Sawanakasem', 'Leng', '49092'),
+(5, 13, 4, '49094', 'Rawipat', 'Pibalsing', 'Ryu', '49094'),
+(5, 13, 5, '49095', 'Sitthas', 'Tiwatodsaporn', 'Muchty', '49095'),
+(5, 13, 6, '49103', 'Goonpisit', 'Chaipayom', 'Jeng', '49103'),
+(5, 13, 7, '49105', 'Napat', 'Janngam', 'Prite', '49105'),
+(5, 13, 8, '51139', 'Chayagone', 'Limwongsakul', 'Int', '51139'),
+(5, 13, 9, '51140', 'Noppadol', 'Suaykhakhao', 'Mark', '51140'),
+(5, 13, 10, '51141', 'Narapat', 'Teeratanatanyboon', 'Teego', '51141'),
+(5, 13, 11, '51142', 'Arnon', 'Danfmukda', 'Gun', '51142'),
+(5, 13, 12, '51154', 'A Zin', 'Lin Myat', 'An An', '51154'),
+(5, 13, 13, '48473', 'Pimpattra', 'Archanukulrat', 'Mind', '48473'),
+(5, 13, 14, '49110', 'Panicha', 'Sirachatpatiphan', 'Pluemjai', '49110'),
+(5, 13, 15, '49116', 'Supasuta', 'Chesadatas', 'Jeenjeen', '49116'),
+(5, 13, 16, '51143', 'Pichnaree', 'Pungsiricharoen', 'Junoir', '51143'),
+(5, 14, 1, '49090', 'Mr. Nathapong', 'Meesuk', 'Leezan', '49090'),
+(5, 14, 2, '49093', 'Mr. Papangkorn', 'Yingohonphatsorn', 'Pengkuang', '49093'),
+(5, 14, 3, '49104', 'Phophtam', 'Swangsang', 'Dod', '49104'),
+(5, 14, 4, '49109', 'Mr. Sorrasit', 'Viravendej', 'Soba', '49109'),
+(5, 14, 5, '49039', 'Phitchaya', 'Kaikeaw', 'Khao', '49039'),
+(5, 14, 6, '49096', 'Nichapath', 'Chunlawithet', 'Acare', '49096'),
+(5, 14, 7, '51145', 'Sojung', 'Lim', 'Mirin', '51145'),
+(5, 14, 8, '51146', 'Nannapat', 'Kotchasarn', 'Lyn', '51146'),
+(5, 14, 9, '51147', 'Rarunphat', 'Nantaraweewat', 'Kaopoad', '51147'),
+(5, 14, 10, '51161', 'Sarareewan', 'Reenawong', 'Pear', '51161'),
+
+(6, 13, 1, '48407', 'Pongkrit', 'Suksomkit', 'Blank', '48407'),
+(6, 13, 2, '48462', 'Peerawit', 'Sirithongkaset', 'Blank', '48462'),
+(6, 13, 3, '48463', 'Phubadin', 'Pokkasub', 'Blank', '48463'),
+(6, 13, 4, '48464', 'Raiwin', 'Waratpraveethorn', 'Blank', '48464'),
+(6, 13, 5, '48481', 'Jirayu', 'Boonpaisandilok', 'Blank', '48481'),
+(6, 13, 6, '48482', 'Nattaphat', 'Kiatwisarlchai', 'Blank', '48482'),
+(6, 13, 7, '48484', 'Thanawit', 'Wongpiphun', 'Blank', '48484'),
+(6, 13, 8, '48485', 'Thatchapon', 'Plallek', 'Blank', '48485'),
+(6, 13, 9, '48488', 'Phumiphat', 'Chankamchon', 'Blank', '48488'),
+(6, 13, 10, '50435', 'Thanpisit', 'Chongwilaikasem', 'Blank', '50435'),
+(6, 13, 11, '48465', 'Karnpitcha', 'Jamchuntra', 'Blank', '48465'),
+(6, 13, 12, '48466', 'Karnsiree', 'Rungsansert', 'Blank', '48466'),
+(6, 13, 13, '48467', 'Grace', 'Tingsomchaisilp', 'Blank', '48467'),
+(6, 13, 14, '48469', 'Nichawan', 'Nithithongsakul', 'Blank', '48469'),
+(6, 13, 15, '48475', 'Sirikanya', 'Padkaew', 'Blank', '48475'),
+(6, 13, 16, '48492', 'Yadapat', 'Phupayakhutpong', 'Blank', '48492'),
+(6, 13, 17, '48497', 'Franchesca Sophia', 'Andrada', 'Blank', '48497'),
+(6, 13, 18, '48460', 'Natawan', 'Charnnarongkul', 'Blank', '48460'),
+(6, 14, 1, '48457', 'Eakkanin', 'Sithchaisurakool', 'Munich', '48457'),
+(6, 14, 2, '48458', 'Chayodom', 'Disayawan', 'Bright', '48458'),
+(6, 14, 3, '48461', 'Thannadon', 'Chimree', 'Don', '48461'),
+(6, 14, 4, '48483', 'Dollar', 'Pemredang', 'Dollar', '48483'),
+(6, 14, 5, '50438', 'Korrakod', 'Bookkaluck', 'Tonmai', '50438'),
+(6, 14, 6, '50439', 'Teeradech', 'Pattamasopa', 'Pupha', '50439'),
+(6, 14, 7, '48489', 'Kodchakorn', 'Chongkwanyuen', 'Oil', '48489'),
+(6, 14, 8, '48490', 'Janapat', 'Khamsanthia', 'Gift', '48490'),
+(6, 14, 9, '48491', 'Thanyamas', 'Eamwarakul', 'Ink', '48491'),
+(6, 14, 10, '48496', 'Pornnatcha', 'Neramit', 'Tongkaw', '48496'),
+(6, 14, 11, '48498', 'Peerada', 'Chubunjong', 'Bam', '48498'),
+(6, 14, 12, '48500', 'Wilasinee', 'Thonglue', 'Praew', '48500'),
+(6, 14, 13, '48501', 'Suphattiya', 'Wungkeangtham', 'Noodee', '48501'),
+(6, 14, 14, '50323', 'Yang', 'Qixuan', 'Sayo', '50323'),
+(6, 14, 15, '50440', 'Kunpriya', 'Butnamrak', 'New', '50440'),
+(6, 14, 16, '50442', 'Arada', 'Wang', 'Ing', '50442'),
+
+-- Additional test students for class 7/13 (5 students for testing)
+(007, 69, 1, '70001', 'Alex', 'Johnson', 'Alex', '70001'),
+(007, 69, 2, '70002', 'Sarah', 'Williams', 'Sarah', '70002'),
+(007, 69, 3, '70003', 'Michael', 'Brown', 'Mike', '70003'),
+(007, 69, 4, '70004', 'Emma', 'Davis', 'Emma', '70004'),
+(007, 69, 5, '70005', 'James', 'Wilson', 'James', '70005');
 
 -- ========================================
 -- VERIFICATION

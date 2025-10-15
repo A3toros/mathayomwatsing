@@ -61,24 +61,22 @@ exports.handler = async function(event, context) {
 
     const sql = neon(process.env.NEON_DATABASE_URL);
     
-    // Query the database for teacher's grades and classes with subject names
+    // Use optimized view for teacher grades and classes
     let teacherGradesClasses;
     if (userInfo.role === 'admin' && teacherId === null) {
       // Admin gets all grades/classes from all teachers
       teacherGradesClasses = await sql`
-        SELECT DISTINCT ts.grade, ts.class, ts.subject_id, ts.teacher_id, s.subject
-        FROM teacher_subjects ts
-        JOIN subjects s ON ts.subject_id = s.subject_id
-        ORDER BY ts.grade, ts.class
+        SELECT DISTINCT grade, class, subject_id, teacher_id, subject_name
+        FROM teacher_classes_summary_view
+        ORDER BY grade, class
       `;
     } else {
       // Teacher gets only their grades/classes
       teacherGradesClasses = await sql`
-        SELECT DISTINCT ts.grade, ts.class, ts.subject_id, s.subject
-        FROM teacher_subjects ts
-        JOIN subjects s ON ts.subject_id = s.subject_id
-        WHERE ts.teacher_id = ${teacherId} 
-        ORDER BY ts.grade, ts.class
+        SELECT DISTINCT grade, class, subject_id, subject_name
+        FROM teacher_classes_summary_view
+        WHERE teacher_id = ${teacherId} 
+        ORDER BY grade, class
       `;
     }
     

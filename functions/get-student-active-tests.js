@@ -110,202 +110,53 @@ exports.handler = async function(event, context) {
     
     console.log('Database connection established');
 
-    // Get student's grade and class
-    console.log('Looking up student info for student_id:', student_id);
+    // Use optimized view for student active tests
+    console.log('Querying student_active_tests_view for student_id:', student_id);
     
-    const studentInfo = await sql`
-      SELECT grade, class FROM users WHERE student_id = ${student_id}
+    const viewRows = await sql`
+      SELECT * FROM student_active_tests_view
+      WHERE student_id = ${student_id}
+      ORDER BY assigned_at DESC
     `;
     
-    console.log('Student info query result:', studentInfo);
+    console.log('student_active_tests_view rows:', viewRows.length);
 
-    if (studentInfo.length === 0) {
-      console.log('Student not found in database');
+    if (viewRows.length === 0) {
+      console.log('No active tests found for student');
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Student not found' })
+        body: JSON.stringify({
+          success: true,
+          tests: [],
+          student_grade: null,
+          student_class: null,
+          debug_message: "No active tests found",
+          has_retests: false
+        })
       };
     }
 
-    const { grade, class: className } = studentInfo[0];
-    console.log('Student grade:', grade, 'type:', typeof grade, 'class:', className, 'type:', typeof className);
-
-    // In new schema, grade and class are already integers, no conversion needed
-    const assignmentGrade = grade;
-    const assignmentClass = className;
-    
-    console.log('Using assignment format - grade:', assignmentGrade, 'type:', typeof assignmentGrade, 'class:', assignmentClass, 'type:', typeof assignmentClass);
-
-    // Get ALL tests assigned to this grade/class (including completed ones)
-    console.log('Looking for test assignments for grade:', assignmentGrade, 'class:', assignmentClass);
-    
-    // Get all test assignments for this student's grade/class
-    const assignments = await sql`
-      SELECT 
-        ta.id as assignment_id,
-        ta.test_type,
-        ta.test_id,
-        ta.teacher_id,
-        ta.subject_id,
-        ta.academic_period_id,
-        ta.assigned_at,
-        ta.due_date,
-        ta.is_active,
-        s.subject as subject_name
-      FROM test_assignments ta
-      LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-      WHERE ta.grade = ${assignmentGrade} 
-      AND ta.class = ${assignmentClass}
-      AND ta.is_active = true
-      ORDER BY ta.assigned_at DESC
-    `;
-    
-    console.log('Found assignments for grade', assignmentGrade, 'class', assignmentClass, ':', assignments);
-
-    // Then, get detailed information for each test
+    // Build response from view data
     const activeTests = [];
     let overallHasRetests = false;
     
-    for (const assignment of assignments) {
+    for (const row of viewRows) {
       try {
-        console.log('Processing assignment:', assignment);
+        console.log('Processing view row:', row);
         
-        let testInfo = {};
-        let teacherName = '';
-        let subjectName = '';
+        // All data is already available from the view
+        const testInfo = {
+          test_name: row.test_name,
+          num_questions: row.num_questions,
+          teacher_id: row.teacher_id,
+          subject_id: row.subject_id,
+          created_at: row.created_at,
+          updated_at: row.updated_at
+        };
         
-        if (assignment.test_type === 'multiple_choice') {
-          const mcTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM multiple_choice_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Multiple choice test query result:', mcTest);
-          if (mcTest.length > 0) {
-            testInfo = mcTest[0];
-          }
-        } else if (assignment.test_type === 'true_false') {
-          const tfTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM true_false_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('True/false test query result:', tfTest);
-          if (tfTest.length > 0) {
-            testInfo = tfTest[0];
-          }
-        } else if (assignment.test_type === 'input') {
-          const inputTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM input_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Input test query result:', inputTest);
-          if (inputTest.length > 0) {
-            testInfo = inputTest[0];
-          }
-        } else if (assignment.test_type === 'matching_type') {
-          const matchingTest = await sql`
-            SELECT test_name, num_blocks as num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM matching_type_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Matching type test query result:', matchingTest);
-          if (matchingTest.length > 0) {
-            testInfo = matchingTest[0];
-          }
-        } else if (assignment.test_type === 'word_matching') {
-          const wordMatchingTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, interaction_type, created_at, updated_at
-            FROM word_matching_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Word matching test query result:', wordMatchingTest);
-          if (wordMatchingTest.length > 0) {
-            testInfo = wordMatchingTest[0];
-          }
-        } else if (assignment.test_type === 'drawing') {
-          const drawingTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM drawing_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Drawing test query result:', drawingTest);
-          if (drawingTest.length > 0) {
-            testInfo = drawingTest[0];
-          }
-        } else if (assignment.test_type === 'fill_blanks') {
-          const fillBlanksTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM fill_blanks_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Fill blanks test query result:', fillBlanksTest);
-          if (fillBlanksTest.length > 0) {
-            testInfo = fillBlanksTest[0];
-          }
-        } else if (assignment.test_type === 'speaking') {
-          const speakingTest = await sql`
-            SELECT test_name, num_questions, teacher_id, subject_id, created_at, updated_at
-            FROM speaking_tests 
-            WHERE id = ${assignment.test_id}
-          `;
-          console.log('Speaking test query result:', speakingTest);
-          if (speakingTest.length > 0) {
-            testInfo = speakingTest[0];
-          }
-        }
-        
-        console.log('Test info:', testInfo);
-        
-        // Get teacher name
-        if (testInfo.teacher_id) {
-          const teacher = await sql`
-            SELECT username FROM teachers WHERE teacher_id = ${testInfo.teacher_id}
-          `;
-          console.log('Teacher query result:', teacher);
-          if (teacher.length > 0) {
-            teacherName = teacher[0].username;
-          }
-        }
-        
-        // Get subject name using the specific subject_id from the assignment
-        if (assignment.subject_id) {
-          console.log('Looking for subject using assignment subject_id:', assignment.subject_id);
-          
-          const subject = await sql`
-            SELECT subject FROM subjects WHERE subject_id = ${assignment.subject_id}
-          `;
-          console.log('Subject query result using assignment subject_id:', subject);
-          
-          if (subject.length > 0) {
-            subjectName = subject[0].subject;
-          } else {
-            console.log('No subject found for subject_id:', assignment.subject_id);
-          }
-        } else {
-          // Fallback: Get subject name from teacher_subjects (for backward compatibility)
-          if (testInfo.teacher_id) {
-            console.log('No subject_id in assignment, falling back to teacher_subjects lookup');
-            
-            const subject = await sql`
-              SELECT s.subject 
-              FROM teacher_subjects ts
-              JOIN subjects s ON ts.subject_id = s.subject_id
-              WHERE ts.teacher_id = ${testInfo.teacher_id} 
-              AND ts.grade = ${assignmentGrade} 
-              AND ts.class = ${assignmentClass}
-            `;
-            console.log('Fallback subject query result:', subject);
-            
-            if (subject.length > 0) {
-              subjectName = subject[0].subject;
-            } else {
-              console.log('No subject found for teacher:', testInfo.teacher_id, 'grade:', assignmentGrade, 'class:', assignmentClass);
-            }
-          }
-        }
+        const teacherName = row.teacher_name || 'Unknown Teacher';
+        const subjectName = row.subject_name || 'Unknown Subject';
         
         // Check retest availability for this student and test
         let retestAvailable = false;
@@ -313,65 +164,46 @@ exports.handler = async function(event, context) {
         let retestAttemptsLeft = null;
         let retestAssignmentId = null;
         try {
-          console.log('Checking retest availability using ra.test_id and current window for', assignment.test_type, assignment.test_id, 'student:', student_id);
-          console.log('Retest query params:', {
-            student_id,
-            test_type: assignment.test_type,
-            test_id: assignment.test_id
-          });
+          console.log('Checking retest availability for', row.test_type, row.test_id, 'student:', student_id);
           const retestRows = await sql`
             SELECT rt.id as retest_target_id, COALESCE(rt.attempt_count, 0) as attempt_count,
                    ra.id as retest_assignment_id, ra.max_attempts, ra.window_start, ra.window_end, rt.status
             FROM retest_targets rt
             JOIN retest_assignments ra ON ra.id = rt.retest_assignment_id
             WHERE rt.student_id = ${student_id}
-              AND ra.test_type = ${assignment.test_type}
-              AND ra.test_id = ${assignment.test_id}
+              AND ra.test_type = ${row.test_type}
+              AND ra.test_id = ${row.test_id}
               AND NOW() BETWEEN ra.window_start AND ra.window_end
               AND (rt.status IS NULL OR rt.status = 'PENDING' OR rt.status = 'FAILED')
               AND (ra.max_attempts IS NULL OR COALESCE(rt.attempt_count, 0) < ra.max_attempts)
           `;
           retestAvailable = Array.isArray(retestRows) && retestRows.length > 0;
           console.log('Retest availability rows:', retestRows.length, 'available:', retestAvailable);
-          try {
-            console.log('Retest rows sample:', JSON.stringify(retestRows.slice(0, 2), null, 2));
-          } catch (_) {
-            console.log('Retest rows sample: <unserializable>');
-          }
           if (retestAvailable) {
-            const row = retestRows[0];
-            retestAssignmentId = row.retest_assignment_id;
-            if (row.max_attempts != null) {
-              retestAttemptsLeft = Math.max(0, row.max_attempts - (row.attempt_count || 0));
+            const retestRow = retestRows[0];
+            retestAssignmentId = retestRow.retest_assignment_id;
+            if (retestRow.max_attempts != null) {
+              retestAttemptsLeft = Math.max(0, retestRow.max_attempts - (retestRow.attempt_count || 0));
             }
-            console.log('Retest computed fields:', {
-              retest_assignment_id: retestAssignmentId,
-              attempt_count: row.attempt_count,
-              max_attempts: row.max_attempts,
-              attempts_left: retestAttemptsLeft,
-              status: row.status,
-              window_start: row.window_start,
-              window_end: row.window_end
-            });
-            retestKey = `retest1_${student_id}_${assignment.test_type}_${assignment.test_id}`;
+            retestKey = `retest1_${student_id}_${row.test_type}_${row.test_id}`;
             overallHasRetests = true;
           }
         } catch (e) {
-          console.warn('Retest availability check failed for', assignment.test_type, assignment.test_id, e.message);
+          console.warn('Retest availability check failed for', row.test_type, row.test_id, e.message);
         }
 
         activeTests.push({
-          test_id: assignment.test_id,
+          test_id: row.test_id,
           test_name: testInfo.test_name || 'Unknown Test',
-          test_type: assignment.test_type,
+          test_type: row.test_type,
           num_questions: testInfo.num_questions || 0,
-          created_at: assignment.assigned_at,
-          assigned_at: assignment.assigned_at,
+          created_at: row.assigned_at,
+          assigned_at: row.assigned_at,
           subject_name: subjectName || 'Unknown Subject',
-          grade: assignmentGrade,
-          class: assignmentClass,
+          grade: row.grade,
+          class: row.class,
           teacher_name: teacherName || 'Unknown Teacher',
-          assignment_id: assignment.assignment_id,
+          assignment_id: row.assignment_id,
           retest_available: retestAvailable,
           retest_key: retestKey,
           retest_attempts_left: retestAttemptsLeft,
@@ -381,8 +213,8 @@ exports.handler = async function(event, context) {
         console.log('Added test to activeTests:', activeTests[activeTests.length - 1]);
         
       } catch (error) {
-        console.error('Error processing assignment:', assignment, error);
-        // Continue with other assignments
+        console.error('Error processing view row:', row, error);
+        // Continue with other rows
       }
     }
 
@@ -391,35 +223,18 @@ exports.handler = async function(event, context) {
     // Comprehensive debugging information
     const debugInfo = {
       request_parameters: {
-        student_id: student_id,
-        original_grade: grade,
-        original_class: className
+        student_id: student_id
       },
-      data_conversion: {
-        converted_grade: assignmentGrade,
-        converted_class: assignmentClass,
-        conversion_logic: {
-          grade: 'M1 -> 1, M2 -> 2, etc.',
-          class: '1/15 -> 15, 2/16 -> 16, etc.'
-        }
-      },
-      database_queries: {
-        assignments_query: {
-          table: 'test_assignments',
-          filters: `grade = ${assignmentGrade}, class = ${assignmentClass}`,
-          found_count: assignments.length,
-          sample_assignment: assignments.length > 0 ? assignments[0] : null
-        },
-        test_info_queries: {
-          multiple_choice: 'Query multiple_choice_tests by test_id',
-          true_false: 'Query true_false_tests by test_id',
-          input: 'Query input_tests by test_id'
-        }
+      view_query: {
+        view_name: 'student_active_tests_view',
+        filters: `student_id = ${student_id}`,
+        found_count: viewRows.length,
+        sample_row: viewRows.length > 0 ? viewRows[0] : null
       },
       processing_results: {
-        total_assignments_processed: assignments.length,
+        total_view_rows_processed: viewRows.length,
         successful_processing: activeTests.length,
-        failed_processing: assignments.length - activeTests.length,
+        failed_processing: viewRows.length - activeTests.length,
         test_type_breakdown: {
           multiple_choice: activeTests.filter(t => t.test_type === 'multiple_choice').length,
           true_false: activeTests.filter(t => t.test_type === 'true_false').length,
@@ -432,8 +247,8 @@ exports.handler = async function(event, context) {
       },
       final_output: {
         tests_returned: activeTests.length,
-        student_grade: grade,
-        student_class: className,
+        student_grade: viewRows.length > 0 ? viewRows[0].grade : null,
+        student_class: viewRows.length > 0 ? viewRows[0].class : null,
         sample_test: activeTests.length > 0 ? activeTests[0] : null
       }
     };
@@ -448,9 +263,9 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({
         success: true,
         tests: activeTests,
-        student_grade: grade,
-        student_class: className,
-        debug_message: "FUNCTION IS RUNNING WITH UPDATED CODE - CLASS FORMAT CONVERSION FIX IS ACTIVE",
+        student_grade: viewRows.length > 0 ? viewRows[0].grade : null,
+        student_class: viewRows.length > 0 ? viewRows[0].class : null,
+        debug_message: "FUNCTION IS RUNNING WITH VIEW-BASED OPTIMIZATION",
         has_retests: overallHasRetests,
         debug_info: debugInfo
       })

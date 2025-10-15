@@ -1300,244 +1300,7 @@ SELECT
 -- SEMESTER-LEVEL CLASS SUMMARY MATERIALIZED VIEW
 -- ========================================
 
--- Drop the existing materialized view
-DROP MATERIALIZED VIEW IF EXISTS class_summary_view CASCADE;
 
--- Create the new semester-based materialized view
-CREATE MATERIALIZED VIEW class_summary_view AS
-WITH all_test_results AS (
-    -- Multiple Choice Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM multiple_choice_test_results
-
-    UNION ALL
-
-    -- True/False Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM true_false_test_results
-
-    UNION ALL
-
-    -- Input Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM input_test_results
-
-    UNION ALL
-
-    -- Matching Type Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM matching_type_test_results
-
-    UNION ALL
-
-    -- Word Matching Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM word_matching_test_results
-
-    UNION ALL
-
-    -- Drawing Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM drawing_test_results
-
-    UNION ALL
-
-    -- Fill Blanks Test Results
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_period_id,
-        test_id,
-        test_name,
-        student_id,
-        score,
-        max_score,
-        percentage as percentage,
-        submitted_at,
-        caught_cheating,
-        visibility_change_times,
-        is_completed
-    FROM fill_blanks_test_results
-),
-semester_mapping AS (
-    -- Map academic_period_id to semester and academic_year
-    -- Get ALL terms in the current semester (both term1 and term2)
-    SELECT 
-        ay.id as academic_period_id,
-        ay.academic_year,
-        ay.semester,
-        ay.start_date,
-        ay.end_date
-    FROM academic_year ay
-    WHERE ay.semester = (
-        -- Get semester from current term
-        SELECT semester 
-        FROM academic_year 
-        WHERE CURRENT_DATE BETWEEN start_date AND end_date
-    )
-),
-semester_results AS (
-    -- Join test results with semester mapping
-    SELECT 
-        atr.*,
-        sm.academic_year,
-        sm.semester,
-        sm.start_date as semester_start,
-        sm.end_date as semester_end
-    FROM all_test_results atr
-    JOIN semester_mapping sm ON atr.academic_period_id = sm.academic_period_id
-),
-class_stats AS (
-    SELECT 
-        teacher_id,
-        subject_id,
-        grade,
-        class,
-        academic_year,
-        semester,
-        
-        -- Student counts
-        COUNT(DISTINCT student_id) as total_students,
-        
-        -- Test counts  
-        COUNT(DISTINCT test_id) as total_tests,
-        COUNT(*) as completed_tests,
-        
-        -- Score statistics
-        ROUND(AVG(percentage), 2) as average_class_score,
-        MAX(score) as highest_score,
-        MIN(score) as lowest_score,
-        
-        -- Performance metrics
-        ROUND(
-            (COUNT(CASE WHEN percentage >= 60 THEN 1 END)::DECIMAL / COUNT(*)) * 100, 2
-        ) as pass_rate,
-        
-        -- Cheating incidents
-        COUNT(CASE WHEN caught_cheating = true THEN 1 END) as cheating_incidents,
-        COUNT(CASE WHEN visibility_change_times > 5 THEN 1 END) as high_visibility_change_students,
-        
-        -- Recent activity
-        MAX(submitted_at) as last_test_date,
-        CURRENT_TIMESTAMP as last_updated
-        
-    FROM semester_results
-    GROUP BY teacher_id, subject_id, grade, class, academic_year, semester
-)
-SELECT 
-    ROW_NUMBER() OVER (ORDER BY teacher_id, subject_id, grade, class, academic_year, semester) as id,
-    teacher_id,
-    subject_id,
-    grade,
-    class,
-    academic_year,
-    semester,
-    total_students,
-    total_tests,
-    completed_tests,
-    average_class_score,
-    highest_score,
-    lowest_score,
-    pass_rate,
-    cheating_incidents,
-    high_visibility_change_students,
-    last_test_date,
-    last_updated,
-    CURRENT_TIMESTAMP as created_at,
-    CURRENT_TIMESTAMP as updated_at
-FROM class_stats;
 
 -- Create indexes for performance on underlying tables
 CREATE INDEX IF NOT EXISTS idx_mc_results_teacher_grade_class_period 
@@ -2238,75 +2001,103 @@ $$;
 
 
 
--- 1. Simple view for test performance data
+-- 1. FIXED: Test performance view - Single dot per test
 CREATE OR REPLACE VIEW test_performance_by_test AS
 WITH all_test_results AS (
-    -- Multiple Choice Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    -- Union all test result tables with test_type identifier
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'multiple_choice' as test_type
     FROM multiple_choice_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- True/False Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'true_false' as test_type
     FROM true_false_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Input Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'input' as test_type
     FROM input_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Matching Type Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'matching' as test_type
     FROM matching_type_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Word Matching Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'word_matching' as test_type
     FROM word_matching_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Drawing Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'drawing' as test_type
     FROM drawing_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Fill Blanks Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'fill_blanks' as test_type
     FROM fill_blanks_test_results 
     WHERE is_completed = true
     
     UNION ALL
     
-    -- Speaking Test Results
-    SELECT teacher_id, test_id, test_name, percentage, submitted_at, academic_period_id, grade, class
+    SELECT 
+        teacher_id, test_id, test_name, percentage, submitted_at, 
+        academic_period_id, grade, class, student_id, 
+        'speaking' as test_type
     FROM speaking_test_results 
     WHERE is_completed = true
 )
 SELECT 
-    teacher_id,
-    test_id,
-    test_name,
-    AVG(percentage) as average_score,
-    COUNT(*) as total_students,
-    submitted_at,
-    academic_period_id,
-    grade,
+    teacher_id, 
+    test_id, 
+    test_name, 
+    test_type,
+    AVG(percentage) as average_score, 
+    COUNT(DISTINCT student_id) as total_students,
+    MIN(submitted_at) as submitted_at,  -- First submission date
+    academic_period_id, 
+    grade, 
     class
 FROM all_test_results
-GROUP BY teacher_id, test_id, test_name, submitted_at, academic_period_id, grade, class
+GROUP BY 
+    teacher_id, 
+    test_id, 
+    test_name, 
+    test_type, 
+    academic_period_id, 
+    grade, 
+    class
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-- KEY FIX: Group by test_id + test_type, NOT submitted_at!
+-- This ensures exactly 1 dot per test regardless of student attempts
 ORDER BY submitted_at ASC;
 
 -- 2. Essential indexes for performance
