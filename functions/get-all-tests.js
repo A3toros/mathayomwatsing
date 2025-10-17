@@ -51,38 +51,92 @@ exports.handler = async function(event, context) {
     }
 
     const sql = neon(process.env.NEON_DATABASE_URL);
-
+    
     console.log('🔍 Fetching all tests from all_tests_comprehensive_view...');
+
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "created_at,test_id")
+    let cursorCreatedAt, cursorId;
+    if (cursor) {
+      const [createdAtStr, idStr] = cursor.split(',');
+      cursorCreatedAt = new Date(createdAtStr);
+      cursorId = parseInt(idStr);
+    }
 
     // Optional filter by teacher_id for admins
     const teacherIdFilter = event.queryStringParameters?.teacher_id || null;
 
     let tests;
     if (teacherIdFilter) {
-      tests = await sql`
-        SELECT *
-        FROM all_tests_comprehensive_view
-        WHERE teacher_id = ${teacherIdFilter}
-        ORDER BY created_at DESC
-      `;
+      if (cursor) {
+        tests = await sql`
+          SELECT *
+          FROM all_tests_comprehensive_view
+          WHERE teacher_id = ${teacherIdFilter}
+            AND (created_at, test_id) < (${cursorCreatedAt}, ${cursorId})
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      } else {
+        tests = await sql`
+          SELECT *
+          FROM all_tests_comprehensive_view
+          WHERE teacher_id = ${teacherIdFilter}
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      }
     } else {
-      tests = await sql`
-        SELECT *
-        FROM all_tests_comprehensive_view
-        ORDER BY created_at DESC
-      `;
+      if (cursor) {
+        tests = await sql`
+          SELECT *
+          FROM all_tests_comprehensive_view
+          WHERE (created_at, test_id) < (${cursorCreatedAt}, ${cursorId})
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      } else {
+        tests = await sql`
+          SELECT *
+          FROM all_tests_comprehensive_view
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      }
     }
+
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (tests.length === limit && tests.length > 0) {
+      const lastTest = tests[tests.length - 1];
+      nextCursor = `${lastTest.created_at.toISOString()},${lastTest.test_id}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ tests, total: tests.length });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
 
     return {
       statusCode: 200,
       headers: {
         ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
       },
       body: JSON.stringify({
         success: true,
         tests,
-        total: tests.length
+        total: tests.length,
+        pagination: {
+          limit,
+          has_more: tests.length === limit,
+          next_cursor: nextCursor
+        }
       })
     };
   } catch (error) {

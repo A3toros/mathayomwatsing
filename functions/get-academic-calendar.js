@@ -50,9 +50,19 @@ exports.handler = async (event, context) => {
     }
 
     console.log('📅 Academic calendar loaded:', academicCalendar.length, 'terms');
+    
+    // Generate ETag for caching (static data - long cache time)
+    const dataString = JSON.stringify({ academic_calendar: academicCalendar, total_terms: academicCalendar.length });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        ...headers,
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200', // 1 hour + 2 hour stale
+        'ETag': etag,
+        'Vary': 'Authorization'
+      },
       body: JSON.stringify({
         success: true,
         academic_calendar: academicCalendar,

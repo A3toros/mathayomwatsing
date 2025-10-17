@@ -97,8 +97,7 @@ exports.handler = async function(event, context) {
     // Extract student_id from JWT token
     const student_id = decoded.sub;
 
-            const sql = neon(process.env.NEON_DATABASE_URL);
-    
+    const sql = neon(process.env.NEON_DATABASE_URL);
     // Get student info
     const students = await sql`
       SELECT grade, class

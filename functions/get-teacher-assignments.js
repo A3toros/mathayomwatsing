@@ -98,11 +98,18 @@ exports.handler = async function(event, context) {
 
     console.log('Assignments from view:', rows.length);
 
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ assignments: rows });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
       headers: {
         ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
       },
       body: JSON.stringify({
         success: true,

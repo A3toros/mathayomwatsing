@@ -115,25 +115,62 @@ exports.handler = async function(event, context) {
       console.log('No academic_period_id provided; returning all results for student');
     }
 
-    // Query consolidated view for student results
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "submitted_at,id")
+    let cursorSubmittedAt, cursorId;
+    if (cursor) {
+      const [submittedAtStr, idStr] = cursor.split(',');
+      cursorSubmittedAt = new Date(submittedAtStr);
+      cursorId = parseInt(idStr);
+    }
+
+    // Query consolidated view for student results with keyset pagination
     let results = [];
     try {
       console.log('Querying student_test_results_view for student:', student_id);
       if (currentPeriodId) {
-        results = await sql`
-          SELECT *
-          FROM student_test_results_view
-          WHERE student_id = ${student_id}
-            AND academic_period_id = ${currentPeriodId}
-          ORDER BY submitted_at DESC
-        `;
+        if (cursor) {
+          results = await sql`
+            SELECT *
+            FROM student_test_results_view
+            WHERE student_id = ${student_id}
+              AND academic_period_id = ${currentPeriodId}
+              AND (submitted_at, id) < (${cursorSubmittedAt}, ${cursorId})
+            ORDER BY submitted_at DESC, id DESC
+            LIMIT ${limit}
+          `;
+        } else {
+          results = await sql`
+            SELECT *
+            FROM student_test_results_view
+            WHERE student_id = ${student_id}
+              AND academic_period_id = ${currentPeriodId}
+            ORDER BY submitted_at DESC, id DESC
+            LIMIT ${limit}
+          `;
+        }
       } else {
-        results = await sql`
-          SELECT *
-          FROM student_test_results_view
-          WHERE student_id = ${student_id}
-          ORDER BY submitted_at DESC
-        `;
+        if (cursor) {
+          results = await sql`
+            SELECT *
+            FROM student_test_results_view
+            WHERE student_id = ${student_id}
+              AND (submitted_at, id) < (${cursorSubmittedAt}, ${cursorId})
+            ORDER BY submitted_at DESC, id DESC
+            LIMIT ${limit}
+          `;
+        } else {
+          results = await sql`
+            SELECT *
+            FROM student_test_results_view
+            WHERE student_id = ${student_id}
+            ORDER BY submitted_at DESC, id DESC
+            LIMIT ${limit}
+          `;
+        }
       }
       console.log('Student results query successful, found:', results.length, 'results');
     } catch (error) {
@@ -163,16 +200,35 @@ exports.handler = async function(event, context) {
       teacher_name: result.teacher_name
     }));
 
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (results.length === limit && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      nextCursor = `${lastResult.submitted_at.toISOString()},${lastResult.id}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ results: formattedResults, count: formattedResults.length });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
       headers: {
         ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
       },
       body: JSON.stringify({
         success: true,
         results: formattedResults,
-        count: formattedResults.length
+        count: formattedResults.length,
+        pagination: {
+          limit,
+          has_more: results.length === limit,
+          next_cursor: nextCursor
+        }
       })
     };
 

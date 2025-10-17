@@ -31,23 +31,75 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'Missing test_type or original_test_id' }) };
     }
 
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "best_percentage,student_id")
+    let cursorPercentage, cursorStudentId;
+    if (cursor) {
+      const [percentageStr, studentIdStr] = cursor.split(',');
+      cursorPercentage = parseFloat(percentageStr);
+      cursorStudentId = parseInt(studentIdStr);
+    }
+
     // For MVP, compute eligibility using test_attempts (best score per student for that test)
     const sql = neon(process.env.NEON_DATABASE_URL);
-    const rows = await sql`
-      WITH best AS (
-        SELECT student_id, MAX(percentage) AS best_percentage
-        FROM test_attempts
-        WHERE test_id = ${parseInt(original_test_id)}
-        GROUP BY student_id
-      )
-      SELECT b.student_id, u.name, u.surname, u.nickname, b.best_percentage
-      FROM best b
-      JOIN users u ON u.student_id = b.student_id
-      WHERE b.best_percentage < ${Number(threshold)}
-      ORDER BY b.best_percentage ASC
-    `;
 
-    return { statusCode: 200, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, students: rows }) };
+    let rows;
+    if (cursor) {
+      rows = await sql`
+        WITH best AS (
+          SELECT student_id, MAX(percentage) AS best_percentage
+          FROM test_attempts
+          WHERE test_id = ${parseInt(original_test_id)}
+          GROUP BY student_id
+        )
+        SELECT b.student_id, u.name, u.surname, u.nickname, b.best_percentage
+        FROM best b
+        JOIN users u ON u.student_id = b.student_id
+        WHERE b.best_percentage < ${Number(threshold)}
+          AND (b.best_percentage, b.student_id) > (${cursorPercentage}, ${cursorStudentId})
+        ORDER BY b.best_percentage ASC, b.student_id ASC
+        LIMIT ${limit}
+      `;
+    } else {
+      rows = await sql`
+        WITH best AS (
+          SELECT student_id, MAX(percentage) AS best_percentage
+          FROM test_attempts
+          WHERE test_id = ${parseInt(original_test_id)}
+          GROUP BY student_id
+        )
+        SELECT b.student_id, u.name, u.surname, u.nickname, b.best_percentage
+        FROM best b
+        JOIN users u ON u.student_id = b.student_id
+        WHERE b.best_percentage < ${Number(threshold)}
+        ORDER BY b.best_percentage ASC, b.student_id ASC
+        LIMIT ${limit}
+      `;
+    }
+
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (rows.length === limit && rows.length > 0) {
+      const lastRow = rows[rows.length - 1];
+      nextCursor = `${lastRow.best_percentage},${lastRow.student_id}`;
+    }
+
+    return { 
+      statusCode: 200, 
+      headers: { ...headers, 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ 
+        success: true, 
+        students: rows,
+        pagination: {
+          limit,
+          has_more: rows.length === limit,
+          next_cursor: nextCursor
+        }
+      }) 
+    };
   } catch (error) {
     return { statusCode: 500, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, error: error.message }) };
   }

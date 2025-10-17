@@ -108,31 +108,83 @@ exports.handler = async function(event, context) {
         }
 
         const sql = neon(process.env.NEON_DATABASE_URL);
-        const tests = await sql`
-          SELECT 
-            st.id, st.test_name, st.teacher_id, st.subject_id, 
-            st.time_limit, st.min_duration, st.max_duration,
-            st.min_words, st.passing_score, st.created_at, st.updated_at,
-            s.subject, t.first_name as teacher_name,
-            COUNT(stq.id) as question_count
-          FROM speaking_tests st
-          LEFT JOIN subjects s ON st.subject_id = s.subject_id
-          LEFT JOIN teachers t ON st.teacher_id = t.teacher_id
-          LEFT JOIN speaking_test_questions stq ON st.id = stq.test_id
-          WHERE st.teacher_id = ${userInfo.role === 'admin' ? (event.queryStringParameters?.teacher_id || userInfo.teacher_id) : userInfo.teacher_id}
-          GROUP BY st.id, st.test_name, st.teacher_id, st.subject_id, 
-                   st.time_limit, st.min_duration, st.max_duration,
-                   st.min_words, st.passing_score, st.created_at, st.updated_at,
-                   s.subject, t.first_name, t.last_name
-          ORDER BY st.created_at DESC
-        `;
+        
+        // Parse pagination parameters
+        const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+        const cursor = event.queryStringParameters?.cursor;
+        
+        // Parse cursor (format: "created_at,id")
+        let cursorCreatedAt, cursorId;
+        if (cursor) {
+          const [createdAtStr, idStr] = cursor.split(',');
+          cursorCreatedAt = new Date(createdAtStr);
+          cursorId = parseInt(idStr);
+        }
+
+        const teacherId = userInfo.role === 'admin' ? (event.queryStringParameters?.teacher_id || userInfo.teacher_id) : userInfo.teacher_id;
+        
+        let tests;
+        if (cursor) {
+          tests = await sql`
+            SELECT 
+              st.id, st.test_name, st.teacher_id, st.subject_id, 
+              st.time_limit, st.min_duration, st.max_duration,
+              st.min_words, st.passing_score, st.created_at, st.updated_at,
+              s.subject, t.first_name as teacher_name,
+              COUNT(stq.id) as question_count
+            FROM speaking_tests st
+            LEFT JOIN subjects s ON st.subject_id = s.subject_id
+            LEFT JOIN teachers t ON st.teacher_id = t.teacher_id
+            LEFT JOIN speaking_test_questions stq ON st.id = stq.test_id
+            WHERE st.teacher_id = ${teacherId}
+              AND (st.created_at, st.id) < (${cursorCreatedAt}, ${cursorId})
+            GROUP BY st.id, st.test_name, st.teacher_id, st.subject_id, 
+                     st.time_limit, st.min_duration, st.max_duration,
+                     st.min_words, st.passing_score, st.created_at, st.updated_at,
+                     s.subject, t.first_name, t.last_name
+            ORDER BY st.created_at DESC, st.id DESC
+            LIMIT ${limit}
+          `;
+        } else {
+          tests = await sql`
+            SELECT 
+              st.id, st.test_name, st.teacher_id, st.subject_id, 
+              st.time_limit, st.min_duration, st.max_duration,
+              st.min_words, st.passing_score, st.created_at, st.updated_at,
+              s.subject, t.first_name as teacher_name,
+              COUNT(stq.id) as question_count
+            FROM speaking_tests st
+            LEFT JOIN subjects s ON st.subject_id = s.subject_id
+            LEFT JOIN teachers t ON st.teacher_id = t.teacher_id
+            LEFT JOIN speaking_test_questions stq ON st.id = stq.test_id
+            WHERE st.teacher_id = ${teacherId}
+            GROUP BY st.id, st.test_name, st.teacher_id, st.subject_id, 
+                     st.time_limit, st.min_duration, st.max_duration,
+                     st.min_words, st.passing_score, st.created_at, st.updated_at,
+                     s.subject, t.first_name, t.last_name
+            ORDER BY st.created_at DESC, st.id DESC
+            LIMIT ${limit}
+          `;
+        }
+
+        // Generate next cursor for pagination
+        let nextCursor = null;
+        if (tests.length === limit && tests.length > 0) {
+          const lastTest = tests[tests.length - 1];
+          nextCursor = `${lastTest.created_at.toISOString()},${lastTest.id}`;
+        }
 
         return {
           statusCode: 200,
           headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             success: true,
-            tests: tests
+            tests: tests,
+            pagination: {
+              limit,
+              has_more: tests.length === limit,
+              next_cursor: nextCursor
+            }
           })
         };
 

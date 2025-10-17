@@ -134,9 +134,7 @@ exports.handler = async function(event, context) {
     }
 
     // Connect to database using @neondatabase/serverless
-    const sql = neon(process.env.NEON_DATABASE_URL);
-
-    // Get academic period ID from frontend (no database query needed)
+    const sql = neon(process.env.NEON_DATABASE_URL);// Get academic period ID from frontend (no database query needed)
     const { academic_period_id } = JSON.parse(event.body);
     const academicPeriodId = academic_period_id;
 

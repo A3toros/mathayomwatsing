@@ -101,7 +101,6 @@ exports.handler = async function(event, context) {
     const student_id = decoded.sub;
     
     const sql = neon(process.env.NEON_DATABASE_URL);
-    
     // Query the database for the student profile
     const students = await sql`
       SELECT student_id, name, surname, nickname, grade, class, number, is_active, created_at, updated_at

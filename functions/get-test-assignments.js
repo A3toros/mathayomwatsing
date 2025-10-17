@@ -108,13 +108,36 @@ exports.handler = async function(event, context) {
       console.log('⚠️ Error details:', error);
     }
     
-    // Use optimized view for test assignments
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "assigned_at,id")
+    let cursorAssignedAt, cursorId;
+    if (cursor) {
+      const [assignedAtStr, idStr] = cursor.split(',');
+      cursorAssignedAt = new Date(assignedAtStr);
+      cursorId = parseInt(idStr);
+    }
+
+    // Use optimized view for test assignments with keyset pagination
     console.log('🔍 Using test_assignments_comprehensive_view...');
     
-    const assignments = await sql`
-      SELECT * FROM test_assignments_comprehensive_view
-      ORDER BY assigned_at DESC
-    `;
+    let assignments;
+    if (cursor) {
+      assignments = await sql`
+        SELECT * FROM test_assignments_comprehensive_view
+        WHERE (assigned_at, id) < (${cursorAssignedAt}, ${cursorId})
+        ORDER BY assigned_at DESC, id DESC
+        LIMIT ${limit}
+      `;
+    } else {
+      assignments = await sql`
+        SELECT * FROM test_assignments_comprehensive_view
+        ORDER BY assigned_at DESC, id DESC
+        LIMIT ${limit}
+      `;
+    }
     
     console.log('🔍 Test assignments found:', assignments.length);
     
@@ -122,16 +145,35 @@ exports.handler = async function(event, context) {
       console.log('🔍 Sample assignment:', assignments[0]);
     }
 
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (assignments.length === limit && assignments.length > 0) {
+      const lastAssignment = assignments[assignments.length - 1];
+      nextCursor = `${lastAssignment.assigned_at.toISOString()},${lastAssignment.id}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ assignments, total: assignments.length });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
       headers: {
         ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
       },
       body: JSON.stringify({
         success: true,
         assignments: assignments,
         total: assignments.length,
+        pagination: {
+          limit,
+          has_more: assignments.length === limit,
+          next_cursor: nextCursor
+        },
         by_subject: assignments.reduce((acc, a) => {
           const subject = a.subject_name || 'Unknown';
           acc[subject] = (acc[subject] || 0) + 1;

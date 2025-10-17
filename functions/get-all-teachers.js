@@ -69,11 +69,18 @@ exports.handler = async function(event, context) {
       ORDER BY username
     `;
 
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ teachers });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
       headers: {
         ...headers,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5 minutes + 10 minute stale
+        'ETag': etag,
+        'Vary': 'Authorization'
       },
       body: JSON.stringify({
         success: true,

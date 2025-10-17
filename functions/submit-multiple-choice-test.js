@@ -3,8 +3,19 @@ const jwt = require('jsonwebtoken');
 
 exports.handler = async function(event, context) {
   // Enable CORS with Authorization header support
+  const allowedOrigins = [
+    'https://mathayomwatsing.netlify.app',
+    'http://localhost:8081',
+    'http://localhost:3000',
+    'http://localhost:19006',
+    'http://localhost:19000'
+  ];
+  
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  
   const headers = {
-    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Credentials': 'true'
@@ -143,9 +154,7 @@ exports.handler = async function(event, context) {
     }
 
     // Connect to database using @neondatabase/serverless
-    const sql = neon(process.env.NEON_DATABASE_URL);
-
-    // Get academic period ID from frontend (no database query needed)
+    const sql = neon(process.env.NEON_DATABASE_URL);// Get academic period ID from frontend (no database query needed)
     const { academic_period_id } = JSON.parse(event.body);
     const academicPeriodId = academic_period_id;
 

@@ -8,8 +8,19 @@ exports.handler = async function(event, context) {
   console.log('=== THIS IS A TEST - IF YOU SEE THIS, THE FUNCTION IS RUNNING ===');
   
   // CORS headers with Authorization support
+  const allowedOrigins = [
+    'https://mathayomwatsing.netlify.app',
+    'http://localhost:8081',
+    'http://localhost:3000',
+    'http://localhost:19006',
+    'http://localhost:19000'
+  ];
+  
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  
   const headers = {
-    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Credentials': 'true'
@@ -110,14 +121,38 @@ exports.handler = async function(event, context) {
     
     console.log('Database connection established');
 
-    // Use optimized view for student active tests
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "assigned_at,test_id")
+    let cursorAssignedAt, cursorId;
+    if (cursor) {
+      const [assignedAtStr, idStr] = cursor.split(',');
+      cursorAssignedAt = new Date(assignedAtStr);
+      cursorId = parseInt(idStr);
+    }
+
+    // Use optimized view for student active tests with keyset pagination
     console.log('Querying student_active_tests_view for student_id:', student_id);
     
-    const viewRows = await sql`
-      SELECT * FROM student_active_tests_view
-      WHERE student_id = ${student_id}
-      ORDER BY assigned_at DESC
-    `;
+    let viewRows;
+    if (cursor) {
+      viewRows = await sql`
+        SELECT * FROM student_active_tests_view
+        WHERE student_id = ${student_id}
+          AND (assigned_at, test_id) < (${cursorAssignedAt}, ${cursorId})
+        ORDER BY assigned_at DESC, test_id DESC
+        LIMIT ${limit}
+      `;
+    } else {
+      viewRows = await sql`
+        SELECT * FROM student_active_tests_view
+        WHERE student_id = ${student_id}
+        ORDER BY assigned_at DESC, test_id DESC
+        LIMIT ${limit}
+      `;
+    }
     
     console.log('student_active_tests_view rows:', viewRows.length);
 
@@ -257,9 +292,26 @@ exports.handler = async function(event, context) {
     console.log(JSON.stringify(debugInfo, null, 2));
     console.log('=== END DEBUG INFO ===');
     
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (viewRows.length === limit && viewRows.length > 0) {
+      const lastRow = viewRows[viewRows.length - 1];
+      nextCursor = `${lastRow.assigned_at.toISOString()},${lastRow.test_id}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ tests: activeTests, student_grade: viewRows.length > 0 ? viewRows[0].grade : null, student_class: viewRows.length > 0 ? viewRows[0].class : null });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: { 
+        ...headers, 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
+      },
       body: JSON.stringify({
         success: true,
         tests: activeTests,
@@ -267,6 +319,11 @@ exports.handler = async function(event, context) {
         student_class: viewRows.length > 0 ? viewRows[0].class : null,
         debug_message: "FUNCTION IS RUNNING WITH VIEW-BASED OPTIMIZATION",
         has_retests: overallHasRetests,
+        pagination: {
+          limit,
+          has_more: viewRows.length === limit,
+          next_cursor: nextCursor
+        },
         debug_info: debugInfo
       })
     };

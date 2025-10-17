@@ -60,32 +60,89 @@ exports.handler = async function(event, context) {
     }
 
     const sql = neon(process.env.NEON_DATABASE_URL);
+
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
     
-    // Use optimized view for teacher grades and classes
+    // Parse cursor (format: "grade,class")
+    let cursorGrade, cursorClass;
+    if (cursor) {
+      const [gradeStr, classStr] = cursor.split(',');
+      cursorGrade = parseInt(gradeStr);
+      cursorClass = parseInt(classStr);
+    }
+    
+    // Use optimized view for teacher grades and classes with keyset pagination
     let teacherGradesClasses;
     if (userInfo.role === 'admin' && teacherId === null) {
       // Admin gets all grades/classes from all teachers
-      teacherGradesClasses = await sql`
-        SELECT DISTINCT grade, class, subject_id, teacher_id, subject_name
-        FROM teacher_classes_summary_view
-        ORDER BY grade, class
-      `;
+      if (cursor) {
+        teacherGradesClasses = await sql`
+          SELECT DISTINCT grade, class, subject_id, teacher_id, subject_name
+          FROM teacher_classes_summary_view
+          WHERE (grade, class) > (${cursorGrade}, ${cursorClass})
+          ORDER BY grade, class
+          LIMIT ${limit}
+        `;
+      } else {
+        teacherGradesClasses = await sql`
+          SELECT DISTINCT grade, class, subject_id, teacher_id, subject_name
+          FROM teacher_classes_summary_view
+          ORDER BY grade, class
+          LIMIT ${limit}
+        `;
+      }
     } else {
       // Teacher gets only their grades/classes
-      teacherGradesClasses = await sql`
-        SELECT DISTINCT grade, class, subject_id, subject_name
-        FROM teacher_classes_summary_view
-        WHERE teacher_id = ${teacherId} 
-        ORDER BY grade, class
-      `;
+      if (cursor) {
+        teacherGradesClasses = await sql`
+          SELECT DISTINCT grade, class, subject_id, subject_name
+          FROM teacher_classes_summary_view
+          WHERE teacher_id = ${teacherId}
+            AND (grade, class) > (${cursorGrade}, ${cursorClass})
+          ORDER BY grade, class
+          LIMIT ${limit}
+        `;
+      } else {
+        teacherGradesClasses = await sql`
+          SELECT DISTINCT grade, class, subject_id, subject_name
+          FROM teacher_classes_summary_view
+          WHERE teacher_id = ${teacherId} 
+          ORDER BY grade, class
+          LIMIT ${limit}
+        `;
+      }
     }
     
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (teacherGradesClasses.length === limit && teacherGradesClasses.length > 0) {
+      const lastItem = teacherGradesClasses[teacherGradesClasses.length - 1];
+      nextCursor = `${lastItem.grade},${lastItem.class}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ data: teacherGradesClasses });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: { 
+        ...headers, 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5 minutes + 10 minute stale
+        'ETag': etag,
+        'Vary': 'Authorization'
+      },
       body: JSON.stringify({
         success: true,
-        data: teacherGradesClasses
+        data: teacherGradesClasses,
+        pagination: {
+          limit,
+          has_more: teacherGradesClasses.length === limit,
+          next_cursor: nextCursor
+        }
       })
     };
   } catch (error) {

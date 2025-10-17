@@ -63,21 +63,54 @@ exports.handler = async function(event, context) {
 
     const sql = neon(process.env.NEON_DATABASE_URL);
 
-    // Use optimized view for teacher active tests
+    // Parse pagination parameters
+    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
+    const cursor = event.queryStringParameters?.cursor;
+    
+    // Parse cursor (format: "created_at,id" or "created_at,test_id")
+    let cursorCreatedAt, cursorId;
+    if (cursor) {
+      const [createdAtStr, idStr] = cursor.split(',');
+      cursorCreatedAt = new Date(createdAtStr);
+      cursorId = parseInt(idStr);
+    }
+
+    // Use optimized view for teacher active tests with keyset pagination
     let activeTests;
     if (userInfo.role === 'admin') {
       // Admin gets ALL tests from ALL teachers
-      activeTests = await sql`
-        SELECT * FROM teacher_active_tests_view 
-        ORDER BY created_at DESC
-      `;
+      if (cursor) {
+        activeTests = await sql`
+          SELECT * FROM teacher_active_tests_view 
+          WHERE (created_at, test_id) < (${cursorCreatedAt}, ${cursorId})
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      } else {
+        activeTests = await sql`
+          SELECT * FROM teacher_active_tests_view 
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      }
     } else {
       // Teacher gets only their own tests
-      activeTests = await sql`
-        SELECT * FROM teacher_active_tests_view 
-        WHERE teacher_id = ${teacher_id}
-        ORDER BY created_at DESC
-      `;
+      if (cursor) {
+        activeTests = await sql`
+          SELECT * FROM teacher_active_tests_view 
+          WHERE teacher_id = ${teacher_id}
+            AND (created_at, test_id) < (${cursorCreatedAt}, ${cursorId})
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      } else {
+        activeTests = await sql`
+          SELECT * FROM teacher_active_tests_view 
+          WHERE teacher_id = ${teacher_id}
+          ORDER BY created_at DESC, test_id DESC
+          LIMIT ${limit}
+        `;
+      }
     }
 
     // Comprehensive debugging information
@@ -130,12 +163,34 @@ exports.handler = async function(event, context) {
     console.log(JSON.stringify(debugInfo, null, 2));
     console.log('=== END DEBUG INFO ===');
 
+    // Generate next cursor for pagination
+    let nextCursor = null;
+    if (activeTests.length === limit && activeTests.length > 0) {
+      const lastTest = activeTests[activeTests.length - 1];
+      nextCursor = `${lastTest.created_at.toISOString()},${lastTest.test_id}`;
+    }
+
+    // Generate ETag for caching
+    const dataString = JSON.stringify({ tests: activeTests });
+    const etag = `"${Buffer.from(dataString).toString('base64').slice(0, 16)}"`;
+
     return {
       statusCode: 200,
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: { 
+        ...headers, 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        'ETag': etag,
+        'Vary': 'Authorization'
+      },
       body: JSON.stringify({
         success: true,
         tests: activeTests,
+        pagination: {
+          limit,
+          has_more: activeTests.length === limit,
+          next_cursor: nextCursor
+        },
         debug_info: debugInfo
       })
     };
