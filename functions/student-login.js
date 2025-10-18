@@ -4,19 +4,8 @@ const { withSecurity, schemas } = require('./security-middleware');
 
 const handler = async function(event, context) {
   // Enable CORS with Authorization header support
-  const allowedOrigins = [
-    'https://mathayomwatsing.netlify.app',
-    'http://localhost:8081',
-    'http://localhost:3000',
-    'http://localhost:19006',
-    'http://localhost:19000'
-  ];
-  
-  const origin = event.headers?.origin || event.headers?.Origin;
-  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  
   const headers = {
-    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://mathayomwatsing.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Credentials': 'true',

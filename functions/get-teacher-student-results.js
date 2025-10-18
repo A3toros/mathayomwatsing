@@ -138,44 +138,16 @@ exports.handler = async (event, context) => {
     const academicPeriodIds = [academic_period_id];
     console.log('Academic period ID to query:', academicPeriodIds);
     
-    // Parse pagination parameters
-    const limit = Math.min(parseInt(event.queryStringParameters?.limit) || 50, 200);
-    const cursor = event.queryStringParameters?.cursor;
-    
-    // Parse cursor (format: "created_at,id")
-    let cursorCreatedAt, cursorId;
-    if (cursor) {
-      const [createdAtStr, idStr] = cursor.split(',');
-      cursorCreatedAt = new Date(createdAtStr);
-      cursorId = parseInt(idStr);
-    }
-
-    // Query consolidated view for comprehensive results with keyset pagination
-    let results;
-    if (cursor) {
-      results = await sql`
-        SELECT *
-        FROM teacher_student_results_view
-        WHERE teacher_id = ${actualTeacherId}
-          AND grade = ${parseInt(gradeNumber)}
-          AND class = ${parseInt(classNumber)}
-          AND academic_period_id = ANY(${academicPeriodIds})
-          AND (created_at, id) < (${cursorCreatedAt}, ${cursorId})
-        ORDER BY created_at DESC, id DESC
-        LIMIT ${limit}
-      `;
-    } else {
-      results = await sql`
-        SELECT *
-        FROM teacher_student_results_view
-        WHERE teacher_id = ${actualTeacherId}
-          AND grade = ${parseInt(gradeNumber)}
-          AND class = ${parseInt(classNumber)}
-          AND academic_period_id = ANY(${academicPeriodIds})
-        ORDER BY created_at DESC, id DESC
-        LIMIT ${limit}
-      `;
-    }
+    // Query consolidated view for comprehensive results (no pagination)
+    const results = await sql`
+      SELECT *
+      FROM teacher_student_results_view
+      WHERE teacher_id = ${actualTeacherId}
+        AND grade = ${parseInt(gradeNumber)}
+        AND class = ${parseInt(classNumber)}
+        AND academic_period_id = ANY(${academicPeriodIds})
+      ORDER BY created_at DESC, id DESC
+    `;
     
     console.log(`Found ${results.length} test results for teacher ${actualTeacherId} in academic period ${academic_period_id}`);
     
@@ -205,12 +177,6 @@ exports.handler = async (event, context) => {
     // Extract unique subjects from results
     const uniqueSubjects = [...new Set(results.map(result => result.subject).filter(subject => subject))];
     
-    // Generate next cursor for pagination
-    let nextCursor = null;
-    if (results.length === limit && results.length > 0) {
-      const lastResult = results[results.length - 1];
-      nextCursor = `${lastResult.created_at.toISOString()},${lastResult.id}`;
-    }
 
     // Generate ETag for caching
     const dataString = JSON.stringify({ results, students, subjects: uniqueSubjects, count: results.length });
@@ -235,12 +201,7 @@ exports.handler = async (event, context) => {
         teacher_id: actualTeacherId,
         grade,
         class: className,
-        academic_period_id,
-        pagination: {
-          limit,
-          has_more: results.length === limit,
-          next_cursor: nextCursor
-        }
+        academic_period_id
       })
     };
   } catch (error) {
