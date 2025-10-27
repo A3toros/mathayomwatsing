@@ -70,7 +70,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
     CANVAS_HEIGHT: 400,
     BLOCK_WIDTH: 140,
     BLOCK_HEIGHT: 50,
-    BLOCK_SPACING: 100,
+    BLOCK_SPACING: 80, // Reduced spacing for tighter layout
     MARGIN: 50,
     PADDING: 20
   };
@@ -117,10 +117,6 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       window.removeEventListener('resize', updateCanvasWidth);
     };
   }, [displayData]); // Re-run when displayData changes
-  const canvasHeight = Math.max(
-    BASE.CANVAS_HEIGHT * scale, 
-    (displayData?.leftWords?.length || 3) * BASE.BLOCK_SPACING * scale + BASE.PADDING * 2
-  );
   
   // Responsive block dimensions
   const blockWidth = BASE.BLOCK_WIDTH * scale;
@@ -200,6 +196,111 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   
   // Abstract stroke width
   const STROKE_WIDTH = Math.max(1, 3 * scale);
+  
+  // Calculate dynamic block height based on content
+  const calculateBlockHeight = useCallback((text, fontSize, blockWidth) => {
+    if (!text) return actualBlockHeight;
+    
+    // More precise text height calculation
+    const avgCharWidth = fontSize * 0.55; // More accurate character width estimation
+    const maxCharsPerLine = Math.floor(blockWidth / avgCharWidth);
+    const lines = Math.ceil(text.length / maxCharsPerLine);
+    const lineHeight = fontSize * 1.1; // Tighter line height
+    const verticalPadding = 12 * scale; // Reduced padding - just enough for comfort
+    
+    // Calculate exact height needed for content
+    const contentHeight = (lines * lineHeight) + verticalPadding;
+    
+    // Use minimum height only if content is very short
+    const minHeight = Math.max(actualBlockHeight * 0.8, 30 * scale); // Smaller minimum
+    
+    return Math.max(minHeight, contentHeight);
+  }, [actualBlockHeight, scale]);
+  
+  // Calculate dynamic canvas height based on actual content
+  const calculateCanvasHeight = useCallback(() => {
+    if (!displayData?.leftWords || !displayData?.rightWords) {
+      return BASE.CANVAS_HEIGHT * scale;
+    }
+    
+    // Calculate total height needed for all blocks
+    let totalHeight = margin * 2; // Top and bottom margins
+    
+    // Calculate height for each row of blocks
+    for (let i = 0; i < displayData.leftWords.length; i++) {
+      const leftWord = displayData.leftWords[i];
+      const rightWord = displayData.rightWords[i];
+      
+      const leftHeight = calculateBlockHeight(leftWord, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+      const rightHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+      const rowHeight = Math.max(leftHeight, rightHeight);
+      
+      totalHeight += rowHeight;
+      
+      // Add spacing between rows (except for the last row)
+      if (i < displayData.leftWords.length - 1) {
+        totalHeight += 20 * scale; // Padding between blocks
+      }
+    }
+    
+    // Ensure minimum height
+    const minHeight = BASE.CANVAS_HEIGHT * scale;
+    return Math.max(minHeight, totalHeight);
+  }, [displayData, calculateBlockHeight, FONT_SIZES, actualBlockWidth, margin, scale]);
+  
+  const canvasHeight = calculateCanvasHeight();
+  
+  // Calculate dynamic spacing between blocks based on content
+  const calculateBlockSpacing = useCallback((leftWords, rightWords) => {
+    if (!leftWords || !rightWords) return blockSpacing;
+    
+    // Calculate the maximum height needed for each row
+    const maxHeights = leftWords.map((leftWord, index) => {
+      const rightWord = rightWords[index];
+      const leftHeight = calculateBlockHeight(leftWord, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+      const rightHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+      return Math.max(leftHeight, rightHeight);
+    });
+    
+    // Use the maximum height plus padding for spacing
+    const maxHeight = Math.max(...maxHeights);
+    const padding = 20 * scale; // Padding between blocks
+    
+    return maxHeight + padding;
+  }, [blockSpacing, calculateBlockHeight, FONT_SIZES, actualBlockWidth, scale]);
+  
+  // Calculate cumulative Y positions for each block row
+  const calculateBlockPositions = useCallback(() => {
+    if (!displayData?.leftWords || !displayData?.rightWords) {
+      return [];
+    }
+    
+    const positions = [];
+    let currentY = margin;
+    
+    for (let i = 0; i < displayData.leftWords.length; i++) {
+      const leftWord = displayData.leftWords[i];
+      const rightWord = displayData.rightWords[i];
+      
+      const leftHeight = calculateBlockHeight(leftWord, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+      const rightHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+      const rowHeight = Math.max(leftHeight, rightHeight);
+      
+      positions.push({
+        y: currentY,
+        leftHeight,
+        rightHeight,
+        rowHeight
+      });
+      
+      // Move to next row position
+      currentY += rowHeight + (20 * scale); // Add padding between rows
+    }
+    
+    return positions;
+  }, [displayData, calculateBlockHeight, FONT_SIZES, actualBlockWidth, margin, scale]);
+  
+  const blockPositions = calculateBlockPositions();
   const [studentArrows, setStudentArrows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -513,7 +614,9 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 {/* Left Words - Draggable */}
                 {displayData.leftWords.map((word, index) => {
                   const isDragged = studentAnswers[index] !== undefined;
-                  const y = blockStartY + index * blockSpacing;
+                  const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+                  const position = blockPositions[index];
+                  const y = position ? position.y : blockStartY + index * blockSpacing;
                   
                   return (
                     <Group
@@ -537,7 +640,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         
                         // Check if dropped on any right word
                         for (let rightIndex = 0; rightIndex < rightWords.length; rightIndex++) {
-                          const rightY = rightStartY + rightIndex * blockSpacing;
+                          const rightPosition = blockPositions[rightIndex];
+                          const rightY = rightPosition ? rightPosition.y : rightStartY + rightIndex * blockSpacing;
                           const dropZoneLeft = rightStartX;
                           const dropZoneRight = rightStartX + rightWordWidth;
                           const dropZoneTop = rightY;
@@ -574,7 +678,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                     >
                       <Rect
                         width={actualBlockWidth}
-                        height={actualBlockHeight}
+                        height={dynamicHeight}
                         fill={isDragged ? '#e5e7eb' : '#3b82f6'}
                         stroke={isDragged ? '#9ca3af' : '#1d4ed8'}
                         strokeWidth={2}
@@ -584,7 +688,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       <Text
                         text={word}
                         x={actualBlockWidth / 2} // Center horizontally
-                        y={actualBlockHeight / 2} // Center vertically
+                        y={dynamicHeight / 2} // Center vertically
                         fontSize={FONT_SIZES.LEFT_WORD}
                         fontFamily="Arial"
                         fill={isDragged ? '#dc2626' : 'white'} // Red color when dragged
@@ -592,7 +696,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         verticalAlign="middle"
                         width={actualBlockWidth}
                         offsetX={actualBlockWidth / 2} // Center horizontally
-                        offsetY={actualBlockHeight / 2} // Center vertically
+                        offsetY={dynamicHeight / 2} // Center vertically
                         wrap="word"
                         ellipsis={true}
                         listening={false}
@@ -603,7 +707,9 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 
                 {/* Right Words - Drop Targets */}
                 {displayData.rightWords.map((word, index) => {
-                  const y = blockStartY + index * blockSpacing;
+                  const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+                  const position = blockPositions[index];
+                  const y = position ? position.y : blockStartY + index * blockSpacing;
                   const matchedLeftIndex = Object.keys(studentAnswers).find(
                     leftIndex => studentAnswers[leftIndex] === index
                   );
@@ -612,7 +718,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                     <Group key={`right-${index}`} x={rightBlockX} y={y}>
                       <Rect
                         width={actualBlockWidth}
-                        height={actualBlockHeight}
+                        height={dynamicHeight}
                         fill={matchedLeftIndex ? '#10b981' : '#f3f4f6'}
                         stroke={matchedLeftIndex ? '#059669' : '#d1d5db'}
                         strokeWidth={2}
@@ -621,7 +727,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       <Text
                         text={word}
                         x={actualBlockWidth / 2} // Center horizontally
-                        y={actualBlockHeight / 2} // Center vertically
+                        y={dynamicHeight / 2} // Center vertically
                         fontSize={FONT_SIZES.ORIGINAL_WORD} // Responsive font size
                         fontFamily="Arial"
                         fill="#000000" // Always black for right block words
@@ -629,7 +735,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         verticalAlign="middle"
                         width={actualBlockWidth}
                         offsetX={actualBlockWidth / 2} // Center horizontally
-                        offsetY={actualBlockHeight / 2} // Center vertically
+                        offsetY={dynamicHeight / 2} // Center vertically
                         wrap="word"
                         ellipsis={true}
                         listening={false}
@@ -638,8 +744,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       {matchedLeftIndex && (
                         <Text
                           text={displayData.leftWords[matchedLeftIndex]}
-                          x={blockWidth / 2} // Center horizontally
-                          y={blockHeight / 4} // Positioned higher for spacing
+                          x={actualBlockWidth / 2} // Center horizontally
+                          y={dynamicHeight / 4} // Positioned higher for spacing
                           fontSize={FONT_SIZES.DRAGGED_WORD} // Responsive font size
                           fontFamily="Arial"
                           fill="#dc2626" // Red for dragged word
@@ -647,7 +753,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                           verticalAlign="middle"
                           width={actualBlockWidth}
                           offsetX={actualBlockWidth / 2} // Center horizontally
-                          offsetY={actualBlockHeight / 8} // Center vertically
+                          offsetY={dynamicHeight / 8} // Center vertically
                           wrap="word"
                           ellipsis={true}
                         />
@@ -675,7 +781,9 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
               <Layer>
                 {/* Left Words - Clickable */}
                 {displayData.leftWords.map((word, index) => {
-                  const y = blockStartY + index * blockSpacing;
+                  const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+                  const position = blockPositions[index];
+                  const y = position ? position.y : blockStartY + index * blockSpacing;
                   const isSelected = selectedWord?.side === 'left' && selectedWord?.index === index;
                   
                   return (
@@ -687,7 +795,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                     >
                       <Rect
                         width={actualBlockWidth}
-                        height={actualBlockHeight}
+                        height={dynamicHeight}
                         fill={isSelected ? '#3b82f6' : '#f3f4f6'}
                         stroke={isSelected ? '#1d4ed8' : '#d1d5db'}
                         strokeWidth={isSelected ? 3 : 2}
@@ -695,8 +803,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       />
                       <Text
                         text={word}
-                        x={blockWidth / 2} // Center horizontally
-                        y={blockHeight / 2} // Center vertically
+                        x={actualBlockWidth / 2} // Center horizontally
+                        y={dynamicHeight / 2} // Center vertically
                         fontSize={FONT_SIZES.LEFT_WORD} // Responsive font size
                         fontFamily="Arial"
                         fill={isSelected ? 'white' : '#374151'}
@@ -704,7 +812,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         verticalAlign="middle"
                         width={actualBlockWidth}
                         offsetX={actualBlockWidth / 2} // Center horizontally
-                        offsetY={actualBlockHeight / 2} // Center vertically
+                        offsetY={dynamicHeight / 2} // Center vertically
                         wrap="word"
                         ellipsis={true}
                         listening={false}
@@ -715,7 +823,9 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 
                 {/* Right Words - Clickable */}
                 {displayData.rightWords.map((word, index) => {
-                  const y = blockStartY + index * blockSpacing;
+                  const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+                  const position = blockPositions[index];
+                  const y = position ? position.y : blockStartY + index * blockSpacing;
                   const isSelected = selectedWord?.side === 'right' && selectedWord?.index === index;
                   
                   return (
@@ -727,7 +837,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                     >
                       <Rect
                         width={actualBlockWidth}
-                        height={actualBlockHeight}
+                        height={dynamicHeight}
                         fill={isSelected ? '#3b82f6' : '#f3f4f6'}
                         stroke={isSelected ? '#1d4ed8' : '#d1d5db'}
                         strokeWidth={isSelected ? 3 : 2}
@@ -735,8 +845,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       />
                       <Text
                         text={word}
-                        x={blockWidth / 2} // Center horizontally
-                        y={blockHeight / 2} // Center vertically
+                        x={actualBlockWidth / 2} // Center horizontally
+                        y={dynamicHeight / 2} // Center vertically
                         fontSize={FONT_SIZES.ORIGINAL_WORD} // Responsive font size
                         fontFamily="Arial"
                         fill="#000000" // Always black for right block words
@@ -744,7 +854,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         verticalAlign="middle"
                         width={actualBlockWidth}
                         offsetX={actualBlockWidth / 2} // Center horizontally
-                        offsetY={actualBlockHeight / 2} // Center vertically
+                        offsetY={dynamicHeight / 2} // Center vertically
                         wrap="word"
                         ellipsis={true}
                         listening={false}
@@ -755,13 +865,21 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 
                 {/* Draw arrows between selected words */}
                 {studentArrows.map((arrow, arrowIndex) => {
-                  const startY = blockStartY + arrow.startWord.index * blockSpacing + blockHeight / 2;
-                  const endY = blockStartY + arrow.endWord.index * blockSpacing + blockHeight / 2;
+                  const leftWord = displayData.leftWords[arrow.startWord.index];
+                  const rightWord = displayData.rightWords[arrow.endWord.index];
+                  const leftHeight = calculateBlockHeight(leftWord, FONT_SIZES.LEFT_WORD, actualBlockWidth);
+                  const rightHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
+                  
+                  const startPosition = blockPositions[arrow.startWord.index];
+                  const endPosition = blockPositions[arrow.endWord.index];
+                  
+                  const startY = startPosition ? startPosition.y + leftHeight / 2 : blockStartY + arrow.startWord.index * blockSpacing + leftHeight / 2;
+                  const endY = endPosition ? endPosition.y + rightHeight / 2 : blockStartY + arrow.endWord.index * blockSpacing + rightHeight / 2;
                   
                   return (
                     <Line
                       key={arrowIndex}
-                      points={[leftBlockX + blockWidth + 20, startY, rightBlockX - 20, endY]} // Responsive arrow positioning
+                      points={[leftBlockX + actualBlockWidth + 20, startY, rightBlockX - 20, endY]} // Responsive arrow positioning
                       stroke={arrow.color || '#3b82f6'}
                       strokeWidth={STROKE_WIDTH} // Responsive stroke width
                       lineCap="round"

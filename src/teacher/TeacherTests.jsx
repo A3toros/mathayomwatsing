@@ -2655,41 +2655,47 @@ const TeacherTests = () => {
 
                   {/* Timer settings - Hide for speaking tests */}
                   {testType !== 'speaking' && (
-                    <div className="flex items-center space-x-4">
-                      <label className="inline-flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={!!formData.enableTimer}
-                          onChange={(e) => handleFormDataChange('enableTimer', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Enable timer for this test</span>
-                      </label>
-                      {formData.enableTimer && (
-                        <div className="flex items-center space-x-2">
-                          <label className="text-sm text-gray-700">Time (minutes):</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="1440"
-                            value={formData.timerMinutes}
-                            onChange={(e) => handleFormDataChange('timerMinutes', e.target.value.replace(/[^0-9]/g, ''))}
-                            className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g. 30"
-                          />
-                        </div>
-                      )}
-                      {/* Hide shuffle checkbox for drawing, matching, word matching, fill blanks, and speaking tests */}
-                      {testType !== 'drawing' && testType !== 'matching' && testType !== 'wordMatching' && testType !== 'fillBlanks' && testType !== 'speaking' && (
-                        <label className="inline-flex items-center space-x-2 ml-6">
+                    <div className="space-y-4">
+                      {/* Timer checkbox - First line */}
+                      <div className="flex items-center space-x-2">
+                        <label className="inline-flex items-center space-x-2">
                           <input
                             type="checkbox"
-                            checked={!!formData.isShuffled}
-                            onChange={(e) => handleFormDataChange('isShuffled', e.target.checked)}
+                            checked={!!formData.enableTimer}
+                            onChange={(e) => handleFormDataChange('enableTimer', e.target.checked)}
                             className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                           />
-                          <span className="text-sm text-gray-700">Shuffle questions during test</span>
+                          <span className="text-sm text-gray-700">Enable timer for this test</span>
                         </label>
+                        {formData.enableTimer && (
+                          <div className="flex items-center space-x-2">
+                            <label className="text-sm text-gray-700">Time (minutes):</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={formData.timerMinutes}
+                              onChange={(e) => handleFormDataChange('timerMinutes', e.target.value.replace(/[^0-9]/g, ''))}
+                              className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g. 30"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Shuffle checkbox - Second line - Hide for drawing, matching, word matching, fill blanks, and speaking tests */}
+                      {testType !== 'drawing' && testType !== 'matching' && testType !== 'wordMatching' && testType !== 'fillBlanks' && testType !== 'speaking' && (
+                        <div className="flex items-center space-x-2">
+                          <label className="inline-flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={!!formData.isShuffled}
+                              onChange={(e) => handleFormDataChange('isShuffled', e.target.checked)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                            />
+                            <span className="text-sm text-gray-700">Shuffle questions during test</span>
+                          </label>
+                        </div>
                       )}
                     </div>
                   )}
