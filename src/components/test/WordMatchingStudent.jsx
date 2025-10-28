@@ -311,6 +311,21 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   // Initialize test data
   useEffect(() => {
     if (testData) {
+      console.log('🎯 WordMatchingStudent: Initializing test data:', testData);
+      console.log('🎯 Interaction type:', testData.interaction_type);
+      console.log('🎯 Left words:', testData.leftWords);
+      console.log('🎯 Right words:', testData.rightWords);
+      console.log('🎯 Correct pairs:', testData.correctPairs);
+      
+      // Validate data structure
+      if (!Array.isArray(testData.leftWords) || !Array.isArray(testData.rightWords)) {
+        console.error('🎯 Invalid data structure - leftWords or rightWords not arrays:', {
+          leftWords: testData.leftWords,
+          rightWords: testData.rightWords
+        });
+        return;
+      }
+      
       setDisplayData(testData);
       setTestStartTime(new Date());
       
@@ -348,29 +363,45 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
 
   // Handle word click for arrow mode
   const handleWordClick = useCallback((side, index) => {
-    if (testData.interaction_type !== 'arrow') return;
+    console.log('🎯 handleWordClick called:', { side, index, interactionType: testData?.interaction_type, selectedWord });
+    
+    if (testData?.interaction_type !== 'arrow') {
+      console.log('🎯 Not arrow mode, ignoring click');
+      return;
+    }
 
     if (selectedWord) {
       if (selectedWord.side === side && selectedWord.index === index) {
         // Deselect if clicking the same word
+        console.log('🎯 Deselecting word');
         setSelectedWord(null);
       } else if (selectedWord.side !== side) {
         // Create arrow connection
+        console.log('🎯 Creating arrow connection:', { startWord: selectedWord, endWord: { side, index } });
         const newArrow = {
           id: Date.now().toString(),
           startWord: selectedWord,
           endWord: { side, index },
           color: '#3B82F6'
         };
-        setStudentArrows(prev => [...prev, newArrow]);
-        setStudentAnswers(prev => ({
-          ...prev,
-          [selectedWord.index]: index
-        }));
+        setStudentArrows(prev => {
+          const newArrows = [...prev, newArrow];
+          console.log('🎯 Updated arrows:', newArrows);
+          return newArrows;
+        });
+        setStudentAnswers(prev => {
+          const newAnswers = {
+            ...prev,
+            [selectedWord.index]: index
+          };
+          console.log('🎯 Updated answers:', newAnswers);
+          return newAnswers;
+        });
         setSelectedWord(null);
       }
     } else {
       // Select word
+      console.log('🎯 Selecting word:', { side, index });
       setSelectedWord({ side, index });
     }
   }, [selectedWord, testData?.interaction_type]);
@@ -419,14 +450,14 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
     
     try {
       // Calculate score based on interaction type
-      const totalPairs = displayData.leftWords.length;
+      const totalPairs = displayData?.leftWords?.length || 0;
       let correctMatches = 0;
       let finalAnswers = {};
       
       if (testData.interaction_type === 'drag') {
         // Drag mode scoring
         Object.entries(studentAnswers).forEach(([leftDisplayIndex, rightDisplayIndex]) => {
-          const expectedRightIndex = displayData.correctPairs[leftDisplayIndex];
+          const expectedRightIndex = displayData?.correctPairs?.[leftDisplayIndex];
           if (rightDisplayIndex === expectedRightIndex) {
             correctMatches++;
           }
@@ -438,7 +469,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           const leftIndex = arrow.startWord.side === 'left' ? arrow.startWord.index : arrow.endWord.index;
           const rightIndex = arrow.startWord.side === 'right' ? arrow.startWord.index : arrow.endWord.index;
           
-          if (displayData.correctPairs[leftIndex] === rightIndex) {
+          if (displayData?.correctPairs?.[leftIndex] === rightIndex) {
             correctMatches++;
           }
           finalAnswers[leftIndex] = rightIndex;
@@ -780,7 +811,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             >
               <Layer>
                 {/* Left Words - Clickable */}
-                {displayData.leftWords.map((word, index) => {
+                {displayData?.leftWords?.map((word, index) => {
                   const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.LEFT_WORD, actualBlockWidth);
                   const position = blockPositions[index];
                   const y = position ? position.y : blockStartY + index * blockSpacing;
@@ -822,7 +853,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 })}
                 
                 {/* Right Words - Clickable */}
-                {displayData.rightWords.map((word, index) => {
+                {displayData?.rightWords?.map((word, index) => {
                   const dynamicHeight = calculateBlockHeight(word, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
                   const position = blockPositions[index];
                   const y = position ? position.y : blockStartY + index * blockSpacing;
@@ -865,8 +896,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 
                 {/* Draw arrows between selected words */}
                 {studentArrows.map((arrow, arrowIndex) => {
-                  const leftWord = displayData.leftWords[arrow.startWord.index];
-                  const rightWord = displayData.rightWords[arrow.endWord.index];
+                  const leftWord = displayData?.leftWords?.[arrow.startWord.index];
+                  const rightWord = displayData?.rightWords?.[arrow.endWord.index];
                   const leftHeight = calculateBlockHeight(leftWord, FONT_SIZES.LEFT_WORD, actualBlockWidth);
                   const rightHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
                   

@@ -64,36 +64,42 @@ const WordMatchingPage = () => {
         // Check if cached data has the processed format (with id field)
         if (cachedData.id) {
           let dataToUse = cachedData;
-          if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
-            // Shuffle right words
+          // Normalize correctPairs to array
+          let baseCorrectPairs = Array.isArray(dataToUse.correctPairs)
+            ? dataToUse.correctPairs
+            : dataToUse.correctPairs && typeof dataToUse.correctPairs === 'object'
+              ? Object.keys(dataToUse.correctPairs)
+                  .map(k => [Number(k), dataToUse.correctPairs[k]])
+                  .sort((a, b) => a[0] - b[0])
+                  .map(([, v]) => v)
+              : null;
+
+          if (Array.isArray(dataToUse.leftWords) && Array.isArray(dataToUse.rightWords) && Array.isArray(baseCorrectPairs)) {
+            // Build index arrays
             const rightIndices = dataToUse.rightWords.map((_, idx) => idx);
+            const leftIndices = dataToUse.leftWords.map((_, idx) => idx);
+            // Shuffle both sides
             for (let i = rightIndices.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
               [rightIndices[i], rightIndices[j]] = [rightIndices[j], rightIndices[i]];
             }
-            const shuffledRight = rightIndices.map(i => dataToUse.rightWords[i]);
-            const rightNewIndexOf = new Map(rightIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
-            
-            // Shuffle left words
-            const leftIndices = dataToUse.leftWords.map((_, idx) => idx);
             for (let i = leftIndices.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
               [leftIndices[i], leftIndices[j]] = [leftIndices[j], leftIndices[i]];
             }
+            const shuffledRight = rightIndices.map(i => dataToUse.rightWords[i]);
             const shuffledLeft = leftIndices.map(i => dataToUse.leftWords[i]);
-            const leftNewIndexOf = new Map(leftIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
-            
-            // Remap correct pairs to account for both shuffles
-            const remappedPairs = dataToUse.correctPairs.map((rightIdx) => {
-              const originalRightIdx = rightNewIndexOf.get(rightIdx);
-              return originalRightIdx;
+            const rightNewIndexOf = new Map(rightIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+            // Remap pairs: for each new left index, map to new right index
+            const remappedPairs = leftIndices.map(oldLeftIdx => {
+              const oldRightIdx = baseCorrectPairs[oldLeftIdx];
+              return rightNewIndexOf.get(oldRightIdx);
             });
-            
-            dataToUse = { 
-              ...dataToUse, 
-              leftWords: shuffledLeft, 
-              rightWords: shuffledRight, 
-              correctPairs: remappedPairs 
+            dataToUse = {
+              ...dataToUse,
+              leftWords: shuffledLeft,
+              rightWords: shuffledRight,
+              correctPairs: remappedPairs
             };
           }
           setTestData(dataToUse);
@@ -116,16 +122,34 @@ const WordMatchingPage = () => {
             originalPairs: cachedData.originalPairs
           };
           let dataToUse = processedCachedData;
-          if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
-            const indices = dataToUse.rightWords.map((_, idx) => idx);
-            for (let i = indices.length - 1; i > 0; i--) {
+          // Normalize correctPairs to array
+          let baseCorrectPairs = Array.isArray(dataToUse.correctPairs)
+            ? dataToUse.correctPairs
+            : dataToUse.correctPairs && typeof dataToUse.correctPairs === 'object'
+              ? Object.keys(dataToUse.correctPairs)
+                  .map(k => [Number(k), dataToUse.correctPairs[k]])
+                  .sort((a, b) => a[0] - b[0])
+                  .map(([, v]) => v)
+              : null;
+          if (Array.isArray(dataToUse.leftWords) && Array.isArray(dataToUse.rightWords) && Array.isArray(baseCorrectPairs)) {
+            const rightIndices = dataToUse.rightWords.map((_, idx) => idx);
+            const leftIndices = dataToUse.leftWords.map((_, idx) => idx);
+            for (let i = rightIndices.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
-              [indices[i], indices[j]] = [indices[j], indices[i]];
+              [rightIndices[i], rightIndices[j]] = [rightIndices[j], rightIndices[i]];
             }
-            const shuffledRight = indices.map(i => dataToUse.rightWords[i]);
-            const newIndexOf = new Map(indices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
-            const remappedPairs = dataToUse.correctPairs.map((rightIdx) => newIndexOf.get(rightIdx));
-            dataToUse = { ...dataToUse, rightWords: shuffledRight, correctPairs: remappedPairs };
+            for (let i = leftIndices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [leftIndices[i], leftIndices[j]] = [leftIndices[j], leftIndices[i]];
+            }
+            const shuffledRight = rightIndices.map(i => dataToUse.rightWords[i]);
+            const shuffledLeft = leftIndices.map(i => dataToUse.leftWords[i]);
+            const rightNewIndexOf = new Map(rightIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+            const remappedPairs = leftIndices.map(oldLeftIdx => {
+              const oldRightIdx = baseCorrectPairs[oldLeftIdx];
+              return rightNewIndexOf.get(oldRightIdx);
+            });
+            dataToUse = { ...dataToUse, leftWords: shuffledLeft, rightWords: shuffledRight, correctPairs: remappedPairs };
           }
           setTestData(dataToUse);
         }
@@ -157,31 +181,34 @@ const WordMatchingPage = () => {
         };
         
         let dataToUse = processedTestData;
-        if (Array.isArray(dataToUse.rightWords) && Array.isArray(dataToUse.correctPairs)) {
-          // Shuffle right words
+        // Normalize correctPairs to array (API may send object)
+        let baseCorrectPairs = Array.isArray(dataToUse.correctPairs)
+          ? dataToUse.correctPairs
+          : dataToUse.correctPairs && typeof dataToUse.correctPairs === 'object'
+            ? Object.keys(dataToUse.correctPairs)
+                .map(k => [Number(k), dataToUse.correctPairs[k]])
+                .sort((a, b) => a[0] - b[0])
+                .map(([, v]) => v)
+            : null;
+        if (Array.isArray(dataToUse.leftWords) && Array.isArray(dataToUse.rightWords) && Array.isArray(baseCorrectPairs)) {
+          // Shuffle both columns
           const rightIndices = dataToUse.rightWords.map((_, idx) => idx);
+          const leftIndices = dataToUse.leftWords.map((_, idx) => idx);
           for (let i = rightIndices.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [rightIndices[i], rightIndices[j]] = [rightIndices[j], rightIndices[i]];
           }
-          const shuffledRight = rightIndices.map(i => dataToUse.rightWords[i]);
-          const rightNewIndexOf = new Map(rightIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
-          
-          // Shuffle left words
-          const leftIndices = dataToUse.leftWords.map((_, idx) => idx);
           for (let i = leftIndices.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [leftIndices[i], leftIndices[j]] = [leftIndices[j], leftIndices[i]];
           }
+          const shuffledRight = rightIndices.map(i => dataToUse.rightWords[i]);
           const shuffledLeft = leftIndices.map(i => dataToUse.leftWords[i]);
-          const leftNewIndexOf = new Map(leftIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
-          
-          // Remap correct pairs to account for both shuffles
-          const remappedPairs = dataToUse.correctPairs.map((rightIdx) => {
-            const originalRightIdx = rightNewIndexOf.get(rightIdx);
-            return originalRightIdx;
+          const rightNewIndexOf = new Map(rightIndices.map((oldIdx, newIdx) => [oldIdx, newIdx]));
+          const remappedPairs = leftIndices.map(oldLeftIdx => {
+            const oldRightIdx = baseCorrectPairs[oldLeftIdx];
+            return rightNewIndexOf.get(oldRightIdx);
           });
-          
           dataToUse = { 
             ...dataToUse, 
             leftWords: shuffledLeft, 
