@@ -1090,13 +1090,15 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                   
                   <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-4">
                     <div className="grid grid-cols-3 gap-3">
-                      {[1, 2, 3, 4, 5, 6].map(grade => {
+                      {[1, 2, 3, 4, 5, 6, 7].map(grade => {
                         // Determine classes based on grade
                         let classes;
                         if (grade === 1 || grade === 2 || grade === 3) {
                           classes = [15, 16];
                         } else if (grade === 4 || grade === 5 || grade === 6) {
                           classes = [13, 14];
+                        } else if (grade === 7) {
+                          classes = [69];
                         } else {
                           classes = [];
                         }
