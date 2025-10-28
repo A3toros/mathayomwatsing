@@ -430,15 +430,14 @@ exports.handler = async function(event, context) {
       }
       console.log('All questions inserted successfully');
       
-      // Get academic period ID from frontend (no database query needed)
-      const { academic_period_id } = JSON.parse(event.body);
-      const currentAcademicPeriodId = academic_period_id;
+      // Get academic period ID from assignments array (each assignment has its own academic_period_id)
+      const currentAcademicPeriodId = assignments[0]?.academic_period_id;
       console.log('Current academic period ID:', currentAcademicPeriodId);
 
       // Insert assignments
       console.log('Inserting assignments...');
       for (const assignment of assignments) {
-        const { grade, class: className, subject_id, due_date } = assignment;
+        const { grade, class: className, subject_id, due_date, academic_period_id } = assignment;
         
         // Set default due date to 7 days from now if not provided
         const defaultDueDate = new Date();
@@ -452,10 +451,10 @@ exports.handler = async function(event, context) {
           )
           VALUES (
             ${test_type}, ${testId}, ${teacher_id}, ${grade}, ${className}, ${subject_id},
-            ${currentAcademicPeriodId}, CURRENT_TIMESTAMP, ${finalDueDate}, true, NOW(), NOW()
+            ${academic_period_id}, CURRENT_TIMESTAMP, ${finalDueDate}, true, NOW(), NOW()
           )
         `;
-        console.log(`Assignment created for ${grade}/${className} with subject ${subject_id}, academic_period: ${currentAcademicPeriodId}, due: ${finalDueDate}`);
+        console.log(`Assignment created for ${grade}/${className} with subject ${subject_id}, academic_period: ${academic_period_id}, due: ${finalDueDate}`);
       }
       console.log('All assignments inserted successfully');
       

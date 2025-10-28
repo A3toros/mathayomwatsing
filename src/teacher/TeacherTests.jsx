@@ -1216,9 +1216,15 @@ const TeacherTests = () => {
         if (testType === 'input') {
           // Input tests use correct_answers (array) for multiple correct answers
           correctAnswerField = { correct_answers: question.correct_answers || [question.correctAnswer || ''] };
+        } else if (testType === 'trueFalse') {
+          // True/False tests need boolean conversion
+          const correctAnswer = question.correct_answer || question.correctAnswer || question.correct_answers?.[0] || '';
+          // Convert string 'true'/'false' to boolean, or default to false if empty
+          const booleanAnswer = correctAnswer === 'true' ? true : correctAnswer === 'false' ? false : false;
+          correctAnswerField = { correct_answer: booleanAnswer };
         } else {
-          // Multiple choice and true/false tests use correct_answer (single string)
-          correctAnswerField = { correct_answer: question.correctAnswer || question.correct_answers?.[0] || '' };
+          // Multiple choice tests use correct_answer (single string)
+          correctAnswerField = { correct_answer: question.correctAnswer || question.correct_answer || question.correct_answers?.[0] || '' };
         }
         
         const convertedQuestion = {
@@ -3017,6 +3023,7 @@ const TeacherTests = () => {
                                   onChange={(e) => handleQuestionChange(questionId, 'correctAnswer', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
+                      <option value="">Select correct answer</option>
                       <option value="true">True</option>
                       <option value="false">False</option>
                     </select>
