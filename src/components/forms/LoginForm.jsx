@@ -139,6 +139,14 @@ export const LoginForm = ({ onLoginSuccess }) => {
         console.log(`✅ ${role} login successful`);
         showNotification(`Welcome! ${role.charAt(0).toUpperCase() + role.slice(1)} login successful.`, 'success');
         
+        // Prompt browser to remember credentials (Credential Management API)
+        try {
+          if ('credentials' in navigator && window.PasswordCredential && formData?.username && formData?.password) {
+            const cred = new window.PasswordCredential({ id: String(formData.username), password: String(formData.password) });
+            await navigator.credentials.store(cred);
+          }
+        } catch {}
+
         if (onLoginSuccess) {
           onLoginSuccess();
         }
@@ -277,6 +285,10 @@ export const LoginForm = ({ onLoginSuccess }) => {
             className={validationErrors.username ? 'error' : ''}
             disabled={isLoading}
             placeholder="Enter your username"
+            autoComplete="username"
+            inputMode="numeric"
+            autoCapitalize="none"
+            spellCheck={false}
           />
           {validationErrors.username && (
             <span className="error-message">{validationErrors.username}</span>
@@ -294,6 +306,7 @@ export const LoginForm = ({ onLoginSuccess }) => {
             className={validationErrors.password ? 'error' : ''}
             disabled={isLoading}
             placeholder="Enter your password"
+            autoComplete="current-password"
           />
           {validationErrors.password && (
             <span className="error-message">{validationErrors.password}</span>

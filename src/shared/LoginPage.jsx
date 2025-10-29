@@ -178,6 +178,13 @@ const LoginPage = () => {
       if (await handleResponse(actualResponse, role, data)) {
         // Login successful, redirect will be handled by useEffect
         showNotification('Login successful!', 'success');
+        // Prompt browser to save credentials (Credential Management API)
+        try {
+          if ('credentials' in navigator && window.PasswordCredential && formData?.username && formData?.password) {
+            const cred = new window.PasswordCredential({ id: String(formData.username), password: String(formData.password) });
+            await navigator.credentials.store(cred);
+          }
+        } catch {}
         // Ensure any previous force-logout flags don't block follow-up flows
         try {
           window.forceLogout = false;
@@ -443,6 +450,9 @@ const LoginPage = () => {
                 placeholder="Enter student ID"
                 required
                 autoComplete="username"
+                inputMode="numeric"
+                autoCapitalize="none"
+                spellCheck={false}
                 disabled={isLoading}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 aria-describedby={error ? "error-message" : undefined}
@@ -525,22 +535,6 @@ const LoginPage = () => {
           </form>
         </motion.div>
         
-        {/* Debug Info (Development Only) */}
-        {CONFIG.DEBUG_MODE && (
-          <motion.div 
-            className="mt-6 p-4 bg-gray-100 rounded-lg"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.3 }}
-          >
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Debug Info</h3>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p>JWT Available: {window.tokenManager ? 'Yes' : 'No'}</p>
-              <p>Role Based Loader: {window.roleBasedLoader ? 'Yes' : 'No'}</p>
-              <p>Force Logout: {window.forceLogout ? 'Yes' : 'No'}</p>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
       
       {/* Notifications */}

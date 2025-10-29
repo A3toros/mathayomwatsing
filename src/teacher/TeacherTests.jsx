@@ -617,48 +617,35 @@ const TeacherTests = () => {
     }
   }, [user, showNotification, displayTestAssignmentOptions]);
   
-  // Load available classes for assignment
+  // Load available classes for assignment (use teacher-subjects API for proper grouping)
   const loadAvailableClasses = useCallback(async () => {
     console.log('👨‍🏫 Loading available classes...');
+    
+    // Check if user session is still valid using JWT
+    if (!user || !user.teacher_id) {
+      console.error('No valid teacher session found, redirecting to login');
+      return;
+    }
+    
     try {
-      const rawData = await userService.getGradesAndClasses();
-      console.log('👨‍🏫 Raw grades/classes data:', rawData);
+      // Use the teacher-subjects API that returns data already grouped by subjects
+      const response = await window.tokenManager.makeAuthenticatedRequest(`/.netlify/functions/get-teacher-subjects?teacher_id=${user.teacher_id}`);
+      const data = await response.json();
+      console.log('👨‍🏫 Teacher subjects response:', data);
       
-      if (!rawData || rawData.length === 0) {
+      if (data.success && data.subjects && data.subjects.length > 0) {
+        console.log('👨‍🏫 Teacher subjects loaded:', data.subjects);
+        setAvailableClasses(data.subjects); // Data is already grouped by subjects
+      } else {
+        console.log('No teacher subjects found');
         setAvailableClasses([]);
-        return;
+        showNotification('No subjects found. Please assign subjects to grades and classes first.', 'warning');
       }
-      
-      // Transform raw data into the expected structure
-      const subjectsMap = new Map();
-      
-      rawData.forEach(item => {
-        const subjectId = item.subject_id;
-        const subjectName = item.subject || `Subject ${subjectId}`;
-        
-        if (!subjectsMap.has(subjectId)) {
-          subjectsMap.set(subjectId, {
-            subject_id: subjectId,
-            subject: subjectName,
-            classes: []
-          });
-        }
-        
-        // Add class to subject
-        subjectsMap.get(subjectId).classes.push({
-          grade: item.grade,
-          class: item.class
-        });
-      });
-      
-      const transformedData = Array.from(subjectsMap.values());
-      setAvailableClasses(transformedData);
-      console.log('👨‍🏫 Transformed available classes:', transformedData);
     } catch (error) {
       console.error('👨‍🏫 Error loading available classes:', error);
       showNotification('Failed to load available classes', 'error');
     }
-  }, [showNotification]);
+  }, [user, showNotification]);
   
   // Show test assignment (exact copy from legacy)
   const showTestAssignment = useCallback(async (testType, testId) => {
@@ -688,11 +675,8 @@ const TeacherTests = () => {
     // Load teacher grades and classes
     loadTeacherGradesAndClasses(testType, testId);
     
-    // Load available classes for assignment
-    loadAvailableClasses();
-    
     console.log('🔍 Test assignment interface shown for:', { testType, testId });
-  }, [testAssignmentCompleted, user, disableNavigationButtons, saveTestCreationState, loadTeacherGradesAndClasses, loadAvailableClasses]);
+  }, [testAssignmentCompleted, user, disableNavigationButtons, saveTestCreationState, loadTeacherGradesAndClasses]);
   
   // Display teacher's active tests (exact copy from legacy)
   const displayTeacherActiveTests = useCallback(async (tests) => {

@@ -1615,48 +1615,6 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                         transition={{ duration: 0.2, delay: 0.3 + (index * 0.05) }}
                       >
                         <div className="flex flex-col space-y-1">
-                          {/* Edit Column button ONLY for drawing tests */}
-                          {isDrawingTest && (
-                            <div className="flex justify-center">
-                              {isEditingColumn ? (
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleSaveColumnScores(test.test_name);
-                                    }}
-                                    disabled={isSavingColumn}
-                                    className="px-1 py-0.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {isSavingColumn ? 'Saving...' : 'Save'}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleCancelColumnEditing(test.test_name);
-                                    }}
-                                    disabled={isSavingColumn}
-                                    className="px-1 py-0.5 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleStartColumnEditing(test.test_name);
-                                  }}
-                                  className="px-1 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                                >
-                                  Edit
-                                </button>
-                              )}
-                            </div>
-                          )}
                           
                           {/* Test name */}
                           <span className="text-xs">
@@ -1797,7 +1755,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                               }
                             }}
                           >
-                            {testResult && testResult.score !== null && testResult.score !== undefined ? (
+                             {testResult && (testResult.test_type === 'drawing' || test.test_type === 'drawing' || testResult.test_type === 'speaking' || test.test_type === 'speaking' || (testResult.score !== null && testResult.score !== undefined)) ? (
                               <div className="flex flex-col items-center space-y-1">
                                 {testResult.test_type === 'drawing' ? (
                                   <>

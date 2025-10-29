@@ -562,17 +562,30 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
-  // Enhanced refreshActiveTestsData from legacy code
+  // Enhanced refreshActiveTestsData from legacy code - TRUE REFRESH
   const refreshTests = useCallback(async () => {
     logger.debug('👨‍🏫 Refreshing active tests data...');
     try {
-      await loadTests();
-      showNotification('Tests refreshed successfully!', 'success');
+      // Force refresh by clearing cache first
+      const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+      localStorage.removeItem(cacheKey);
+      logger.debug('👨‍🏫 Cache cleared, forcing fresh API call');
+      
+      // Call the API directly, bypassing all caching logic (noCache = true)
+      logger.debug('👨‍🏫 Making direct API call to get-teacher-active-tests with noCache');
+      const tests = await testService.getTeacherTests(true);
+      logger.debug('👨‍🏫 Direct API call returned:', tests);
+      
+      // Update state directly
+      setActiveTestsData(tests);
+      logger.debug('👨‍🏫 activeTestsData state updated:', tests);
+      
+      showNotification(`Tests refreshed successfully! Found ${tests?.length || 0} tests.`, 'success');
     } catch (error) {
       logger.error('👨‍🏫 Error refreshing tests:', error);
       showNotification('Failed to refresh tests', 'error');
     }
-  }, [loadTests]);
+  }, [user?.teacher_id, user?.id]);
   
   // Show notification helper
   

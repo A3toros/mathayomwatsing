@@ -162,11 +162,12 @@ export const testService = {
   },
 
   // Enhanced getTeacherTests from legacy code (loadTeacherActiveTests)
-  async getTeacherTests() {
+  async getTeacherTests(noCache = false) {
     console.log('getTeacherTests called - extracting teacherId from JWT token');
     
     try {
-      const url = '/.netlify/functions/get-teacher-active-tests';
+      const baseUrl = '/.netlify/functions/get-teacher-active-tests';
+      const url = noCache ? `${baseUrl}?ts=${Date.now()}` : baseUrl;
       console.log('[DEBUG] Fetching teacher tests from:', url);
       
       const response = await window.tokenManager.makeAuthenticatedRequest(url);
