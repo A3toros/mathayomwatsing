@@ -438,7 +438,7 @@ const LoginPage = () => {
                 htmlFor="username" 
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Student ID
+                Username
               </label>
               <motion.input
                 type="text"
@@ -447,10 +447,9 @@ const LoginPage = () => {
                 value={formData.username}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter student ID"
+                placeholder="Enter your username"
                 required
                 autoComplete="username"
-                inputMode="numeric"
                 autoCapitalize="none"
                 spellCheck={false}
                 disabled={isLoading}

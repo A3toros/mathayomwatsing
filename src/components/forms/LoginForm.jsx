@@ -286,7 +286,6 @@ export const LoginForm = ({ onLoginSuccess }) => {
             disabled={isLoading}
             placeholder="Enter your username"
             autoComplete="username"
-            inputMode="numeric"
             autoCapitalize="none"
             spellCheck={false}
           />
