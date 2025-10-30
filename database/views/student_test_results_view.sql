@@ -75,7 +75,7 @@ SELECT
     t.academic_period_id,
     t.student_id,
     s.subject,
-    CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+    te.first_name as teacher_name
 FROM true_false_test_results t
 LEFT JOIN subjects s ON t.subject_id = s.subject_id
 LEFT JOIN teachers te ON t.teacher_id = te.teacher_id
@@ -205,7 +205,7 @@ SELECT
     f.academic_period_id,
     f.student_id,
     s.subject,
-    CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+    te.first_name as teacher_name
 FROM fill_blanks_test_results f
 LEFT JOIN subjects s ON f.subject_id = s.subject_id
 LEFT JOIN teachers te ON f.teacher_id = te.teacher_id
@@ -231,7 +231,7 @@ SELECT
     str.academic_period_id,
     str.student_id,
     s.subject,
-    CONCAT(te.first_name, ' ', te.last_name) as teacher_name
+    te.first_name as teacher_name
 FROM speaking_test_results str
 LEFT JOIN subjects s ON str.subject_id = s.subject_id
 LEFT JOIN teachers te ON str.teacher_id = te.teacher_id

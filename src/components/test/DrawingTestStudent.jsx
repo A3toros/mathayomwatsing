@@ -1539,8 +1539,8 @@ const DrawingTestStudent = ({
   // Fullscreen functionality
   const toggleFullscreen = () => {
     if (!isFullscreen) {
-      // Enter fullscreen
-      const canvasContainer = document.querySelector('.drawing-canvas-container');
+      // Enter fullscreen - use the specific canvas container ref instead of querySelector
+      const canvasContainer = containerRef.current;
       if (canvasContainer) {
         if (canvasContainer.requestFullscreen) {
           canvasContainer.requestFullscreen();
@@ -1811,7 +1811,7 @@ const DrawingTestStudent = ({
 
       {/* Drawing Canvas */}
       <Card paddingClass="p-0 sm:p-2">
-        <div className="w-full drawing-canvas-container relative p-0 m-0">
+        <div ref={containerRef} className="w-full drawing-canvas-container relative p-0 m-0">
             <DrawingCanvas
               width={canvasSize.width}
               height={canvasSize.height}
