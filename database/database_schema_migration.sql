@@ -1302,11 +1302,11 @@ INSERT INTO users (grade, class, number, student_id, name, surname, nickname, pa
 (6, 14, 16, '50442', 'Arada', 'Wang', 'Ing', '50442'),
 
 -- Additional test students for class 7/13 (5 students for testing)
-(007, 69, 1, '70001', 'Alex', 'Johnson', 'Alex', '70001'),
-(007, 69, 2, '70002', 'Sarah', 'Williams', 'Sarah', '70002'),
-(007, 69, 3, '70003', 'Michael', 'Brown', 'Mike', '70003'),
-(007, 69, 4, '70004', 'Emma', 'Davis', 'Emma', '70004'),
-(007, 69, 5, '70005', 'James', 'Wilson', 'James', '70005');
+(7, 69, 1, '70001', 'Alex', 'Johnson', 'Alex', '70001'),
+(7, 69, 2, '70002', 'Sarah', 'Williams', 'Sarah', '70002'),
+(7, 69, 3, '70003', 'Michael', 'Brown', 'Mike', '70003'),
+(7, 69, 4, '70004', 'Emma', 'Davis', 'Emma', '70004'),
+(7, 69, 5, '70005', 'James', 'Wilson', 'James', '70005');
 
 -- ========================================
 -- VERIFICATION
