@@ -10,6 +10,7 @@ import { useNotification } from '@/components/ui/Notification';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
 import { DrawingModal } from '@/components/modals';
 import SpeakingTestReview from '@/components/test/SpeakingTestReview';
+import TestAnswerModal from '@/components/test/TestAnswerModal';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import * as XLSX from 'xlsx';
 
@@ -164,6 +165,13 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [inlineDrawingEdit, setInlineDrawingEdit] = useState(null); // { key: `${testName}|${studentId}` }
   const [inlineDrawingValue, setInlineDrawingValue] = useState('');
   const [isSavingInline, setIsSavingInline] = useState(false);
+  
+  // Answer modal state
+  const [selectedTestResult, setSelectedTestResult] = useState(null);
+  const [selectedTestQuestions, setSelectedTestQuestions] = useState(null);
+  const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [testQuestionsCache, setTestQuestionsCache] = useState({});
   
   // Use ref to persist editing state across re-renders
   const editingColumnsRef = useRef(new Set());
@@ -697,6 +705,89 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     setIsSpeakingModalOpen(true);
   }, []);
 
+  // Fetch test questions with caching
+  const fetchTestQuestions = useCallback(async (testType, testId) => {
+    if (!testType || !testId) {
+      console.error('fetchTestQuestions: Missing testType or testId', { testType, testId });
+      return null;
+    }
+
+    const cacheKey = `${testType}_${testId}`;
+    
+    // Check cache first
+    if (testQuestionsCache[cacheKey]) {
+      console.log('📚 Using cached questions for', cacheKey);
+      return testQuestionsCache[cacheKey];
+    }
+    
+    setIsLoadingQuestions(true);
+    try {
+      console.log('📚 Fetching questions for', { testType, testId });
+      const questions = await testService.getTestQuestions(testType, testId);
+      console.log('📚 Questions fetched:', questions?.length || 0, 'questions');
+      
+      // Cache the questions
+      setTestQuestionsCache(prev => ({
+        ...prev,
+        [cacheKey]: questions
+      }));
+      
+      return questions;
+    } catch (error) {
+      console.error('📚 Error fetching test questions:', error);
+      showNotification('Failed to load test questions', 'error');
+      return null;
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  }, [testQuestionsCache, showNotification]);
+
+  // Handle viewing answers
+  const handleViewAnswers = useCallback(async (testResult, test) => {
+    console.log('📋 Opening answer modal for:', { testResult, test });
+    console.log('📋 [handleViewAnswers] testResult.answers:', testResult?.answers);
+    console.log('📋 [handleViewAnswers] testResult.answers type:', typeof testResult?.answers);
+    console.log('📋 [handleViewAnswers] Full testResult keys:', testResult ? Object.keys(testResult) : 'null');
+    
+    // Special handling for drawing and speaking tests - use existing modals
+    if (testResult.test_type === 'drawing' || test?.test_type === 'drawing') {
+      handleViewDrawing(testResult);
+      return;
+    }
+    
+    if (testResult.test_type === 'speaking' || test?.test_type === 'speaking') {
+      handleViewSpeakingTest(testResult);
+      return;
+    }
+    
+    // Exclude word matching and matching type tests - they have separate view mechanisms
+    const testType = testResult.test_type || test?.test_type;
+    if (testType === 'word_matching' || testType === 'matching_type') {
+      showNotification('Word matching and picture matching tests have separate view mechanisms', 'info');
+      return;
+    }
+    
+    // For all other test types, show answers modal
+    setSelectedTestResult(testResult);
+    
+    // Fetch questions if not cached
+    const testId = testResult.test_id || test?.test_id;
+    
+    if (!testType || !testId) {
+      showNotification('Unable to load test questions: Missing test type or ID', 'error');
+      return;
+    }
+    
+    const questions = await fetchTestQuestions(testType, testId);
+    
+    if (questions) {
+      setSelectedTestQuestions(questions);
+      setIsAnswerModalOpen(true);
+    } else {
+      showNotification('Failed to load test questions', 'error');
+    }
+  }, [fetchTestQuestions, handleViewDrawing, handleViewSpeakingTest, showNotification]);
+
   // Handle double-click to start editing score
   const handleScoreDoubleClick = useCallback((resultId, currentScore, currentMaxScore) => {
     setEditingScore({ resultId, score: currentScore, maxScore: currentMaxScore });
@@ -1204,12 +1295,22 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                       whileHover={{ scale: 1.02 }}
                       onClick={(e) => {
                         console.debug('[TeacherResults] Main table TD clicked', { testResult, student: student.student_id });
-                        if (testResult?.retest_offered) {
-                          showNotification('Retest is already offered', 'info');
-                          return;
+                        
+                        // Skip drawing, speaking, word matching, and matching type tests - they have separate view buttons
+                        const testType = testResult?.test_type || test?.test_type;
+                        if (testType === 'drawing' || testType === 'speaking' || testType === 'word_matching' || testType === 'matching_type') {
+                          return; // Let their own buttons handle it
                         }
+                        
                         const pct = computePercentage(testResult);
-                        if (pct !== null && pct < 50) {
+                        const isRed = pct !== null && pct < 50;
+                        
+                        if (isRed) {
+                          // Red score: show retest option
+                          if (testResult?.retest_offered) {
+                            showNotification('Retest is already offered', 'info');
+                            return;
+                          }
                           console.debug('[TeacherResults] Main table TD -> opening retest modal', { studentId: student.student_id, test });
                           openRetestModal({
                             failedStudentIds: [student.student_id],
@@ -1219,6 +1320,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             grade: selectedGrade,
                             class: selectedClass
                           });
+                        } else {
+                          // Non-red score: show answers
+                          handleViewAnswers(testResult, test);
                         }
                       }}
                     >
@@ -1249,11 +1353,14 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                               
                               return (
                                 <motion.div
-                                  className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
                                   style={isRed ? { color: '#b91c1c' } : undefined}
-                                  whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                  whileHover={{ scale: 1.1 }}
                                   transition={{ duration: 0.2 }}
-                                  onClick={() => { 
+                                  onClick={(e) => { 
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Drawing tests have "View Drawing" button - don't show answer modal
                                     if (isRed && !blueOffered) {
                                       openRetestModal({
                                         failedStudentIds: [student.student_id],
@@ -1264,11 +1371,12 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         class: selectedClass
                                       });
                                     } else {
+                                      // Drawing tests already have "View Drawing" button - just allow editing
                                       setInlineDrawingEdit(key); 
                                       setInlineDrawingValue(String(displayScore)); 
                                     }
                                   }}
-                                  title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to edit score')}
+                                  title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Double-click to edit score')}
                                 >
                                   {(() => {
                                     const displayScore = (testResult.retest_best_score ?? testResult.score);
@@ -1430,11 +1538,14 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                               : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
                             return (
                               <motion.div
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
                                 style={isRed ? { color: '#b91c1c' } : undefined}
-                                whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                whileHover={{ scale: 1.1 }}
                                 transition={{ duration: 0.2 }}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  // Speaking tests have separate view buttons - don't show answer modal
                                   if (isRed && !blueOffered) {
                                     console.log('🎯 Offering retest for speaking test:', test.test_name);
                                     openRetestModal({
@@ -1446,8 +1557,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       class: selectedClass
                                     });
                                   }
+                                  // For non-red speaking tests, they have their own view buttons - do nothing here
                                 }}
-                                title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
+                                title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Use "View Results" button to review')}
                               >
                                 {(() => {
                                   const displayScore = (testResult.retest_best_score ?? testResult.score);
@@ -1486,13 +1598,20 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             const blueOffered = testResult?.retest_offered === true;
                             return (
                               <motion.div 
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
                                 style={isRed ? { color: '#b91c1c' } : undefined}
-                                whileHover={{ scale: isRed ? 1.1 : 1.05 }}
+                                whileHover={{ scale: 1.1 }}
                                 transition={{ duration: 0.2 }}
                                 onClick={(e) => { 
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  
+                                  // Skip drawing and speaking tests - they have separate view buttons
+                                  const testType = testResult?.test_type || test?.test_type;
+                                  if (testType === 'drawing' || testType === 'speaking') {
+                                    return; // Let their own buttons handle it
+                                  }
+                                  
                                   if (testResult?.retest_offered) {
                                     showNotification('Retest is already offered', 'info');
                                     return;
@@ -1507,6 +1626,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       grade: selectedGrade,
                                       class: selectedClass
                                     }); 
+                                  } else {
+                                    handleViewAnswers(testResult, test);
                                   }
                                 }}
                                 title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
@@ -1746,8 +1867,18 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             transition={{ duration: 0.15 }}
                             onClick={(e) => {
                               console.debug('[TeacherResults] TD clicked', { testResult, student: student.student_id });
+                              
+                              // Skip drawing and speaking tests - they have separate view buttons
+                              const testType = testResult?.test_type || test?.test_type;
+                              if (testType === 'drawing' || testType === 'speaking') {
+                                return; // Let their own buttons handle it
+                              }
+                              
                               const pct = computePercentage(testResult);
-                              if (pct !== null && pct < 50) {
+                              const isRed = pct !== null && pct < 50;
+                              
+                              if (isRed) {
+                                // Red score: show retest option
                                 if (testResult?.retest_offered) {
                                   showNotification('Retest is already offered', 'info');
                                   return;
@@ -1761,6 +1892,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                   grade: selectedGrade,
                                   class: selectedClass
                                 });
+                              } else {
+                                // Non-red score: show answers
+                                handleViewAnswers(testResult, test);
                               }
                             }}
                           >
@@ -1805,28 +1939,39 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         const colorClass = pct === null ? 'text-gray-600' : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
                                         return (
                                           <motion.div
-                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
                                             style={isRed ? { color: '#b91c1c' } : undefined}
-                                            whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                            whileHover={{ scale: 1.05 }}
                                             transition={{ duration: 0.15 }}
                                             onDoubleClick={() => handleStartColumnEditing(test.test_name)}
-                                            onClick={isRed ? (e) => {
+                                            onClick={(e) => {
                                               e.preventDefault();
                                               e.stopPropagation();
-                                              if (testResult?.retest_offered) {
-                                                showNotification('Retest is already offered', 'info');
-                                                return;
+                                              
+                                              // Skip drawing and speaking tests - they have separate view buttons
+                                              const testType = testResult?.test_type || test?.test_type;
+                                              if (testType === 'drawing' || testType === 'speaking') {
+                                                return; // Let their own buttons handle it
                                               }
-                                              openRetestModal({
-                                                failedStudentIds: [student.student_id],
-                                                test_type: test.test_type,
-                                                original_test_id: testResult?.test_id || test.test_id,
-                                                subject_id: testResult?.subject_id || test.subject_id,
-                                                grade: selectedGrade,
-                                                class: selectedClass
-                                              });
-                                            } : undefined}
-                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Double-click to edit column')}
+                                              
+                                              if (isRed) {
+                                                if (testResult?.retest_offered) {
+                                                  showNotification('Retest is already offered', 'info');
+                                                  return;
+                                                }
+                                                openRetestModal({
+                                                  failedStudentIds: [student.student_id],
+                                                  test_type: test.test_type,
+                                                  original_test_id: testResult?.test_id || test.test_id,
+                                                  subject_id: testResult?.subject_id || test.subject_id,
+                                                  grade: selectedGrade,
+                                                  class: selectedClass
+                                                });
+                                              } else {
+                                                handleViewAnswers(testResult, test);
+                                              }
+                                            }}
+                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers')}
                                           >
                                             <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
                                             {testResult.caught_cheating && (
@@ -1882,31 +2027,42 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         const colorClass = pct === null ? 'text-gray-600' : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
                                         return (
                                           <motion.div
-                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
+                                            className={`px-1 py-0.5 rounded text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`}
                                             style={isRed ? { color: '#b91c1c' } : undefined}
-                                            whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                            whileHover={{ scale: 1.05 }}
                                             transition={{ duration: 0.15 }}
                                             onDoubleClick={() => {
                                               setEditingSpeakingScore({ resultId: testResult.result_id, score: testResult.score });
                                               setTempSpeakingScore(testResult.score?.toString() || '');
                                             }}
-                                            onClick={isRed ? (e) => {
+                                            onClick={(e) => {
                                               e.preventDefault();
                                               e.stopPropagation();
-                                              if (testResult?.retest_offered) {
-                                                showNotification('Retest is already offered', 'info');
-                                                return;
+                                              
+                                              // Skip drawing and speaking tests - they have separate view buttons
+                                              const testType = testResult?.test_type || test?.test_type;
+                                              if (testType === 'drawing' || testType === 'speaking') {
+                                                return; // Let their own buttons handle it
                                               }
-                                              openRetestModal({
-                                                failedStudentIds: [student.student_id],
-                                                test_type: test.test_type,
-                                                original_test_id: testResult?.test_id || test.test_id,
-                                                subject_id: testResult?.subject_id || test.subject_id,
-                                                grade: selectedGrade,
-                                                class: selectedClass
-                                              });
-                                            } : undefined}
-                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Double-click to edit score')}
+                                              
+                                              if (isRed) {
+                                                if (testResult?.retest_offered) {
+                                                  showNotification('Retest is already offered', 'info');
+                                                  return;
+                                                }
+                                                openRetestModal({
+                                                  failedStudentIds: [student.student_id],
+                                                  test_type: test.test_type,
+                                                  original_test_id: testResult?.test_id || test.test_id,
+                                                  subject_id: testResult?.subject_id || test.subject_id,
+                                                  grade: selectedGrade,
+                                                  class: selectedClass
+                                                });
+                                              } else {
+                                                handleViewAnswers(testResult, test);
+                                              }
+                                            }}
+                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers, double-click to edit score')}
                                           >
                                             <span className={isRed ? 'text-red-700' : ''}>{testResult.score || 0}</span>/<span>{testResult.max_score || 100}</span>
                                             {testResult.caught_cheating && (
@@ -1928,33 +2084,44 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       const colorClass = pct === null
                                         ? 'text-gray-600'
                                         : (isRed ? 'text-red-600 font-semibold' : (isYellow ? 'text-yellow-600' : 'text-green-600'));
-                                      const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} ${isRed ? 'cursor-pointer hover:opacity-90 pointer-events-auto' : ''} ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`;
+                                      const classNameStr = `px-1 py-0.5 rounded text-xs font-medium ${colorClass} cursor-pointer hover:opacity-90 pointer-events-auto ${blueOffered ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}`;
                                       // debug removed
                                       return (
                                         <motion.div 
                                           className={classNameStr}
                                           style={isRed ? { color: '#b91c1c' } : undefined}
-                                          whileHover={{ scale: isRed ? 1.05 : 1 }}
+                                          whileHover={{ scale: 1.05 }}
                                           transition={{ duration: 0.15 }}
-                                          onClick={isRed ? (e) => { 
+                                          onClick={(e) => { 
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            if (testResult?.retest_offered) {
-                                              showNotification('Retest is already offered', 'info');
-                                              return;
+                                            
+                                            // Skip drawing and speaking tests - they have separate view buttons
+                                            const testType = testResult?.test_type || test?.test_type;
+                                            if (testType === 'drawing' || testType === 'speaking') {
+                                              return; // Let their own buttons handle it
                                             }
-                                            const computedColor = window.getComputedStyle(e.currentTarget).color;
-                                            console.debug('[TeacherResults] Red pill clicked -> opening retest modal', { studentId: student.student_id, className: classNameStr, computedColor }); 
-                                            openRetestModal({ 
-                                              failedStudentIds: [student.student_id],
-                                              test_type: test.test_type,
-                                              original_test_id: testResult?.test_id || test.test_id,
-                                              subject_id: testResult?.subject_id || test.subject_id,
-                                              grade: selectedGrade,
-                                              class: selectedClass
-                                            }); 
-                                          } : undefined}
-                                          title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
+                                            
+                                            if (isRed) {
+                                              if (testResult?.retest_offered) {
+                                                showNotification('Retest is already offered', 'info');
+                                                return;
+                                              }
+                                              const computedColor = window.getComputedStyle(e.currentTarget).color;
+                                              console.debug('[TeacherResults] Red pill clicked -> opening retest modal', { studentId: student.student_id, className: classNameStr, computedColor }); 
+                                              openRetestModal({ 
+                                                failedStudentIds: [student.student_id],
+                                                test_type: test.test_type,
+                                                original_test_id: testResult?.test_id || test.test_id,
+                                                subject_id: testResult?.subject_id || test.subject_id,
+                                                grade: selectedGrade,
+                                                class: selectedClass
+                                              }); 
+                                            } else {
+                                              handleViewAnswers(testResult, test);
+                                            }
+                                          }}
+                                          title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers')}
                                         >
                                           <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
                                           {testResult.caught_cheating && (
@@ -2340,6 +2507,21 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
           />
         </ErrorBoundary>
       )}
+
+      {/* Test Answer Modal */}
+      <ErrorBoundary>
+        <TestAnswerModal
+          isOpen={isAnswerModalOpen}
+          onClose={() => {
+            setIsAnswerModalOpen(false);
+            setSelectedTestResult(null);
+            setSelectedTestQuestions(null);
+          }}
+          testResult={selectedTestResult}
+          questions={selectedTestQuestions}
+          isLoadingQuestions={isLoadingQuestions}
+        />
+      </ErrorBoundary>
 
       {/* Speaking Test Modal */}
       {selectedSpeakingTest && isSpeakingModalOpen && (

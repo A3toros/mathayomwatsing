@@ -44,12 +44,12 @@ exports.handler = async function(event, context) {
 
     const userInfo = tokenValidation.user;
     
-    // Check if user has admin or student role
-    if (userInfo.role !== 'admin' && userInfo.role !== 'student') {
+    // Check if user has admin, student, or teacher role
+    if (userInfo.role !== 'admin' && userInfo.role !== 'student' && userInfo.role !== 'teacher') {
       return {
         statusCode: 403,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Access denied. Admin or student role required.' })
+        body: JSON.stringify({ error: 'Access denied. Admin, student, or teacher role required.' })
       };
     }
 
