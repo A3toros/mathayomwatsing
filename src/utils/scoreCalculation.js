@@ -401,11 +401,55 @@ const checkAnswerCorrectness = (question, studentAnswer, testType) => {
             .replace(/[.,/*';:!@#$%^&*()_+=\[\]{}|\\:";'<>?,.\s-]+/g, '') // Remove punctuation, spaces, and hyphens
             .toLowerCase()
             .trim();
-          return trimmedStudentAnswer === trimmedCorrectAnswer;
+          
+          // First check for exact match (backward compatibility)
+          if (trimmedStudentAnswer === trimmedCorrectAnswer) {
+            return true;
+          }
+          
+          // Then check if trimmed correct answer is present in trimmed student answer
+          // This accepts answers with extra letters/numbers (e.g., "Paris123" contains "Paris")
+          if (trimmedCorrectAnswer && trimmedStudentAnswer.includes(trimmedCorrectAnswer)) {
+            // For single character answers, only match if at start/end (to avoid false positives like "a" in "cat")
+            // For multi-character answers, accept any substring match
+            if (trimmedCorrectAnswer.length === 1) {
+              // Single character: must be at start or end of answer
+              return trimmedStudentAnswer.startsWith(trimmedCorrectAnswer) || 
+                     trimmedStudentAnswer.endsWith(trimmedCorrectAnswer);
+            } else {
+              // Multi-character: accept substring match
+              return true;
+            }
+          }
+          
+          return false;
         });
       } else {
         // Fallback for old format - use correct_answer (not correctAnswer)
-        isCorrect = studentAnswer.toLowerCase().trim() === question.correct_answer.toLowerCase().trim();
+        const trimmedStudentAnswer = studentAnswer.toLowerCase().trim();
+        const trimmedCorrectAnswer = question.correct_answer.toLowerCase().trim();
+        
+        // First check for exact match (backward compatibility)
+        if (trimmedStudentAnswer === trimmedCorrectAnswer) {
+          isCorrect = true;
+        } else {
+          // Then check if trimmed correct answer is present in trimmed student answer
+          // This accepts answers with extra letters/numbers (e.g., "Paris123" contains "Paris")
+          if (trimmedCorrectAnswer && trimmedStudentAnswer.includes(trimmedCorrectAnswer)) {
+            // For single character answers, only match if at start/end (to avoid false positives like "a" in "cat")
+            // For multi-character answers, accept any substring match
+            if (trimmedCorrectAnswer.length === 1) {
+              // Single character: must be at start or end of answer
+              isCorrect = trimmedStudentAnswer.startsWith(trimmedCorrectAnswer) || 
+                          trimmedStudentAnswer.endsWith(trimmedCorrectAnswer);
+            } else {
+              // Multi-character: accept substring match
+              isCorrect = true;
+            }
+          } else {
+            isCorrect = false;
+          }
+        }
       }
       break;
     case TEST_TYPES.MATCHING:

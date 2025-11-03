@@ -567,9 +567,32 @@ export const testService = {
       case 'input':
         // For input questions, check against all correct answers
         const correctAnswers = question.correct_answers || [];
-        return correctAnswers.some(correctAnswer => 
-          userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-        );
+        const trimmedUserAnswer = userAnswer.toLowerCase().trim();
+        
+        return correctAnswers.some(correctAnswer => {
+          const trimmedCorrectAnswer = correctAnswer.toLowerCase().trim();
+          
+          // First check for exact match (backward compatibility)
+          if (trimmedUserAnswer === trimmedCorrectAnswer) {
+            return true;
+          }
+          
+          // Then check if trimmed correct answer is present in trimmed user answer
+          // This accepts answers with extra letters/numbers (e.g., "Paris123" contains "Paris")
+          if (trimmedCorrectAnswer && trimmedUserAnswer.includes(trimmedCorrectAnswer)) {
+            // For single character answers, only match if at start/end (to avoid false positives like "a" in "cat")
+            // For multi-character answers, accept any substring match
+            if (trimmedCorrectAnswer.length === 1) {
+              // Single character: must be at start or end of answer
+              return trimmedUserAnswer.startsWith(trimmedCorrectAnswer) || 
+                     trimmedUserAnswer.endsWith(trimmedCorrectAnswer);
+            } else {
+              // Multi-character: accept substring match
+              return true;
+            }
+          }
+          return false;
+        });
       case 'matching_type':
         return JSON.stringify(userAnswer) === JSON.stringify(question.correct_answer);
       case 'word_matching':
