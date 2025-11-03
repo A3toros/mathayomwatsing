@@ -60,7 +60,7 @@ import * as XLSX from 'xlsx';
 // ✅ COMPLETED: Documentation: Comprehensive component documentation
 // ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
 
-const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRetestModal }) => {
+const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRetestModal, forceRefreshOnMount = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
@@ -228,14 +228,15 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
 
 
   // NEW: Load results for specific term
-  const loadResultsForTerm = useCallback(async (termId) => {
+  const loadResultsForTerm = useCallback(async (termId, forceRefresh = false) => {
     try {
       setIsLoadingResults(true);
       const teacherId = user?.teacher_id;
       const formattedClassName = `${currentSelectedGrade}/${currentSelectedClass}`;
       
       // Use termId directly (no academic year calculations)
-      const data = await resultService.getTeacherStudentResults(teacherId, currentSelectedGrade, formattedClassName, termId);
+      // Pass forceRefresh to bypass HTTP cache after mutations
+      const data = await resultService.getTeacherStudentResults(teacherId, currentSelectedGrade, formattedClassName, termId, forceRefresh);
       
       if (data.success) {
         console.log('📅 Results loaded for term:', termId, data.results?.length || 0, 'results');
@@ -347,8 +348,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         if (terms?.currentTerm) {
           setSelectedTerm(terms.currentTerm.id);
           // Auto-load results for current term
+          // Use forceRefreshOnMount to bypass cache after retest creation
           if (currentSelectedGrade && currentSelectedClass) {
-            loadResultsForTerm(terms.currentTerm.id);
+            loadResultsForTerm(terms.currentTerm.id, forceRefreshOnMount);
           }
         }
       } catch (error) {
@@ -359,7 +361,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     };
     
     initializeAcademicCalendar();
-  }, [currentSelectedGrade, currentSelectedClass]);
+  }, [currentSelectedGrade, currentSelectedClass, loadResultsForTerm, forceRefreshOnMount]);
 
   // Handle props for pre-selected class
   useEffect(() => {
@@ -367,12 +369,13 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       console.log('👨‍🏫 Props detected:', { grade: selectedGrade, class: selectedClass });
       
       // Auto-select current term and load results
+      // Use forceRefreshOnMount to bypass cache after retest creation
       if (currentSemesterTerms?.currentTerm) {
         setSelectedTerm(currentSemesterTerms.currentTerm.id);
-        loadResultsForTerm(currentSemesterTerms.currentTerm.id);
+        loadResultsForTerm(currentSemesterTerms.currentTerm.id, forceRefreshOnMount);
       }
     }
-  }, [selectedGrade, selectedClass, currentSemesterTerms]);
+  }, [selectedGrade, selectedClass, currentSemesterTerms, loadResultsForTerm, forceRefreshOnMount]);
   
   // Enhanced initializeGradeButtons from legacy code
   const initializeTeacherResults = useCallback(async () => {
@@ -546,15 +549,16 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
 
 
   // NEW: Load results for selected semester (now uses term-based approach)
-  const loadResultsForSemester = useCallback(async (semester) => {
+  const loadResultsForSemester = useCallback(async (semester, forceRefresh = false) => {
     if (!currentSelectedGrade || !currentSelectedClass) return;
     
-    console.log('👨‍🏫 Loading results for semester:', semester);
+    console.log('👨‍🏫 Loading results for semester:', semester, 'forceRefresh:', forceRefresh);
     setSelectedSemester(semester);
     
     // Use current term for loading results
+    // Pass forceRefresh to bypass HTTP cache after mutations
     if (currentSemesterTerms?.currentTerm) {
-      await loadResultsForTerm(currentSemesterTerms.currentTerm.id);
+      await loadResultsForTerm(currentSemesterTerms.currentTerm.id, forceRefresh);
     }
   }, [currentSelectedGrade, currentSelectedClass, currentSemesterTerms, loadResultsForTerm]);
 
@@ -641,7 +645,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       if (response.ok) {
         // Update UI to show test as accessible again
         if (currentSelectedClass) {
-          loadResultsForSemester(selectedSemester);
+          // Force refresh to bypass HTTP cache and show updated state immediately
+          loadResultsForSemester(selectedSemester, true);
         }
         showNotification('Test made accessible to student', 'success');
       }
@@ -730,7 +735,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       if (response.ok) {
         showNotification('Score updated successfully', 'success');
         if (currentSelectedClass) {
-          loadResultsForSemester(selectedSemester);
+          // Force refresh to bypass HTTP cache and show updated scores immediately
+          loadResultsForSemester(selectedSemester, true);
         }
         // Reset editing state
         setEditingScore(null);
@@ -792,7 +798,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
         }
         
         if (currentSelectedClass) {
-          loadResultsForSemester(selectedSemester);
+          // Force refresh to bypass HTTP cache and show updated scores immediately
+          loadResultsForSemester(selectedSemester, true);
         }
         // Reset editing state
         setEditingSpeakingScore(null);
@@ -932,7 +939,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       if (allSuccessful) {
         showNotification(`Scores updated successfully for ${testName}`, 'success');
         if (currentSelectedClass) {
-          loadResultsForSemester(selectedSemester);
+          // Force refresh to bypass HTTP cache and show updated scores immediately
+          loadResultsForSemester(selectedSemester, true);
         }
         handleCancelColumnEditing(testName);
       } else {
@@ -1305,7 +1313,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                     finally {
                                       setIsSavingInline(false);
                                       setInlineDrawingEdit(null);
-                                      loadResultsForSemester(selectedSemester);
+                                      // Force refresh to bypass HTTP cache and show updated scores immediately
+                                      loadResultsForSemester(selectedSemester, true);
                                     }
                                   }}
                                   onKeyDown={async (e) => {
@@ -2322,7 +2331,8 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                   body: JSON.stringify({ resultId, score, maxScore })
                 });
                 if (!resp.ok) throw new Error('Failed to save');
-                await loadResultsForSemester(selectedSemester);
+                // Force refresh to bypass HTTP cache and show updated scores immediately
+                await loadResultsForSemester(selectedSemester, true);
               } catch (e) {
                 showNotification('Failed to save drawing score', 'error');
               }

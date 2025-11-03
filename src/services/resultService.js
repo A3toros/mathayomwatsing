@@ -9,12 +9,22 @@
 import tokenManager from '@/templates/token-manager';
 
 // Get teacher student results from view table (term-based)
-export const getTeacherStudentResults = async (teacherId, grade, className, termId) => {
+export const getTeacherStudentResults = async (teacherId, grade, className, termId, forceRefresh = false) => {
   try {
-    console.log('📊 Fetching teacher student results:', { teacherId, grade, className, termId });
+    console.log('📊 Fetching teacher student results:', { teacherId, grade, className, termId, forceRefresh });
     
+    // Add cache-busting parameter if forceRefresh is true to bypass HTTP cache
+    const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : '';
     const response = await tokenManager.makeAuthenticatedRequest(
-      `/.netlify/functions/get-teacher-student-results?teacher_id=${teacherId}&grade=${grade}&class=${className}&academic_period_id=${termId}`
+      `/.netlify/functions/get-teacher-student-results?teacher_id=${teacherId}&grade=${grade}&class=${className}&academic_period_id=${termId}${cacheBuster}`,
+      {
+        // Add cache-control header and fetch cache option to bypass browser/CDN cache when forceRefresh is true
+        cache: forceRefresh ? 'no-cache' : 'default',
+        headers: forceRefresh ? {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        } : {}
+      }
     );
     
     const data = await response.json();

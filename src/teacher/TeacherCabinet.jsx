@@ -1015,6 +1015,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                 selectedClass={selectedClass}
                 onBackToCabinet={() => setCurrentView('main')}
                 openRetestModal={openRetestModal}
+                forceRefreshOnMount={resultsViewKey > 0}
               />
             </motion.div>
           )}
