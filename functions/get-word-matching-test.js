@@ -67,7 +67,7 @@ exports.handler = async function(event, context) {
     // Get test information
     console.log('Fetching test data...');
     const testResult = await sql`
-      SELECT id, teacher_id, subject_id, test_name, num_questions, interaction_type, passing_score, created_at, updated_at
+      SELECT id, teacher_id, subject_id, test_name, num_questions, interaction_type, passing_score, allowed_time, created_at, updated_at
       FROM word_matching_tests
       WHERE id = ${test_id}
     `;
@@ -134,6 +134,7 @@ exports.handler = async function(event, context) {
       num_questions: testData.num_questions,
       interaction_type: testData.interaction_type,
       passing_score: testData.passing_score,
+      allowed_time: testData.allowed_time || null,
       created_at: testData.created_at,
       updated_at: testData.updated_at,
       leftWords: shuffledLeft,

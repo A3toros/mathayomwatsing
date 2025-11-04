@@ -643,11 +643,100 @@ const MatchingTestStudent = ({
           clearTestData(user.student_id, 'matching_type', testData.id);
         }
         
-        // Mark test as completed in localStorage
-        if (user?.student_id) {
-          const completionKey = `test_completed_${user.student_id}_matching_type_${testData.id}`;
-          localStorage.setItem(completionKey, 'true');
-          console.log('✅ Test marked as completed in localStorage:', completionKey);
+        // Check if this is a retest and handle retest_attempt keys
+        const isRetest = !!retestAssignmentId;
+        if (isRetest && user?.student_id) {
+          // Get max attempts from active tests cache or default to 3
+          let maxAttempts = 3;
+          try {
+            const activeTestsCache = localStorage.getItem(`student_active_tests_${user.student_id}`);
+            if (activeTestsCache) {
+              const activeTests = JSON.parse(activeTestsCache);
+              const test = activeTests?.tests?.find(t => 
+                t.test_id === testData.id && t.test_type === 'matching_type'
+              );
+              if (test) {
+                maxAttempts = test.retest_attempts_left || test.max_attempts || 3;
+              }
+            }
+          } catch (e) {
+            console.error('Error checking active tests cache:', e);
+          }
+          
+          // Calculate percentage from score and maxScore
+          const percentage = score > 0 && maxScore > 0 ? (score / maxScore) * 100 : 0;
+          const passed = percentage >= 50;
+          
+          if (passed) {
+            // Student passed - mark last attempt
+            const lastSlotKey = `retest_attempt${maxAttempts}_${user.student_id}_matching_type_${testData.id}`;
+            localStorage.setItem(lastSlotKey, 'true');
+            console.log('🎓 Passed retest, marking last-slot key:', lastSlotKey);
+
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_matching_type_${testData.id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+            
+            // Mark retest as completed (student passed)
+            const completionKey = `test_completed_${user.student_id}_matching_type_${testData.id}`;
+            localStorage.setItem(completionKey, 'true');
+            console.log('🎓 Marked retest as completed (student passed):', completionKey);
+
+            // Set retest_attempts metadata so button logic can check if attempts are exhausted
+            const attemptsMetaKey = `retest_attempts_${user.student_id}_matching_type_${testData.id}`;
+            localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+            console.log('🎓 Set retest attempts metadata (student passed):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+          } else {
+            // Find the next attempt number
+            let nextAttemptNumber = 1;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_matching_type_${testData.id}`;
+              if (localStorage.getItem(key) !== 'true') {
+                nextAttemptNumber = i;
+                break;
+              }
+            }
+            // Mark this specific attempt as completed
+            const attemptKey = `retest_attempt${nextAttemptNumber}_${user.student_id}_matching_type_${testData.id}`;
+            localStorage.setItem(attemptKey, 'true');
+            console.log('🎓 Marked retest attempt as completed:', attemptKey);
+
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_matching_type_${testData.id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+
+            // Mark retest as completed (attempts exhausted OR passed) - right after writing retest_attempt key
+            const attemptsLeft = maxAttempts - usedAttempts;
+            const shouldComplete = attemptsLeft <= 0 || passed;
+            console.log('🎓 Retest completion check:', { usedAttempts, maxAttempts, attemptsLeft, passed, shouldComplete });
+            if (shouldComplete) {
+              const completionKey = `test_completed_${user.student_id}_matching_type_${testData.id}`;
+              localStorage.setItem(completionKey, 'true');
+              console.log('🎓 Marked retest as completed (attempts exhausted or passed):', completionKey);
+
+              // Set retest_attempts metadata so button logic can check if attempts are exhausted
+              const attemptsMetaKey = `retest_attempts_${user.student_id}_matching_type_${testData.id}`;
+              localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+              console.log('🎓 Set retest attempts metadata (attempts exhausted):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+            }
+          }
+        } else {
+          // Regular test - mark as completed
+          if (user?.student_id) {
+            const completionKey = `test_completed_${user.student_id}_matching_type_${testData.id}`;
+            localStorage.setItem(completionKey, 'true');
+            console.log('✅ Test marked as completed in localStorage:', completionKey);
+          }
         }
         
         // Cache the test results immediately after successful submission (following other tests pattern)

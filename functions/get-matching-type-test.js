@@ -67,7 +67,7 @@ exports.handler = async function(event, context) {
     // Get test information
     console.log('Fetching test data...');
     const testResult = await sql`
-      SELECT id, teacher_id, subject_id, test_name, image_url, num_blocks, created_at, updated_at
+      SELECT id, teacher_id, subject_id, test_name, image_url, num_blocks, allowed_time, created_at, updated_at
       FROM matching_type_tests
       WHERE id = ${test_id}
     `;
@@ -164,6 +164,7 @@ exports.handler = async function(event, context) {
       test_name: testData.test_name,
       image_url: testData.image_url,
       num_blocks: testData.num_blocks,
+      allowed_time: testData.allowed_time || null,
       created_at: testData.created_at,
       updated_at: testData.updated_at,
       questions: questions,

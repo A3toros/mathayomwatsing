@@ -748,43 +748,49 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     console.log('📋 [handleViewAnswers] testResult.answers:', testResult?.answers);
     console.log('📋 [handleViewAnswers] testResult.answers type:', typeof testResult?.answers);
     console.log('📋 [handleViewAnswers] Full testResult keys:', testResult ? Object.keys(testResult) : 'null');
-    
+
     // Special handling for drawing and speaking tests - use existing modals
     if (testResult.test_type === 'drawing' || test?.test_type === 'drawing') {
       handleViewDrawing(testResult);
       return;
     }
-    
+
     if (testResult.test_type === 'speaking' || test?.test_type === 'speaking') {
       handleViewSpeakingTest(testResult);
       return;
     }
-    
+
     // Exclude word matching and matching type tests - they have separate view mechanisms
     const testType = testResult.test_type || test?.test_type;
     if (testType === 'word_matching' || testType === 'matching_type') {
       showNotification('Word matching and picture matching tests have separate view mechanisms', 'info');
       return;
     }
-    
-    // For all other test types, show answers modal
+
+    // Open modal immediately and show loading spinner
     setSelectedTestResult(testResult);
-    
-    // Fetch questions if not cached
+    setSelectedTestQuestions(null);
+    setIsAnswerModalOpen(true);
+    setIsLoadingQuestions(true);
+
+    // Fetch questions (use cache if available)
     const testId = testResult.test_id || test?.test_id;
-    
+
     if (!testType || !testId) {
       showNotification('Unable to load test questions: Missing test type or ID', 'error');
+      setIsLoadingQuestions(false);
       return;
     }
-    
-    const questions = await fetchTestQuestions(testType, testId);
-    
-    if (questions) {
-      setSelectedTestQuestions(questions);
-      setIsAnswerModalOpen(true);
-    } else {
-      showNotification('Failed to load test questions', 'error');
+
+    try {
+      const questions = await fetchTestQuestions(testType, testId);
+      if (questions) {
+        setSelectedTestQuestions(questions);
+      } else {
+        showNotification('Failed to load test questions', 'error');
+      }
+    } finally {
+      setIsLoadingQuestions(false);
     }
   }, [fetchTestQuestions, handleViewDrawing, handleViewSpeakingTest, showNotification]);
 

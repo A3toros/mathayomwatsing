@@ -603,24 +603,103 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           clearTestData(user.student_id, 'speaking', testData.test_id);
         }
         
-        // Mirror other tests: track retest attempts meta and clear retest keys
-        try {
-          const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
-          const prevMetaRaw = localStorage.getItem(attemptsMetaKey);
-          let used = 0;
-          if (prevMetaRaw) {
-            try { used = JSON.parse(prevMetaRaw)?.used || 0; } catch (_) { used = 0; }
+        // Check if this is a retest and handle retest_attempt keys (following other tests pattern)
+        const isRetest = !!retestAssignmentId;
+        if (isRetest && user?.student_id) {
+          // Get max attempts from active tests cache or default to 3
+          let maxAttempts = 3;
+          try {
+            const activeTestsCache = localStorage.getItem(`student_active_tests_${user.student_id}`);
+            if (activeTestsCache) {
+              const activeTests = JSON.parse(activeTestsCache);
+              const test = activeTests?.tests?.find(t =>
+                t.test_id === testData.test_id && t.test_type === 'speaking'
+              );
+              if (test) {
+                maxAttempts = test.retest_attempts_left || test.max_attempts || 3;
+              }
+            }
+          } catch (e) {
+            console.error('Error checking active tests cache:', e);
           }
-          const nextMeta = { used: used + 1, max: maxAttempts };
-          localStorage.setItem(attemptsMetaKey, JSON.stringify(nextMeta));
-          // Clear retest keys so Start Retest button behaves like other tests
+
+          // Calculate percentage from overall_score (0-100 scale)
+          const percentage = scores?.overall_score ?? 0;
+          const passed = percentage >= 50;
+
+          if (passed) {
+            // Student passed - mark last attempt
+            const lastSlotKey = `retest_attempt${maxAttempts}_${user.student_id}_speaking_${testData.test_id}`;
+            localStorage.setItem(lastSlotKey, 'true');
+            console.log('🎓 Passed retest, marking last-slot key:', lastSlotKey);
+
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_speaking_${testData.test_id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+
+            // Mark retest as completed (student passed)
+            const completionKey = `test_completed_${user.student_id}_speaking_${testData.test_id}`;
+            localStorage.setItem(completionKey, 'true');
+            console.log('🎓 Marked retest as completed (student passed):', completionKey);
+
+            // Set retest_attempts metadata so button logic can check if attempts are exhausted
+            const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
+            localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+            console.log('🎓 Set retest attempts metadata (student passed):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+          } else {
+            // Find the next attempt number
+            let nextAttemptNumber = 1;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_speaking_${testData.test_id}`;
+              if (localStorage.getItem(key) !== 'true') {
+                nextAttemptNumber = i;
+                break;
+              }
+            }
+            // Mark this specific attempt as completed
+            const attemptKey = `retest_attempt${nextAttemptNumber}_${user.student_id}_speaking_${testData.test_id}`;
+            localStorage.setItem(attemptKey, 'true');
+            console.log('🎓 Marked retest attempt as completed:', attemptKey);
+
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${user.student_id}_speaking_${testData.test_id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+
+            // Mark retest as completed (attempts exhausted OR passed) - right after writing retest_attempt key
+            const attemptsLeft = maxAttempts - usedAttempts;
+            const shouldComplete = attemptsLeft <= 0 || passed;
+            console.log('🎓 Retest completion check:', { usedAttempts, maxAttempts, attemptsLeft, passed, shouldComplete });
+            if (shouldComplete) {
+              const completionKey = `test_completed_${user.student_id}_speaking_${testData.test_id}`;
+              localStorage.setItem(completionKey, 'true');
+              console.log('🎓 Marked retest as completed (attempts exhausted or passed):', completionKey);
+
+              // Set retest_attempts metadata so button logic can check if attempts are exhausted
+              const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
+              localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+              console.log('🎓 Set retest attempts metadata (attempts exhausted):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+            }
+          }
+        } else {
+          // Regular test - mark as completed (already done above)
+        }
+
+        // Clear retest keys after successful submission
+        if (user?.student_id) {
           const retestKey = `retest1_${user.student_id}_speaking_${testData.test_id}`;
-          const retestAssignKey = `retest_assignment_id_${user.student_id}_speaking_${testData.test_id}`;
+          const retestAssignKeyFinal = `retest_assignment_id_${user.student_id}_speaking_${testData.test_id}`;
           localStorage.removeItem(retestKey);
-          localStorage.removeItem(retestAssignKey);
-          console.log('💾 Updated retest attempts meta and cleared retest keys:', nextMeta);
-        } catch (e) {
-          console.warn('⚠️ Failed to update retest attempts meta/keys', e);
+          localStorage.removeItem(retestAssignKeyFinal);
         }
 
         // Skip results page for speaking (mirror drawing behavior) and return to cabinet

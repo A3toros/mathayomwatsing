@@ -854,8 +854,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         
         // Check if this is a retest and increment attempt counter
         const studentId = user?.student_id || user?.id || '';
-        const retestKey = `retest1_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
-        const isRetest = localStorage.getItem(retestKey) === 'true';
+        const retestAssignKey = `retest_assignment_id_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+        const isRetest = !!localStorage.getItem(retestAssignKey);
         
         if (isRetest) {
           const maxAttempts = currentTest?.retest_attempts_left || currentTest?.max_attempts || 3;
@@ -866,7 +866,30 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             const lastSlotKey = `retest_attempt${maxAttempts}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             localStorage.setItem(lastSlotKey, 'true');
             logger.debug('🎓 Passed retest, marking last-slot key:', lastSlotKey);
-            // Remove the retest availability key locally
+
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+            
+            // Mark retest as completed (student passed) - right after writing retest_attempt key
+            if (studentId && currentTest.test_type && currentTest.test_id) {
+              const completionKey = `test_completed_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              localStorage.setItem(completionKey, 'true');
+              logger.debug('🎓 Marked retest as completed (student passed):', completionKey);
+
+              // Set retest_attempts metadata so button logic can check if attempts are exhausted
+              const attemptsMetaKey = `retest_attempts_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+              logger.debug('🎓 Set retest attempts metadata (student passed):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+            }
+            
+            // Remove the retest1_ key (if it exists)
+            const retestKey = `retest1_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
             localStorage.removeItem(retestKey);
           } else {
             // Find the next attempt number
@@ -883,8 +906,33 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             localStorage.setItem(attemptKey, 'true');
             logger.debug('🎓 Marked retest attempt as completed:', attemptKey);
 
-            // If this consumed max attempts, remove retest flag
-            if (nextAttemptNumber >= maxAttempts) {
+            // Count actual attempts used after marking this attempt
+            let usedAttempts = 0;
+            for (let i = 1; i <= 10; i++) {
+              const key = `retest_attempt${i}_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              if (localStorage.getItem(key) === 'true') {
+                usedAttempts++;
+              }
+            }
+
+            // Mark retest as completed (attempts exhausted OR passed) - right after writing retest_attempt key
+            const attemptsLeft = maxAttempts - usedAttempts;
+            const shouldComplete = attemptsLeft <= 0 || passed;
+            logger.debug('🎓 Retest completion check:', { usedAttempts, maxAttempts, attemptsLeft, passed, shouldComplete });
+            if (shouldComplete && studentId && currentTest.test_type && currentTest.test_id) {
+              const completionKey = `test_completed_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              localStorage.setItem(completionKey, 'true');
+              logger.debug('🎓 Marked retest as completed (attempts exhausted or passed):', completionKey);
+
+              // Set retest_attempts metadata so button logic can check if attempts are exhausted
+              const attemptsMetaKey = `retest_attempts_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+              localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
+              logger.debug('🎓 Set retest attempts metadata (attempts exhausted):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
+            }
+
+            // If this consumed max attempts, remove retest1_ key
+            if (usedAttempts >= maxAttempts) {
+              const retestKey = `retest1_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
               localStorage.removeItem(retestKey);
             }
           }
