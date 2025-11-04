@@ -1419,7 +1419,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                 {isLoadingTestDetails ? (
                   <div className="flex justify-center items-center py-8">
                     <LoadingSpinner size="md" />
-                  </div>
+          </div>
                 ) : testQuestions.length > 0 ? (
                   <div className="space-y-4">
                     {testQuestions.map((question, index) => {
