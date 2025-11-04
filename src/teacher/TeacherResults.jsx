@@ -8,6 +8,7 @@ import { academicCalendarService } from '@/services/AcademicCalendarService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG } from '@/shared/shared-index';
 import { useNotification } from '@/components/ui/Notification';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
+import { SecureToken } from '@/utils/secureTokenStorage';
 import { DrawingModal } from '@/components/modals';
 import SpeakingTestReview from '@/components/test/SpeakingTestReview';
 import TestAnswerModal from '@/components/test/TestAnswerModal';
@@ -1416,7 +1417,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                         score: newVal,
                                         maxScore: 10
                                       };
-                                      const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+                                      const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken') || localStorage.getItem('token');
                                       const resp = await fetch(API_ENDPOINTS.UPDATE_DRAWING_TEST_SCORE, {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
@@ -2497,7 +2498,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
             isTeacherView={true}
             onSaveScore={async ({ resultId, score, maxScore }) => {
               try {
-                const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+                const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken') || localStorage.getItem('token');
                 const resp = await fetch(API_ENDPOINTS.UPDATE_DRAWING_TEST_SCORE, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },

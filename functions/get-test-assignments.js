@@ -127,14 +127,14 @@ exports.handler = async function(event, context) {
     if (cursor) {
       assignments = await sql`
         SELECT * FROM test_assignments_comprehensive_view
-        WHERE (assigned_at, id) < (${cursorAssignedAt}, ${cursorId})
-        ORDER BY assigned_at DESC, id DESC
+        WHERE (assigned_at, assignment_id) < (${cursorAssignedAt}, ${cursorId})
+        ORDER BY assigned_at DESC, assignment_id DESC
         LIMIT ${limit}
       `;
     } else {
       assignments = await sql`
         SELECT * FROM test_assignments_comprehensive_view
-        ORDER BY assigned_at DESC, id DESC
+        ORDER BY assigned_at DESC, assignment_id DESC
         LIMIT ${limit}
       `;
     }
@@ -149,7 +149,7 @@ exports.handler = async function(event, context) {
     let nextCursor = null;
     if (assignments.length === limit && assignments.length > 0) {
       const lastAssignment = assignments[assignments.length - 1];
-      nextCursor = `${lastAssignment.assigned_at.toISOString()},${lastAssignment.id}`;
+      nextCursor = `${lastAssignment.assigned_at.toISOString()},${lastAssignment.assignment_id}`;
     }
 
     // Generate ETag for caching

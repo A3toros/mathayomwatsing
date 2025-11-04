@@ -1,49 +1,6 @@
-// API CLIENT - Base API client for all HTTP requests
-// ✅ COMPLETED: All API client functionality from legacy src/ converted to React
-// ✅ COMPLETED: sendRequest() → sendRequest() with enhanced error handling
-// ✅ COMPLETED: testDbConnection() → testDbConnection() with debug output
-// ✅ COMPLETED: testStudentLogin() → testStudentLogin() with debug output
-// ✅ COMPLETED: testTeacherLogin() → testTeacherLogin() with debug output
-// ✅ COMPLETED: testAdminLogin() → testAdminLogin() with debug output
-// ✅ COMPLETED: testGetSubjects() → testGetSubjects() with debug output
-// ✅ COMPLETED: testGetTeacherSubjects() → testGetTeacherSubjects() with debug output
-// ✅ COMPLETED: testGetClassResults() → testGetClassResults() with debug output
-// ✅ COMPLETED: testGetStudentSubjects() → testGetStudentSubjects() with debug output
-// ✅ COMPLETED: testGetStudentTestResults() → testGetStudentTestResults() with debug output
-// ✅ COMPLETED: HTTP Methods: GET, POST, PUT, DELETE, PATCH with proper error handling
-// ✅ COMPLETED: File Upload/Download: File upload and download functionality
-// ✅ COMPLETED: Authentication: JWT token handling and validation
-// ✅ COMPLETED: Error Handling: Comprehensive error handling and recovery
-// ✅ COMPLETED: Timeout Management: Request timeout and cancellation
-// ✅ COMPLETED: Debug Functions: All debug functions from legacy code
-// ✅ COMPLETED: API Testing: Comprehensive API endpoint testing
-// ✅ COMPLETED: Response Validation: Response validation and error checking
-// ✅ COMPLETED: Request Interceptors: Request and response interceptors
-// ✅ COMPLETED: Retry Logic: Retry with exponential backoff for failed requests
-// ✅ COMPLETED: Request Logging: Request logging and debugging
-// ✅ COMPLETED: Network Error Handling: Network error handling and recovery
-// ✅ COMPLETED: CORS Support: CORS support and configuration
-// ✅ COMPLETED: Content Type Handling: Proper content type handling
-// ✅ COMPLETED: Status Code Handling: HTTP status code handling
-// ✅ COMPLETED: Error Messages: User-friendly error messages
-// ✅ COMPLETED: Debug Output: Debug output with Tailwind CSS styling
-// ✅ COMPLETED: API Integration: Integration with backend services
-// ✅ COMPLETED: Local Storage: Local storage integration for tokens
-// ✅ COMPLETED: State Management: React state management for API calls
-// ✅ COMPLETED: Performance Optimization: Optimized API calls and caching
-// ✅ COMPLETED: Memory Management: Proper cleanup and memory management
-// ✅ COMPLETED: Error Recovery: Error recovery and graceful degradation
-// ✅ COMPLETED: User Experience: Smooth user experience with loading states
-// ✅ COMPLETED: Data Persistence: Data persistence with API integration
-// ✅ COMPLETED: Role-based Access: Role-based API access and management
-// ✅ COMPLETED: Authentication: Authentication and authorization for API calls
-// ✅ COMPLETED: Authorization: Authorization and access control
-// ✅ COMPLETED: Data Synchronization: Data synchronization across components
-// ✅ COMPLETED: Error Boundaries: Error boundary support for API errors
-// ✅ COMPLETED: Debug Support: Debug functions for development and testing
-// ✅ COMPLETED: Type Safety: Proper prop validation and error handling
-// ✅ COMPLETED: Documentation: Comprehensive function documentation and comments
-// ✅ COMPLETED: Maintainability: Clean, maintainable code with proper separation of concerns
+
+
+import { SecureToken } from '../utils/secureTokenStorage';
 
 class ApiClient {
   constructor() {
@@ -53,9 +10,10 @@ class ApiClient {
     this.retryDelay = 1000; // 1 second
   }
 
-  // Get headers with authentication
-  getHeaders() {
-    const token = localStorage.getItem('token');
+  // Get headers with authentication (async version)
+  async getHeaders() {
+    // Use SecureToken to get token (or fallback to tokenManager)
+    const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('token');
     return {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` })
@@ -82,9 +40,10 @@ class ApiClient {
   // Base request method with retry logic
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const headers = await this.getHeaders();
     const config = {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers,
       timeout: this.timeout,
       ...options
     };
@@ -169,11 +128,13 @@ class ApiClient {
     formData.append('file', file);
 
     const url = `${this.baseURL}${endpoint}`;
+    // Use SecureToken to get token (or fallback to tokenManager)
+    const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('token');
     const config = {
       method: 'POST',
       headers: {
-        ...(localStorage.getItem('token') && { 
-          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        ...(token && { 
+          Authorization: `Bearer ${token}` 
         })
       },
       body: formData,
@@ -196,9 +157,10 @@ class ApiClient {
   // Download file
   async downloadFile(endpoint, filename, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const headers = await this.getHeaders();
     const config = {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers,
       ...options
     };
 

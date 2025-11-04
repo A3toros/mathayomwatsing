@@ -687,7 +687,9 @@ export const userService = {
   // Helper functions for session management
   async getCurrentTeacherId() {
     try {
-      const token = localStorage.getItem('accessToken');
+      // Use SecureToken to get token (or fallback to tokenManager or accessToken for compatibility)
+      const { SecureToken } = await import('../utils/secureTokenStorage');
+      const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken');
       if (!token) return null;
       
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -700,7 +702,9 @@ export const userService = {
 
   async getCurrentAdminId() {
     try {
-      const token = localStorage.getItem('accessToken');
+      // Use SecureToken to get token (or fallback to tokenManager or accessToken for compatibility)
+      const { SecureToken } = await import('../utils/secureTokenStorage');
+      const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken');
       if (!token) return null;
       
       const payload = JSON.parse(atob(token.split('.')[1]));

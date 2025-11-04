@@ -131,6 +131,39 @@ export const testService = {
     }
   },
 
+  // Get test questions with test info (includes shuffle and timer info)
+  async getTestQuestionsWithInfo(testType, testId) {
+    console.log(`[DEBUG] getTestQuestionsWithInfo called with testType: ${testType}, testId: ${testId}`);
+    
+    try {
+      const url = `/.netlify/functions/get-test-questions?test_type=${testType}&test_id=${testId}`;
+      console.log('[DEBUG] Fetching test questions with info from:', url);
+      
+      const response = await window.tokenManager.makeAuthenticatedRequest(url);
+      console.log('[DEBUG] Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[DEBUG] Test questions with info data received:', data);
+      
+      if (data.success) {
+        console.log('[DEBUG] Test questions with info retrieved successfully');
+        return {
+          questions: data.questions,
+          testInfo: data.test_info
+        };
+      } else {
+        throw new Error(data.error || 'Failed to get test questions');
+      }
+    } catch (error) {
+      console.error('[ERROR] Failed to get test questions with info:', error);
+      throw error;
+    }
+  },
+
   // Enhanced getActiveTests from legacy code (loadStudentActiveTests)
   async getActiveTests() {
     console.log('getActiveTests called - extracting studentId from JWT token');

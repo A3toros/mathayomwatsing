@@ -4,6 +4,7 @@ import { useApi } from '@/hooks/useApi';
 import Button from '@/components/ui/Button';
 import { Notification } from '@/components/ui/Notification';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { academicCalendarService } from '@/services/AcademicCalendarService';
 
 // ADMIN CONTENT - React Component for Admin Content Management
 // ✅ COMPLETED: All 17 functions from admin-content.js converted to React
@@ -151,9 +152,9 @@ const AdminContent = () => {
   const loadAcademicYear = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await apiGet('/.netlify/functions/get-academic-year');
-      if (response.success) {
-        setAcademicYears(response.academic_years || []);
+      const academicCalendar = await academicCalendarService.loadAcademicCalendar();
+      if (academicCalendar && Array.isArray(academicCalendar)) {
+        setAcademicYears(academicCalendar);
         setNotification({ type: 'success', message: 'Academic year loaded successfully' });
       } else {
         setError('Failed to load academic year');
@@ -164,7 +165,7 @@ const AdminContent = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet]);
+  }, []);
 
   // ✅ COMPLETED: displayAcademicYear() → renderAcademicYear()
   const displayAcademicYear = useCallback((academicYearsData) => {

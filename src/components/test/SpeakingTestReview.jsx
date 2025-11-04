@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AudioPlayer from './AudioPlayer';
+import { SecureToken } from '../../utils/secureTokenStorage';
 
 const SpeakingTestReview = ({ 
   result, 
@@ -77,7 +78,7 @@ const SpeakingTestReview = ({
           const url = `/.netlify/functions/get-speaking-test-new?action=transcript&test_id=${encodeURIComponent(result.test_id)}&student_id=${encodeURIComponent(fallbackStudentId)}`;
           // eslint-disable-next-line no-console
           console.log('[SpeakingReview] Fetching transcript from API:', { url });
-          const token = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+          const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken') || localStorage.getItem('token');
           const resp = await fetch(url, {
             headers: { 'Authorization': token ? `Bearer ${token}` : '' },
             signal: controller.signal

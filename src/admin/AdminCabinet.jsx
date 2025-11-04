@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import { Notification } from '@/components/ui/Notification';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
+import { academicCalendarService } from '@/services/AcademicCalendarService';
 
 // Reusable CSS Classes
 const STYLES = {
@@ -128,6 +129,7 @@ const AdminCabinet = () => {
   const [testFilterTeacher, setTestFilterTeacher] = useState('');
   const [testFilterStartDate, setTestFilterStartDate] = useState('');
   const [testFilterEndDate, setTestFilterEndDate] = useState('');
+  const [testFilterStatus, setTestFilterStatus] = useState('all'); // 'all', 'active', 'completed'
   const [activeTestsTab, setActiveTestsTab] = useState(true); // true for active, false for inactive
   
   // Test Management state (for actual tests, not assignments)
@@ -136,6 +138,7 @@ const AdminCabinet = () => {
   const [testMgmtFilterTeacher, setTestMgmtFilterTeacher] = useState('');
   const [testMgmtFilterStartDate, setTestMgmtFilterStartDate] = useState('');
   const [testMgmtFilterEndDate, setTestMgmtFilterEndDate] = useState('');
+  const [selectedTests, setSelectedTests] = useState(new Set());
   
   // Menu state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -342,26 +345,29 @@ const AdminCabinet = () => {
         return;
       }
       
-      // Cache miss - fetch from API
-      const response = await apiGet('/.netlify/functions/get-academic-year');
-      const academicYears = response.academic_years || [];
-      setAcademicYears(academicYears);
-      
-      // Cache the result
-      setCachedData(cacheKey, academicYears, CACHE_TTL.admin_academic_years);
+      // Load from AcademicCalendarService
+      const academicCalendar = await academicCalendarService.loadAcademicCalendar();
+      if (academicCalendar && Array.isArray(academicCalendar)) {
+        setAcademicYears(academicCalendar);
+        // Cache the result
+        setCachedData(cacheKey, academicCalendar, CACHE_TTL.admin_academic_years);
+      } else {
+        console.error('Failed to load academic calendar');
+      }
     } catch (error) {
       console.error('Error loading academic year:', error);
     }
-  }, [apiGet]);
+  }, []);
 
   const loadAllTests = useCallback(async () => {
     try {
       setShowTestsTable(!showTestsTable);
       if (!showTestsTable) {
-        // Load both active and inactive tests
+        // Load both active and inactive tests with cache busting
+        const cacheBuster = Date.now();
         const [activeResponse, assignmentsResponse] = await Promise.all([
-          apiGet('/.netlify/functions/get-all-tests'),
-          apiGet('/.netlify/functions/get-test-assignments')
+          apiGet(`/.netlify/functions/get-all-tests?t=${cacheBuster}`),
+          apiGet(`/.netlify/functions/get-test-assignments?t=${cacheBuster}`)
         ]);
         
         console.log('📊 Active tests response:', activeResponse);
@@ -741,8 +747,9 @@ const AdminCabinet = () => {
 
   const markTestInactive = useCallback(async (testId, testType, teacherId) => {
     try {
-      // Get all assignments
-      const assignmentsResponse = await apiGet('/.netlify/functions/get-test-assignments');
+      // Get all assignments with cache busting
+      const cacheBuster = Date.now();
+      const assignmentsResponse = await apiGet(`/.netlify/functions/get-test-assignments?t=${cacheBuster}`);
       
       if (assignmentsResponse.success && assignmentsResponse.assignments) {
         // Filter assignments for this specific test
@@ -787,8 +794,9 @@ const AdminCabinet = () => {
 
   const markTestActive = useCallback(async (testId, testType, teacherId) => {
     try {
-      // Get all assignments
-      const assignmentsResponse = await apiGet('/.netlify/functions/get-test-assignments');
+      // Get all assignments with cache busting
+      const cacheBuster = Date.now();
+      const assignmentsResponse = await apiGet(`/.netlify/functions/get-test-assignments?t=${cacheBuster}`);
       
       if (assignmentsResponse.success && assignmentsResponse.assignments) {
         // Filter assignments for this specific test
@@ -833,20 +841,19 @@ const AdminCabinet = () => {
   }, [apiPost, apiGet, loadAllTests]);
 
   // Load actual tests for Test Management
-  const loadActualTests = useCallback(async () => {
+  const loadActualTests = useCallback(async (forceRefresh = false) => {
     try {
-      setShowTestManagementTable(!showTestManagementTable);
-      if (!showTestManagementTable) {
-        const response = await apiGet('/.netlify/functions/get-all-tests');
-        console.log('📊 Actual tests response:', response);
-        setAllActualTests(response.tests || []);
-        console.log('🧪 Actual tests set to state:', response.tests || []);
-      }
+      // Add cache busting parameter
+      const cacheBuster = Date.now();
+      const response = await apiGet(`/.netlify/functions/get-all-tests?t=${cacheBuster}`);
+      console.log('📊 Actual tests response:', response);
+      setAllActualTests(response.tests || []);
+      console.log('🧪 Actual tests set to state:', response.tests || []);
     } catch (error) {
       console.error('Error loading actual tests:', error);
       setNotification({ type: 'error', message: 'Failed to load tests' });
     }
-  }, [apiGet, showTestManagementTable]);
+  }, [apiGet]);
 
   // Delete individual test
   const deleteTest = useCallback(async (testId, testType, teacherId) => {
@@ -862,8 +869,15 @@ const AdminCabinet = () => {
           type: 'success', 
           message: 'Test deleted successfully!' 
         });
-        // Refresh the tests list
-        await loadActualTests();
+        // Remove from selection if it was selected
+        const key = `${testType}-${testId}-${teacherId}`;
+        setSelectedTests(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        // Refresh the tests list with cache busting
+        await loadActualTests(true);
       } else {
         setNotification({ type: 'error', message: `Failed to delete test: ${response.message}` });
       }
@@ -873,18 +887,36 @@ const AdminCabinet = () => {
     }
   }, [apiPost, loadActualTests]);
 
+  // Checkbox handlers for test selection
+  const handleTestSelect = useCallback((testId, testType, teacherId) => {
+    const key = `${testType}-${testId}-${teacherId}`;
+    setSelectedTests(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
   // Filter users by grade
   const filteredUsers = userSearchGrade 
     ? users.filter(user => user.grade.toString() === userSearchGrade)
     : users;
 
-  // Filter tests by teacher, date, and active/inactive status
+  // Filter tests by status, teacher, and date
   const filteredTests = allTests.filter(test => {
+    const statusMatch = testFilterStatus === 'all' 
+      ? true 
+      : testFilterStatus === 'active' 
+        ? test.is_active 
+        : !test.is_active; // completed
     const teacherMatch = !testFilterTeacher || test.teacher_id === testFilterTeacher;
     const startDateMatch = !testFilterStartDate || new Date(test.created_at) >= new Date(testFilterStartDate);
     const endDateMatch = !testFilterEndDate || new Date(test.created_at) <= new Date(testFilterEndDate + 'T23:59:59');
-    const statusMatch = activeTestsTab ? test.is_active : !test.is_active;
-    return teacherMatch && startDateMatch && endDateMatch && statusMatch;
+    return statusMatch && teacherMatch && startDateMatch && endDateMatch;
   });
 
   // Filter actual tests by teacher and date
@@ -894,6 +926,56 @@ const AdminCabinet = () => {
     const endDateMatch = !testMgmtFilterEndDate || new Date(test.created_at) <= new Date(testMgmtFilterEndDate + 'T23:59:59');
     return teacherMatch && startDateMatch && endDateMatch;
   });
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedTests.size === filteredActualTests.length && filteredActualTests.length > 0) {
+      setSelectedTests(new Set());
+    } else {
+      const keys = filteredActualTests.map(test => 
+        `${test.test_type}-${test.test_id}-${test.teacher_id}`
+      );
+      setSelectedTests(new Set(keys));
+    }
+  }, [selectedTests.size, filteredActualTests]);
+
+  // Delete marked tests
+  const handleDeleteMarked = useCallback(async () => {
+    if (selectedTests.size === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to delete ${selectedTests.size} test(s)?`)) {
+      return;
+    }
+    
+    try {
+      const deletePromises = Array.from(selectedTests).map(key => {
+        const [testType, testId, teacherId] = key.split('-');
+        return apiPost('/.netlify/functions/delete-test', {
+          test_id: parseInt(testId),
+          test_type: testType,
+          teacher_id: teacherId
+        });
+      });
+      
+      await Promise.all(deletePromises);
+      
+      setNotification({
+        type: 'success',
+        message: `Successfully deleted ${selectedTests.size} test(s)!`
+      });
+      
+      // Clear selection
+      setSelectedTests(new Set());
+      
+      // Refresh list with cache busting
+      await loadActualTests(true);
+    } catch (error) {
+      console.error('Error deleting marked tests:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to delete some tests. Please try again.'
+      });
+    }
+  }, [selectedTests, apiPost, loadActualTests]);
 
   return (
     <motion.div 
@@ -2066,33 +2148,12 @@ const AdminCabinet = () => {
                   </Button>
                 </div>
                 
-                {/* Tab Navigation */}
+                {/* Test Status Info */}
                 {showTestsTable && (
-                  <div className="mb-6">
-                    <div className="border-b border-gray-200">
-                      <nav className="-mb-px flex space-x-8">
-                        <button
-                          onClick={() => setActiveTestsTab(true)}
-                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                            activeTestsTab
-                              ? 'border-purple-500 text-purple-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          Active Assignments
-                        </button>
-                        <button
-                          onClick={() => setActiveTestsTab(false)}
-                          className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                            !activeTestsTab
-                              ? 'border-purple-500 text-purple-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          Inactive Assignments
-                        </button>
-                      </nav>
-                    </div>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                      Showing all tests (Active and Completed)
+                    </p>
                   </div>
                 )}
                 
@@ -2101,9 +2162,18 @@ const AdminCabinet = () => {
                   <div className="mt-6">
                     <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <h4 className="text-lg font-semibold text-gray-700">
-                        {activeTestsTab ? 'Active' : 'Inactive'} Assignments ({filteredTests.length} of {allTests.filter(test => activeTestsTab ? test.is_active : !test.is_active).length})
+                        All Assignments ({filteredTests.length} of {allTests.length})
                       </h4>
                       <div className="flex flex-wrap gap-2">
+                        <select
+                          value={testFilterStatus}
+                          onChange={(e) => setTestFilterStatus(e.target.value)}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        >
+                          <option value="all">All</option>
+                          <option value="active">Active</option>
+                          <option value="completed">Completed</option>
+                        </select>
                         <select
                           value={testFilterTeacher}
                           onChange={(e) => setTestFilterTeacher(e.target.value)}
@@ -2133,45 +2203,47 @@ const AdminCabinet = () => {
                       </div>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="overflow-x-auto max-h-96">
+                      <div className="overflow-x-auto">
                         <table className={STYLES.table}>
                           <thead className={STYLES.tableHeader}>
                             <tr>
-                              <th className={STYLES.tableHeaderCell}>Test Name</th>
-                              <th className={STYLES.tableHeaderCell}>Type</th>
-                              <th className={STYLES.tableHeaderCell}>Teacher</th>
-                              <th className={STYLES.tableHeaderCell}>Questions</th>
-                              <th className={STYLES.tableHeaderCell}>Created</th>
-                              <th className={STYLES.tableHeaderCell}>Actions</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Test Name</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Teacher</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center">Questions</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
                           <tbody className={STYLES.tableBody}>
                             {filteredTests.map((test, index) => (
                               <tr key={`${test.test_type}-${test.test_id}-${index}`} className={STYLES.tableRow}>
-                                <td className={STYLES.tableCell}>{test.test_name}</td>
-                                <td className={STYLES.tableCell}>
+                                <td className="px-4 py-3 text-xs text-gray-900 max-w-xs truncate" title={test.test_name}>
+                                  {test.test_name}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-900">
                                   <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                     {test.test_type.replace('_', ' ').toUpperCase()}
                                   </span>
                                 </td>
-                                <td className={STYLES.tableCell}>{test.teacher_name}</td>
-                                <td className={STYLES.tableCell}>{test.num_questions}</td>
-                                <td className={STYLES.tableCell}>
+                                <td className="px-4 py-3 text-xs text-gray-900">{test.teacher_name}</td>
+                                <td className="px-4 py-3 text-xs text-gray-900 text-center">{test.num_questions}</td>
+                                <td className="px-4 py-3 text-xs text-gray-900">
                                   {new Date(test.created_at).toLocaleDateString()}
                                 </td>
-                                <td className={STYLES.tableCell}>
+                                <td className="px-4 py-3 text-xs">
                                   <div className="flex space-x-2">
-                                    {activeTestsTab ? (
+                                    {test.is_active ? (
                                       <button
                                         onClick={() => markTestInactive(test.test_id, test.test_type, test.teacher_id)}
-                                        className="text-sm font-medium px-3 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
+                                        className="text-xs font-medium px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
                                       >
                                         Mark Complete
                                       </button>
                                     ) : (
                                       <button
                                         onClick={() => markTestActive(test.test_id, test.test_type, test.teacher_id)}
-                                        className="text-sm font-medium px-3 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                                        className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
                                       >
                                         Mark Active
                                       </button>
@@ -2204,7 +2276,12 @@ const AdminCabinet = () => {
                 <div className="mb-4">
                   <Button 
                     variant="primary" 
-                    onClick={loadActualTests}
+                    onClick={() => {
+                      if (!showTestManagementTable) {
+                        loadActualTests();
+                      }
+                      setShowTestManagementTable(!showTestManagementTable);
+                    }}
                     className={STYLES.buttonPrimary}
                   >
                     {showTestManagementTable ? 'Hide Tests Table' : 'Get All Tests ▶'}
@@ -2215,9 +2292,20 @@ const AdminCabinet = () => {
                 {showTestManagementTable && (
                   <div className="mt-6">
                     <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <h4 className="text-lg font-semibold text-gray-700">
-                        All Tests ({filteredActualTests.length} of {allActualTests.length})
-                      </h4>
+                      <div className="flex items-center gap-4">
+                        <h4 className="text-lg font-semibold text-gray-700">
+                          All Tests ({filteredActualTests.length} of {allActualTests.length})
+                        </h4>
+                        {selectedTests.size > 0 && (
+                          <Button
+                            variant="danger"
+                            onClick={handleDeleteMarked}
+                            className="text-sm px-4 py-2"
+                          >
+                            Delete Marked ({selectedTests.size})
+                          </Button>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         <select
                           value={testMgmtFilterTeacher}
@@ -2248,39 +2336,57 @@ const AdminCabinet = () => {
                       </div>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="overflow-x-auto max-h-96">
+                      <div className="overflow-x-auto">
                         <table className={STYLES.table}>
                           <thead className={STYLES.tableHeader}>
                             <tr>
-                              <th className={STYLES.tableHeaderCell}>Test Name</th>
-                              <th className={STYLES.tableHeaderCell}>Type</th>
-                              <th className={STYLES.tableHeaderCell}>Teacher</th>
-                              <th className={STYLES.tableHeaderCell}>Questions</th>
-                              <th className={STYLES.tableHeaderCell}>Created</th>
-                              <th className={STYLES.tableHeaderCell}>Actions</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTests.size === filteredActualTests.length && filteredActualTests.length > 0}
+                                  onChange={handleSelectAll}
+                                  className="cursor-pointer"
+                                />
+                              </th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Test Name</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Teacher</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center">Questions</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
+                              <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
                           <tbody className={STYLES.tableBody}>
                             {filteredActualTests.map((test, index) => (
                               <tr key={`${test.test_type}-${test.test_id}-${index}`} className={STYLES.tableRow}>
-                                <td className={STYLES.tableCell}>{test.test_name}</td>
                                 <td className={STYLES.tableCell}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTests.has(`${test.test_type}-${test.test_id}-${test.teacher_id}`)}
+                                    onChange={() => handleTestSelect(test.test_id, test.test_type, test.teacher_id)}
+                                    className="cursor-pointer"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-900 max-w-xs truncate" title={test.test_name}>
+                                  {test.test_name}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-900">
                                   <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                     {test.test_type.replace('_', ' ').toUpperCase()}
                                   </span>
                                 </td>
-                                <td className={STYLES.tableCell}>{test.teacher_name}</td>
-                                <td className={STYLES.tableCell}>{test.num_questions}</td>
-                                <td className={STYLES.tableCell}>
+                                <td className="px-4 py-3 text-xs text-gray-900">{test.teacher_name}</td>
+                                <td className="px-4 py-3 text-xs text-gray-900 text-center">{test.num_questions}</td>
+                                <td className="px-4 py-3 text-xs text-gray-900">
                                   {new Date(test.created_at).toLocaleDateString()}
                                 </td>
-                                <td className={STYLES.tableCell}>
+                                <td className="px-4 py-3 text-xs">
                                   <div className="flex space-x-2">
                                     <button
                                       onClick={() => deleteTest(test.test_id, test.test_type, test.teacher_id)}
-                                      className="text-sm font-medium px-3 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                      className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
                                     >
-                                      Delete Test
+                                      Delete
                                     </button>
                                   </div>
                                 </td>

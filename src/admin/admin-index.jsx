@@ -4,6 +4,7 @@ import { useApi } from '@/hooks/useApi';
 import { useNotification } from '@/components/ui/Notification';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Notification } from '@/components/ui/Notification';
+import { academicCalendarService } from '@/services/AcademicCalendarService';
 
 // Import admin components
 import AdminCabinet from './AdminCabinet';
@@ -100,7 +101,7 @@ const AdminApp = () => {
         apiGet('/.netlify/functions/get-all-users'),
         apiGet('/.netlify/functions/get-all-teachers'),
         apiGet('/.netlify/functions/get-all-subjects'),
-        apiGet('/.netlify/functions/get-academic-year')
+        academicCalendarService.loadAcademicCalendar()
       ]);
 
       // Process results
@@ -116,8 +117,8 @@ const AdminApp = () => {
         console.log('✅ Subjects loaded:', subjectsRes.value.subjects?.length || 0);
       }
       
-      if (academicYearsRes.status === 'fulfilled' && academicYearsRes.value?.success) {
-        console.log('✅ Academic years loaded:', academicYearsRes.value.academic_years?.length || 0);
+      if (academicYearsRes.status === 'fulfilled' && Array.isArray(academicYearsRes.value)) {
+        console.log('✅ Academic years loaded:', academicYearsRes.value.length || 0);
       }
 
       console.log('✅ Admin data loading completed');

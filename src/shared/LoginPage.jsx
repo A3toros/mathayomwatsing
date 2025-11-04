@@ -90,7 +90,7 @@ const LoginPage = () => {
   }, []);
   
   // Enhanced initSession from legacy code (initializeApplicationSession)
-  const initSession = useCallback(() => {
+  const initSession = useCallback(async () => {
     console.log('Checking for existing JWT session...');
     // Clear any leftover force-logout flags so first login attempt isn't blocked
     try {
@@ -100,21 +100,27 @@ const LoginPage = () => {
       }
     } catch {}
     
-    if (window.tokenManager && window.tokenManager.isAuthenticated()) {
-      console.log('JWT session valid, checking user role...');
-      try {
-        const decoded = window.tokenManager.decodeToken(window.tokenManager.getAccessToken());
-        if (decoded && decoded.role) {
-          console.log('User role from JWT:', decoded.role);
-          // User has valid JWT session - role-based routing will handle the rest
-        } else {
-          console.log('No valid role found in JWT, showing login');
+    if (window.tokenManager) {
+      const isAuth = await window.tokenManager.isAuthenticated();
+      if (isAuth) {
+        console.log('JWT session valid, checking user role...');
+        try {
+          const token = await window.tokenManager.getAccessToken();
+          const decoded = window.tokenManager.decodeToken(token);
+          if (decoded && decoded.role) {
+            console.log('User role from JWT:', decoded.role);
+            // User has valid JWT session - role-based routing will handle the rest
+          } else {
+            console.log('No valid role found in JWT, showing login');
+          }
+        } catch (error) {
+          console.error('Error decoding JWT token:', error);
         }
-      } catch (error) {
-        console.error('Error decoding JWT token:', error);
+      } else {
+        console.log('No valid JWT session found, showing login');
       }
     } else {
-      console.log('No valid JWT session found, showing login');
+      console.log('No tokenManager found, showing login');
     }
   }, []);
   

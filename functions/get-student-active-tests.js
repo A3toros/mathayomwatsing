@@ -203,6 +203,15 @@ exports.handler = async function(event, context) {
           console.warn('Retest availability check failed for', row.test_type, row.test_id, e.message);
         }
 
+        // Check if test is completed (result_id will be NOT NULL if completed)
+        const isCompleted = row.result_id !== null && row.result_id !== undefined;
+        
+        // Skip if completed AND no retest available
+        if (isCompleted && !retestAvailable) {
+          console.log('Filtering out completed test:', row.test_type, row.test_id, 'student:', student_id);
+          continue; // Skip this test - don't show in cabinet
+        }
+
         activeTests.push({
           test_id: row.test_id,
           test_name: testInfo.test_name || 'Unknown Test',

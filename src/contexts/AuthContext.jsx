@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 // import { authService } from '../services/authService';
 import { clearUserData } from '../utils/cacheUtils';
+import { SecureToken } from '../utils/secureTokenStorage';
 
 // AUTH HOOKS - Authentication state management using React hooks
 // ✅ COMPLETED: All authentication functionality from legacy src/ converted to React hooks
@@ -35,7 +36,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(null); // Will be loaded async from SecureToken
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -60,7 +61,8 @@ export const AuthProvider = ({ children }) => {
           isRefreshing = true;
           
           try {
-            const currentToken = token || localStorage.getItem('auth_token');
+            // Use SecureToken to get token
+            const currentToken = token || await (window.tokenManager?.getToken() || SecureToken.get());
             
             if (currentToken && isTokenExpired(currentToken)) {
               console.log('[AUTH] Token expired, attempting refresh...');
@@ -126,8 +128,8 @@ export const AuthProvider = ({ children }) => {
       console.error('[AUTH] Error decoding token:', error);
       console.warn('[AUTH] Token appears to be corrupted - clearing authentication');
       
-      // Clear corrupted tokens
-      localStorage.removeItem('auth_token');
+      // Clear corrupted tokens using SecureToken
+      SecureToken.clear().catch(() => {});
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('userData');
@@ -135,7 +137,7 @@ export const AuthProvider = ({ children }) => {
       // Clear token manager if available
       if (window.tokenManager) {
         try {
-          window.tokenManager.clearTokens();
+          window.tokenManager.clearAuth();
         } catch (e) {
           console.warn('[AUTH] Error clearing token manager:', e);
         }
@@ -167,13 +169,13 @@ export const AuthProvider = ({ children }) => {
         const data = await response.json();
         console.log('[AUTH] Token refresh successful');
         
-        // Update stored tokens (use consistent keys and TokenManager for global)
-        localStorage.setItem('auth_token', data.accessToken);
+        // Update stored tokens using SecureToken (with hash verification, retry, write verification)
+        await SecureToken.set(data.accessToken);
         localStorage.setItem('refresh_token', data.refreshToken);
         localStorage.setItem('accessToken', data.accessToken); // For compatibility
         try {
           if (window.tokenManager) {
-            window.tokenManager.setToken(data.accessToken);
+            await window.tokenManager.setToken(data.accessToken);
             if (data.refreshToken) window.tokenManager.setRefreshToken(data.refreshToken);
           }
         } catch {}
@@ -194,7 +196,8 @@ export const AuthProvider = ({ children }) => {
 
   // Make authenticated request with automatic token refresh
   const makeAuthenticatedRequest = async (url, options = {}) => {
-    const currentToken = token || localStorage.getItem('auth_token');
+    // Use SecureToken to get token
+    const currentToken = token || await (window.tokenManager?.getToken() || SecureToken.get());
     
     if (!currentToken) {
       throw new Error('No authentication token found');
@@ -216,8 +219,8 @@ export const AuthProvider = ({ children }) => {
       console.log('[AUTH] 401 error, attempting token refresh...');
       const refreshed = await refreshToken();
       if (refreshed) {
-        // Retry the request with new token
-        const newToken = localStorage.getItem('auth_token');
+        // Retry the request with new token (use SecureToken)
+        const newToken = await (window.tokenManager?.getToken() || SecureToken.get());
         headers.Authorization = `Bearer ${newToken}`;
         return fetch(url, {
           ...options,
@@ -238,8 +241,8 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('[AUTH] Starting session initialization...');
       setIsLoading(true);
-      // Check multiple possible localStorage keys for compatibility
-      const storedToken = localStorage.getItem('auth_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+      // Use SecureToken to get token (or fallback to tokenManager)
+      const storedToken = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken') || localStorage.getItem('token');
       const storedUser = localStorage.getItem('user_data') || localStorage.getItem('userData');
       const storedRole = storedUser ? JSON.parse(storedUser).role : null;
       
@@ -255,32 +258,32 @@ export const AuthProvider = ({ children }) => {
           const userData = JSON.parse(storedUser);
           
           // Check if token is expired and try to refresh
-          if (isTokenExpired(storedToken)) {
-            console.log('[AUTH] Token expired, attempting refresh...');
-            const refreshed = await refreshToken();
-            if (refreshed) {
-              console.log('[AUTH] Token refreshed successfully');
-              // Get the new token
-              const newToken = localStorage.getItem('auth_token');
-              setToken(newToken);
+            if (isTokenExpired(storedToken)) {
+              console.log('[AUTH] Token expired, attempting refresh...');
+              const refreshed = await refreshToken();
+              if (refreshed) {
+                console.log('[AUTH] Token refreshed successfully');
+                // Get the new token using SecureToken
+                const newToken = await (window.tokenManager?.getToken() || SecureToken.get());
+                setToken(newToken);
+              } else {
+                console.log('[AUTH] Token refresh failed, but continuing with existing token...');
+                // Don't force logout on refresh failure during initialization
+                setToken(storedToken);
+              }
             } else {
-              console.log('[AUTH] Token refresh failed, but continuing with existing token...');
-              // Don't force logout on refresh failure during initialization
               setToken(storedToken);
             }
-          } else {
-            setToken(storedToken);
-          }
-          
-          setRole(storedRole);
-          setUser(userData);
-          try {
-            if (window.tokenManager) {
-              window.tokenManager.setToken(localStorage.getItem('auth_token'));
-              const rt = localStorage.getItem('refresh_token');
-              if (rt) window.tokenManager.setRefreshToken(rt);
-            }
-          } catch {}
+            
+            setRole(storedRole);
+            setUser(userData);
+            try {
+              if (window.tokenManager && storedToken) {
+                await window.tokenManager.setToken(storedToken);
+                const rt = localStorage.getItem('refresh_token');
+                if (rt) window.tokenManager.setRefreshToken(rt);
+              }
+            } catch {}
           setIsAuthenticated(true);
           
           // Restore post-login actions for the role
@@ -351,11 +354,22 @@ export const AuthProvider = ({ children }) => {
         setUser(data);
         setIsAuthenticated(true);
         
-        // Store in localStorage (use consistent keys)
-        localStorage.setItem('auth_token', data.accessToken || data.token);
+        // Store token using SecureToken (with hash verification, retry, write verification)
+        const tokenToStore = data.accessToken || data.token;
+        await SecureToken.set(tokenToStore);
+        
+        // Store non-sensitive data in localStorage
         localStorage.setItem('refresh_token', data.refreshToken);
         localStorage.setItem('user_data', JSON.stringify(data));
-        localStorage.setItem('accessToken', data.accessToken || data.token); // For TokenManager compatibility
+        localStorage.setItem('accessToken', tokenToStore); // For compatibility
+        
+        // Also update tokenManager if available
+        try {
+          if (window.tokenManager) {
+            await window.tokenManager.setToken(tokenToStore);
+            if (data.refreshToken) window.tokenManager.setRefreshToken(data.refreshToken);
+          }
+        } catch {}
         
         // Handle post-login actions
         // Cleanup old localStorage test keys (> 7 days)
@@ -499,7 +513,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Force complete logout
-  const forceCompleteLogout = () => {
+  const forceCompleteLogout = async () => {
     // Clear state first
     setUser(null);
     setRole(null);
@@ -514,19 +528,22 @@ export const AuthProvider = ({ children }) => {
     }
     
     // Clear ALL possible localStorage keys (AuthContext uses inconsistent keys)
-    localStorage.removeItem('token');
+    // Clear token using SecureToken (handles localStorage and sessionStorage)
+    await SecureToken.clear();
+    
+    // Clear other localStorage keys (token is already cleared by SecureToken.clear())
     localStorage.removeItem('userRole');
     localStorage.removeItem('userData');
-    localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     localStorage.removeItem('user_role');
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('testProgress');
     localStorage.removeItem('formData');
     
     // Clear TokenManager data without triggering redirect
     if (window.tokenManager) {
-      window.tokenManager.clearAuth();
+      await window.tokenManager.clearAuth();
     }
     
     // Add a small delay to ensure state is updated
@@ -615,10 +632,19 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
     setError(null);
     
-    // Store in localStorage for persistence (using token-manager keys)
-    localStorage.setItem('auth_token', userData.token);
+    // Store token using SecureToken (with hash verification, retry, write verification)
+    SecureToken.set(userData.token).catch(err => {
+      console.error('[AUTH] Failed to store token securely:', err);
+    });
+    
+    // Store non-sensitive data in localStorage
     localStorage.setItem('user_data', JSON.stringify(userData));
     localStorage.setItem('accessToken', userData.token); // Keep 'accessToken' for userService compatibility
+    
+    // Also update tokenManager if available
+    if (window.tokenManager) {
+      window.tokenManager.setToken(userData.token).catch(() => {});
+    }
   }, []);
 
   const value = {

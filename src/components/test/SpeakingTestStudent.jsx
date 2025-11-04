@@ -648,7 +648,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             console.log('🎓 Marked retest as completed (student passed):', completionKey);
 
             // Set retest_attempts metadata so button logic can check if attempts are exhausted
-            const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
+          const attemptsMetaKey = `retest_attempts_${user.student_id}_speaking_${testData.test_id}`;
             localStorage.setItem(attemptsMetaKey, JSON.stringify({ used: usedAttempts, max: maxAttempts }));
             console.log('🎓 Set retest attempts metadata (student passed):', attemptsMetaKey, { used: usedAttempts, max: maxAttempts });
           } else {

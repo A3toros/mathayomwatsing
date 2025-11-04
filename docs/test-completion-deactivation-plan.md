@@ -9,226 +9,194 @@ When students complete tests (all 8 test types), automatically set the test assi
 3. **Consistent Behavior**: All 8 test types follow the same pattern
 
 ## Current State
-- Test assignments have `is_active` field (default: `true`)
+- Test assignments have `is_active` field (default: `true`) - **global** (per grade/class, not per student)
 - `student_active_tests_view` filters by `WHERE ta.is_active = true`
-- When tests are completed, `is_active` remains `true`
+- **View structure**: Creates **1 row per student** per test (via `LEFT JOIN users u ON u.grade = la.grade AND u.class = la.class`)
+- When tests are completed, `is_active` remains `true` (global assignment stays active)
 - When retests are created, original test's `is_active` is not modified
-- Result: Completed tests stay visible in the cabinet
+- Result: Completed tests stay visible in the cabinet for all students
+
+## Key Insight
+The view already generates **per-student rows** (one row per student-test combination). We can leverage this by:
+1. **Using existing results tables** - All test results tables have `is_completed` field
+2. LEFT JOINing to results tables in the view
+3. Filtering out rows where student has `is_completed = true` AND no retest is available
+
+**Simpler Approach - No New Table Needed!**
+- All test results tables already have `is_completed` field:
+  - `multiple_choice_test_results.is_completed`
+  - `true_false_test_results.is_completed`
+  - `input_test_results.is_completed`
+  - `matching_type_test_results.is_completed`
+  - `word_matching_test_results.is_completed`
+  - `fill_blanks_test_results.is_completed`
+  - `drawing_test_results.is_completed`
+  - `speaking_test_results.is_completed`
+
+**Example:**
+- Test assignment (grade 7, class 69) has `is_active = true` (global)
+- View creates 30 rows (one per student in grade 7 class 69)
+- Student A completes test → `multiple_choice_test_results` has `is_completed = true` for Student A
+- View filters: Student A's row is excluded (because `result.is_completed = true` AND no retest available)
+- Other 29 students' rows still show (because no result exists for them, or `is_completed = false`)
+- Retest created for Student A → `retest_available = true` in view
+- View filters: Student A's row now shows again (because retest is available, even if `is_completed = true`)
+- Student A completes retest → Result has `is_completed = true` AND retest exhausted
+- View filters: Student A's row is excluded again (because `is_completed = true` AND `retest_available = false`)
 
 ## Proposed Changes
 
-### 1. Test Completion - Set `is_active = false`
+### 1. Test Completion - Set `is_completed = true` (Already Done)
 
-**Files to modify:**
-- `functions/submit-multiple-choice-test.js`
-- `functions/submit-true-false-test.js`
-- `functions/submit-input-test.js`
-- `functions/submit-matching-type-test.js`
-- `functions/submit-word-matching-test.js`
-- `functions/submit-fill-blanks-test.js`
-- `functions/submit-drawing-test.js`
-- `functions/submit-speaking-test-final.js`
+**Files already setting this:**
+- All 8 submit functions already set `is_completed = true` in their respective results tables
+- No changes needed here!
 
-**Logic:**
-```sql
--- After successful test submission, set assignment to inactive
-UPDATE test_assignments
-SET is_active = false, updated_at = NOW()
-WHERE test_type = ${test_type}
-  AND test_id = ${test_id}
-  AND grade = ${grade}
-  AND class = ${class}
-  AND student_id = ${student_id}  -- Only deactivate for this specific student
-```
+**Current behavior:**
+- When test is submitted, result row is created with `is_completed = true`
+- This is already happening in all submit functions
 
-**Note:** We need to deactivate per student, not globally. Since `test_assignments` is per grade/class, we may need a different approach:
-- Option A: Create a `student_test_assignments` table to track per-student active status
-- Option B: Use a separate `student_test_completions` table with `is_active` flag
-- Option C: Modify `test_assignments` to support per-student deactivation
+**What we need:**
+- Filter the view to exclude tests where `is_completed = true` AND `retest_available = false`
 
-**Recommended Approach (Option C):**
-- Add `deactivated_students` JSONB column to `test_assignments` to track which students have completed it
-- Or create `student_test_status` table: `(student_id, test_type, test_id, assignment_id, is_active)`
+### 2. Retest Creation - Already Handled by `retest_available` Flag
 
-**Simpler Approach (Option B - Recommended for MVP):**
-- Create `student_test_completions` table:
-  ```sql
-  CREATE TABLE student_test_completions (
-    id SERIAL PRIMARY KEY,
-    student_id VARCHAR(10) NOT NULL REFERENCES users(student_id),
-    test_type VARCHAR(20) NOT NULL,
-    test_id INTEGER NOT NULL,
-    assignment_id INTEGER NOT NULL REFERENCES test_assignments(id),
-    is_active BOOLEAN DEFAULT true,
-    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(student_id, test_type, test_id, assignment_id)
-  );
-  ```
+**File already handling this:**
+- `functions/get-student-active-tests.js` already sets `retest_available = true` when retest is available
+- No changes needed here!
 
-**Even Simpler Approach (Use existing `test_completed_` keys):**
-- Since we already use `test_completed_${studentId}_${testType}_${testId}` in localStorage
-- We can add a database flag in `student_test_results` or create a simple completion table
-- Filter `student_active_tests_view` to exclude tests where student has completed AND no retest available
+**Current behavior:**
+- When retest is created, `get-student-active-tests.js` checks `retest_targets` and `retest_assignments`
+- Sets `retest_available = true` in the response
+- This is already happening!
 
-### 2. Retest Creation - Set `is_active = true`
+**What we need:**
+- Filter the view to show tests even if `is_completed = true` when `retest_available = true`
+
+### 3. Update `get-student-active-tests.js` Function
 
 **File to modify:**
-- `functions/create-retest-assignment.js`
+- `functions/get-student-active-tests.js`
 
 **Logic:**
-```sql
--- When creating retest, reactivate the original test assignment for these students
-UPDATE test_assignments
-SET is_active = true, updated_at = NOW()
-WHERE test_type = ${test_type}
-  AND test_id = ${test_id}
-  AND grade = ${grade}
-  AND class = ${class}
-  AND id IN (
-    -- Get the assignment IDs for students who are getting retests
-    SELECT DISTINCT ta.id
-    FROM test_assignments ta
-    WHERE ta.test_type = ${test_type}
-      AND ta.test_id = ${test_id}
-      AND ta.grade = ${grade}
-      AND ta.class = ${class}
-  );
+After getting view rows and checking retest availability, filter out completed tests:
+```javascript
+// After checking retest availability (line ~205), before pushing to activeTests:
+// Check if student has completed this test (is_completed = true)
+const hasCompletedResult = await checkIfTestCompleted(student_id, row.test_type, row.test_id);
+
+// Skip if completed AND no retest available
+if (hasCompletedResult && !retestAvailable) {
+  console.log('Skipping completed test:', row.test_type, row.test_id);
+  continue; // Skip this test
+}
+
+// Include this test
+activeTests.push({...});
 ```
 
-**But wait:** This would reactivate for ALL students in that grade/class, not just the retest students.
-
-**Better approach:**
-- Create `student_test_status` table with per-student `is_active` flag
-- Or use completion table with `is_active` flag that we can toggle
-
-### 3. Update `student_active_tests_view`
-
-**File to modify:**
-- `database/views/student_active_tests_view.sql`
-
-**Logic:**
-```sql
--- Add LEFT JOIN to exclude completed tests (unless retest is available)
-LEFT JOIN student_test_completions stc ON 
-  stc.student_id = u.student_id 
-  AND stc.test_type = 'multiple_choice'  -- repeat for each test type
-  AND stc.test_id = mct.id
-  AND stc.assignment_id = la.id
-  AND stc.is_active = false
-WHERE ta.is_active = true
-  AND (stc.id IS NULL OR stc.is_active = true)  -- Exclude if completed and not reactivated
+**Helper function:**
+```javascript
+async function checkIfTestCompleted(studentId, testType, testId) {
+  try {
+    const result = await sql`
+      SELECT id FROM ${sql.unsafe(`${testType}_test_results`)}
+      WHERE student_id = ${studentId}
+        AND test_id = ${testId}
+        AND is_completed = true
+      LIMIT 1
+    `;
+    return Array.isArray(result) && result.length > 0;
+  } catch (e) {
+    console.warn('Error checking completion:', e);
+    return false;
+  }
+}
 ```
+
+**Even simpler: Add completion status to view, filter in function**
+- Add LEFT JOIN to results tables in view to expose `is_completed` status
+- Filter in function: `if (row.is_completed && !row.retest_available) continue;`
 
 ## Implementation Plan
 
-### Phase 1: Database Schema
-1. Create `student_test_completions` table:
-   ```sql
-   CREATE TABLE student_test_completions (
-     id SERIAL PRIMARY KEY,
-     student_id VARCHAR(10) NOT NULL REFERENCES users(student_id),
-     test_type VARCHAR(20) NOT NULL,
-     test_id INTEGER NOT NULL,
-     assignment_id INTEGER NOT NULL REFERENCES test_assignments(id),
-     is_active BOOLEAN DEFAULT true,
-     completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     UNIQUE(student_id, test_type, test_id, assignment_id)
-   );
-   
-   CREATE INDEX idx_stc_student_test ON student_test_completions(student_id, test_type, test_id);
-   CREATE INDEX idx_stc_active ON student_test_completions(student_id, is_active);
-   ```
+### Phase 1: Update View to Include Completion Status
 
-### Phase 2: Test Completion - Deactivate
-1. **All 8 submit functions**: After successful submission, insert/update `student_test_completions`:
-   ```sql
-   INSERT INTO student_test_completions (student_id, test_type, test_id, assignment_id, is_active)
-   VALUES (${student_id}, ${test_type}, ${test_id}, ${assignment_id}, false)
-   ON CONFLICT (student_id, test_type, test_id, assignment_id)
-   DO UPDATE SET is_active = false, updated_at = NOW();
-   ```
+**File:** `database/views/student_active_tests_view.sql`
 
-### Phase 3: Retest Creation - Reactivate
-1. **`create-retest-assignment.js`**: After creating retest assignment, reactivate for target students:
-   ```sql
-   -- For each student getting a retest
-   INSERT INTO student_test_completions (student_id, test_type, test_id, assignment_id, is_active)
-   VALUES (${student_id}, ${test_type}, ${test_id}, ${assignment_id}, true)
-   ON CONFLICT (student_id, test_type, test_id, assignment_id)
-   DO UPDATE SET is_active = true, updated_at = NOW();
-   ```
+Add LEFT JOIN to each results table to check if test is completed:
+```sql
+-- Add to each UNION ALL section (after LEFT JOIN users):
+LEFT JOIN multiple_choice_test_results mcr ON 
+  mcr.student_id = u.student_id 
+  AND mcr.test_id = mct.id
+  AND mcr.is_completed = true
+WHERE ta.is_active = true
+  AND u.student_id IS NOT NULL
+```
 
-### Phase 4: Update View
-1. **`student_active_tests_view.sql`**: Filter out completed (inactive) tests:
-   ```sql
-   -- Add to each UNION ALL section:
-   LEFT JOIN student_test_completions stc ON 
-     stc.student_id = u.student_id 
-     AND stc.test_type = 'multiple_choice'  -- Change per test type
-     AND stc.test_id = mct.id
-     AND stc.assignment_id = la.id
-   WHERE ta.is_active = true
-     AND (stc.id IS NULL OR stc.is_active = true)
-   ```
+This adds a column `mcr.id` which will be:
+- `NULL` if test is not completed
+- `NOT NULL` if test is completed
 
-### Phase 5: Retest Completion - Deactivate Again
-1. **All 8 submit functions**: When retest is completed (attempts exhausted OR passed), set `is_active = false` again:
-   ```sql
-   UPDATE student_test_completions
-   SET is_active = false, updated_at = NOW()
-   WHERE student_id = ${student_id}
-     AND test_type = ${test_type}
-     AND test_id = ${test_id}
-     AND assignment_id = ${assignment_id};
-   ```
+**Repeat for all 8 test types:**
+- `multiple_choice_test_results` for `multiple_choice`
+- `true_false_test_results` for `true_false`
+- `input_test_results` for `input`
+- `matching_type_test_results` for `matching_type`
+- `word_matching_test_results` for `word_matching`
+- `fill_blanks_test_results` for `fill_blanks`
+- `drawing_test_results` for `drawing`
+- `speaking_test_results` for `speaking`
 
-## Alternative Simpler Approach (Recommended)
+### Phase 2: Update Function to Filter Completed Tests
 
-Instead of creating a new table, we can:
-1. **Use existing completion detection**: Check if student has results for this test
-2. **Filter in view**: Exclude tests where student has results AND no retest is available
-3. **Reactivate on retest**: When retest is created, student can see the test again (via retest_available flag)
+**File:** `functions/get-student-active-tests.js`
 
-**But this doesn't handle the case where:** Student completed test, no retest available, test should be hidden.
+After checking retest availability (around line 205), before pushing to `activeTests`:
+```javascript
+// Check if test is completed (result.id will be NOT NULL if completed)
+const isCompleted = row.result_id !== null && row.result_id !== undefined;
 
-**Best approach:**
-- Keep `test_assignments.is_active` as global (for entire grade/class)
-- Add `student_test_completions` table for per-student completion tracking
-- View filters: `WHERE ta.is_active = true AND (stc.id IS NULL OR stc.is_active = true)`
+// Skip if completed AND no retest available
+if (isCompleted && !retestAvailable) {
+  console.log('Filtering out completed test:', row.test_type, row.test_id);
+  continue; // Skip this test
+}
+
+// Include this test
+activeTests.push({...});
+```
+
+**Note:** The view will expose `result_id` (or similar) from the LEFT JOIN. We'll use this to check completion status.
+
+## Summary
+
+**Simplest Implementation:**
+1. ✅ **Test completion** - Already handled (submit functions set `is_completed = true`)
+2. ✅ **Retest availability** - Already handled (function checks `retest_assignments` and sets `retest_available`)
+3. 🔧 **Filter in view** - Add LEFT JOIN to results tables to expose completion status
+4. 🔧 **Filter in function** - Skip tests where `is_completed = true` AND `retest_available = false`
+
+**No new table needed!** Uses existing `is_completed` field in results tables.
 
 ## Migration Strategy
 
-1. **Create table** with migration script
-2. **Backfill existing completions** from `test_results` tables:
-   ```sql
-   INSERT INTO student_test_completions (student_id, test_type, test_id, assignment_id, is_active)
-   SELECT DISTINCT 
-     student_id, 
-     'multiple_choice' as test_type,
-     test_id,
-     (SELECT id FROM test_assignments WHERE test_type = 'multiple_choice' AND test_id = mcr.test_id LIMIT 1) as assignment_id,
-     false as is_active
-   FROM multiple_choice_results mcr
-   WHERE EXISTS (SELECT 1 FROM test_assignments ta WHERE ta.test_type = 'multiple_choice' AND ta.test_id = mcr.test_id);
-   -- Repeat for all 8 test types
-   ```
-3. **Deploy submit function updates** (all 8 types)
-4. **Deploy retest creation update**
-5. **Deploy view update**
-6. **Test thoroughly**
+1. **Update view** - Add LEFT JOIN to results tables to expose completion status
+2. **Update function** - Filter out completed tests where `retest_available = false`
+3. **Test thoroughly** - No data migration needed!
 
 ## Testing Checklist
 
-- [ ] Regular test completion sets `is_active = false`
-- [ ] Completed test disappears from active tests
-- [ ] Retest creation sets `is_active = true` for target students
-- [ ] Test reappears in active tests for retest students
-- [ ] Retest completion sets `is_active = false` again
-- [ ] Test disappears after retest completion
+- [ ] Regular test completion sets `is_completed = true` (already working)
+- [ ] Completed test disappears from active tests (when `retest_available = false`)
+- [ ] Retest creation sets `retest_available = true` (already working)
+- [ ] Test reappears in active tests for retest students (when `retest_available = true`)
+- [ ] Retest completion sets `is_completed = true` (already working)
+- [ ] Test disappears after retest completion (when `retest_available = false`)
 - [ ] Works for all 8 test types
 - [ ] Multiple students can have different statuses for same test
-- [ ] Backfill script runs correctly
+- [ ] View correctly exposes completion status for all test types
 
 ## Edge Cases
 

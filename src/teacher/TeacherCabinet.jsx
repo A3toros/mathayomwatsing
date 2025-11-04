@@ -38,6 +38,9 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [showTestDetails, setShowTestDetails] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
+  const [testQuestions, setTestQuestions] = useState([]);
+  const [testInfo, setTestInfo] = useState(null);
+  const [isLoadingTestDetails, setIsLoadingTestDetails] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationData, setConfirmationData] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -513,11 +516,33 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   }, []);
   
   // Enhanced viewTeacherTestDetails from legacy code
-  const handleShowTestDetails = useCallback((test) => {
+  const handleShowTestDetails = useCallback(async (test) => {
     logger.debug('👨‍🏫 Showing test details:', test);
     setSelectedTest(test);
     setShowTestDetails(true);
-  }, []);
+    setTestQuestions([]);
+    setTestInfo(null);
+    setIsLoadingTestDetails(true);
+
+    try {
+      // Only fetch questions for input, true_false, and multiple_choice
+      if (['input', 'true_false', 'multiple_choice'].includes(test.test_type)) {
+        // Fetch questions and test info
+        const response = await testService.getTestQuestionsWithInfo(test.test_type, test.test_id);
+        setTestQuestions(response.questions || []);
+        setTestInfo(response.testInfo || null);
+        logger.debug('👨‍🏫 Test questions and info loaded:', { 
+          questionsCount: response.questions?.length || 0,
+          testInfo: response.testInfo 
+        });
+      }
+    } catch (error) {
+      console.error('Error loading test questions:', error);
+      showNotification('Error loading test questions. Please try again.', 'error');
+    } finally {
+      setIsLoadingTestDetails(false);
+    }
+  }, [showNotification]);
   
   // Enhanced removeClassAssignment from legacy code
   const removeAssignment = useCallback(async (testType, testId, assignmentId) => {
@@ -1316,7 +1341,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           title="Test Details"
           size="large"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             <div>
               <span className="text-sm font-medium text-gray-500">Test Name:</span>
               <p className="text-sm text-gray-900">{selectedTest.test_name}</p>
@@ -1333,6 +1358,41 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               <span className="text-sm font-medium text-gray-500">Created:</span>
               <p className="text-sm text-gray-900">{new Date(selectedTest.created_at).toLocaleDateString()}</p>
             </div>
+
+            {/* Test Settings - Shuffle and Timer */}
+            {(testInfo || selectedTest) && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-4">
+                  {/* Shuffle Status */}
+                  {['input', 'true_false', 'multiple_choice'].includes(selectedTest.test_type) && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-500">Shuffled:</span>
+                      <span className={`text-sm font-semibold ${(testInfo?.is_shuffled || selectedTest.is_shuffled) ? 'text-green-600' : 'text-gray-400'}`}>
+                        {(testInfo?.is_shuffled || selectedTest.is_shuffled) ? '✓ Yes' : '✗ No'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Timer Status */}
+                  {(testInfo?.allowed_time || selectedTest.allowed_time) && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-500">Timer:</span>
+                      <span className="text-sm font-semibold text-blue-600">
+                        ✓ {Math.floor((testInfo?.allowed_time || selectedTest.allowed_time) / 60)} minutes
+                      </span>
+                    </div>
+                  )}
+                  {!(testInfo?.allowed_time || selectedTest.allowed_time) && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-500">Timer:</span>
+                      <span className="text-sm font-semibold text-gray-400">
+                        ✗ Not set
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Classes Information */}
             {selectedTest.assignments && selectedTest.assignments.length > 0 && (
@@ -1350,9 +1410,129 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                 </div>
               </div>
             )}
+
+            {/* Questions with Correct Answers - Only for input, true_false, multiple_choice */}
+            {['input', 'true_false', 'multiple_choice'].includes(selectedTest.test_type) && (
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Questions and Correct Answers</h3>
+                
+                {isLoadingTestDetails ? (
+                  <div className="flex justify-center items-center py-8">
+                    <LoadingSpinner size="md" />
+                  </div>
+                ) : testQuestions.length > 0 ? (
+                  <div className="space-y-4">
+                    {testQuestions.map((question, index) => {
+                      // Multiple Choice
+                      if (selectedTest.test_type === 'multiple_choice') {
+                        const correctAnswer = question.correct_answer;
+                        const getOptionText = (letter) => {
+                          const optionKey = `option_${letter.toLowerCase()}`;
+                          return question[optionKey] || letter;
+                        };
+                        
+                        return (
+                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-start space-x-3">
+                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
+                                Q{index + 1}:
+                              </span>
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-gray-500 mb-1">Options:</p>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    {question.options && question.options.map((opt, optIndex) => {
+                                      const letter = String.fromCharCode(97 + optIndex).toUpperCase(); // a, b, c, d...
+                                      return (
+                                        <div key={optIndex} className={`p-2 rounded ${letter === correctAnswer ? 'bg-green-100 border-2 border-green-500' : 'bg-white border border-gray-200'}`}>
+                                          <span className="font-semibold">{letter}:</span> {opt}
+                                          {letter === correctAnswer && (
+                                            <span className="ml-2 text-green-700 font-bold">✓ Correct</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // True/False
+                      if (selectedTest.test_type === 'true_false') {
+                        const correctAnswer = question.correct_answer;
+                        const isTrue = correctAnswer === true || correctAnswer === 'true' || correctAnswer === 1 || correctAnswer === '1';
+                        
+                        return (
+                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-start space-x-3">
+                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
+                                Q{index + 1}:
+                              </span>
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <div className="mt-2">
+                                  <div className={`inline-flex items-center px-3 py-1 rounded ${isTrue ? 'bg-green-100 border-2 border-green-500' : 'bg-red-100 border-2 border-red-500'}`}>
+                                    <span className="text-sm font-semibold">
+                                      Correct Answer: {isTrue ? 'True' : 'False'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Input
+                      if (selectedTest.test_type === 'input') {
+                        const correctAnswers = question.correct_answers || [];
+                        
+                        return (
+                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-start space-x-3">
+                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
+                                Q{index + 1}:
+                              </span>
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-gray-500 mb-1">Correct Answer(s):</p>
+                                  {correctAnswers.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {correctAnswers.map((answer, ansIndex) => (
+                                        <span 
+                                          key={ansIndex}
+                                          className="inline-flex items-center px-3 py-1 rounded bg-green-100 border-2 border-green-500 text-sm font-semibold text-green-800"
+                                        >
+                                          {answer}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-gray-400 italic">No correct answers specified</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return null;
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No questions available for this test.</p>
+                )}
+              </div>
+            )}
           </div>
           
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => setShowTestDetails(false)}
@@ -1898,7 +2078,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     <div className="flex justify-between items-center">
                       <div className="flex-1 flex items-center space-x-4">
                         {/* Test Name */}
-                        <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0">
+                        <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0 max-w-xs truncate" title={test.test_name}>
                           {test.test_name}
                         </h3>
                         

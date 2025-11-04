@@ -238,7 +238,12 @@ SELECT
     COALESCE(d.best_retest_score, d.score) AS score,
     COALESCE(d.best_retest_max_score, d.max_score) AS max_score,
     d.percentage,
-    d.answers,
+    -- Use retest drawing if retest_offered = true and retest exists, otherwise use original
+    CASE 
+        WHEN d.retest_offered = true AND r.answers IS NOT NULL 
+        THEN r.answers 
+        ELSE d.answers 
+    END as answers,
     d.time_taken,
     d.started_at,
     d.submitted_at,
@@ -259,6 +264,13 @@ SELECT
     NULL::text as audio_url
 FROM drawing_test_results d
 LEFT JOIN subjects s ON d.subject_id = s.subject_id
+-- LEFT JOIN with retest result to get retest drawing when retest_offered = true
+LEFT JOIN drawing_test_results r ON 
+    r.student_id = d.student_id
+    AND r.test_id = d.test_id
+    AND r.retest_assignment_id IS NOT NULL
+    AND r.attempt_number = 1
+WHERE (d.retest_assignment_id IS NULL AND (d.attempt_number IS NULL OR d.attempt_number = 0))
 
 UNION ALL
 
