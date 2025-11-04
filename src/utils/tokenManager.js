@@ -349,11 +349,25 @@ class TokenManager {
 
       if (response.ok) {
         const data = await response.json();
-        await this.setToken(data.token);
+        // The API returns 'accessToken', not 'token'
+        const accessToken = data.accessToken || data.token;
+        if (!accessToken) {
+          console.error('Refresh token response missing accessToken');
+          return false;
+        }
+        const success = await this.setToken(accessToken);
+        if (!success) {
+          console.error('Failed to store refreshed token');
+          return false;
+        }
         if (data.refreshToken) {
           this.setRefreshToken(data.refreshToken);
         }
         return true;
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Token refresh failed:', response.status, errorData.message || 'Unknown error');
+        return false;
       }
     } catch (error) {
       console.error('Error refreshing token:', error);
