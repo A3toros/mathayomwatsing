@@ -748,7 +748,13 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     console.log('📋 Opening answer modal for:', { testResult, test });
     console.log('📋 [handleViewAnswers] testResult.answers:', testResult?.answers);
     console.log('📋 [handleViewAnswers] testResult.answers type:', typeof testResult?.answers);
+    console.log('📋 [handleViewAnswers] testResult.retest_offered:', testResult?.retest_offered);
     console.log('📋 [handleViewAnswers] Full testResult keys:', testResult ? Object.keys(testResult) : 'null');
+
+    // Note: testResult.answers already contains retest answers (if retest_offered = true) 
+    // thanks to teacher_student_results_view which uses CASE statement to return 
+    // retest answers from test_attempts when retest_offered = true for MC/TF/Input tests.
+    // This happens automatically via the view, no additional processing needed.
 
     // Special handling for drawing and speaking tests - use existing modals
     if (testResult.test_type === 'drawing' || test?.test_type === 'drawing') {
@@ -769,6 +775,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
     }
 
     // Open modal immediately and show loading spinner
+    // testResult.answers already contains retest answers when retest_offered = true (from view)
     setSelectedTestResult(testResult);
     setSelectedTestQuestions(null);
     setIsAnswerModalOpen(true);
@@ -1312,6 +1319,13 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                         const pct = computePercentage(testResult);
                         const isRed = pct !== null && pct < 50;
                         
+                        // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                        if (testResult?.retest_offered === true && 
+                            (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                          handleViewAnswers(testResult, test);
+                          return;
+                        }
+                        
                         if (isRed) {
                           // Red score: show retest option
                           if (testResult?.retest_offered) {
@@ -1619,11 +1633,19 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                     return; // Let their own buttons handle it
                                   }
                                   
-                                  if (testResult?.retest_offered) {
-                                    showNotification('Retest is already offered', 'info');
+                                  // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                                  if (testResult?.retest_offered === true && 
+                                      (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                                    handleViewAnswers(testResult, test);
                                     return;
                                   }
+                                  
                                   if (isRed) {
+                                    // Red score: show retest option
+                                    if (testResult?.retest_offered) {
+                                      showNotification('Retest is already offered', 'info');
+                                      return;
+                                    }
                                     // debug removed
                                     openRetestModal({ 
                                       failedStudentIds: [student.student_id],
@@ -1637,7 +1659,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                     handleViewAnswers(testResult, test);
                                   }
                                 }}
-                                title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : '')}
+                                title={blueOffered ? 'Click to view retest answers' : (isRed ? 'Offer retest' : '')}
                               >
                                 {(() => {
                                   const displayScore = (testResult.retest_best_score ?? testResult.score);
@@ -1884,6 +1906,13 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                               const pct = computePercentage(testResult);
                               const isRed = pct !== null && pct < 50;
                               
+                              // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                              if (testResult?.retest_offered === true && 
+                                  (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                                handleViewAnswers(testResult, test);
+                                return;
+                              }
+                              
                               if (isRed) {
                                 // Red score: show retest option
                                 if (testResult?.retest_offered) {
@@ -1961,7 +1990,15 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                                 return; // Let their own buttons handle it
                                               }
                                               
+                                              // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                                              if (testResult?.retest_offered === true && 
+                                                  (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                                                handleViewAnswers(testResult, test);
+                                                return;
+                                              }
+                                              
                                               if (isRed) {
+                                                // Red score: show retest option
                                                 if (testResult?.retest_offered) {
                                                   showNotification('Retest is already offered', 'info');
                                                   return;
@@ -1978,7 +2015,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                                 handleViewAnswers(testResult, test);
                                               }
                                             }}
-                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers')}
+                                            title={blueOffered ? 'Click to view retest answers' : (isRed ? 'Offer retest' : 'Click to view answers')}
                                           >
                                             <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
                                             {testResult.caught_cheating && (
@@ -2052,7 +2089,15 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                                 return; // Let their own buttons handle it
                                               }
                                               
+                                              // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                                              if (testResult?.retest_offered === true && 
+                                                  (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                                                handleViewAnswers(testResult, test);
+                                                return;
+                                              }
+                                              
                                               if (isRed) {
+                                                // Red score: show retest option
                                                 if (testResult?.retest_offered) {
                                                   showNotification('Retest is already offered', 'info');
                                                   return;
@@ -2069,7 +2114,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                                 handleViewAnswers(testResult, test);
                                               }
                                             }}
-                                            title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers, double-click to edit score')}
+                                            title={blueOffered ? 'Click to view retest answers' : (isRed ? 'Offer retest' : 'Click to view answers, double-click to edit score')}
                                           >
                                             <span className={isRed ? 'text-red-700' : ''}>{testResult.score || 0}</span>/<span>{testResult.max_score || 100}</span>
                                             {testResult.caught_cheating && (
@@ -2109,7 +2154,15 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                               return; // Let their own buttons handle it
                                             }
                                             
+                                            // If blue pill exists (retest_offered = true) for MC/TF/Input, show retest answers
+                                            if (testResult?.retest_offered === true && 
+                                                (testType === 'multiple_choice' || testType === 'true_false' || testType === 'input')) {
+                                              handleViewAnswers(testResult, test);
+                                              return;
+                                            }
+                                            
                                             if (isRed) {
+                                              // Red score: show retest option
                                               if (testResult?.retest_offered) {
                                                 showNotification('Retest is already offered', 'info');
                                                 return;
@@ -2128,7 +2181,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                               handleViewAnswers(testResult, test);
                                             }
                                           }}
-                                          title={blueOffered ? 'Retest offered' : (isRed ? 'Offer retest' : 'Click to view answers')}
+                                          title={blueOffered ? 'Click to view retest answers' : (isRed ? 'Offer retest' : 'Click to view answers')}
                                         >
                                           <span className={isRed ? 'text-red-700' : ''}>{testResult.score}</span>/<span>{testResult.max_score}</span>
                                           {testResult.caught_cheating && (

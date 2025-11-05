@@ -3,6 +3,7 @@ import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { renderMathInText } from '../../utils/mathRenderer';
 
 // INPUT QUESTION - React Component for Input Questions
 // ✅ COMPLETED: All 10+ functions from student-tests.js and teacher-tests.js converted to React
@@ -184,12 +185,8 @@ export const InputQuestion = ({
   // ✅ COMPLETED: formatQuestion() → formatQuestion()
   const formatQuestion = useCallback((questionText) => {
     if (!questionText) return '';
-    
-    // Format question text with proper line breaks and formatting
-    return questionText
-      .replace(/\n/g, '<br>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // Render math expressions in text
+    return renderMathInText(questionText, false);
   }, []);
 
   // Handle input focus
@@ -244,28 +241,30 @@ export const InputQuestion = ({
       />
       
       <div className="space-y-3">
-        <input
-          ref={inputRef}
-          type="text"
-          id={`input_${question.question_id}`}
-          placeholder="Enter your answer here..."
-          value={answer}
-          onChange={(e) => handleAnswerChange(e.target.value)}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyPress={handleKeyPress}
-          className={`w-full px-4 py-3 border-2 rounded-lg text-gray-800 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            !isValid 
-              ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
-              : isFocused 
-                ? 'border-blue-500' 
-                : 'border-gray-300 hover:border-gray-400'
-          }`}
-          data-question-id={question.question_id}
-          aria-label={`Answer for question ${question.question_id}`}
-          aria-invalid={!isValid}
-          aria-describedby={!isValid ? `error-${question.question_id}` : undefined}
-        />
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            id={`input_${question.question_id}`}
+            placeholder="Enter your answer here..."
+            value={answer}
+            onChange={(e) => handleAnswerChange(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyPress={handleKeyPress}
+            className={`w-full px-4 py-3 pr-10 border-2 rounded-lg text-gray-800 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              !isValid 
+                ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
+                : isFocused 
+                  ? 'border-blue-500' 
+                  : 'border-gray-300 hover:border-gray-400'
+            }`}
+            data-question-id={question.question_id}
+            aria-label={`Answer for question ${question.question_id}`}
+            aria-invalid={!isValid}
+            aria-describedby={!isValid ? `error-${question.question_id}` : undefined}
+          />
+        </div>
         
       </div>
       
@@ -274,7 +273,13 @@ export const InputQuestion = ({
           <h5 className="text-sm font-semibold text-green-800 mb-2">Correct Answers:</h5>
           <ul className="space-y-1">
             {question.correct_answers.map((correctAnswer, index) => (
-              <li key={index} className="text-green-700 text-sm">• {correctAnswer}</li>
+              <li 
+                key={index} 
+                className="text-green-700 text-sm"
+                dangerouslySetInnerHTML={{
+                  __html: `• ${renderMathInText(correctAnswer, false)}`
+                }}
+              />
             ))}
           </ul>
         </div>
@@ -302,21 +307,30 @@ export const InputQuestion = ({
           <label htmlFor={`question_${question.question_id || 'new'}`} className="block text-sm font-medium text-gray-700 mb-2">
             Question Text *
           </label>
-          <input
-            type="text"
-            id={`question_${question.question_id || 'new'}`}
-            value={question.question || ''}
-            onChange={(e) => onQuestionChange && onQuestionChange({
-              ...question,
-              question: e.target.value
-            })}
-            placeholder="Enter question text"
-            className={`w-full px-4 py-3 border-2 rounded-lg text-gray-800 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              validationErrors.question 
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
-                : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
-            }`}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              id={`question_${question.question_id || 'new'}`}
+              value={question.question || ''}
+              onChange={(e) => onQuestionChange && onQuestionChange({
+                ...question,
+                question: e.target.value
+              })}
+              placeholder="Enter question text"
+              className={`w-full px-4 py-3 pr-10 border-2 rounded-lg text-gray-800 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                validationErrors.question 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
+                  : 'border-gray-300 hover:border-gray-400 focus:border-blue-500'
+              }`}
+            />
+            <MathEditorButton
+              inputRef={() => document.getElementById(`question_${question.question_id || 'new'}`)}
+              onChange={(e) => onQuestionChange && onQuestionChange({
+                ...question,
+                question: e.target.value
+              })}
+            />
+          </div>
           {validationErrors.question && (
             <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {validationErrors.question}
@@ -346,15 +360,23 @@ export const InputQuestion = ({
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
                   {index + 1}
                 </div>
-                <input
-                  type="text"
-                  value={answer}
-                  onChange={(e) => handleAnswerChangeTeacher(index, e.target.value)}
-                  placeholder={`Correct answer ${index + 1}`}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                  data-question-id={question.question_id}
-                  data-answer-index={index}
-                />
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={answer}
+                    onChange={(e) => handleAnswerChangeTeacher(index, e.target.value)}
+                    placeholder={`Correct answer ${index + 1}`}
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                    data-question-id={question.question_id}
+                    data-answer-index={index}
+                  />
+                  <MathEditorButton
+                    inputRef={() => {
+                      return document.querySelector(`[data-question-id="${question.question_id}"][data-answer-index="${index}"]`);
+                    }}
+                    onChange={(e) => handleAnswerChangeTeacher(index, e.target.value)}
+                  />
+                </div>
                 {answers.length > 1 && (
                   <Button
                     type="button"

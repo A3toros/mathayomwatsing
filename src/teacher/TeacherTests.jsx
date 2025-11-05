@@ -12,6 +12,8 @@ import WordMatchingCreator from '../components/test/WordMatchingCreator';
 import DrawingTestCreator from '../components/test/DrawingTestCreator';
 import FillBlanksTestCreator from '../components/test/FillBlanksTestCreator';
 import SpeakingTestCreator from '../components/test/SpeakingTestCreator';
+import MathEditorButton from '../components/math/MathEditorButton';
+import { renderMathInText } from '../utils/mathRenderer';
 import * as XLSX from 'xlsx';
 
 // Test type mapping
@@ -2946,13 +2948,21 @@ const TeacherTests = () => {
                           <div className="space-y-3">
                   <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
+                              <div className="relative">
                     <textarea
                                 value={formData.questions[questionId]?.question || ''}
                                 onChange={(e) => handleQuestionChange(questionId, 'question', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 rows="2"
                                 placeholder="Enter the question text"
+                                id={`question_${questionId}`}
                     />
+                    <MathEditorButton
+                      showPreview={true}
+                      inputRef={() => document.getElementById(`question_${questionId}`)}
+                      onChange={(e) => handleQuestionChange(questionId, 'question', e.target.value)}
+                    />
+                              </div>
                   </div>
                   
                             {testType === 'multipleChoice' && (
@@ -2964,6 +2974,7 @@ const TeacherTests = () => {
                                       <span className="w-6 text-sm font-medium text-gray-700">
                                         {String.fromCharCode(65 + index)}:
                           </span>
+                          <div className="relative flex-1">
                           <input
                             type="text"
                             value={option}
@@ -2972,9 +2983,20 @@ const TeacherTests = () => {
                                           newOptions[index] = e.target.value;
                                           handleQuestionChange(questionId, 'options', newOptions);
                             }}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                        id={`option_${questionId}_${index}`}
                                       />
+                          <MathEditorButton
+                      showPreview={true}
+                            inputRef={() => document.getElementById(`option_${questionId}_${index}`)}
+                            onChange={(e) => {
+                              const newOptions = [...formData.questions[questionId].options];
+                              newOptions[index] = e.target.value;
+                              handleQuestionChange(questionId, 'options', newOptions);
+                            }}
+                          />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3016,6 +3038,7 @@ const TeacherTests = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Correct Answer(s)</label>
                     <div className="space-y-2">
                       {/* Primary answer */}
+                      <div className="relative">
                       <input
                         type="text"
                         value={formData.questions[questionId]?.correct_answers?.[0] || ''}
@@ -3025,13 +3048,26 @@ const TeacherTests = () => {
                           newAnswers[0] = e.target.value;
                           handleQuestionChange(questionId, 'correct_answers', newAnswers);
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter the primary correct answer"
+                        id={`answer_${questionId}_0`}
                       />
+                      <MathEditorButton
+                      showPreview={true}
+                        inputRef={() => document.getElementById(`answer_${questionId}_0`)}
+                        onChange={(e) => {
+                          const currentAnswers = formData.questions[questionId]?.correct_answers || [''];
+                          const newAnswers = [...currentAnswers];
+                          newAnswers[0] = e.target.value;
+                          handleQuestionChange(questionId, 'correct_answers', newAnswers);
+                        }}
+                      />
+                      </div>
                       
                       {/* Additional answers */}
                       {formData.questions[questionId]?.correct_answers?.slice(1).map((answer, index) => (
                         <div key={index} className="flex items-center space-x-2">
+                          <div className="relative flex-1">
                           <input
                             type="text"
                             value={answer}
@@ -3040,9 +3076,20 @@ const TeacherTests = () => {
                               newAnswers[index + 1] = e.target.value;
                               handleQuestionChange(questionId, 'correct_answers', newAnswers);
                             }}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder={`Alternative answer ${index + 2}`}
+                            id={`answer_${questionId}_${index + 1}`}
                           />
+                          <MathEditorButton
+                      showPreview={true}
+                            inputRef={() => document.getElementById(`answer_${questionId}_${index + 1}`)}
+                            onChange={(e) => {
+                              const newAnswers = [...(formData.questions[questionId]?.correct_answers || [])];
+                              newAnswers[index + 1] = e.target.value;
+                              handleQuestionChange(questionId, 'correct_answers', newAnswers);
+                            }}
+                          />
+                          </div>
                           <button
                             type="button"
                             onClick={() => {

@@ -17,6 +17,7 @@ import { academicCalendarService } from '@/services/AcademicCalendarService';
 import { performanceService } from '@/services/performanceService';
 import { TestPerformanceGraph } from '@/components/TestPerformanceGraph';
 import { logger } from '@/utils/logger';
+import { renderMathInText } from '@/utils/mathRenderer';
 
 
 const TeacherCabinet = ({ onBackToLogin }) => {
@@ -1426,10 +1427,14 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                       // Multiple Choice
                       if (selectedTest.test_type === 'multiple_choice') {
                         const correctAnswer = question.correct_answer;
-                        const getOptionText = (letter) => {
-                          const optionKey = `option_${letter.toLowerCase()}`;
-                          return question[optionKey] || letter;
-                        };
+                        // Handle both array format and individual option fields
+                        const options = question.options || [];
+                        const optionFields = ['option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f'];
+                        const allOptions = options.length > 0 
+                          ? options 
+                          : optionFields
+                              .map(key => question[key])
+                              .filter(opt => opt != null && opt !== '');
                         
                         return (
                           <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -1438,15 +1443,19 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                                 Q{index + 1}:
                               </span>
                               <div className="flex-1">
-                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <p 
+                                  className="text-sm text-gray-900 mb-2"
+                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
+                                />
                                 <div className="mt-2">
                                   <p className="text-xs font-medium text-gray-500 mb-1">Options:</p>
                                   <div className="grid grid-cols-2 gap-2 text-xs">
-                                    {question.options && question.options.map((opt, optIndex) => {
+                                    {allOptions.map((opt, optIndex) => {
                                       const letter = String.fromCharCode(97 + optIndex).toUpperCase(); // a, b, c, d...
                                       return (
                                         <div key={optIndex} className={`p-2 rounded ${letter === correctAnswer ? 'bg-green-100 border-2 border-green-500' : 'bg-white border border-gray-200'}`}>
-                                          <span className="font-semibold">{letter}:</span> {opt}
+                                          <span className="font-semibold">{letter}:</span>{' '}
+                                          <span dangerouslySetInnerHTML={{ __html: renderMathInText(String(opt)) }} />
                                           {letter === correctAnswer && (
                                             <span className="ml-2 text-green-700 font-bold">✓ Correct</span>
                                           )}
@@ -1473,7 +1482,10 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                                 Q{index + 1}:
                               </span>
                               <div className="flex-1">
-                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <p 
+                                  className="text-sm text-gray-900 mb-2"
+                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
+                                />
                                 <div className="mt-2">
                                   <div className={`inline-flex items-center px-3 py-1 rounded ${isTrue ? 'bg-green-100 border-2 border-green-500' : 'bg-red-100 border-2 border-red-500'}`}>
                                     <span className="text-sm font-semibold">
@@ -1498,7 +1510,10 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                                 Q{index + 1}:
                               </span>
                               <div className="flex-1">
-                                <p className="text-sm text-gray-900 mb-2">{question.question}</p>
+                                <p 
+                                  className="text-sm text-gray-900 mb-2"
+                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
+                                />
                                 <div className="mt-2">
                                   <p className="text-xs font-medium text-gray-500 mb-1">Correct Answer(s):</p>
                                   {correctAnswers.length > 0 ? (
@@ -1507,9 +1522,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                                         <span 
                                           key={ansIndex}
                                           className="inline-flex items-center px-3 py-1 rounded bg-green-100 border-2 border-green-500 text-sm font-semibold text-green-800"
-                                        >
-                                          {answer}
-                                        </span>
+                                          dangerouslySetInnerHTML={{ __html: renderMathInText(String(answer)) }}
+                                        />
                                       ))}
                                     </div>
                                   ) : (

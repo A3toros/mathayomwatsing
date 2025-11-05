@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
 
+// Import KaTeX CSS for math rendering
+import 'katex/dist/katex.min.css';
+
 // Import logger first to override console methods in production
 import './utils/logger.js';
 

@@ -3,6 +3,8 @@ import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import MathEditorButton from '../math/MathEditorButton';
+import { renderMathInText } from '../../utils/mathRenderer';
 
 // TRUE FALSE QUESTION - React Component for True/False Questions
 // ✅ COMPLETED: All 10+ functions from student-tests.js and teacher-tests.js converted to React
@@ -217,12 +219,8 @@ export const TrueFalseQuestion = ({
   // Format question text with HTML support
   const formatQuestionText = useCallback((text) => {
     if (!text) return '';
-    
-    // Simple HTML formatting support
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br>');
+    // Render math expressions in text
+    return renderMathInText(text, false);
   }, []);
 
   // Render student mode
@@ -347,15 +345,21 @@ export const TrueFalseQuestion = ({
           <label htmlFor={`question_${question?.question_id}`} className="block text-sm font-medium text-gray-700 mb-2">
             Question Text *
           </label>
-          <textarea
-            id={`question_${question?.question_id}`}
-            value={questionText}
-            onChange={(e) => handleQuestionChange(e.target.value)}
-            placeholder="Enter your question here..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 resize-none"
-            rows={3}
-            required
-          />
+          <div className="relative">
+            <textarea
+              id={`question_${question?.question_id}`}
+              value={questionText}
+              onChange={(e) => handleQuestionChange(e.target.value)}
+              placeholder="Enter your question here..."
+              className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 resize-none"
+              rows={3}
+              required
+            />
+            <MathEditorButton
+              inputRef={() => document.getElementById(`question_${question?.question_id}`)}
+              onChange={(e) => handleQuestionChange(e.target.value)}
+            />
+          </div>
         </div>
         
         <div>

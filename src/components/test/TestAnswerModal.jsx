@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import PerfectModal from '@/components/ui/PerfectModal';
 import { LoadingSpinner } from '@/components/ui/components-ui-index';
+import { renderMathInText, renderMathExpression } from '@/utils/mathRenderer';
 
 const TestAnswerModal = ({
   isOpen,
@@ -28,6 +29,11 @@ const TestAnswerModal = ({
     const rawAnswers = testResult?.answers;
     console.log('📝 [TestAnswerModal] Raw testResult.answers:', rawAnswers);
     console.log('📝 [TestAnswerModal] Raw testResult.answers type:', typeof rawAnswers);
+    console.log('📝 [TestAnswerModal] testResult.retest_offered:', testResult?.retest_offered);
+    
+    // Note: When retest_offered = true for MC/TF/Input tests, testResult.answers 
+    // already contains retest answers from test_attempts (via teacher_student_results_view).
+    // The view handles the logic automatically using a CASE statement.
     
     // Handle answers_by_id format: { answers_by_id: {...}, question_order: [...] }
     if (rawAnswers && typeof rawAnswers === 'object') {
@@ -94,8 +100,12 @@ const TestAnswerModal = ({
               const correctAnswer = q.correct_answer;
               const isCorrect = studentAnswer === correctAnswer;
               
-              // Get option text
+              // Get option text - handle both array format and individual option fields
               const getOptionText = (letter) => {
+                if (q.options && Array.isArray(q.options)) {
+                  const optionIndex = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
+                  return q.options[optionIndex] || letter;
+                }
                 const optionKey = `option_${letter.toLowerCase()}`;
                 return q[optionKey] || letter;
               };
@@ -105,20 +115,21 @@ const TestAnswerModal = ({
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                     {index + 1}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {q.question}
-                  </td>
+                  <td 
+                    className="px-4 py-3 text-sm text-gray-900"
+                    dangerouslySetInnerHTML={{ __html: renderMathInText(q.question) }}
+                  />
                   <td className="px-4 py-3 text-sm">
                     {studentAnswer ? (
                       <span className={`font-medium ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                        {studentAnswer} - {getOptionText(studentAnswer)}
+                        {studentAnswer} - <span dangerouslySetInnerHTML={{ __html: renderMathInText(String(getOptionText(studentAnswer))) }} />
                       </span>
                     ) : (
                       <span className="text-gray-400 italic">No answer</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {correctAnswer} - {getOptionText(correctAnswer)}
+                    {correctAnswer} - <span dangerouslySetInnerHTML={{ __html: renderMathInText(String(getOptionText(correctAnswer))) }} />
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                     {isCorrect ? (
@@ -240,9 +251,10 @@ const TestAnswerModal = ({
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                     {index + 1}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {q.question}
-                  </td>
+                  <td 
+                    className="px-4 py-3 text-sm text-gray-900"
+                    dangerouslySetInnerHTML={{ __html: renderMathInText(q.question) }}
+                  />
                   <td className="px-4 py-3 text-sm">
                     {studentAnswerDisplay !== null ? (
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -375,14 +387,34 @@ const TestAnswerModal = ({
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                     {index + 1}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {q.question}
-                  </td>
+                  <td 
+                    className="px-4 py-3 text-sm text-gray-900"
+                    dangerouslySetInnerHTML={{ __html: renderMathInText(q.question) }}
+                  />
                   <td className="px-4 py-3 text-sm">
                     {studentAnswer ? (
-                      <span className={`font-medium ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                        {studentAnswer}
-                      </span>
+                      <span 
+                        className={`font-medium ${isCorrect ? 'text-green-700' : 'text-red-700'}`}
+                        dangerouslySetInnerHTML={{ 
+                          __html: (() => {
+                            const answerStr = String(studentAnswer);
+                            // If it has $ delimiters, use renderMathInText, otherwise check if it's pure LaTeX
+                            if (answerStr.includes('$')) {
+                              return renderMathInText(answerStr);
+                            }
+                            // Check if it contains LaTeX commands - if so, try rendering as pure math
+                            const hasLatex = /\\[a-zA-Z]+|[\^_]\{|\\times|\\div|\\sqrt|\\frac/.test(answerStr);
+                            if (hasLatex) {
+                              try {
+                                return renderMathExpression(answerStr);
+                              } catch {
+                                return renderMathInText(answerStr);
+                              }
+                            }
+                            return renderMathInText(answerStr);
+                          })()
+                        }}
+                      />
                     ) : (
                       <span className="text-gray-400 italic">No answer</span>
                     )}
@@ -390,11 +422,33 @@ const TestAnswerModal = ({
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {correctAnswers.length > 0 ? (
                       <div className="space-y-1">
-                        {correctAnswers.map((ans, idx) => (
-                          <div key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {ans}
-                          </div>
-                        ))}
+                        {correctAnswers.map((ans, idx) => {
+                          const answerStr = String(ans);
+                          return (
+                            <div 
+                              key={idx} 
+                              className="text-xs bg-gray-100 px-2 py-1 rounded"
+                              dangerouslySetInnerHTML={{ 
+                                __html: (() => {
+                                  // If it has $ delimiters, use renderMathInText, otherwise check if it's pure LaTeX
+                                  if (answerStr.includes('$')) {
+                                    return renderMathInText(answerStr);
+                                  }
+                                  // Check if it contains LaTeX commands - if so, try rendering as pure math
+                                  const hasLatex = /\\[a-zA-Z]+|[\^_]\{|\\times|\\div|\\sqrt|\\frac/.test(answerStr);
+                                  if (hasLatex) {
+                                    try {
+                                      return renderMathExpression(answerStr);
+                                    } catch {
+                                      return renderMathInText(answerStr);
+                                    }
+                                  }
+                                  return renderMathInText(answerStr);
+                                })()
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     ) : (
                       <span className="text-gray-400">No correct answer defined</span>

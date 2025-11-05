@@ -70,7 +70,12 @@ SELECT
     COALESCE(mc.best_retest_score, mc.score) AS score,
     COALESCE(mc.best_retest_max_score, mc.max_score) AS max_score,
     mc.percentage,
-    mc.answers,
+    -- Use retest answers if retest_offered = true and retest exists, otherwise use original
+    CASE 
+        WHEN mc.retest_offered = true AND ta.answers IS NOT NULL 
+        THEN ta.answers 
+        ELSE mc.answers 
+    END as answers,
     mc.time_taken,
     mc.started_at,
     mc.submitted_at,
@@ -91,6 +96,16 @@ SELECT
     NULL::text as audio_url
 FROM multiple_choice_test_results mc
 LEFT JOIN subjects s ON mc.subject_id = s.subject_id
+-- LEFT JOIN with test_attempts to get retest answers when retest_offered = true
+LEFT JOIN LATERAL (
+    SELECT answers
+    FROM test_attempts
+    WHERE student_id = mc.student_id
+      AND test_id = mc.test_id
+      AND retest_assignment_id IS NOT NULL
+    ORDER BY percentage DESC NULLS LAST, attempt_number DESC
+    LIMIT 1
+) ta ON mc.retest_offered = true
 
 UNION ALL
 
@@ -112,7 +127,12 @@ SELECT
     COALESCE(tf.best_retest_score, tf.score) AS score,
     COALESCE(tf.best_retest_max_score, tf.max_score) AS max_score,
     tf.percentage,
-    tf.answers,
+    -- Use retest answers if retest_offered = true and retest exists, otherwise use original
+    CASE 
+        WHEN tf.retest_offered = true AND ta.answers IS NOT NULL 
+        THEN ta.answers 
+        ELSE tf.answers 
+    END as answers,
     tf.time_taken,
     tf.started_at,
     tf.submitted_at,
@@ -133,6 +153,16 @@ SELECT
     NULL::text as audio_url
 FROM true_false_test_results tf
 LEFT JOIN subjects s ON tf.subject_id = s.subject_id
+-- LEFT JOIN with test_attempts to get retest answers when retest_offered = true
+LEFT JOIN LATERAL (
+    SELECT answers
+    FROM test_attempts
+    WHERE student_id = tf.student_id
+      AND test_id = tf.test_id
+      AND retest_assignment_id IS NOT NULL
+    ORDER BY percentage DESC NULLS LAST, attempt_number DESC
+    LIMIT 1
+) ta ON tf.retest_offered = true
 
 UNION ALL
 
@@ -154,7 +184,12 @@ SELECT
     COALESCE(i.best_retest_score, i.score) AS score,
     COALESCE(i.best_retest_max_score, i.max_score) AS max_score,
     i.percentage,
-    i.answers,
+    -- Use retest answers if retest_offered = true and retest exists, otherwise use original
+    CASE 
+        WHEN i.retest_offered = true AND ta.answers IS NOT NULL 
+        THEN ta.answers 
+        ELSE i.answers 
+    END as answers,
     i.time_taken,
     i.started_at,
     i.submitted_at,
@@ -175,6 +210,16 @@ SELECT
     NULL::text as audio_url
 FROM input_test_results i
 LEFT JOIN subjects s ON i.subject_id = s.subject_id
+-- LEFT JOIN with test_attempts to get retest answers when retest_offered = true
+LEFT JOIN LATERAL (
+    SELECT answers
+    FROM test_attempts
+    WHERE student_id = i.student_id
+      AND test_id = i.test_id
+      AND retest_assignment_id IS NOT NULL
+    ORDER BY percentage DESC NULLS LAST, attempt_number DESC
+    LIMIT 1
+) ta ON i.retest_offered = true
 
 UNION ALL
 

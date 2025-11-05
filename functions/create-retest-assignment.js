@@ -26,6 +26,9 @@ exports.handler = async (event, context) => {
     }
 
     const payload = JSON.parse(event.body || '{}');
+    console.log('[RETEST CREATE] Raw payload:', JSON.stringify(payload));
+    console.log('[RETEST CREATE] payload.max_attempts type:', typeof payload.max_attempts, 'value:', payload.max_attempts);
+    
     const {
       test_type,
       original_test_id: test_id,
@@ -41,6 +44,9 @@ exports.handler = async (event, context) => {
       window_end
     } = payload;
 
+    console.log('[RETEST CREATE] After destructuring - max_attempts:', max_attempts, 'type:', typeof max_attempts);
+    console.log('[RETEST CREATE] payload.max_attempts was:', payload.max_attempts, 'default applied:', payload.max_attempts === undefined);
+
     if (!test_type || !test_id || !subject_id || !grade || !className || !Array.isArray(student_ids) || student_ids.length === 0 || !window_start || !window_end) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, error: 'Missing required fields' }) };
     }
@@ -52,6 +58,21 @@ exports.handler = async (event, context) => {
 
     const sql = neon(process.env.NEON_DATABASE_URL);
 
+    console.log('[RETEST CREATE] About to insert with max_attempts:', max_attempts, 'type:', typeof max_attempts);
+    console.log('[RETEST CREATE] All insert values:', {
+      test_type,
+      test_id,
+      teacher_id: effectiveTeacherId,
+      subject_id,
+      grade,
+      class: className,
+      passing_threshold,
+      scoring_policy,
+      max_attempts,
+      window_start,
+      window_end
+    });
+
     await sql`BEGIN`;
     const insertAssignment = await sql`
       INSERT INTO retest_assignments(
@@ -61,15 +82,27 @@ exports.handler = async (event, context) => {
       ) RETURNING id
     `;
     const retestId = insertAssignment[0].id;
+    
+    console.log('[RETEST CREATE] Inserted retest assignment with id:', retestId);
+    
+    // Verify what was actually written
+    const verifyInsert = await sql`
+      SELECT max_attempts FROM retest_assignments WHERE id = ${retestId}
+    `;
+    console.log('[RETEST CREATE] Verified max_attempts in DB:', verifyInsert[0]?.max_attempts);
 
+    console.log('[RETEST CREATE] Creating retest_targets for', student_ids.length, 'students');
     for (const sid of student_ids) {
       await sql`
         INSERT INTO retest_targets(retest_assignment_id, student_id)
         VALUES(${retestId}, ${sid})
         ON CONFLICT (retest_assignment_id, student_id) DO NOTHING
       `;
+      console.log('[RETEST CREATE] Created retest_target for student:', sid);
+      
       // Mark retest offered in the student's original result row(s)
       await sql`SELECT set_retest_offered(${sid}, ${test_id}, true)`;
+      console.log('[RETEST CREATE] Called set_retest_offered for student:', sid, 'test_id:', test_id);
       
       // Persist retest assignment id to speaking originals so UI can read it directly
       // Note: Safe no-op if no speaking result row exists yet
@@ -92,10 +125,15 @@ exports.handler = async (event, context) => {
     }
 
     await sql`COMMIT`;
+    console.log('[RETEST CREATE] Transaction committed successfully. Retest ID:', retestId);
 
     return { statusCode: 200, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, retest_id: retestId }) };
   } catch (error) {
-    try { const sql = neon(process.env.NEON_DATABASE_URL); await sql`ROLLBACK`; } catch (e) {}
+    console.error('[RETEST CREATE] Error occurred:', error);
+    console.error('[RETEST CREATE] Error stack:', error.stack);
+    try { const sql = neon(process.env.NEON_DATABASE_URL); await sql`ROLLBACK`; } catch (e) {
+      console.error('[RETEST CREATE] Rollback error:', e);
+    }
     return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, error: error.message }) };
   }
 };
