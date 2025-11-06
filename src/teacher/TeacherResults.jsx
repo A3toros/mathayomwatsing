@@ -12,6 +12,7 @@ import { SecureToken } from '@/utils/secureTokenStorage';
 import { DrawingModal } from '@/components/modals';
 import SpeakingTestReview from '@/components/test/SpeakingTestReview';
 import TestAnswerModal from '@/components/test/TestAnswerModal';
+import EditScoreModal from '@/components/test/EditScoreModal';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import * as XLSX from 'xlsx';
 
@@ -172,6 +173,9 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
   const [selectedTestQuestions, setSelectedTestQuestions] = useState(null);
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  
+  // Edit score modal state (for Fill Blanks/Matching/Word Matching)
+  const [editScoreModal, setEditScoreModal] = useState({ isOpen: false, testResult: null });
   const [testQuestionsCache, setTestQuestionsCache] = useState({});
   
   // Use ref to persist editing state across re-renders
@@ -1310,11 +1314,12 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                       onClick={(e) => {
                         console.debug('[TeacherResults] Main table TD clicked', { testResult, student: student.student_id });
                         
-                        // Skip drawing, speaking, word matching, and matching type tests - they have separate view buttons
+                        // Skip drawing and speaking tests - they have separate view buttons
                         const testType = testResult?.test_type || test?.test_type;
-                        if (testType === 'drawing' || testType === 'speaking' || testType === 'word_matching' || testType === 'matching_type') {
+                        if (testType === 'drawing' || testType === 'speaking') {
                           return; // Let their own buttons handle it
                         }
+                        // Note: word_matching and matching_type are handled below based on score color
                         
                         const pct = computePercentage(testResult);
                         const isRed = pct !== null && pct < 50;
@@ -1326,8 +1331,31 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                           return;
                         }
                         
-                        if (isRed) {
-                          // Red score: show retest option
+                        // Handle Fill Blanks/Matching/Word Matching based on score color
+                        if (testType === 'fill_blanks' || testType === 'matching_type' || testType === 'word_matching') {
+                          console.debug('[TeacherResults] Fill Blanks/Matching/Word Matching clicked', { testType, isRed, testResult });
+                          if (isRed) {
+                            // Red score: show retest option
+                            if (testResult?.retest_offered) {
+                              showNotification('Retest is already offered', 'info');
+                              return;
+                            }
+                            console.debug('[TeacherResults] Main table TD -> opening retest modal', { studentId: student.student_id, test });
+                            openRetestModal({
+                              failedStudentIds: [student.student_id],
+                              test_type: test.test_type,
+                              original_test_id: testResult?.test_id || test.test_id,
+                              subject_id: testResult?.subject_id || test.subject_id,
+                              grade: selectedGrade,
+                              class: selectedClass
+                            });
+                          } else {
+                            // Green/Yellow score: open edit score modal
+                            console.debug('[TeacherResults] Opening edit score modal', { testResult });
+                            setEditScoreModal({ isOpen: true, testResult });
+                          }
+                        } else if (isRed) {
+                          // Red score: show retest option (for MC/TF/Input)
                           if (testResult?.retest_offered) {
                             showNotification('Retest is already offered', 'info');
                             return;
@@ -1342,7 +1370,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                             class: selectedClass
                           });
                         } else {
-                          // Non-red score: show answers
+                          // Non-red score: show answers (for MC/TF/Input)
                           handleViewAnswers(testResult, test);
                         }
                       }}
@@ -1640,13 +1668,37 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                     return;
                                   }
                                   
+                                  // Handle Fill Blanks/Matching/Word Matching based on score color
+                                  if (testType === 'fill_blanks' || testType === 'matching_type' || testType === 'word_matching') {
+                                    console.debug('[TeacherResults] Score pill clicked (Fill Blanks/Matching/Word Matching)', { testType, isRed, testResult });
+                                    if (isRed) {
+                                      // Red score: show retest option
+                                      if (testResult?.retest_offered) {
+                                        showNotification('Retest is already offered', 'info');
+                                        return;
+                                      }
+                                      openRetestModal({ 
+                                        failedStudentIds: [student.student_id],
+                                        test_type: test.test_type,
+                                        original_test_id: testResult?.test_id || test.test_id,
+                                        subject_id: testResult?.subject_id || test.subject_id,
+                                        grade: selectedGrade,
+                                        class: selectedClass
+                                      });
+                                    } else {
+                                      // Green/Yellow score: open edit score modal
+                                      console.debug('[TeacherResults] Opening edit score modal from score pill', { testResult });
+                                      setEditScoreModal({ isOpen: true, testResult });
+                                    }
+                                    return;
+                                  }
+                                  
                                   if (isRed) {
-                                    // Red score: show retest option
+                                    // Red score: show retest option (for MC/TF/Input)
                                     if (testResult?.retest_offered) {
                                       showNotification('Retest is already offered', 'info');
                                       return;
                                     }
-                                    // debug removed
                                     openRetestModal({ 
                                       failedStudentIds: [student.student_id],
                                       test_type: test.test_type,
@@ -1656,6 +1708,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                       class: selectedClass
                                     }); 
                                   } else {
+                                    // Non-red score: show answers (for MC/TF/Input)
                                     handleViewAnswers(testResult, test);
                                   }
                                 }}
@@ -1913,8 +1966,31 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                 return;
                               }
                               
-                              if (isRed) {
-                                // Red score: show retest option
+                              // Handle Fill Blanks/Matching/Word Matching based on score color
+                              if (testType === 'fill_blanks' || testType === 'matching_type' || testType === 'word_matching') {
+                                console.debug('[TeacherResults] Fill Blanks/Matching/Word Matching clicked (nested table)', { testType, isRed, testResult });
+                                if (isRed) {
+                                  // Red score: show retest option
+                                  if (testResult?.retest_offered) {
+                                    showNotification('Retest is already offered', 'info');
+                                    return;
+                                  }
+                                  console.debug('[TeacherResults] TD -> opening retest modal', { studentId: student.student_id });
+                                  openRetestModal({ 
+                                    failedStudentIds: [student.student_id],
+                                    test_type: testResult.test_type,
+                                    original_test_id: testResult.test_id,
+                                    subject_id: testResult.subject_id,
+                                    grade: selectedGrade,
+                                    class: selectedClass
+                                  });
+                                } else {
+                                  // Green/Yellow score: open edit score modal
+                                  console.debug('[TeacherResults] Opening edit score modal (nested table)', { testResult });
+                                  setEditScoreModal({ isOpen: true, testResult });
+                                }
+                              } else if (isRed) {
+                                // Red score: show retest option (for MC/TF/Input)
                                 if (testResult?.retest_offered) {
                                   showNotification('Retest is already offered', 'info');
                                   return;
@@ -1929,7 +2005,7 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
                                   class: selectedClass
                                 });
                               } else {
-                                // Non-red score: show answers
+                                // Non-red score: show answers (for MC/TF/Input)
                                 handleViewAnswers(testResult, test);
                               }
                             }}
@@ -2571,6 +2647,21 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
       {/* Test Answer Modal */}
       <ErrorBoundary>
         <TestAnswerModal
+          onScoreUpdate={(updatedData) => {
+            // Refresh results table after score update
+            if (currentSelectedClass) {
+              loadResultsForSemester(selectedSemester, true);
+            }
+            // Update selectedTestResult if it's still open
+            if (selectedTestResult) {
+              setSelectedTestResult(prev => ({
+                ...prev,
+                score: updatedData.score,
+                max_score: updatedData.maxScore,
+                percentage: updatedData.percentage
+              }));
+            }
+          }}
           isOpen={isAnswerModalOpen}
           onClose={() => {
             setIsAnswerModalOpen(false);
@@ -2580,6 +2671,21 @@ const TeacherResults = ({ onBackToCabinet, selectedGrade, selectedClass, openRet
           testResult={selectedTestResult}
           questions={selectedTestQuestions}
           isLoadingQuestions={isLoadingQuestions}
+        />
+      </ErrorBoundary>
+
+      {/* Edit Score Modal (for Fill Blanks/Matching/Word Matching) */}
+      <ErrorBoundary>
+        <EditScoreModal
+          isOpen={editScoreModal.isOpen}
+          onClose={() => setEditScoreModal({ isOpen: false, testResult: null })}
+          testResult={editScoreModal.testResult}
+          onScoreUpdate={(updatedData) => {
+            // Refresh results table after score update
+            if (currentSelectedClass) {
+              loadResultsForSemester(selectedSemester, true);
+            }
+          }}
         />
       </ErrorBoundary>
 

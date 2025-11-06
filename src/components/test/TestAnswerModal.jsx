@@ -1,15 +1,21 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import PerfectModal from '@/components/ui/PerfectModal';
 import { LoadingSpinner } from '@/components/ui/components-ui-index';
 import { renderMathInText, renderMathExpression } from '@/utils/mathRenderer';
+import { API_ENDPOINTS } from '@/shared/shared-index';
 
 const TestAnswerModal = ({
   isOpen,
   onClose,
   testResult,
   questions,
-  isLoadingQuestions
+  isLoadingQuestions,
+  onScoreUpdate
 }) => {
+  // Score editing state
+  const [editingScore, setEditingScore] = useState(false);
+  const [tempScore, setTempScore] = useState('');
+  const [isSavingScore, setIsSavingScore] = useState(false);
   // Parse answers JSONB safely
   const parseAnswers = (answers) => {
     if (!answers) return {};
@@ -23,6 +29,94 @@ const TestAnswerModal = ({
     }
     
     return answers || {};
+  };
+
+  // Score editing handlers
+  const handleStartScoreEdit = () => {
+    const currentScore = testResult.best_retest_score !== null && testResult.best_retest_score !== undefined
+      ? testResult.best_retest_score
+      : testResult.score || 0;
+    setTempScore(currentScore.toString());
+    setEditingScore(true);
+  };
+
+  const handleCancelScoreEdit = () => {
+    setEditingScore(false);
+    setTempScore('');
+  };
+
+  const handleSaveScore = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    // Use id field (from database view) instead of result_id
+    const resultId = testResult?.id || testResult?.result_id;
+    if (!resultId) {
+      console.error('TestAnswerModal: No id/result_id found', testResult);
+      alert('Error: Test result ID not found');
+      return;
+    }
+    
+    console.log('TestAnswerModal: Saving score', { resultId, score: tempScore, testType: testResult.test_type });
+    
+    setIsSavingScore(true);
+    try {
+      const testType = testResult.test_type || testResult.testType;
+      const payload = {
+        resultId: resultId,
+        score: parseInt(tempScore) || 0,
+        testType: testType
+      };
+      
+      console.log('TestAnswerModal: Sending payload', payload);
+      
+      // Use tokenManager for authenticated request if available
+      let response;
+      if (window.tokenManager?.makeAuthenticatedRequest) {
+        response = await window.tokenManager.makeAuthenticatedRequest(API_ENDPOINTS.UPDATE_TEST_SCORE, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Fallback to regular fetch
+        const { SecureToken } = await import('@/utils/secureTokenStorage');
+        const token = await (window.tokenManager?.getToken() || SecureToken.get()) || localStorage.getItem('accessToken') || localStorage.getItem('token');
+        response = await fetch(API_ENDPOINTS.UPDATE_TEST_SCORE, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+      
+      console.log('TestAnswerModal: Response status', response.status);
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('TestAnswerModal: Score updated successfully', responseData);
+        // Call parent callback to update table
+        if (onScoreUpdate) {
+          onScoreUpdate(responseData);
+        }
+        // Update local testResult display
+        setEditingScore(false);
+        setTempScore('');
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('TestAnswerModal: Error response', errorData);
+        alert(errorData.error || `Failed to update score. Status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('TestAnswerModal: Exception updating score:', error);
+      alert(`Failed to update score: ${error.message || error}`);
+    } finally {
+      setIsSavingScore(false);
+    }
   };
 
   const studentAnswers = useMemo(() => {
@@ -893,14 +987,68 @@ const TestAnswerModal = ({
         <div className="flex space-x-6">
           <div>
             <span className="text-xs text-gray-500">Score</span>
-            <div className="text-lg font-semibold text-gray-900">
-              {testResult.best_retest_score !== null && testResult.best_retest_score !== undefined
-                ? `${testResult.best_retest_score} / ${testResult.best_retest_max_score || testResult.max_score || 0}`
-                : `${testResult.score || 0} / ${testResult.max_score || 0}`}
-              {testResult.best_retest_score !== null && testResult.best_retest_score !== undefined && (
-                <span className="ml-2 text-xs text-blue-600">(Retest Best)</span>
-              )}
-            </div>
+            {/* Score Editor for MC/TF/Input tests */}
+            {(() => {
+              const testType = testResult.test_type || testResult.testType;
+              const isEditableType = ['multiple_choice', 'true_false', 'input'].includes(testType);
+              const currentScore = testResult.best_retest_score !== null && testResult.best_retest_score !== undefined
+                ? testResult.best_retest_score
+                : testResult.score || 0;
+              const currentMaxScore = testResult.best_retest_max_score || testResult.max_score || 0;
+              
+              if (isEditableType && editingScore) {
+                return (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max={currentMaxScore}
+                      value={tempScore}
+                      onChange={(e) => setTempScore(e.target.value)}
+                      className="w-16 px-2 py-1 text-sm border border-blue-500 bg-blue-50 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Score"
+                    />
+                    <span className="text-lg font-semibold text-gray-500">/ {currentMaxScore}</span>
+                    <button
+                      type="button"
+                      onClick={handleSaveScore}
+                      disabled={isSavingScore}
+                      className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {isSavingScore ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelScoreEdit}
+                      disabled={isSavingScore}
+                      className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="text-lg font-semibold text-gray-900">
+                    {currentScore} / {currentMaxScore}
+                    {testResult.best_retest_score !== null && testResult.best_retest_score !== undefined && (
+                      <span className="ml-2 text-xs text-blue-600">(Retest Best)</span>
+                    )}
+                  </div>
+                  {isEditableType && (
+                    <button
+                      onClick={handleStartScoreEdit}
+                      className="ml-2 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                      title="Click to edit score"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           {(testResult.best_retest_percentage !== null && testResult.best_retest_percentage !== undefined && testResult.best_retest_percentage > 0) ||
            (testResult.percentage && testResult.percentage > 0) ? (

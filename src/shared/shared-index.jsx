@@ -117,6 +117,7 @@ export const API_ENDPOINTS = {
   SAVE_DRAWING_TEST: '/.netlify/functions/save-drawing-test', // NEW
   UPDATE_DRAWING_TEST_SCORE: '/.netlify/functions/update-drawing-test-score', // NEW
   UPDATE_SPEAKING_TEST_SCORE: '/.netlify/functions/update-speaking-test-score', // NEW
+  UPDATE_TEST_SCORE: '/.netlify/functions/update-test-score', // Generic for MC/TF/Input/Fill Blanks/Matching/Word Matching
   
   // Test Assignment
   ASSIGN_TEST_TO_CLASSES: '/.netlify/functions/assign-test-to-classes',
