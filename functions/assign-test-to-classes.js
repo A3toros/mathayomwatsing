@@ -155,7 +155,7 @@ exports.handler = async function(event, context) {
         // Insert test assignment with subject_id and new fields
         await sql`
           INSERT INTO test_assignments (test_type, test_id, teacher_id, grade, class, subject_id, academic_period_id, assigned_at, due_date, is_active, created_at, updated_at)
-          VALUES (${test_type}, ${test_id}, ${teacher_id}, ${grade}, ${className}, ${subjectId}, ${currentAcademicPeriodId}, CURRENT_TIMESTAMP, ${assignment.due_date || null}, true, NOW(), NOW())
+          VALUES (${test_type}, ${test_id}, ${teacher_id}, ${grade}, ${className}, ${subjectId}, ${currentAcademicPeriodId}, CURRENT_TIMESTAMP, ${assignment.due_date || null}, false, NOW(), NOW())
         `;
       }
 

@@ -7,8 +7,8 @@
 -- Do NOT modify the data structure or add/remove fields without checking original
 -- This view must match the original get-teacher-active-tests.js SQL queries exactly
 -- ========================================
-
-CREATE OR REPLACE VIEW teacher_active_tests_view AS
+DROP VIEW IF EXISTS teacher_active_tests_view;
+CREATE VIEW teacher_active_tests_view AS
 -- Multiple Choice Tests
 SELECT 
     'multiple_choice' as test_type,
@@ -26,13 +26,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM multiple_choice_tests mct
 INNER JOIN test_assignments ta ON mct.id = ta.test_id AND ta.test_type = 'multiple_choice'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY mct.id, mct.test_name, mct.num_questions, mct.created_at, mct.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -54,13 +55,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM true_false_tests tft
 INNER JOIN test_assignments ta ON tft.id = ta.test_id AND ta.test_type = 'true_false'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY tft.id, tft.test_name, tft.num_questions, tft.created_at, tft.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -82,13 +84,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM input_tests it
 INNER JOIN test_assignments ta ON it.id = ta.test_id AND ta.test_type = 'input'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY it.id, it.test_name, it.num_questions, it.created_at, it.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -110,13 +113,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM matching_type_tests mtt
 INNER JOIN test_assignments ta ON mtt.id = ta.test_id AND ta.test_type = 'matching_type'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY mtt.id, mtt.test_name, mtt.num_blocks, mtt.created_at, mtt.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -138,13 +142,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM word_matching_tests wmt
 INNER JOIN test_assignments ta ON wmt.id = ta.test_id AND ta.test_type = 'word_matching'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY wmt.id, wmt.test_name, wmt.num_questions, wmt.created_at, wmt.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -166,13 +171,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM drawing_tests dt
 INNER JOIN test_assignments ta ON dt.id = ta.test_id AND ta.test_type = 'drawing'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY dt.id, dt.test_name, dt.num_questions, dt.created_at, dt.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -194,13 +200,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM fill_blanks_tests fbt
 INNER JOIN test_assignments ta ON fbt.id = ta.test_id AND ta.test_type = 'fill_blanks'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY fbt.id, fbt.test_name, fbt.num_blanks, fbt.created_at, fbt.teacher_id, ta.subject_id, s.subject
 
 UNION ALL
@@ -222,13 +229,14 @@ SELECT
             'grade', ta.grade,
             'class', ta.class,
             'assigned_at', ta.assigned_at,
+            'is_active', ta.is_active,
             'days_remaining', EXTRACT(DAY FROM (ta.assigned_at + INTERVAL '7 days') - CURRENT_TIMESTAMP)
         )
     ) FILTER (WHERE ta.id IS NOT NULL) as assignments
 FROM speaking_tests st
 INNER JOIN test_assignments ta ON st.id = ta.test_id AND ta.test_type = 'speaking'
 LEFT JOIN subjects s ON ta.subject_id = s.subject_id
-WHERE ta.is_active = true
+WHERE ta.completed_at IS NULL
 GROUP BY st.id, st.test_name, st.min_words, st.created_at, st.teacher_id, ta.subject_id, s.subject
 
 ORDER BY created_at DESC;

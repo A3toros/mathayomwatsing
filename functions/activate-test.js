@@ -2,26 +2,16 @@ const { neon } = require('@neondatabase/serverless');
 const { validateToken } = require('./validate-token');
 
 exports.handler = async function(event, context) {
-  console.log('=== mark-test-completed function called ===');
-  console.log('Event:', event);
-  
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
-  // Handle preflight request
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
-  // Only allow POST method
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -31,7 +21,6 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // Validate token
     const tokenValidation = validateToken(event);
     if (!tokenValidation.success) {
       return {
@@ -42,8 +31,6 @@ exports.handler = async function(event, context) {
     }
 
     const userInfo = tokenValidation.user;
-    
-    // Check if user is teacher
     if (userInfo.role !== 'teacher') {
       return {
         statusCode: 403,
@@ -53,11 +40,7 @@ exports.handler = async function(event, context) {
     }
 
     const { test_type, test_id } = JSON.parse(event.body) || {};
-    
-    console.log('Extracted params - test_type:', test_type, 'test_id:', test_id);
-
     if (!test_type || !test_id) {
-      console.log('Missing required parameters');
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -65,23 +48,18 @@ exports.handler = async function(event, context) {
       };
     }
 
-    console.log('Connecting to database...');
     const sql = neon(process.env.NEON_DATABASE_URL);
-    console.log('Database connection established');
-
-    // Mark all assignments for this test as inactive (completed)
     const teacher_id = userInfo.teacher_id;
-    
-    // Update all test assignments for this test to set is_active = false and mark completed
+
+    // Activate: make visible to students; also clear any completed_at to re-show in teacher cabinet
     const updateResult = await sql`
-      UPDATE test_assignments 
-      SET is_active = false, completed_at = NOW(), updated_at = NOW()
+      UPDATE test_assignments
+      SET is_active = true, completed_at = NULL, updated_at = NOW()
       WHERE test_type = ${test_type} AND test_id = ${test_id} AND teacher_id = ${teacher_id}
-      RETURNING id, test_type, test_id, grade, class
+      RETURNING id, test_type, test_id, grade, class, is_active
     `;
 
     if (updateResult.length === 0) {
-      console.log('No assignments found for this test or teacher does not own this test');
       return {
         statusCode: 404,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -89,32 +67,25 @@ exports.handler = async function(event, context) {
       };
     }
 
-    console.log('Test assignments marked as completed successfully:', updateResult);
-
     return {
       statusCode: 200,
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        message: 'Test assignments marked as completed successfully',
-        test_id: test_id,
-        test_type: test_type,
-        assignments_completed: updateResult.length,
-        assignments: updateResult
+        message: 'Test activated successfully - students can now see this test',
+        test_id,
+        test_type,
+        assignments_activated: updateResult.length
       })
     };
-
   } catch (error) {
-    console.error('Error marking test as completed:', error);
-    console.error('Error stack:', error.stack);
-    
+    console.error('Error activating test:', error);
     return {
       statusCode: 500,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message
-      })
+      body: JSON.stringify({ error: 'Internal server error', details: error.message })
     };
   }
 };
+
+

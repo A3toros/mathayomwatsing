@@ -704,6 +704,37 @@ export const testService = {
     }
   },
 
+  async activateTest(testType, testId) {
+    try {
+      console.log(`[DEBUG] activateTest called with testType: ${testType}, testId: ${testId}`);
+      const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/activate-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_type: testType,
+          test_id: testId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[DEBUG] Activate test response:', result);
+
+      if (result.success) {
+        console.log(`Test ${testType}_${testId} activated successfully`);
+        return { success: true, message: result.message };
+      } else {
+        throw new Error(result.error || 'Failed to activate test');
+      }
+    } catch (error) {
+      console.error('Error activating test:', error);
+      throw error;
+    }
+  },
+
   clearTestProgress(testType, testId) {
     try {
       const progressKey = `test_progress_${testType}_${testId}`;

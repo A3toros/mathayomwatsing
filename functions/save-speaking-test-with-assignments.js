@@ -179,7 +179,7 @@ exports.handler = async function(event, context) {
           )
           VALUES (
             'speaking', ${testId}, ${teacher_id}, ${grade}, ${className}, ${subject_id},
-            ${academic_period_id}, CURRENT_TIMESTAMP, ${finalDueDate}, true, NOW(), NOW()
+            ${academic_period_id}, CURRENT_TIMESTAMP, ${finalDueDate}, false, NOW(), NOW()
           )
         `;
         console.log(`Assignment created for ${grade}/${className} with subject ${subject_id}, academic_period: ${academic_period_id}, due: ${finalDueDate}`);

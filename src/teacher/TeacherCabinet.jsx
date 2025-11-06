@@ -588,6 +588,30 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
+  // Activate an inactive test to make it visible to students
+  const [activatingTestId, setActivatingTestId] = useState(null);
+  const activateTest = useCallback(async (testType, testId) => {
+    logger.debug('👨‍🏫 Activating test:', testType, testId);
+    setActivatingTestId(testId);
+    try {
+      const result = await testService.activateTest(testType, testId);
+      if (result.success) {
+        showNotification('Test activated! Students can now see this test.', 'success');
+        const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+        localStorage.removeItem(cacheKey);
+        logger.debug('👨‍🏫 Cleared teacher tests cache');
+        await loadTests();
+      } else {
+        throw new Error(result.error || 'Failed to activate test');
+      }
+    } catch (error) {
+      logger.error('👨‍🏫 Error activating test:', error);
+      showNotification('Failed to activate test', 'error');
+    } finally {
+      setActivatingTestId(null);
+    }
+  }, [loadTests, showNotification, user?.teacher_id, user?.id]);
+  
   // Enhanced refreshActiveTestsData from legacy code - TRUE REFRESH
   const refreshTests = useCallback(async () => {
     logger.debug('👨‍🏫 Refreshing active tests data...');
@@ -2160,6 +2184,25 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                           </Button>
                         </div>
                         
+                        {/* Activate button (shown when any assignment is inactive) */}
+                        {Array.isArray(test.assignments) && test.assignments.some(a => a && a.is_active === false) && (
+                          <Button
+                            variant="primary"
+                            onClick={() => activateTest(test.test_type, test.test_id)}
+                            size="sm"
+                            disabled={activatingTestId === test.test_id}
+                          >
+                            {activatingTestId === test.test_id ? (
+                              <div className="flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Activating...
+                              </div>
+                            ) : (
+                              'Activate'
+                            )}
+                          </Button>
+                        )}
+
                         <Button
                           variant="success"
                           onClick={() => markCompleted(test.test_type, test.test_id)}
