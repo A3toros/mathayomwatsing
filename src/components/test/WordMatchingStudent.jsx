@@ -762,20 +762,22 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         const stage = e.target.getStage();
                         const rightWords = displayData.rightWords;
                         const rightWordWidth = actualBlockWidth + 60; // Responsive drop zone width
-                        const rightWordHeight = actualBlockHeight + 30; // Responsive drop zone height
                         const rightStartX = rightBlockX - 30; // Responsive drop zone position (already calculated from right edge)
-                        const rightStartY = blockStartY - 15; // Responsive drop zone position
                         
                         console.log('🎯 Drop detection - Word dropped at:', e.target.x(), e.target.y());
                         
                         // Check if dropped on any right word
                         for (let rightIndex = 0; rightIndex < rightWords.length; rightIndex++) {
+                          const rightWord = rightWords[rightIndex];
                           const rightPosition = blockPositions[rightIndex];
-                          const rightY = rightPosition ? rightPosition.y : rightStartY + rightIndex * blockSpacing;
+                          // Use the exact same Y position calculation as the block rendering
+                          const rightY = rightPosition ? rightPosition.y : blockStartY + rightIndex * blockSpacing;
+                          // Calculate dynamic height exactly like the block rendering does
+                          const rightWordDynamicHeight = calculateBlockHeight(rightWord, FONT_SIZES.ORIGINAL_WORD, actualBlockWidth);
                           const dropZoneLeft = rightStartX;
                           const dropZoneRight = rightStartX + rightWordWidth;
                           const dropZoneTop = rightY;
-                          const dropZoneBottom = rightY + rightWordHeight;
+                          const dropZoneBottom = rightY + rightWordDynamicHeight;
                           
                           console.log(`🎯 Checking drop zone ${rightIndex}:`, {
                             left: dropZoneLeft,
@@ -791,7 +793,21 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                             e.target.y() >= dropZoneTop &&
                             e.target.y() <= dropZoneBottom
                           ) {
-                            // Match found!
+                            // Check if this dropzone is already occupied by another word
+                            const isOccupied = Object.entries(studentAnswers).some(
+                              ([occupiedLeftIndexStr, occupiedRightIndex]) => 
+                                occupiedRightIndex === rightIndex && 
+                                parseInt(occupiedLeftIndexStr) !== index
+                            );
+                            
+                            if (isOccupied) {
+                              // Dropzone is already occupied, don't place it
+                              console.log(`⚠️ Dropzone ${rightIndex} is already occupied, resetting position`);
+                              e.target.position({ x: leftBlockX, y: y });
+                              return; // Exit early, don't place the word
+                            }
+                            
+                            // Match found and dropzone is free!
                             console.log(`✅ Match found! Word "${displayData.leftWords[index]}" matched with "${rightWords[rightIndex]}"`);
                             setStudentAnswers(prev => ({
                               ...prev,
@@ -875,7 +891,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         <Text
                           text={displayData.leftWords[matchedLeftIndex]}
                           x={actualBlockWidth / 2} // Center horizontally
-                          y={dynamicHeight / 4} // Positioned higher for spacing
+                          y={dynamicHeight - 5} // Positioned at bottom with 2px padding from edge
                           fontSize={FONT_SIZES.DRAGGED_WORD} // Responsive font size
                           fontFamily="Arial"
                           fill="#dc2626" // Red for dragged word
@@ -883,7 +899,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                           verticalAlign="middle"
                           width={actualBlockWidth}
                           offsetX={actualBlockWidth / 2} // Center horizontally
-                          offsetY={dynamicHeight / 8} // Center vertically
+                          offsetY={FONT_SIZES.DRAGGED_WORD / 2} // Center the text vertically at this position
                           wrap="word"
                           ellipsis={true}
                         />

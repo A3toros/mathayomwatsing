@@ -975,16 +975,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.7, duration: 0.3 }}
                     >
-                      <motion.div
-                        className="text-6xl mb-4"
+                      <motion.img
+                        src="/pics/no-tests.png"
+                        alt="No active tests"
+                        className="w-24 h-24 mx-auto mb-4"
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
-                      >
-                        📝
-                      </motion.div>
+                      />
                       <h3 className="text-lg font-semibold text-gray-800 mb-2">No Active Tests</h3>
-                      <p className="text-gray-500">No active tests available for your class at the moment.</p>
                     </motion.div>
                   )}
                 </Card.Body>
