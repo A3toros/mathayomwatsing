@@ -169,36 +169,65 @@ exports.handler = async function(event, context) {
         const teacherName = row.teacher_name || 'Unknown Teacher';
         const subjectName = row.subject_name || 'Unknown Subject';
         
-        // Check retest availability for this student and test
+        // Check retest availability and completion status for this student and test
         let retestAvailable = false;
         let retestKey = null;
         let retestAttemptsLeft = null;
         let retestAssignmentId = null;
+        let retestCompleted = false;
+        let retestPassed = false;
+        let retestAttemptNumber = 0;
+        let retestMaxAttempts = null;
         try {
           console.log('Checking retest availability for', row.test_type, row.test_id, 'student:', student_id);
           const retestRows = await sql`
-            SELECT rt.id as retest_target_id, COALESCE(rt.attempt_count, 0) as attempt_count,
-                   ra.id as retest_assignment_id, ra.max_attempts, ra.window_start, ra.window_end, rt.status
+            SELECT rt.id as retest_target_id, 
+                   rt.attempt_number, 
+                   rt.max_attempts,
+                   rt.is_completed,
+                   rt.passed,
+                   ra.id as retest_assignment_id, 
+                   ra.max_attempts as ra_max_attempts, 
+                   ra.window_start, 
+                   ra.window_end, 
+                   rt.status
             FROM retest_targets rt
             JOIN retest_assignments ra ON ra.id = rt.retest_assignment_id
             WHERE rt.student_id = ${student_id}
               AND ra.test_type = ${row.test_type}
               AND ra.test_id = ${row.test_id}
               AND NOW() BETWEEN ra.window_start AND ra.window_end
-              AND (rt.status IS NULL OR rt.status = 'PENDING' OR rt.status = 'FAILED')
-              AND (ra.max_attempts IS NULL OR COALESCE(rt.attempt_count, 0) < ra.max_attempts)
           `;
-          retestAvailable = Array.isArray(retestRows) && retestRows.length > 0;
-          console.log('Retest availability rows:', retestRows.length, 'available:', retestAvailable);
-          if (retestAvailable) {
+          
+          if (retestRows.length > 0) {
             const retestRow = retestRows[0];
             retestAssignmentId = retestRow.retest_assignment_id;
-            if (retestRow.max_attempts != null) {
-              retestAttemptsLeft = Math.max(0, retestRow.max_attempts - (retestRow.attempt_count || 0));
+            retestCompleted = retestRow.is_completed === true;
+            retestPassed = retestRow.passed === true;
+            retestAttemptNumber = retestRow.attempt_number || 0;
+            retestMaxAttempts = retestRow.max_attempts || retestRow.ra_max_attempts || null;
+            
+            // Retest is available if not completed
+            retestAvailable = !retestCompleted;
+            
+            if (retestMaxAttempts != null) {
+              retestAttemptsLeft = Math.max(0, retestMaxAttempts - retestAttemptNumber);
             }
-            retestKey = `retest1_${student_id}_${row.test_type}_${row.test_id}`;
-            overallHasRetests = true;
+            
+            if (retestAvailable) {
+              retestKey = `retest1_${student_id}_${row.test_type}_${row.test_id}`;
+              overallHasRetests = true;
+            }
           }
+          
+          console.log('Retest status:', {
+            available: retestAvailable,
+            completed: retestCompleted,
+            passed: retestPassed,
+            attemptNumber: retestAttemptNumber,
+            maxAttempts: retestMaxAttempts,
+            attemptsLeft: retestAttemptsLeft
+          });
         } catch (e) {
           console.warn('Retest availability check failed for', row.test_type, row.test_id, e.message);
         }
@@ -206,11 +235,8 @@ exports.handler = async function(event, context) {
         // Check if test is completed (result_id will be NOT NULL if completed)
         const isCompleted = row.result_id !== null && row.result_id !== undefined;
         
-        // Skip if completed AND no retest available
-        if (isCompleted && !retestAvailable) {
-          console.log('Filtering out completed test:', row.test_type, row.test_id, 'student:', student_id);
-          continue; // Skip this test - don't show in cabinet
-        }
+        // ⚠️ REMOVED: Filter is now handled by student_active_tests_view at SQL level
+        // View already excludes completed retests, so we don't need to filter here
 
         activeTests.push({
           test_id: row.test_id,
@@ -224,10 +250,14 @@ exports.handler = async function(event, context) {
           class: row.class,
           teacher_name: teacherName || 'Unknown Teacher',
           assignment_id: row.assignment_id,
-          retest_available: retestAvailable,
+          retest_available: retestAvailable && !retestCompleted,
           retest_key: retestKey,
           retest_attempts_left: retestAttemptsLeft,
-          retest_assignment_id: retestAssignmentId
+          retest_assignment_id: retestAssignmentId,
+          retest_is_completed: retestCompleted,
+          retest_passed: retestPassed,
+          retest_attempt_number: retestAttemptNumber,
+          retest_max_attempts: retestMaxAttempts
         });
         
         console.log('Added test to activeTests:', activeTests[activeTests.length - 1]);

@@ -152,9 +152,10 @@ exports.handler = async function(event, context) {
     // Retest handling
     let attemptNumber = null;
     let effectiveParentTestId = parent_test_id || test_id;
+    let retestAssignment = null;
     if (retest_assignment_id) {
       const target = await sql`
-        SELECT tgt.attempt_count, ra.max_attempts, ra.window_start, ra.window_end
+        SELECT tgt.attempt_number, tgt.max_attempts, tgt.is_completed, ra.max_attempts as ra_max_attempts, ra.window_start, ra.window_end, ra.passing_threshold
         FROM retest_targets tgt
         JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
         WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${studentId}
@@ -163,17 +164,22 @@ exports.handler = async function(event, context) {
         return { statusCode: 400, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Retest not found or not assigned to this student' }) };
       }
       const row = target[0];
+      retestAssignment = row;
       const nowTs = new Date();
       if (!(new Date(row.window_start) <= nowTs && nowTs <= new Date(row.window_end))) {
         return { statusCode: 400, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Retest window is not active' }) };
       }
-      if (row.attempt_count >= row.max_attempts) {
+      if (row.is_completed) {
+        return { statusCode: 400, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Retest is already completed' }) };
+      }
+      const maxAttempts = row.max_attempts || row.ra_max_attempts || 1;
+      if ((row.attempt_number || 0) >= maxAttempts) {
         return { statusCode: 400, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Maximum retest attempts reached' }) };
       }
-      attemptNumber = Number(row.attempt_count || 0) + 1;
+      attemptNumber = Number(row.attempt_number || 0) + 1;
     }
 
-    let result;
+    let responseId = null;
 
     // Upsert into test_attempts
     const percentage = Math.round((Number(actualScore) / Number(totalQuestions)) * 10000) / 100;
@@ -185,14 +191,14 @@ exports.handler = async function(event, context) {
 
       // Determine safe attempt number
       const target = await sql`
-        SELECT tgt.attempt_count, ra.max_attempts 
+        SELECT tgt.attempt_number, tgt.max_attempts, ra.max_attempts as ra_max_attempts
         FROM retest_targets tgt
         JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
         WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${studentId}
       `;
       const row = target?.[0] || {};
-      const maxAttempts = Number(row.max_attempts || 1);
-      const nextFromTarget = Number(row.attempt_count || 0) + 1;
+      const maxAttempts = Number(row.max_attempts || row.ra_max_attempts || 1);
+      const nextFromTarget = Number(row.attempt_number || 0) + 1;
       const existingAttempts = await sql`
         SELECT COALESCE(MAX(attempt_number), 0) AS max_attempt
         FROM test_attempts
@@ -220,9 +226,9 @@ exports.handler = async function(event, context) {
               name = ${name}, surname = ${surname}, nickname = ${nickname}, academic_period_id = ${academicPeriodId}
           WHERE id = ${existingSame[0].id}
         `;
-        result = existingSame;
+        responseId = existingSame[0].id;
       } else {
-        result = await sql`
+        const insertedAttempt = await sql`
           INSERT INTO test_attempts (
             student_id, test_id, attempt_number, score, max_score, percentage,
             time_taken, started_at, submitted_at, is_completed,
@@ -238,41 +244,81 @@ exports.handler = async function(event, context) {
           )
           RETURNING id
         `;
+        responseId = insertedAttempt[0].id;
       }
 
       // Update retest_targets with early-pass behavior
-      if (percentage >= 50) {
-        await sql`
-          UPDATE retest_targets tgt
-          SET attempt_count = ra.max_attempts,
-              last_attempt_at = NOW(),
-              status = 'PASSED'
-          FROM retest_assignments ra
-          WHERE tgt.retest_assignment_id = ra.id
-            AND tgt.retest_assignment_id = ${retest_assignment_id}
-            AND tgt.student_id = ${studentId}
-        `;
+      // Update retest_targets with new columns: attempt_number, is_completed, passed
+      const passingThreshold = retestAssignment?.passing_threshold || 50;
+      const passed = percentage >= passingThreshold;
+      const currentAttempt = retestAssignment?.attempt_number || 0;
+      
+      // Determine next attempt number
+      let nextAttemptNumber;
+      if (passed) {
+        // Early pass: jump to max_attempts slot
+        nextAttemptNumber = retestAssignment?.max_attempts || retestAssignment?.ra_max_attempts || 1;
       } else {
-        await sql`
-          UPDATE retest_targets 
-          SET attempt_count = GREATEST(attempt_count + 1, ${attemptNumberToWrite}),
-              last_attempt_at = NOW(),
-              status = 'FAILED'
-          WHERE retest_assignment_id = ${retest_assignment_id} 
-            AND student_id = ${studentId}
-        `;
+        // Increment attempt
+        nextAttemptNumber = currentAttempt + 1;
       }
-
+      
+      // Check if retest should be marked as completed
+      const maxAttemptsForCompletion = retestAssignment?.max_attempts || retestAssignment?.ra_max_attempts || 1;
+      const attemptsExhausted = nextAttemptNumber >= maxAttemptsForCompletion;
+      const shouldComplete = attemptsExhausted || passed;
+      
+      // Update retest_targets in single transaction
+      const updateResult = await sql`
+        UPDATE retest_targets
+        SET 
+          attempt_number = ${nextAttemptNumber},
+          attempt_count = ${nextAttemptNumber},
+          last_attempt_at = NOW(),
+          passed = ${passed},
+          is_completed = ${shouldComplete},
+          completed_at = CASE
+            WHEN ${shouldComplete} AND completed_at IS NULL THEN NOW()
+            ELSE completed_at
+          END,
+          status = CASE
+            WHEN ${passed} THEN 'PASSED'
+            WHEN ${attemptsExhausted} THEN 'FAILED'
+            ELSE 'IN_PROGRESS'
+          END,
+          updated_at = NOW()
+        WHERE retest_assignment_id = ${retest_assignment_id}
+          AND student_id = ${studentId}
+        RETURNING *
+      `;
+      
+      if (updateResult.length === 0) {
+        console.error('⚠️ Failed to update retest_targets - no rows matched', {
+          retest_assignment_id,
+          studentId,
+          test_id: effectiveParentTestId
+        });
+      } else {
+        console.log('✅ Updated retest_targets:', {
+          retest_assignment_id,
+          studentId,
+          attempt_number: updateResult[0].attempt_number,
+          is_completed: updateResult[0].is_completed,
+          passed: updateResult[0].passed
+        });
+      }
+      
       // Persist best retest values
       await sql`SELECT update_best_retest_values(${studentId}, ${effectiveParentTestId})`;
     } else {
       console.log('🔍 Writing to input_test_results (regular test)');
-      result = await sql`
+      const result = await sql`
         INSERT INTO input_test_results 
         (test_id, test_name, teacher_id, subject_id, grade, class, number, student_id, name, surname, nickname, score, max_score, answers, time_taken, started_at, submitted_at, caught_cheating, visibility_change_times, is_completed, academic_period_id, created_at)
         VALUES (${test_id}, ${test_name}, ${teacher_id}, ${subject_id}, ${grade}, ${convertedClass}, ${number}, ${studentId}, ${name}, ${surname}, ${nickname}, ${actualScore}, ${totalQuestions}, ${JSON.stringify(validatedAnswers)}, ${time_taken || null}, ${started_at || null}, ${submitted_at || null}, ${caught_cheating || false}, ${visibility_change_times || 0}, ${completedFlag}, ${academicPeriodId}, NOW())
         RETURNING id
       `;
+      responseId = result[0].id;
       // Regular tests no longer write a summary row into test_attempts
     }
 
@@ -284,7 +330,7 @@ exports.handler = async function(event, context) {
       },
       body: JSON.stringify({ 
         success: true, 
-        result_id: result[0].id,
+        result_id: responseId,
         score: actualScore,
         max_score: totalQuestions,
         percentage_score: Math.round((actualScore / totalQuestions) * 100),

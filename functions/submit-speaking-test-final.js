@@ -310,6 +310,31 @@ async function saveToDatabase(data, userInfo) {
     if (retest_assignment_id) {
       console.log('Writing retest to test_attempts...');
       
+      // Validate retest eligibility first
+      const retestTarget = await sql`
+        SELECT tgt.attempt_number, tgt.max_attempts, tgt.is_completed, ra.max_attempts as ra_max_attempts, ra.window_start, ra.window_end, ra.passing_threshold, ra.original_test_id
+        FROM retest_targets tgt
+        JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
+        WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${userInfo.student_id}
+      `;
+      
+      if (retestTarget.length === 0) {
+        throw new Error('Retest not found or not assigned to this student');
+      }
+      
+      const targetRow = retestTarget[0];
+      const nowTs = new Date();
+      if (!(new Date(targetRow.window_start) <= nowTs && nowTs <= new Date(targetRow.window_end))) {
+        throw new Error('Retest window is not active');
+      }
+      if (targetRow.is_completed) {
+        throw new Error('Retest is already completed');
+      }
+      const maxAttempts = targetRow.max_attempts || targetRow.ra_max_attempts || 1;
+      if ((targetRow.attempt_number || 0) >= maxAttempts) {
+        throw new Error('Maximum retest attempts reached');
+      }
+      
       // Get retest assignment details
       const retestAssignment = await sql`
         SELECT * FROM retest_assignments WHERE id = ${retest_assignment_id}
@@ -367,32 +392,70 @@ async function saveToDatabase(data, userInfo) {
         
         console.log('Retest written to test_attempts');
         
-        // Mirror other tests: update retest_targets attempts and status
+        // Update retest_targets with new columns: attempt_number, is_completed, passed
         try {
           const percentageVal = Math.round(scores.overall_score);
           console.log('Updating retest_targets with percentage:', percentageVal);
-
-          if (percentageVal >= 50) {
-            await sql`
-              UPDATE retest_targets tgt
-              SET attempt_count = ra.max_attempts,
-                  last_attempt_at = NOW(),
-                  status = 'PASSED'
-              FROM retest_assignments ra
-              WHERE tgt.retest_assignment_id = ra.id
-                AND tgt.retest_assignment_id = ${retest_assignment_id}
-                AND tgt.student_id = ${userInfo.student_id}
-            `;
+          
+          const passingThreshold = targetRow.passing_threshold || 50;
+          const passed = percentageVal >= passingThreshold;
+          const currentAttempt = targetRow.attempt_number || 0;
+          
+          // Determine next attempt number
+          let nextAttemptNumber;
+          if (passed) {
+            // Early pass: jump to max_attempts slot
+            nextAttemptNumber = targetRow.max_attempts || targetRow.ra_max_attempts || 1;
           } else {
-            await sql`
-              UPDATE retest_targets 
-              SET attempt_count = attempt_count + 1,
-                  last_attempt_at = NOW(),
-                  status = 'FAILED'
-              WHERE retest_assignment_id = ${retest_assignment_id}
-                AND student_id = ${userInfo.student_id}
-            `;
+            // Increment attempt
+            nextAttemptNumber = currentAttempt + 1;
           }
+          
+          // Check if retest should be marked as completed
+          const maxAttempts = targetRow.max_attempts || targetRow.ra_max_attempts || 1;
+          const attemptsExhausted = nextAttemptNumber >= maxAttempts;
+          const shouldComplete = attemptsExhausted || passed;
+          
+          // Update retest_targets in single transaction
+          const updateResult = await sql`
+            UPDATE retest_targets
+            SET 
+              attempt_number = ${nextAttemptNumber},
+              attempt_count = ${nextAttemptNumber},
+              last_attempt_at = NOW(),
+              passed = ${passed},
+              is_completed = ${shouldComplete},
+              completed_at = CASE
+                WHEN ${shouldComplete} AND completed_at IS NULL THEN NOW()
+                ELSE completed_at
+              END,
+              status = CASE
+                WHEN ${passed} THEN 'PASSED'
+                WHEN ${attemptsExhausted} THEN 'FAILED'
+                ELSE 'IN_PROGRESS'
+              END,
+              updated_at = NOW()
+            WHERE retest_assignment_id = ${retest_assignment_id}
+              AND student_id = ${userInfo.student_id}
+            RETURNING *
+          `;
+          
+          if (updateResult.length === 0) {
+            console.error('⚠️ Failed to update retest_targets - no rows matched', {
+              retest_assignment_id,
+              studentId: userInfo.student_id,
+              test_id: effectiveParentTestId
+            });
+          } else {
+            console.log('✅ Updated retest_targets:', {
+              retest_assignment_id,
+              studentId: userInfo.student_id,
+              attempt_number: updateResult[0].attempt_number,
+              is_completed: updateResult[0].is_completed,
+              passed: updateResult[0].passed
+            });
+          }
+          
           console.log('Retest targets updated');
         } catch (err) {
           console.error('Failed to update retest_targets:', err);

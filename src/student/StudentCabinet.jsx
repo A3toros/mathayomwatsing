@@ -327,11 +327,18 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     try {
       const studentId = user?.student_id || user?.id || '';
       
-      // If retest is available from backend, check attempt limits
       if (retestAvailable) {
         logger.debug('🎓 Retest available from backend, checking attempt limits.');
+        const attemptsMetaKey = `retest_attempts_${studentId}_${testType}_${testId}`;
+        let attemptsMeta;
+        try {
+          const attemptsMetaRaw = localStorage.getItem(attemptsMetaKey);
+          attemptsMeta = attemptsMetaRaw ? JSON.parse(attemptsMetaRaw) : undefined;
+        } catch (e) {
+          logger.warn('🎓 Failed to parse attempts metadata:', e);
+        }
         
-        // Check localStorage attempt tracking with descriptive keys
+        // Count attempts tracked via per-attempt keys as a fallback
         const attemptKeys = [];
         for (let i = 1; i <= 10; i++) { // Check up to 10 attempts
           const key = `retest_attempt${i}_${studentId}_${testType}_${testId}`;
@@ -341,13 +348,32 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         }
         const currentAttempts = attemptKeys.length;
         
-        // Get max attempts from the test data (passed from backend)
-        const maxAttempts = testData?.retest_attempts_left || testData?.max_attempts || 3;
+        const attemptsLeftFromApi = typeof testData?.retest_attempts_left === 'number' ? testData.retest_attempts_left : undefined;
+        const attemptsMadeFromApi = typeof testData?.retest_attempt_number === 'number' ? testData.retest_attempt_number : undefined;
+        const totalAttemptsFromApi = typeof testData?.retest_max_attempts === 'number' ? testData.retest_max_attempts : undefined;
         
-        logger.debug('🎓 Current attempts:', currentAttempts, 'Max attempts:', maxAttempts, 'Attempt keys:', attemptKeys);
+        if (attemptsLeftFromApi === 0) {
+          logger.debug('🎓 API reports no attempts left. Retest considered completed.');
+          return true;
+        }
         
-        if (currentAttempts >= maxAttempts) {
-          logger.debug('🎓 Maximum retest attempts reached in localStorage');
+        const totalAttempts = totalAttemptsFromApi
+          ?? (attemptsLeftFromApi != null && attemptsMadeFromApi != null
+                ? attemptsLeftFromApi + attemptsMadeFromApi
+                : attemptsMeta?.max ?? 3);
+        const usedAttempts = attemptsMeta?.used ?? currentAttempts;
+        
+        logger.debug('🎓 Retest check:', {
+          attemptsMeta,
+          attemptKeys,
+          usedAttempts,
+          totalAttempts,
+          attemptsLeftFromApi,
+          retriesRemaining: attemptsLeftFromApi != null ? attemptsLeftFromApi : (totalAttempts - usedAttempts)
+        });
+        
+        if (usedAttempts >= totalAttempts) {
+          logger.debug('🎓 Maximum retest attempts reached (meta/localStorage).');
           return true; // Consider "completed" to block further attempts
         }
         
@@ -449,55 +475,55 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     logger.debug('🎓 completedTests.has(testKey):', completedTests.has(testKey));
     logger.debug('🎓 completedTests:', Array.from(completedTests));
     
-    if (test?.retest_available) {
+    if (test?.retest_available && !test?.retest_is_completed) {
       const studentId = user?.student_id || user?.id || '';
       const retestKey = `retest1_${studentId}_${test.test_type}_${test.test_id}`;
       localStorage.setItem(retestKey, 'true');
       logger.debug('🎓 Set retest key:', retestKey);
-      // Mirror other tests: clear completion flags so UI doesn't show Completed badge
+      // ⚠️ REMOVED: No longer delete completion keys - API handles filtering
+      // Completion keys are kept temporarily until API refresh
+      
+      // Set in-progress retest lock and clear per-test caches so old results don't appear
+      const inProgressKey = `retest_in_progress_${studentId}_${test.test_type}_${test.test_id}`;
+      localStorage.setItem(inProgressKey, '1');
+      logger.debug('🔒 Set in-progress retest lock:', inProgressKey);
+      
+      // Clear per-test cached data (speaking-specific keys and generic patterns)
       try {
-        const completedKeyNew = `test_completed_${studentId}_${test.test_type}_${test.test_id}`;
-        localStorage.removeItem(completedKeyNew);
-        const legacyCompletedKey = `${test.test_type}_${test.test_id}`;
-        localStorage.removeItem(legacyCompletedKey);
-        logger.debug('🗑️ Cleared completion keys for retest:', completedKeyNew, legacyCompletedKey);
-        // Set in-progress retest lock and clear per-test caches so old results don't appear
-        const inProgressKey = `retest_in_progress_${studentId}_${test.test_type}_${test.test_id}`;
-        localStorage.setItem(inProgressKey, '1');
-        logger.debug('🔒 Set in-progress retest lock:', inProgressKey);
-        // Clear per-test cached data (speaking-specific keys and generic patterns)
-        try {
-          const antiCheatKey = `anti_cheating_${studentId}_${test.test_type}_${test.test_id}`;
-          localStorage.removeItem(antiCheatKey);
-          // Speaking cached bundle
-          const speakingCacheKey = `speaking_test_data_${studentId}_${test.test_id}`;
-          localStorage.removeItem(speakingCacheKey);
-          const speakingProgressKey = `speaking_progress_${test.test_id}`;
-          localStorage.removeItem(speakingProgressKey);
-          // Generic sweep: remove any cached answers/progress for this test (pre-picked answers in retests)
-          const suffix = `_${studentId}_${test.test_type}_${test.test_id}`;
-          const toDelete = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (!key) continue;
-            // Common prefixes for saved answers/state across tests
-            if (
-              key.endsWith(suffix) ||
-              key.includes(`answers_${studentId}_${test.test_type}_${test.test_id}`) ||
-              key.includes(`progress_${studentId}_${test.test_type}_${test.test_id}`) ||
-              key.includes(`state_${studentId}_${test.test_type}_${test.test_id}`) ||
-              key.includes(`selected_${studentId}_${test.test_type}_${test.test_id}`)
-            ) {
-              toDelete.push(key);
-            }
+        const antiCheatKey = `anti_cheating_${studentId}_${test.test_type}_${test.test_id}`;
+        localStorage.removeItem(antiCheatKey);
+        // Speaking cached bundle
+        const speakingCacheKey = `speaking_test_data_${studentId}_${test.test_id}`;
+        localStorage.removeItem(speakingCacheKey);
+        const speakingProgressKey = `speaking_progress_${test.test_id}`;
+        localStorage.removeItem(speakingProgressKey);
+        // Generic sweep: remove any cached answers/progress for this test (pre-picked answers in retests)
+        const suffix = `_${studentId}_${test.test_type}_${test.test_id}`;
+        const toDelete = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (key.startsWith(`retest_attempt`)) {
+            // Preserve attempt counters so we know how many retries are left
+            continue;
           }
-          toDelete.forEach(k => localStorage.removeItem(k));
-          logger.debug('🗑️ Cleared generic cached keys for retest start:', toDelete);
-          // Attempts meta used by retest UI
-          const attemptsMetaKey = `retest_attempts_${studentId}_${test.test_type}_${test.test_id}`;
-          // Do not delete attempts meta here; it's used to cap attempts. Keep it.
-          logger.debug('🗑️ Cleared per-test cached keys for retest start:', { antiCheatKey, speakingCacheKey, speakingProgressKey });
-        } catch (_) {}
+          // Common prefixes for saved answers/state across tests
+          if (
+            key.endsWith(suffix) ||
+            key.includes(`answers_${studentId}_${test.test_type}_${test.test_id}`) ||
+            key.includes(`progress_${studentId}_${test.test_type}_${test.test_id}`) ||
+            key.includes(`state_${studentId}_${test.test_type}_${test.test_id}`) ||
+            key.includes(`selected_${studentId}_${test.test_type}_${test.test_id}`)
+          ) {
+            toDelete.push(key);
+          }
+        }
+        toDelete.forEach(k => localStorage.removeItem(k));
+        logger.debug('🗑️ Cleared generic cached keys for retest start:', toDelete);
+        // Attempts meta used by retest UI
+        const attemptsMetaKey = `retest_attempts_${studentId}_${test.test_type}_${test.test_id}`;
+        // Do not delete attempts meta here; it's used to cap attempts. Keep it.
+        logger.debug('🗑️ Cleared per-test cached keys for retest start:', { antiCheatKey, speakingCacheKey, speakingProgressKey });
       } catch (_) {}
       // Persist retest assignment id for the test page to submit properly
       logger.debug('🎓 Test retest_assignment_id:', test.retest_assignment_id);
@@ -568,8 +594,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
         try {
           // Check if test is already completed (for ALL test types including matching)
           const isCompleted = await checkTestCompleted(test.test_type, test.test_id, test?.retest_available, test);
-          // Strict: block when completed unless backend explicitly exposes retest_available
-          if (isCompleted && !test?.retest_available) {
+          if (isCompleted) {
             showNotification('This test has already been completed', 'warning');
             return;
           }
@@ -883,7 +908,60 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                 const testKey = `${test.test_type}_${test.test_id}`;
                                 const isCompleted = completedTests.has(testKey);
 
-                                // Show loading state while completion status is being determined
+                                let localRetestCompleted = false;
+                                if (typeof window !== 'undefined' && test?.retest_available) {
+                                  const studentIdLocal = user?.student_id || user?.id || '';
+                                  if (studentIdLocal) {
+                                    try {
+                                      const completionKey = `test_completed_${studentIdLocal}_${test.test_type}_${test.test_id}`;
+                                      const completionFlag = localStorage.getItem(completionKey) === 'true';
+
+                                      const attemptsMetaKey = `retest_attempts_${studentIdLocal}_${test.test_type}_${test.test_id}`;
+                                      let attemptsMeta;
+                                      const attemptsMetaRaw = localStorage.getItem(attemptsMetaKey);
+                                      if (attemptsMetaRaw) {
+                                        try {
+                                          attemptsMeta = JSON.parse(attemptsMetaRaw);
+                                        } catch (metaErr) {
+                                          logger.warn('🎓 Failed to parse retest attempts metadata in render:', metaErr);
+                                        }
+                                      }
+
+                                      let usedAttempts = typeof attemptsMeta?.used === 'number' ? attemptsMeta.used : undefined;
+                                      if (usedAttempts == null) {
+                                        let count = 0;
+                                        for (let i = 1; i <= 10; i++) {
+                                          const attemptKey = `retest_attempt${i}_${studentIdLocal}_${test.test_type}_${test.test_id}`;
+                                          if (localStorage.getItem(attemptKey) === 'true') {
+                                            count++;
+                                          }
+                                        }
+                                        usedAttempts = count;
+                                      }
+
+                                      const attemptsLeftFromApi = typeof test?.retest_attempts_left === 'number' ? test.retest_attempts_left : undefined;
+                                      const totalAttemptsFromApi = typeof test?.retest_max_attempts === 'number' ? test.retest_max_attempts : undefined;
+                                      const derivedTotalAttempts = totalAttemptsFromApi
+                                        ?? (attemptsMeta?.max != null ? attemptsMeta.max
+                                          : (attemptsLeftFromApi != null && typeof test?.retest_attempt_number === 'number'
+                                            ? attemptsLeftFromApi + test.retest_attempt_number
+                                            : undefined));
+
+                                      if (attemptsLeftFromApi === 0) {
+                                        localRetestCompleted = true;
+                                      } else if (
+                                        derivedTotalAttempts != null && usedAttempts != null && usedAttempts >= derivedTotalAttempts
+                                      ) {
+                                        localRetestCompleted = true;
+                                      } else if (completionFlag && attemptsLeftFromApi == null && derivedTotalAttempts == null) {
+                                        localRetestCompleted = true;
+                                      }
+                                    } catch (retestCheckErr) {
+                                      logger.warn('🎓 Failed to evaluate local retest completion:', retestCheckErr);
+                                    }
+                                  }
+                                }
+
                                 if (!isCompletionStatusLoaded) {
                                   return (
                                     <Button
@@ -897,40 +975,41 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                   );
                                 }
 
-                                // Allow retest start even if completed, when backend flags retest_available
-                                if (isCompleted && test?.retest_available) {
-                                  // When local attempts meta reached max, show Completed immediately (mirror other tests)
-                                  const studentId = user?.student_id || user?.id || '';
-                                  let attemptsDisabled = false;
-                                  try {
-                                    const metaRaw = localStorage.getItem(`retest_attempts_${studentId}_${test.test_type}_${test.test_id}`);
-                                    if (metaRaw) {
-                                      const meta = JSON.parse(metaRaw);
-                                      if (typeof meta?.used === 'number' && typeof meta?.max === 'number' && meta.used >= meta.max) {
-                                        attemptsDisabled = true;
-                                      }
-                                    }
-                                  } catch (_) {}
-                                  if (attemptsDisabled) {
+                                if (test?.retest_is_completed || localRetestCompleted) {
+                                  return (
+                                    <Button
+                                      variant="secondary"
+                                      size="xs"
+                                      disabled
+                                      className="bg-green-100 text-green-800 border-green-200"
+                                    >
+                                      ✓ Completed
+                                    </Button>
+                                  );
+                                }
+
+                                if (test?.retest_available && !test?.retest_is_completed && !localRetestCompleted) {
+                                  const attemptsLeft = test.retest_attempts_left || 0;
+                                  if (attemptsLeft > 0) {
                                     return (
                                       <Button
-                                        variant="secondary"
-                                        size="xs"
-                                        disabled
-                                        className="bg-green-100 text-green-800 border-green-200"
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => handleTestStart(test)}
+                                        disabled={isStartingTest}
                                       >
-                                        ✓ Completed
+                                        Start Retest
                                       </Button>
                                     );
                                   }
                                   return (
                                     <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={() => handleTestStart(test)}
-                                      disabled={isStartingTest}
+                                      variant="secondary"
+                                      size="xs"
+                                      disabled
+                                      className="bg-green-100 text-green-800 border-green-200"
                                     >
-                                      Start Retest
+                                      ✓ Completed
                                     </Button>
                                   );
                                 }

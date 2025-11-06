@@ -110,14 +110,15 @@ CREATE INDEX IF NOT EXISTS idx_retest_targets_completed_at
 
 ### Phase 2: Update Retest Creation
 
-**File**: `functions/create-retest-assignment.js` (or wherever retests are created)
+**File**: `functions/create-retest-assignment.js`
 
 **Changes:**
 1. When creating `retest_targets` row, copy `max_attempts` from `retest_assignments`
 2. Initialize `attempt_number = 0`, `is_completed = FALSE`, `passed = FALSE`
+3. **CRITICAL**: Write `retest_assignment_id` to ALL 8 test result tables (not just speaking!)
 
 ```javascript
-// When creating retest_targets
+// When creating retest_targets - UPDATE EXISTING CODE (lines 96-101)
 await sql`
   INSERT INTO retest_targets (
     retest_assignment_id,
@@ -130,8 +131,8 @@ await sql`
     status
   )
   SELECT 
-    ${retest_assignment_id},
-    ${student_id},
+    ${retestId},
+    ${sid},
     ra.max_attempts,  -- Copy from retest_assignments
     0,  -- Start at 0
     0,  -- Keep attempt_count in sync
@@ -139,8 +140,68 @@ await sql`
     FALSE,  -- Not passed yet
     'PENDING'
   FROM retest_assignments ra
-  WHERE ra.id = ${retest_assignment_id}
+  WHERE ra.id = ${retestId}
   ON CONFLICT (retest_assignment_id, student_id) DO NOTHING
+`;
+
+// CRITICAL: Write retest_assignment_id to ALL 8 test result tables
+// Currently only speaking_test_results is updated (line 110-113)
+// Need to update ALL 8 tables:
+
+// 1. Multiple Choice
+await sql`
+  UPDATE multiple_choice_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 2. True/False
+await sql`
+  UPDATE true_false_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 3. Input
+await sql`
+  UPDATE input_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 4. Matching Type
+await sql`
+  UPDATE matching_type_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 5. Word Matching
+await sql`
+  UPDATE word_matching_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 6. Drawing
+await sql`
+  UPDATE drawing_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 7. Fill Blanks
+await sql`
+  UPDATE fill_blanks_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
+`;
+
+// 8. Speaking (already exists, but keep it)
+await sql`
+  UPDATE speaking_test_results
+  SET retest_assignment_id = ${retestId}
+  WHERE student_id = ${sid} AND test_id = ${test_id}
 `;
 ```
 
@@ -214,13 +275,56 @@ await sql`
 - `completed_at` set once when first completed
 - `passed` flag tracks if student passed
 
+**CRITICAL: Also update original test results table with retest_assignment_id**
+
+When submitting a retest, we write to `test_attempts`, but we ALSO need to update the original test results table to link it to the retest assignment:
+
+```javascript
+// After updating retest_targets, also update original test results table
+// This allows queries to find which retest assignment a result belongs to
+
+if (retest_assignment_id) {
+  // Update the appropriate test results table based on test_type
+  // This should be done AFTER writing to test_attempts
+  
+  switch (test_type) {
+    case 'multiple_choice':
+      await sql`
+        UPDATE multiple_choice_test_results
+        SET retest_assignment_id = ${retest_assignment_id}
+        WHERE student_id = ${studentId} AND test_id = ${effectiveParentTestId}
+        AND retest_assignment_id IS NULL  -- Only update if not already set
+      `;
+      break;
+    case 'true_false':
+      await sql`
+        UPDATE true_false_test_results
+        SET retest_assignment_id = ${retest_assignment_id}
+        WHERE student_id = ${studentId} AND test_id = ${effectiveParentTestId}
+        AND retest_assignment_id IS NULL
+      `;
+      break;
+    // ... repeat for all 8 test types
+  }
+}
+```
+
+**Note**: The original test results table already has `retest_assignment_id` column (from schema), we just need to populate it during retest submission.
+
 ---
 
 ### Phase 4: Update API Functions
 
+**⚠️ VIEW UPDATE**: `student_active_tests_view.sql` has been updated to exclude completed retests at the SQL level. This means:
+- Tests where original is completed AND retest is completed are filtered out in the view
+- The JavaScript function no longer needs to filter these out
+- The view joins `retest_assignments` and `retest_targets` to check `is_completed` status
+
 #### 4.1 Update `get-student-active-tests.js`
 
-**Current logic** (lines 206-213):
+**⚠️ IMPORTANT**: The `student_active_tests_view` now filters out completed retests at the SQL level. The JavaScript filter below is **redundant** and should be **removed**.
+
+**Current logic** (lines 206-213) - **REMOVE THIS**:
 ```javascript
 const isCompleted = row.result_id !== null && row.result_id !== undefined;
 if (isCompleted && !retestAvailable) {
@@ -228,7 +332,7 @@ if (isCompleted && !retestAvailable) {
 }
 ```
 
-**New logic** - Check `retest_targets.is_completed`:
+**New logic** - Check `retest_targets.is_completed` and return flags (but don't filter, view handles it):
 
 ```javascript
 // Check if test is completed (from results table)
@@ -255,11 +359,11 @@ if (retestAvailable) {
   }
 }
 
-// Skip if completed AND (no retest OR retest completed)
-if (isCompleted && (!retestAvailable || retestCompleted)) {
-  console.log('Filtering out completed test:', row.test_type, row.test_id);
-  continue;
-}
+// ⚠️ REMOVE THIS FILTER - view already excludes completed retests
+// if (isCompleted && (!retestAvailable || retestCompleted)) {
+//   console.log('Filtering out completed test:', row.test_type, row.test_id);
+//   continue;
+// }
 ```
 
 **Response includes:**
@@ -485,17 +589,34 @@ return <ThemedButton title="Start Test" onPress={() => startTest(test)} />;
 
 ## Testing Checklist
 
-- [ ] Retest creation sets `max_attempts` correctly
-- [ ] First submission sets `attempt_number = 1`
-- [ ] Failed submission increments `attempt_number`
-- [ ] Passing submission sets `is_completed = TRUE` and `passed = TRUE`
-- [ ] Exhausting attempts sets `is_completed = TRUE`
+### Retest Creation
+- [ ] Retest creation sets `max_attempts` correctly in `retest_targets`
+- [ ] Retest creation writes `retest_assignment_id` to ALL 8 test result tables:
+  - [ ] `multiple_choice_test_results`
+  - [ ] `true_false_test_results`
+  - [ ] `input_test_results`
+  - [ ] `matching_type_test_results`
+  - [ ] `word_matching_test_results`
+  - [ ] `drawing_test_results`
+  - [ ] `fill_blanks_test_results`
+  - [ ] `speaking_test_results`
+
+### Retest Submission (All 8 Test Types)
+- [ ] First submission sets `attempt_number = 1` in `retest_targets`
+- [ ] Failed submission increments `attempt_number` in `retest_targets`
+- [ ] Passing submission sets `is_completed = TRUE` and `passed = TRUE` in `retest_targets`
+- [ ] Exhausting attempts sets `is_completed = TRUE` in `retest_targets`
+- [ ] Retest submission writes `retest_assignment_id` to original test results table (for all 8 types)
+- [ ] Retest submission writes to `test_attempts` table
+- [ ] Early pass works correctly (jumps to max_attempts slot)
+- [ ] Multiple attempts tracked correctly
+
+### API & Frontend
 - [ ] API returns `retest_is_completed` correctly
+- [ ] API returns `retest_passed`, `retest_attempt_number`, `retest_max_attempts`
 - [ ] Web app filters completed retests
 - [ ] Android app filters completed retests
 - [ ] No localStorage/AsyncStorage key deletion
-- [ ] Early pass works correctly
-- [ ] Multiple attempts tracked correctly
 
 ---
 
@@ -505,16 +626,16 @@ return <ThemedButton title="Start Test" onPress={() => startTest(test)} />;
 - `database/retest_targets_schema_update.sql` (NEW)
 
 ### Backend Functions
-- `functions/create-retest-assignment.js` (or retest creation function)
-- `functions/submit-multiple-choice-test.js`
-- `functions/submit-true-false-test.js`
-- `functions/submit-input-test.js`
-- `functions/submit-matching-type-test.js`
-- `functions/submit-word-matching-test.js`
-- `functions/submit-fill-blanks-test.js`
-- `functions/submit-drawing-test.js`
-- `functions/submit-speaking-test-final.js`
-- `functions/get-student-active-tests.js`
+- `functions/create-retest-assignment.js` ⚠️ **CRITICAL**: Update to write retest_assignment_id to ALL 8 test result tables
+- `functions/submit-multiple-choice-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to multiple_choice_test_results
+- `functions/submit-true-false-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to true_false_test_results
+- `functions/submit-input-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to input_test_results
+- `functions/submit-matching-type-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to matching_type_test_results
+- `functions/submit-word-matching-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to word_matching_test_results
+- `functions/submit-fill-blanks-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to fill_blanks_test_results
+- `functions/submit-drawing-test.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to drawing_test_results
+- `functions/submit-speaking-test-final.js` ⚠️ **CRITICAL**: Update retest_targets AND write retest_assignment_id to speaking_test_results
+- `functions/get-student-active-tests.js` ⚠️ **CRITICAL**: Check retest_targets.is_completed for filtering
 
 ### Web App
 - `src/student/StudentCabinet.jsx`

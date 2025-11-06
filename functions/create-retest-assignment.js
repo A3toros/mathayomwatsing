@@ -93,9 +93,29 @@ exports.handler = async (event, context) => {
 
     console.log('[RETEST CREATE] Creating retest_targets for', student_ids.length, 'students');
     for (const sid of student_ids) {
+      // Insert retest_targets with new columns: max_attempts, attempt_number, is_completed, passed
       await sql`
-        INSERT INTO retest_targets(retest_assignment_id, student_id)
-        VALUES(${retestId}, ${sid})
+        INSERT INTO retest_targets (
+          retest_assignment_id,
+          student_id,
+          max_attempts,
+          attempt_number,
+          attempt_count,
+          is_completed,
+          passed,
+          status
+        )
+        SELECT 
+          ${retestId},
+          ${sid},
+          ra.max_attempts,
+          0,
+          0,
+          FALSE,
+          FALSE,
+          'PENDING'
+        FROM retest_assignments ra
+        WHERE ra.id = ${retestId}
         ON CONFLICT (retest_assignment_id, student_id) DO NOTHING
       `;
       console.log('[RETEST CREATE] Created retest_target for student:', sid);
@@ -104,13 +124,66 @@ exports.handler = async (event, context) => {
       await sql`SELECT set_retest_offered(${sid}, ${test_id}, true)`;
       console.log('[RETEST CREATE] Called set_retest_offered for student:', sid, 'test_id:', test_id);
       
-      // Persist retest assignment id to speaking originals so UI can read it directly
-      // Note: Safe no-op if no speaking result row exists yet
+      // CRITICAL: Write retest_assignment_id to ALL 8 test result tables
+      // This allows queries to find which retest assignment a result belongs to
+      
+      // 1. Multiple Choice
+      await sql`
+        UPDATE multiple_choice_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 2. True/False
+      await sql`
+        UPDATE true_false_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 3. Input
+      await sql`
+        UPDATE input_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 4. Matching Type
+      await sql`
+        UPDATE matching_type_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 5. Word Matching
+      await sql`
+        UPDATE word_matching_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 6. Drawing
+      await sql`
+        UPDATE drawing_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 7. Fill Blanks
+      await sql`
+        UPDATE fill_blanks_test_results
+        SET retest_assignment_id = ${retestId}
+        WHERE student_id = ${sid} AND test_id = ${test_id}
+      `;
+      
+      // 8. Speaking
       await sql`
         UPDATE speaking_test_results
         SET retest_assignment_id = ${retestId}
         WHERE student_id = ${sid} AND test_id = ${test_id}
       `;
+      
+      console.log('[RETEST CREATE] Updated retest_assignment_id in all 8 test result tables for student:', sid);
     }
 
     // Clear completion keys for students who will get retests
