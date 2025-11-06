@@ -855,17 +855,26 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                           transition={{ delay: showAllTests ? 0 : 0.7 + index * 0.1, duration: 0.3 }}
                           whileHover={{ scale: 1.02 }}
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="flex justify-between items-center">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-3 text-sm">
-                                <h3 className="text-sm sm:text-lg font-medium text-gray-900 w-16 sm:w-auto break-words leading-tight line-clamp-2 sm:line-clamp-none">{test.test_name}</h3>
+                              {/* Mobile: Two-line layout */}
+                              <div className="sm:hidden">
+                                <h3 className="text-sm font-medium text-gray-900 mb-1 break-words leading-tight">{test.test_name}</h3>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                  <span>{test.teacher_name}</span>
+                                  <span>•</span>
+                                  <span>{new Date(test.assigned_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}</span>
+                                </div>
+                              </div>
+                              {/* Desktop: Single line layout */}
+                              <div className="hidden sm:flex items-center space-x-3 text-sm">
+                                <h3 className="text-lg font-medium text-gray-900 break-words leading-tight">{test.test_name}</h3>
                                 <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                                   {test.subject}
                                 </span>
                                 <span className="text-gray-500">{test.teacher_name}</span>
                                 <span className="text-gray-500">
-                                  <span className="sm:hidden">{new Date(test.assigned_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}</span>
-                                  <span className="hidden sm:inline">{new Date(test.assigned_at).toLocaleDateString()}</span>
+                                  {new Date(test.assigned_at).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
