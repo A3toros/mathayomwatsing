@@ -1091,6 +1091,85 @@ export const testService = {
       console.error('Error removing class assignment:', error);
       return { success: false, message: 'Error removing assignment: ' + error.message };
     }
+  },
+
+  // Update test questions
+  async updateTestQuestions(testType, testId, questions) {
+    try {
+      console.log(`[DEBUG] updateTestQuestions called with testType: ${testType}, testId: ${testId}`);
+      
+      const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/update-test-questions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_type: testType,
+          test_id: testId,
+          questions: questions
+        })
+      });
+
+      if (!response.ok) {
+        // Try to get error details from response
+        let errorDetails = `HTTP error! status: ${response.status}`;
+        try {
+          const errorResult = await response.json();
+          errorDetails = errorResult.details || errorResult.error || errorDetails;
+          console.error('[DEBUG] Update questions error response:', errorResult);
+        } catch (e) {
+          // If we can't parse the error response, use the status
+        }
+        throw new Error(errorDetails);
+      }
+
+      const result = await response.json();
+      console.log('[DEBUG] Update questions response:', result);
+
+      if (result.success) {
+        console.log(`Questions for ${testType}_${testId} updated successfully`);
+        return { success: true, message: result.message };
+      } else {
+        const errorMsg = result.error || result.details || 'Failed to update questions';
+        console.error('[DEBUG] Update questions error:', errorMsg, result);
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error updating questions:', error);
+      throw error;
+    }
+  },
+
+  // Update test settings
+  async updateTestSettings(testType, testId, settings) {
+    try {
+      console.log(`[DEBUG] updateTestSettings called with testType: ${testType}, testId: ${testId}`);
+      
+      const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/update-test-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_type: testType,
+          test_id: testId,
+          ...settings
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[DEBUG] Update settings response:', result);
+
+      if (result.success) {
+        console.log(`Settings for ${testType}_${testId} updated successfully`);
+        return { success: true, message: result.message };
+      } else {
+        throw new Error(result.error || 'Failed to update settings');
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
   }
 };
 

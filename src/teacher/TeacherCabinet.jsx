@@ -18,6 +18,8 @@ import { performanceService } from '@/services/performanceService';
 import { TestPerformanceGraph } from '@/components/TestPerformanceGraph';
 import { logger } from '@/utils/logger';
 import { renderMathInText } from '@/utils/mathRenderer';
+import TestSettingsEditor from '@/components/test/TestSettingsEditor';
+import TestDetailsModal from '@/components/test/TestDetailsModal';
 
 
 const TeacherCabinet = ({ onBackToLogin }) => {
@@ -25,7 +27,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const { user, isAuthenticated, logout, getCurrentTeacherUsername } = useAuth();
   const { teacherData, loadTeacherData } = useUser();
   const { activeTests, loadActiveTests } = useTest();
-  const { showNotification, notifications } = useNotification();
+  const { showNotification, notifications, removeNotification } = useNotification();
   
   // Local state
   const [isLoading, setIsLoading] = useState(true);
@@ -519,15 +521,28 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Enhanced viewTeacherTestDetails from legacy code
   const handleShowTestDetails = useCallback(async (test) => {
     logger.debug('👨‍🏫 Showing test details:', test);
-    setSelectedTest(test);
+    const baseTest = activeTestsData?.find(t => t.test_type === test.test_type && t.test_id === test.test_id) || {};
+    const assignments = baseTest.assignments || test.assignments || [];
+    const hasActiveAssignment = assignments.some(assignment => assignment.is_active);
+    const selectedAssignmentId = test.selectedAssignmentId || test.assignment_id || null;
+
+    const enrichedTest = {
+      ...baseTest,
+      ...test,
+      assignments,
+      selectedAssignmentId,
+      hasActiveAssignment
+    };
+
+    setSelectedTest(enrichedTest);
     setShowTestDetails(true);
     setTestQuestions([]);
     setTestInfo(null);
     setIsLoadingTestDetails(true);
 
     try {
-      // Only fetch questions for input, true_false, and multiple_choice
-      if (['input', 'true_false', 'multiple_choice'].includes(test.test_type)) {
+      // Fetch questions for all editable test types
+      if (['input', 'true_false', 'multiple_choice', 'word_matching', 'fill_blanks'].includes(test.test_type)) {
         // Fetch questions and test info
         const response = await testService.getTestQuestionsWithInfo(test.test_type, test.test_id);
         setTestQuestions(response.questions || []);
@@ -543,7 +558,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     } finally {
       setIsLoadingTestDetails(false);
     }
-  }, [showNotification]);
+  }, [activeTestsData, showNotification]);
   
   // Enhanced removeClassAssignment from legacy code
   const removeAssignment = useCallback(async (testType, testId, assignmentId) => {
@@ -603,51 +618,6 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
-  // Activate an inactive test to make it visible to students - now works with assignment_id
-  const [activatingAssignmentId, setActivatingAssignmentId] = useState(null);
-  const activateTest = useCallback(async (assignmentId) => {
-    logger.debug('👨‍🏫 Activating assignment:', assignmentId);
-    setActivatingAssignmentId(assignmentId);
-    
-    try {
-      const result = await testService.activateAssignment(assignmentId);
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to activate assignment');
-      }
-      
-      // Update local state only after API success to hide the button
-      setActiveTestsData(prevTests => {
-        return prevTests.map(test => ({
-          ...test,
-          assignments: test.assignments?.map(assignment => 
-            assignment.assignment_id === assignmentId
-              ? { ...assignment, is_active: true }
-              : assignment
-          ) || []
-        }));
-      });
-      
-      // Show notification after success
-      showNotification('Test assignment activated! Students can now see this test.', 'success');
-      
-      // Clear the cache to force fresh data
-      const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
-      localStorage.removeItem(cacheKey);
-      logger.debug('👨‍🏫 Cleared teacher tests cache');
-      
-      // Refresh in background (non-blocking)
-      loadTests().catch(err => {
-        logger.error('👨‍🏫 Error refreshing tests after activation:', err);
-      });
-      
-    } catch (error) {
-      logger.error('👨‍🏫 Error activating assignment:', error);
-      showNotification('Failed to activate assignment', 'error');
-    } finally {
-      setActivatingAssignmentId(null);
-    }
-  }, [loadTests, showNotification, user?.teacher_id, user?.id]);
-  
   // Enhanced refreshActiveTestsData from legacy code - TRUE REFRESH
   const refreshTests = useCallback(async () => {
     logger.debug('👨‍🏫 Refreshing active tests data...');
@@ -671,7 +641,75 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       logger.error('👨‍🏫 Error refreshing tests:', error);
       showNotification('Failed to refresh tests', 'error');
     }
-  }, [user?.teacher_id, user?.id]);
+  }, [showNotification, user?.teacher_id, user?.id]);
+
+  // Activate an inactive test to make it visible to students - now works with assignment_id
+  const [activatingAssignmentId, setActivatingAssignmentId] = useState(null);
+  const activateTest = useCallback(async (assignmentId) => {
+    logger.debug('👨‍🏫 Activating assignment:', assignmentId);
+    setActivatingAssignmentId(assignmentId);
+    
+    try {
+      const result = await testService.activateAssignment(assignmentId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to activate assignment');
+      }
+      
+      // Update local state only after API success to hide the button
+      let updatedTestsSnapshot = null;
+      setActiveTestsData(prevTests => {
+        const updated = prevTests.map(test => ({
+          ...test,
+          assignments: test.assignments?.map(assignment => 
+            assignment.assignment_id === assignmentId
+              ? { ...assignment, is_active: true }
+              : assignment
+          ) || []
+        }));
+        updatedTestsSnapshot = updated;
+        return updated;
+      });
+
+      if (updatedTestsSnapshot) {
+        setSelectedTest(prevSelected => {
+          if (!prevSelected) return prevSelected;
+          const updatedTest = updatedTestsSnapshot.find(test => 
+            test.test_id === prevSelected.test_id && test.test_type === prevSelected.test_type
+          );
+          if (!updatedTest) return prevSelected;
+
+          const assignments = updatedTest.assignments || prevSelected.assignments || [];
+          const hasActiveAssignment = assignments.some(assignment => assignment.is_active);
+
+          return {
+            ...prevSelected,
+            ...updatedTest,
+            assignments,
+            hasActiveAssignment
+          };
+        });
+      }
+      
+      // Show notification after success
+      showNotification('Test assignment activated! Students can now see this test.', 'success');
+      
+      // Clear the cache to force fresh data
+      const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+      localStorage.removeItem(cacheKey);
+      logger.debug('👨‍🏫 Cleared teacher tests cache');
+      
+      // Force a full refresh so other assignments/cards update immediately
+      refreshTests().catch(err => {
+        logger.error('👨‍🏫 Error performing hard refresh after activation:', err);
+      });
+      
+    } catch (error) {
+      logger.error('👨‍🏫 Error activating assignment:', error);
+      showNotification('Failed to activate assignment', 'error');
+    } finally {
+      setActivatingAssignmentId(null);
+    }
+  }, [refreshTests, showNotification, user?.teacher_id, user?.id]);
   
   // Transform tests into assignment cards - one card per assignment
   const assignmentCards = useMemo(() => {
@@ -683,7 +721,9 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       if (!test.assignments || test.assignments.length === 0) {
         return [];
       }
-      
+
+      const hasActiveAssignment = test.assignments.some(assignment => assignment.is_active);
+
       return test.assignments.map(assignment => ({
         // Test information
         test_id: test.test_id,
@@ -694,6 +734,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         subject_id: test.subject_id,
         subject: test.subject,
         teacher_id: test.teacher_id,
+        assignments: test.assignments,
+        has_active_assignment: hasActiveAssignment,
         // Assignment-specific information
         assignment_id: assignment.assignment_id,
         grade: assignment.grade,
@@ -704,7 +746,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
       }));
     });
   }, [activeTestsData]);
-
+  
   // Show notification helper
   
 
@@ -1426,227 +1468,53 @@ const TeacherCabinet = ({ onBackToLogin }) => {
         </PerfectModal>
       )}
 
-      {/* Test Details Modal */}
+      {/* Test Details Modal - Using TestDetailsModal with editing support */}
       {showTestDetails && selectedTest && (
-        <PerfectModal
+        <TestDetailsModal
           isOpen={showTestDetails}
           onClose={() => setShowTestDetails(false)}
-          title="Test Details"
-          size="large"
-        >
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <span className="text-sm font-medium text-gray-500">Test Name:</span>
-              <p className="text-sm text-gray-900">{selectedTest.test_name}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-500">Subject:</span>
-              <p className="text-sm text-gray-900">{selectedTest.subject}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-500">Test Type:</span>
-              <p className="text-sm text-gray-900">{selectedTest.test_type}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-500">Created:</span>
-              <p className="text-sm text-gray-900">{new Date(selectedTest.created_at).toLocaleDateString()}</p>
-            </div>
-
-            {/* Test Settings - Shuffle and Timer */}
-            {(testInfo || selectedTest) && (
-              <div className="space-y-2">
-                <div className="flex items-center space-x-4">
-                  {/* Shuffle Status */}
-                  {['input', 'true_false', 'multiple_choice'].includes(selectedTest.test_type) && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-500">Shuffled:</span>
-                      <span className={`text-sm font-semibold ${(testInfo?.is_shuffled || selectedTest.is_shuffled) ? 'text-green-600' : 'text-gray-400'}`}>
-                        {(testInfo?.is_shuffled || selectedTest.is_shuffled) ? '✓ Yes' : '✗ No'}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Timer Status */}
-                  {(testInfo?.allowed_time || selectedTest.allowed_time) && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-500">Timer:</span>
-                      <span className="text-sm font-semibold text-blue-600">
-                        ✓ {Math.floor((testInfo?.allowed_time || selectedTest.allowed_time) / 60)} minutes
-                      </span>
-                    </div>
-                  )}
-                  {!(testInfo?.allowed_time || selectedTest.allowed_time) && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-500">Timer:</span>
-                      <span className="text-sm font-semibold text-gray-400">
-                        ✗ Not set
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Classes Information */}
-            {selectedTest.assignments && selectedTest.assignments.length > 0 && (
-              <div>
-                <span className="text-sm font-medium text-gray-500">Classes:</span>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {selectedTest.assignments.map((assignment, index) => (
-                    <span 
-                      key={index}
-                      className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium"
-                    >
-                      {assignment.grade}/{assignment.class}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Questions with Correct Answers - Only for input, true_false, multiple_choice */}
-            {['input', 'true_false', 'multiple_choice'].includes(selectedTest.test_type) && (
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Questions and Correct Answers</h3>
-                
-                {isLoadingTestDetails ? (
-                  <div className="flex justify-center items-center py-8">
-                    <LoadingSpinner size="md" />
-          </div>
-                ) : testQuestions.length > 0 ? (
-                  <div className="space-y-4">
-                    {testQuestions.map((question, index) => {
-                      // Multiple Choice
-                      if (selectedTest.test_type === 'multiple_choice') {
-                        const correctAnswer = question.correct_answer;
-                        // Handle both array format and individual option fields
-                        const options = question.options || [];
-                        const optionFields = ['option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f'];
-                        const allOptions = options.length > 0 
-                          ? options 
-                          : optionFields
-                              .map(key => question[key])
-                              .filter(opt => opt != null && opt !== '');
-                        
-                        return (
-                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <div className="flex items-start space-x-3">
-                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
-                                Q{index + 1}:
-                              </span>
-                              <div className="flex-1">
-                                <p 
-                                  className="text-sm text-gray-900 mb-2"
-                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
-                                />
-                                <div className="mt-2">
-                                  <p className="text-xs font-medium text-gray-500 mb-1">Options:</p>
-                                  <div className="grid grid-cols-2 gap-2 text-xs">
-                                    {allOptions.map((opt, optIndex) => {
-                                      const letter = String.fromCharCode(97 + optIndex).toUpperCase(); // a, b, c, d...
-                                      return (
-                                        <div key={optIndex} className={`p-2 rounded ${letter === correctAnswer ? 'bg-green-100 border-2 border-green-500' : 'bg-white border border-gray-200'}`}>
-                                          <span className="font-semibold">{letter}:</span>{' '}
-                                          <span dangerouslySetInnerHTML={{ __html: renderMathInText(String(opt)) }} />
-                                          {letter === correctAnswer && (
-                                            <span className="ml-2 text-green-700 font-bold">✓ Correct</span>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      // True/False
-                      if (selectedTest.test_type === 'true_false') {
-                        const correctAnswer = question.correct_answer;
-                        const isTrue = correctAnswer === true || correctAnswer === 'true' || correctAnswer === 1 || correctAnswer === '1';
-                        
-                        return (
-                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <div className="flex items-start space-x-3">
-                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
-                                Q{index + 1}:
-                              </span>
-                              <div className="flex-1">
-                                <p 
-                                  className="text-sm text-gray-900 mb-2"
-                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
-                                />
-                                <div className="mt-2">
-                                  <div className={`inline-flex items-center px-3 py-1 rounded ${isTrue ? 'bg-green-100 border-2 border-green-500' : 'bg-red-100 border-2 border-red-500'}`}>
-                                    <span className="text-sm font-semibold">
-                                      Correct Answer: {isTrue ? 'True' : 'False'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      // Input
-                      if (selectedTest.test_type === 'input') {
-                        const correctAnswers = question.correct_answers || [];
-                        
-                        return (
-                          <div key={question.question_id || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <div className="flex items-start space-x-3">
-                              <span className="text-sm font-semibold text-gray-700 min-w-[2rem]">
-                                Q{index + 1}:
-                              </span>
-                              <div className="flex-1">
-                                <p 
-                                  className="text-sm text-gray-900 mb-2"
-                                  dangerouslySetInnerHTML={{ __html: renderMathInText(question.question) }}
-                                />
-                                <div className="mt-2">
-                                  <p className="text-xs font-medium text-gray-500 mb-1">Correct Answer(s):</p>
-                                  {correctAnswers.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      {correctAnswers.map((answer, ansIndex) => (
-                                        <span 
-                                          key={ansIndex}
-                                          className="inline-flex items-center px-3 py-1 rounded bg-green-100 border-2 border-green-500 text-sm font-semibold text-green-800"
-                                          dangerouslySetInnerHTML={{ __html: renderMathInText(String(answer)) }}
-                                        />
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-gray-400 italic">No correct answers specified</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      return null;
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No questions available for this test.</p>
-                )}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setShowTestDetails(false)}
-            >
-              Close
-            </Button>
-          </div>
-          </PerfectModal>
+          testType={selectedTest.test_type}
+          testId={selectedTest.test_id}
+          testName={selectedTest.test_name}
+          questions={testQuestions}
+          isLoading={isLoadingTestDetails}
+          canEdit={!selectedTest.hasActiveAssignment}
+          canEditSettings={!selectedTest.hasActiveAssignment}
+          subject={selectedTest.subject}
+          createdAt={selectedTest.created_at}
+          assignments={selectedTest.assignments || []}
+          testInfo={testInfo}
+          onSave={async (testType, testId, editedQuestions) => {
+            try {
+              await testService.updateTestQuestions(testType, testId, editedQuestions);
+              showNotification('Questions updated successfully!', 'success');
+              // Clear cache and refresh
+              const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+              localStorage.removeItem(cacheKey);
+              // Reload test details
+              await handleShowTestDetails(selectedTest);
+            } catch (error) {
+              console.error('Error saving questions:', error);
+              showNotification('Failed to update questions', 'error');
+              throw error;
+            }
+          }}
+          onSettingsSave={async (settings) => {
+            try {
+              await testService.updateTestSettings(
+                selectedTest.test_type,
+                selectedTest.test_id,
+                settings
+              );
+              showNotification('Settings updated successfully!', 'success');
+              // Refresh test info
+              await handleShowTestDetails(selectedTest);
+            } catch (error) {
+              showNotification('Failed to update settings', 'error');
+              throw error;
+            }
+          }}
+        />
       )}
       
       {/* Delete Confirmation Modal */}
@@ -1719,9 +1587,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               <div className="flex justify-between items-center">
                 <span>{notification.message}</span>
                 <button
-                  onClick={() => setNotifications(prev => 
-                    prev.filter(n => n.id !== notification.id)
-                  )}
+                  onClick={() => removeNotification(notification.id)}
                   className="ml-4 text-white hover:text-gray-200"
                 >
                   ×
@@ -2181,83 +2047,126 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               >
                 <Card>
                   <Card.Body>
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1 flex items-center space-x-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-2">
+                        <div className="flex items-center space-x-3">
                         {/* Test Name */}
-                        <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0 max-w-xs truncate" title={assignmentCard.test_name}>
-                          {assignmentCard.test_name}
+                          <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0 max-w-xs truncate" title={assignmentCard.test_name}>
+                            {assignmentCard.test_name}
                         </h3>
                         
                         {/* Test Type Badge - Hidden on mobile */}
                         <span className="hidden sm:inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
-                          {assignmentCard.test_type}
+                            {assignmentCard.test_type}
                         </span>
                         
-                        {/* Class Badge - Prominently displayed */}
-                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-semibold flex-shrink-0">
-                          {assignmentCard.grade}/{assignmentCard.class}
-                        </span>
-                        
-                        {/* Desktop: Show all details */}
+                          {/* Class Badge - hidden on mobile, shown separately */}
+                          <span className="hidden sm:inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-semibold flex-shrink-0">
+                            {assignmentCard.grade}/{assignmentCard.class}
+                            </span>
+                          </div>
+                          
+                        {/* Desktop-only status and metadata */}
                         <div className="hidden sm:flex items-center space-x-4">
-                          {/* Status Badge */}
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            assignmentCard.is_active 
-                              ? 'bg-green-100 text-green-800' 
+                            assignmentCard.is_active
+                              ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-600'
                           }`}>
                             {assignmentCard.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                          
-                          {/* Created Date */}
+                                  </span>
                           <div className="text-sm text-gray-500 flex-shrink-0">
                             {new Date(assignmentCard.created_at).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
                       
-                      <div className="flex gap-2 ml-4 flex-shrink-0">
-                        {/* Mobile: Show details in button */}
-                        <div className="sm:hidden">
+                      {/* Desktop action buttons */}
+                      <div className="hidden sm:flex gap-2 ml-4 flex-shrink-0">
                           <Button
                             variant="outline"
-                            onClick={() => handleShowTestDetails({
-                              ...assignmentCard,
-                              assignments: [{
-                                assignment_id: assignmentCard.assignment_id,
-                                grade: assignmentCard.grade,
-                                class: assignmentCard.class,
-                                is_active: assignmentCard.is_active
-                              }]
-                            })}
-                            size="sm"
-                            className="text-xs"
-                            title={`Type: ${assignmentCard.test_type} | Class: ${assignmentCard.grade}/${assignmentCard.class} | ${new Date(assignmentCard.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}`}
-                          >
-                            Details
-                          </Button>
-                        </div>
-                        
-                        {/* Desktop: Regular details button */}
-                        <div className="hidden sm:block">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleShowTestDetails({
-                              ...assignmentCard,
-                              assignments: [{
-                                assignment_id: assignmentCard.assignment_id,
-                                grade: assignmentCard.grade,
-                                class: assignmentCard.class,
-                                is_active: assignmentCard.is_active
-                              }]
-                            })}
+                          onClick={() => handleShowTestDetails({
+                            ...assignmentCard,
+                            selectedAssignmentId: assignmentCard.assignment_id,
+                            assignments: assignmentCard.assignments
+                          })}
                             size="sm"
                           >
                             Details
                           </Button>
+
+                        {!assignmentCard.is_active && (
+                          <Button
+                            variant="primary"
+                            onClick={() => activateTest(assignmentCard.assignment_id)}
+                            size="sm"
+                            disabled={activatingAssignmentId === assignmentCard.assignment_id}
+                          >
+                            {activatingAssignmentId === assignmentCard.assignment_id ? (
+                              <div className="flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Activating...
                         </div>
+                            ) : (
+                              'Activate'
+                            )}
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="success"
+                          onClick={() => markCompleted(assignmentCard.assignment_id)}
+                          size="sm"
+                          disabled={completingAssignmentId === assignmentCard.assignment_id}
+                        >
+                          {completingAssignmentId === assignmentCard.assignment_id ? (
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Completing...
+                            </div>
+                          ) : (
+                            'Complete'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Mobile: second line with class badge and all action buttons */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 sm:hidden">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-semibold">
+                          {assignmentCard.grade}/{assignmentCard.class}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          assignmentCard.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {assignmentCard.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(assignmentCard.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="outline"
+                          onClick={() => handleShowTestDetails({
+                            ...assignmentCard,
+                            assignments: [{
+                              assignment_id: assignmentCard.assignment_id,
+                              grade: assignmentCard.grade,
+                              class: assignmentCard.class,
+                              is_active: assignmentCard.is_active
+                            }]
+                          })}
+                            size="sm"
+                          className="text-xs"
+                          >
+                            Details
+                          </Button>
                         
-                        {/* Activate button (shown when assignment is inactive) */}
                         {!assignmentCard.is_active && (
                           <Button
                             variant="primary"

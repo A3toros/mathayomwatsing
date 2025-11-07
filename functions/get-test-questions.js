@@ -89,6 +89,7 @@ exports.handler = async function(event, context) {
       // Get questions and restructure for consistency
       const mcQuestions = await sql`
         SELECT 
+          id,
           question_id,
           question,
           correct_answer,
@@ -105,6 +106,7 @@ exports.handler = async function(event, context) {
       
       // Restructure to consistent format with options array AND preserve individual option fields
       questions = mcQuestions.map(q => ({
+        id: q.id, // Primary key for updates
         question_id: q.question_id,
         question: q.question,
         correct_answer: q.correct_answer,
@@ -127,9 +129,10 @@ exports.handler = async function(event, context) {
           testInfo = tfTestInfo[0];
         }
 
-        // Get questions - no restructuring needed, already consistent
-        questions = await sql`
+        // Get questions - include primary key id
+        const tfQuestions = await sql`
           SELECT 
+            id,
             question_id,
             question,
             correct_answer
@@ -137,6 +140,13 @@ exports.handler = async function(event, context) {
           WHERE test_id = ${test_id}
           ORDER BY question_id
         `;
+        
+        questions = tfQuestions.map(q => ({
+          id: q.id,
+          question_id: q.question_id,
+          question: q.question,
+          correct_answer: q.correct_answer
+        }));
       } else if (test_type === 'input') {
           // Get test info
           const inputTestInfo = await sql`
@@ -149,6 +159,7 @@ exports.handler = async function(event, context) {
           // Get questions with correct_answers array
           const inputQuestions = await sql`
             SELECT 
+              id,
               question_id,
               question,
               correct_answers
@@ -159,6 +170,7 @@ exports.handler = async function(event, context) {
           
           // Process questions and ensure correct_answers is an array
           questions = inputQuestions.map(row => ({
+            id: row.id,
             question_id: row.question_id,
             question: row.question,
             correct_answers: row.correct_answers || []
@@ -255,6 +267,7 @@ exports.handler = async function(event, context) {
               // Get word pairs
               const wordMatchingQuestions = await sql`
                 SELECT 
+                  id,
                   question_id,
                   left_word,
                   right_word
@@ -265,6 +278,7 @@ exports.handler = async function(event, context) {
               
               // Process word pairs
               questions = wordMatchingQuestions.map(row => ({
+                id: row.id,
                 question_id: row.question_id,
                 left_word: row.left_word,
                 right_word: row.right_word
@@ -317,6 +331,7 @@ exports.handler = async function(event, context) {
                 // Get fill blanks questions
                 const fbQuestions = await sql`
                   SELECT 
+                    id,
                     question_id,
                     question_json,
                     blank_positions,
@@ -329,6 +344,7 @@ exports.handler = async function(event, context) {
                 
                 // Process fill blanks questions
                 questions = fbQuestions.map(row => ({
+                  id: row.id,
                   question_id: row.question_id,
                   question_json: row.question_json,
                   blank_positions: row.blank_positions,

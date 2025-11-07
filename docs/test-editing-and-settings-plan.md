@@ -1,7 +1,7 @@
 # Test Editing & Settings Management Plan
 
 ## Overview
-Enable editing of questions, answers, and correct answers for **Input, Multiple Choice, and True/False tests only** in the existing Detail modal. Add math formula support to Input tests. Add edit functionality for Shuffled and Timer settings with checkboxes and time input.
+Enable editing of questions, answers, and correct answers for **Input, Multiple Choice, True/False, Word Matching, and Fill-in-the-Blanks tests** in the existing Detail modal. Add math formula support to Input tests. Add edit functionality for Shuffled and Timer settings with checkboxes and time input.
 
 **Note**: Matching tests are supported for read-only display in the modal but are NOT included in the editing functionality (Matching tests have complex coordinate-based questions that require a different editing interface).
 
@@ -12,14 +12,14 @@ Enable editing of questions, answers, and correct answers for **Input, Multiple 
 ### 1. Test Details Modal (`src/components/test/TestDetailsModal.jsx`)
 - **Current Functionality**: Read-only display of questions, options, and correct answers
 - **Supported Test Types for Display**: Multiple Choice, True/False, Input, Matching (read-only)
-- **Supported Test Types for Editing** (this plan): Multiple Choice, True/False, Input only
+- **Supported Test Types for Editing** (this plan): Multiple Choice, True/False, Input, Word Matching, Fill-in-the-Blanks
 - **Display Format**: 
   - Questions shown as text
   - Options displayed for Multiple Choice
   - Correct answers highlighted in green box
   - Matching shows instructions only (no detailed question editing)
 - **No Edit Capability**: Currently view-only for all types
-> **Out of scope for this phase:** Matching, Word Matching, Drawing, Speaking, and Fill-the-Blanks remain read-only. Each requires bespoke editors (canvas tools, audio handling, per-blank templates) and dedicated backend flows, so they are deferred until specialised UIs are designed.
+> **Out of scope for this phase:** Matching, Drawing, and Speaking remain read-only. Each requires bespoke editors (canvas tools, audio handling, per-blank templates) and dedicated backend flows, so they are deferred until specialised UIs are designed.
 
 ### 2. Test Settings Display (`src/teacher/TeacherCabinet.jsx` lines 1387-1420)
 - **Shuffled Status**: Displayed as "✓ Yes" or "✗ No" (read-only)
@@ -1096,6 +1096,48 @@ async updateTestSettings(testType, testId, settings) {
   }
 }
 ```
+
+---
+
+### Phase 4: Extend Editing Support to Word Matching & Fill-in-the-Blanks
+
+> Goal: bring the remaining text-based test types to parity with the Phase 1–3 workflow while leaving media/canvas-heavy types for a later iteration.
+
+#### 4.1 Word Matching & Sentence Pairing
+- **Frontend**
+  - Dual-column editor that lets teachers add/remove word pairs and re-order them.
+  - Bulk Excel import/export for large vocab lists.
+  - Real-time conflict detection (duplicate words, uneven columns).
+- **Backend**
+  - Update function for `word_matching_test_pairs` with optimistic locking (version column) to avoid race conditions.
+  - Enforce referential integrity when pairs are deleted (clean orphaned audio/translations if present).
+- **Testing**
+  - Unit tests for duplicate detection.
+  - Regression tests ensuring existing student answers still map to new pairs after edits.
+
+#### 4.2 Fill-in-the-Blanks
+- **Frontend**
+  - Markdown-like editor where teachers mark blanks using tokens (e.g. `[[answer]]`).
+  - Preview rendering that shows numbered blanks exactly as students see them.
+  - Support multiple acceptable answers per blank (chips UI with add/remove).
+- **Backend**
+  - Parser to split prompt into segments + blanks, stored in `fill_blanks_test_questions` as structured JSON.
+  - Update endpoint validates that every blank has at least one answer and no orphaned answers exist.
+- **Testing**
+  - Parser unit tests (round‑trip text → JSON → text).
+  - E2E test verifying edited blanks sync correctly with student submissions.
+
+### Phase 5: Cross-cutting Enhancements
+- **Unified Editing Framework**
+  - Extract shared editor shell (header, footer, change tracking) so each test-specific editor plugs into the same modal infrastructure.
+  - Centralise cache-busting + modal refresh logic so all save actions reuse the same flow established in Phase 1–4.
+- **Permission & Audit Trail**
+  - Add audit logging table (`test_edit_history`) recording who edited what and when.
+  - Surface last-edited metadata in TeacherCabinet.
+- **Feature Flag Rollout**
+  - Gate each editor via feature flags to deploy incrementally and gather feedback per test type.
+
+> **Outcome:** once Phases 4 and 5 are complete, in-place editing will cover Input, Multiple Choice, True/False, Word Matching, and Fill-in-the-Blanks, backed by transactional updates and consistent caching behaviour. Media-heavy test types remain read-only until bespoke editors are designed.
 
 ---
 
