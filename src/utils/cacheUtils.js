@@ -1,8 +1,8 @@
 const CACHE_TTL = {
   // Student Data
   student_subjects: 30 * 60 * 1000,     // 30 minutes
-  student_active_tests: 10 * 60 * 1000, // 10 minutes
-  student_results_table: 10 * 60 * 1000, // 10 minutes TTL
+  student_active_tests: 3 * 60 * 1000,   // 3 minutes
+  student_results_table: 5 * 60 * 1000,  // 5 minutes TTL
   
   // Teacher Data
   teacher_subjects: 15 * 60 * 1000,     // 15 minutes
@@ -39,7 +39,8 @@ const getCacheKey = (type, userId = '') => {
   return `${type}_${userId}`;
 };
 
-const getCachedData = (key) => {
+const getCachedEntry = (key, options = {}) => {
+  const { includeExpired = false } = options;
   try {
     const cached = localStorage.getItem(key);
     if (!cached) {
@@ -47,20 +48,36 @@ const getCachedData = (key) => {
       return null;
     }
     
-    const { data, timestamp, ttl } = JSON.parse(cached);
+    const parsed = JSON.parse(cached);
+    const { data, timestamp, ttl } = parsed;
     const age = Date.now() - timestamp;
-    if (age > ttl) {
+    const hasTtl = typeof ttl === 'number' && Number.isFinite(ttl);
+    const isExpired = hasTtl ? age > ttl : false;
+
+    if (isExpired && !includeExpired) {
       console.log('💾 Cache: Data expired for key:', key, 'age:', age, 'ttl:', ttl);
-      localStorage.removeItem(key); // Auto-delete expired
+      localStorage.removeItem(key);
       return null;
     }
-    console.log('💾 Cache: Data found for key:', key, 'age:', age, 'ttl:', ttl);
-    return data;
+
+    console.log('💾 Cache: Entry found for key:', key, 'age:', age, 'ttl:', ttl, 'expired:', isExpired);
+    return {
+      data,
+      timestamp,
+      ttl,
+      age,
+      isExpired
+    };
   } catch (error) {
     console.log('💾 Cache: Corrupted data for key:', key, error);
-    localStorage.removeItem(key); // Auto-delete corrupted
+    localStorage.removeItem(key);
     return null;
   }
+};
+
+const getCachedData = (key) => {
+  const entry = getCachedEntry(key);
+  return entry ? entry.data : null;
 };
 
 const setCachedData = (key, data, ttl) => {
@@ -69,7 +86,7 @@ const setCachedData = (key, data, ttl) => {
     localStorage.setItem(key, JSON.stringify({
       data,
       timestamp: Date.now(),
-      ttl
+      ttl: typeof ttl === 'number' && Number.isFinite(ttl) ? ttl : ttl === null ? null : undefined
     }));
     console.log('💾 Cache: Data cached successfully for key:', key);
   } catch (error) {
@@ -80,7 +97,7 @@ const setCachedData = (key, data, ttl) => {
       localStorage.setItem(key, JSON.stringify({
         data,
         timestamp: Date.now(),
-        ttl
+        ttl: typeof ttl === 'number' && Number.isFinite(ttl) ? ttl : ttl === null ? null : undefined
       }));
       console.log('💾 Cache: Data cached after cleanup for key:', key);
     } catch (e) {
@@ -222,6 +239,7 @@ export {
   CACHE_TTL,
   getCacheKey,
   getCachedData,
+  getCachedEntry,
   setCachedData,
   loadDataWithRetry,
   cleanupOldData,

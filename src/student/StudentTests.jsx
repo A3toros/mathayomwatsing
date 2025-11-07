@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
@@ -14,6 +14,7 @@ import { testService } from '@/services/testService';
 import { API_ENDPOINTS, USER_ROLES, CONFIG, TEST_TYPES } from '@/shared/shared-index';
 import { logger } from '@/utils/logger';
 import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
+import useInterceptBackNavigation from '@/hooks/useInterceptBackNavigation';
 
 // STUDENT TESTS - React Component for Student Test Taking - ENHANCED FOR NEW STRUCTURE
 // ✅ COMPLETED: All student test functionality from legacy src/ converted to React
@@ -202,6 +203,26 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(false);
+  const pendingNavigationRef = useRef(null);
+
+  useInterceptBackNavigation(
+    isBackInterceptEnabled,
+    useCallback(({ confirm, cancel }) => {
+      pendingNavigationRef.current = { confirm, cancel };
+      setShowExitModal(true);
+    }, [])
+  );
+
+  useEffect(() => {
+    if (currentView === 'test' && currentTest) {
+      setBackInterceptEnabled(true);
+    } else {
+      setBackInterceptEnabled(false);
+      pendingNavigationRef.current = null;
+    }
+  }, [currentView, currentTest]);
+
   
   // OPTIMIZATION: Initialization protection state
   const [initializationState, setInitializationState] = useState({
@@ -1121,56 +1142,81 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     return answeredCount;
   }, [studentAnswers, questions]);
   
+  const handleCabinetExitEffects = useCallback(() => {
+    if (!currentTest || !user?.student_id) {
+      return;
+    }
+
+    logger.debug('🛡️ Cabinet navigation detected - counting as cheating attempt');
+
+    const studentId = user?.student_id || user?.id || 'unknown';
+    const antiCheatingKey = `anti_cheating_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+
+    const existingData = localStorage.getItem(antiCheatingKey);
+    let currentTabSwitches = 0;
+    let currentIsCheating = false;
+
+    if (existingData) {
+      try {
+        const parsed = JSON.parse(existingData);
+        currentTabSwitches = parsed.tabSwitches || 0;
+        currentIsCheating = parsed.isCheating || false;
+      } catch (error) {
+        logger.error('🛡️ Error parsing existing anti-cheating data:', error);
+      }
+    }
+
+    const newTabSwitches = currentTabSwitches + 1;
+    const newIsCheating = newTabSwitches >= 2;
+
+    logger.debug(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+
+    const updatedData = {
+      tabSwitches: newTabSwitches,
+      isCheating: newIsCheating,
+      lastUpdated: new Date().toISOString()
+    };
+
+    localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
+    logger.debug('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+  }, [currentTest, user?.student_id, user?.id]);
+
   // Enhanced navigateBackToCabinet from legacy code
   const goBack = useCallback(() => {
     logger.debug('🎓 Navigating back to cabinet...');
-    
-    // OPTIMIZATION: Count cabinet navigation as a cheating attempt
-    if (currentTest && user?.student_id) {
-      logger.debug('🛡️ Cabinet navigation detected - counting as cheating attempt');
-      
-      // Manually increment the tab switch count
-      const studentId = user?.student_id || user?.id || 'unknown';
-      const antiCheatingKey = `anti_cheating_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
-      
-      // Get current data
-      const existingData = localStorage.getItem(antiCheatingKey);
-      let currentTabSwitches = 0;
-      let currentIsCheating = false;
-      
-      if (existingData) {
-        try {
-          const parsed = JSON.parse(existingData);
-          currentTabSwitches = parsed.tabSwitches || 0;
-          currentIsCheating = parsed.isCheating || false;
-        } catch (error) {
-          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
-        }
-      }
-      
-      // Increment tab switch count
-      const newTabSwitches = currentTabSwitches + 1;
-      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
-      
-      logger.debug(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
-      
-      // Save updated data
-      const updatedData = {
-        tabSwitches: newTabSwitches,
-        isCheating: newIsCheating,
-        lastUpdated: new Date().toISOString()
-      };
-      
-      localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
-      logger.debug('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
-    }
-    
+    handleCabinetExitEffects();
+    setBackInterceptEnabled(false);
+    pendingNavigationRef.current = null;
     if (onBackToCabinet) {
       onBackToCabinet();
     } else {
       navigate('/student');
     }
-  }, [onBackToCabinet, navigate, currentTest, user?.student_id]);
+  }, [handleCabinetExitEffects, onBackToCabinet, navigate]);
+
+  const handleExitConfirm = useCallback(() => {
+    setShowExitModal(false);
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setBackInterceptEnabled(false);
+
+    if (pending?.confirm) {
+      handleCabinetExitEffects();
+      pending.confirm();
+      return;
+    }
+
+    goBack();
+  }, [goBack, handleCabinetExitEffects]);
+
+  const handleExitCancel = useCallback(() => {
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending?.cancel) {
+      pending.cancel();
+    }
+    setShowExitModal(false);
+  }, []);
   
   // Enhanced showResults from legacy code
   const showResults = useCallback(() => {
@@ -1501,15 +1547,15 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       {/* Exit Confirmation Modal */}
       <PerfectModal
         isOpen={showExitModal}
-        onClose={() => setShowExitModal(false)}
+        onClose={handleExitCancel}
         title="Exit Test"
         size="small"
       >
         <div className="text-center">
           <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => setShowExitModal(false)} variant="secondary">Cancel</Button>
-            <Button onClick={() => { setShowExitModal(false); goBack(); }} variant="primary">Go Back</Button>
+            <Button onClick={handleExitCancel} variant="secondary">Cancel</Button>
+            <Button onClick={handleExitConfirm} variant="primary">Go Back</Button>
           </div>
         </div>
       </PerfectModal>
@@ -1540,7 +1586,10 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             
             <Button
               variant="outline"
-              onClick={() => setShowExitModal(true)}
+              onClick={() => {
+                pendingNavigationRef.current = null;
+                setShowExitModal(true);
+              }}
             >
               Back to Cabinet
             </Button>

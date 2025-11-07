@@ -14,6 +14,7 @@ import { useApi } from '../../hooks/useApi';
 import { useTestProgress } from '../../hooks/useTestProgress';
 import { useAntiCheating } from '../../hooks/useAntiCheating';
 import { getCachedData, setCachedData, clearTestData, CACHE_TTL } from '../../utils/cacheUtils';
+import useInterceptBackNavigation from '../../hooks/useInterceptBackNavigation';
 
 const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const { user } = useAuth();
@@ -308,6 +309,16 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const [testStartTime, setTestStartTime] = useState(null);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackModal, setShowBackModal] = useState(false);
+  const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
+  const pendingNavigationRef = useRef(null);
+
+  useInterceptBackNavigation(
+    isBackInterceptEnabled,
+    useCallback(({ confirm, cancel }) => {
+      pendingNavigationRef.current = { confirm, cancel };
+      setShowBackModal(true);
+    }, [])
+  );
 
   // Initialize test data
   useEffect(() => {
@@ -432,16 +443,36 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
 
   // Handle back to cabinet
   const handleBackToCabinet = useCallback(() => {
+    pendingNavigationRef.current = null;
     setShowBackModal(true);
   }, []);
 
   // Confirm back to cabinet
   const confirmBackToCabinet = useCallback(() => {
     setShowBackModal(false);
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+
+    if (pending?.confirm) {
+      setBackInterceptEnabled(false);
+      pending.confirm();
+      return;
+    }
+
+    setBackInterceptEnabled(false);
     if (onBackToCabinet) {
       onBackToCabinet();
     }
   }, [onBackToCabinet]);
+
+  const cancelBackToCabinet = useCallback(() => {
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending?.cancel) {
+      pending.cancel();
+    }
+    setShowBackModal(false);
+  }, []);
 
   // Submit test
   const handleSubmitTest = useCallback(async () => {
@@ -662,6 +693,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
         
         // Navigate back to student cabinet with score
         if (onTestComplete) {
+          setBackInterceptEnabled(false);
           onTestComplete(score);
         }
         // Stop loading spinner after results are shown
@@ -1098,7 +1130,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       {/* Back to Cabinet Confirmation Modal */}
       <PerfectModal
         isOpen={showBackModal}
-        onClose={() => setShowBackModal(false)}
+        onClose={cancelBackToCabinet}
         title="Exit Test"
         size="small"
       >
@@ -1108,7 +1140,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           </p>
           <div className="flex gap-3 justify-center">
             <Button
-              onClick={() => setShowBackModal(false)}
+              onClick={cancelBackToCabinet}
               variant="secondary"
             >
               Cancel

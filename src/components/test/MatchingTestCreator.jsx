@@ -157,6 +157,9 @@ const MatchingTestCreator = ({
   const { containerSize, responsiveSettings } = useResponsiveContainer(containerRef);
   // Use direct container height like student component
   const [imageInfo, setImageInfo] = useState(null);
+  const baseStageHeight = responsiveSettings?.stageHeight ?? 600;
+  const expandedStageHeight = useMemo(() => baseStageHeight + 150, [baseStageHeight]);
+  const containerPadding = responsiveSettings?.padding ?? 20;
   
   // Image scaling logic (same as student)
   useEffect(() => {
@@ -666,7 +669,7 @@ const MatchingTestCreator = ({
   const renderCanvas = () => (
     <Stage
       width={containerSize.width}
-      height={responsiveSettings.stageHeight}
+      height={expandedStageHeight}
       ref={stageRef}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleCanvasMouseMove}
@@ -842,7 +845,7 @@ const MatchingTestCreator = ({
     }
     
     return (
-      <div className="word-panel bg-gray-50 border-t border-gray-200 p-4 w-full" style={{ height: 'min(400px, 40vh)', overflowY: 'auto' }}>
+      <div className="word-panel bg-gray-50 border-t border-gray-200 p-4 w-full flex-shrink-0" style={{ height: 'clamp(420px, 55vh, 640px)', overflowY: 'auto' }}>
         <h3 className="text-lg font-semibold mb-4 text-gray-800">Words (Auto-created with blocks)</h3>
         <div className="space-y-2">
           {state.testData.words.map(word => {
@@ -902,16 +905,16 @@ const MatchingTestCreator = ({
       {renderCreationToolbar()}
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-y-auto gap-4">
         {/* Canvas Container - responsive sizing */}
         <div 
           ref={containerRef} 
-          className="bg-white border overflow-auto" 
+          className="bg-white border overflow-hidden flex-none" 
           style={{ 
-            minHeight: `${responsiveSettings.stageHeight}px`,
-            maxHeight: 'calc(100vh - 200px)', // Reserve space for header, toolbar, and word panel
-            height: 'auto',
-            padding: `${responsiveSettings.padding}px`
+            height: `${expandedStageHeight}px`,
+            minHeight: `${expandedStageHeight}px`,
+            maxHeight: `${expandedStageHeight + 60}px`,
+            padding: `${containerPadding}px`
           }}
         >
           {renderCanvas()}

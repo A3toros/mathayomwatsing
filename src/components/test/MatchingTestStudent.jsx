@@ -13,6 +13,7 @@ import { Notification, useNotification } from '../ui/Notification';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAntiCheating } from '../../hooks/useAntiCheating';
+import useInterceptBackNavigation from '../../hooks/useInterceptBackNavigation';
 
 // ✅ REUSE EXISTING UTILITIES
 import { coordinateUtils } from '../../utils/coordinateUtils';
@@ -72,6 +73,16 @@ const MatchingTestStudent = ({
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackModal, setShowBackModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
+  const pendingNavigationRef = useRef(null);
+
+  useInterceptBackNavigation(
+    isBackInterceptEnabled,
+    useCallback(({ confirm, cancel }) => {
+      pendingNavigationRef.current = { confirm, cancel };
+      setShowBackModal(true);
+    }, [])
+  );
   
   const { showNotification } = useNotification();
   const { makeAuthenticatedRequest } = useApi();
@@ -106,14 +117,34 @@ const MatchingTestStudent = ({
 
   // Handle back to cabinet with confirmation
   const handleBackToCabinet = useCallback(() => {
+    pendingNavigationRef.current = null;
     setShowBackModal(true);
   }, []);
 
   // Confirm back to cabinet
   const confirmBackToCabinet = useCallback(() => {
     setShowBackModal(false);
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+
+    if (pending?.confirm) {
+      setBackInterceptEnabled(false);
+      pending.confirm();
+      return;
+    }
+
+    setBackInterceptEnabled(false);
     onBackToCabinet();
   }, [onBackToCabinet]);
+
+  const cancelBackToCabinet = useCallback(() => {
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending?.cancel) {
+      pending.cancel();
+    }
+    setShowBackModal(false);
+  }, []);
 
   // Process test data exactly like legacy
   const processedData = useMemo(() => {
@@ -752,6 +783,7 @@ const MatchingTestStudent = ({
         localStorage.removeItem(retestAssignKey);
         
         if (onTestComplete) {
+          setBackInterceptEnabled(false);
           onTestComplete(score);
         }
       } else {
@@ -901,8 +933,8 @@ const MatchingTestStudent = ({
 
         {/* Back to Cabinet Confirmation Modal */}
         <PerfectModal
-          isOpen={showBackModal}
-          onClose={() => setShowBackModal(false)}
+        isOpen={showBackModal}
+        onClose={cancelBackToCabinet}
           title="Exit Test"
           size="small"
         >
@@ -912,7 +944,7 @@ const MatchingTestStudent = ({
             </p>
             <div className="flex gap-3 justify-center">
               <Button
-                onClick={() => setShowBackModal(false)}
+              onClick={cancelBackToCabinet}
                 variant="secondary"
               >
                 Cancel

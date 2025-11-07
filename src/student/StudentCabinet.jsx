@@ -157,11 +157,9 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
           localStorage.removeItem(resultsKey);
         } catch (e) { /* ignore */ }
       } else {
-        logger.debug('🎓 Using existing cache - no refresh needed');
+        logger.debug('🎓 Using cached active tests (background revalidation will keep data fresh)');
       }
       
-      // Force-bust active tests cache to ensure fresh retest flags on first load
-      try { localStorage.removeItem(`student_active_tests_${studentId}`); } catch (_) {}
       await loadActiveTests(studentId);
       
       // Optionally compute average later when results are fetched elsewhere
@@ -200,11 +198,11 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
       return true;
     }
     
-    // Check for time-based refresh (every 30 minutes)
+    // Check for time-based refresh (every 5 minutes)
     const lastRefresh = localStorage.getItem(`last_cabinet_refresh_${studentId}`);
     if (lastRefresh) {
       const timeSinceRefresh = Date.now() - parseInt(lastRefresh);
-      if (timeSinceRefresh > 30 * 60 * 1000) { // 30 minutes
+      if (timeSinceRefresh > 5 * 60 * 1000) { // 5 minutes
         logger.debug('🎓 Time-based refresh triggered');
         return true;
       }

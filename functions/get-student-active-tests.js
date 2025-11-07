@@ -155,6 +155,15 @@ exports.handler = async function(event, context) {
     for (const row of viewRows) {
       try {
         console.log('Processing view row:', row);
+        if (row.retest_is_completed === true) {
+          console.log('Skipping row because retest is already completed (from view flag):', {
+            test_type: row.test_type,
+            test_id: row.test_id,
+            retest_assignment_id: row.retest_assignment_id,
+            retest_target_id: row.retest_target_id
+          });
+          continue;
+        }
         
         // All data is already available from the view
         const testInfo = {
@@ -230,6 +239,16 @@ exports.handler = async function(event, context) {
           });
         } catch (e) {
           console.warn('Retest availability check failed for', row.test_type, row.test_id, e.message);
+        }
+
+        if (retestCompleted) {
+          console.log('Skipping row because retest is already completed (runtime check):', {
+            test_type: row.test_type,
+            test_id: row.test_id,
+            retest_assignment_id: retestAssignmentId,
+            retest_target_id: row.retest_target_id
+          });
+          continue;
         }
 
         // Check if test is completed (result_id will be NOT NULL if completed)

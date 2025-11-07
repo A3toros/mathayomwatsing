@@ -6,6 +6,7 @@ import FeedbackDisplay from './FeedbackDisplay';
 import TestResults from './TestResults';
 import Button from '../ui/Button';
 import PerfectModal from '../ui/PerfectModal';
+import useInterceptBackNavigation from '../../hooks/useInterceptBackNavigation';
 
 const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) => {
   const [currentStep, setCurrentStep] = useState('recording'); // permission, recording, processing, feedback, completed
@@ -21,6 +22,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false); // NEW: Flag to prevent duplicate API calls
+  const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
+  const pendingNavigationRef = useRef(null);
   
   // iOS detection function
   const isIOS = () => {
@@ -36,6 +39,23 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const { user } = useAuth();
   const { makeAuthenticatedRequest } = api;
   const recordingRef = useRef(null);
+
+  useInterceptBackNavigation(
+    isBackInterceptEnabled,
+    useCallback(({ confirm, cancel }) => {
+      pendingNavigationRef.current = { confirm, cancel };
+      setShowExitModal(true);
+    }, [])
+  );
+
+  useEffect(() => {
+    if (currentStep !== 'completed') {
+      setBackInterceptEnabled(true);
+    } else {
+      setBackInterceptEnabled(false);
+      pendingNavigationRef.current = null;
+    }
+  }, [currentStep]);
   
   // Load attempts from localStorage on component mount
   useEffect(() => {
@@ -404,7 +424,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         setScores(mappedScores);
         setCurrentStep('feedback');
       } else {
-        throw new Error(result.message || 'Failed to process audio with AI');
+        throw new Error(result.message || result.error || 'Failed to process audio with AI');
       }
       
         // Clear progress from localStorage
@@ -733,6 +753,33 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     });
   }, [testData.test_id, transcript, scores, attemptNumber, onComplete]);
 
+  const handleExitConfirm = useCallback(() => {
+    setShowExitModal(false);
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setBackInterceptEnabled(false);
+
+    if (typeof onExit === 'function') {
+      onExit();
+    }
+
+    if (pending?.confirm) {
+      pending.confirm();
+    }
+  }, [onExit]);
+
+  const handleExitCancel = useCallback(() => {
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending?.cancel) {
+      pending.cancel();
+    }
+    setShowExitModal(false);
+    if (currentStep !== 'completed') {
+      setBackInterceptEnabled(true);
+    }
+  }, [currentStep]);
+
   const renderCurrentStep = () => {
     switch (currentStep) {
         
@@ -834,7 +881,10 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           <div className="speaking-test-completed">
             <TestResults
               testResults={testResultsData}
-              onBackToCabinet={() => setShowExitModal(true)}
+              onBackToCabinet={() => {
+                pendingNavigationRef.current = null;
+                setShowExitModal(true);
+              }}
               onRetakeTest={() => {
                 setCurrentStep('recording');
                 setTranscript('');
@@ -875,15 +925,15 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       {/* Exit Confirmation Modal */}
       <PerfectModal
         isOpen={showExitModal}
-        onClose={() => setShowExitModal(false)}
+        onClose={handleExitCancel}
         title="Exit Speaking Test"
         size="small"
       >
         <div className="text-center">
           <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => setShowExitModal(false)} variant="secondary">Cancel</Button>
-            <Button onClick={() => { setShowExitModal(false); if (typeof onExit === 'function') onExit(); }} variant="primary">Go Back</Button>
+            <Button onClick={handleExitCancel} variant="secondary">Cancel</Button>
+            <Button onClick={handleExitConfirm} variant="primary">Go Back</Button>
           </div>
         </div>
       </PerfectModal>

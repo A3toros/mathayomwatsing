@@ -83,6 +83,10 @@ SELECT * FROM (
       mcr.id IS NULL
       OR ra_mc.id IS NOT NULL
     )
+    AND (
+      rt_mc.id IS NULL
+      OR rt_mc.is_completed = FALSE
+    )
     AND NOT (
       mcr.id IS NOT NULL
       AND rt_mc.id IS NOT NULL
@@ -160,6 +164,10 @@ SELECT * FROM (
   WHERE (
       tfr.id IS NULL
       OR ra_tf.id IS NOT NULL
+    )
+    AND (
+      rt_tf.id IS NULL
+      OR rt_tf.is_completed = FALSE
     )
     AND NOT (
       tfr.id IS NOT NULL
@@ -239,6 +247,10 @@ SELECT * FROM (
       itr.id IS NULL
       OR ra_in.id IS NOT NULL
     )
+    AND (
+      rt_in.id IS NULL
+      OR rt_in.is_completed = FALSE
+    )
     AND NOT (
       itr.id IS NOT NULL
       AND rt_in.id IS NOT NULL
@@ -316,6 +328,10 @@ SELECT * FROM (
   WHERE (
       mttr.id IS NULL
       OR ra_mt.id IS NOT NULL
+    )
+    AND (
+      rt_mt.id IS NULL
+      OR rt_mt.is_completed = FALSE
     )
     AND NOT (
       mttr.id IS NOT NULL
@@ -395,6 +411,10 @@ SELECT * FROM (
       wmtr.id IS NULL
       OR ra_wm.id IS NOT NULL
     )
+    AND (
+      rt_wm.id IS NULL
+      OR rt_wm.is_completed = FALSE
+    )
     AND NOT (
       wmtr.id IS NOT NULL
       AND rt_wm.id IS NOT NULL
@@ -472,6 +492,10 @@ SELECT * FROM (
   WHERE (
       dtr.id IS NULL
       OR ra_dr.id IS NOT NULL
+    )
+    AND (
+      rt_dr.id IS NULL
+      OR rt_dr.is_completed = FALSE
     )
     AND NOT (
       dtr.id IS NOT NULL
@@ -551,6 +575,10 @@ SELECT * FROM (
       fbtr.id IS NULL
       OR ra_fb.id IS NOT NULL
     )
+    AND (
+      rt_fb.id IS NULL
+      OR rt_fb.is_completed = FALSE
+    )
     AND NOT (
       fbtr.id IS NOT NULL
       AND rt_fb.id IS NOT NULL
@@ -628,6 +656,10 @@ SELECT * FROM (
   WHERE (
       str.id IS NULL
       OR ra_sp.id IS NOT NULL
+    )
+    AND (
+      rt_sp.id IS NULL
+      OR rt_sp.is_completed = FALSE
     )
     AND NOT (
       str.id IS NOT NULL

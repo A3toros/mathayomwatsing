@@ -203,6 +203,7 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         success: false,
+        message: error.message,
         error: error.message
       })
     };
@@ -409,13 +410,42 @@ SCORING GUIDELINES FOR ${difficultyLevel}:
 ${getScoringGuidelines(difficultyLevel)}
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "openai/gpt-4o-mini",
-      messages: [{ role: "user", content: analysisPrompt }],
-      response_format: { type: "json_object" }
-    });
+    const maxAttempts = 3;
+    let lastError = null;
 
-    return JSON.parse(response.choices[0].message.content);
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await openai.chat.completions.create({
+          model: "openai/gpt-4o-mini",
+          messages: [{ role: "user", content: analysisPrompt }],
+          response_format: { type: "json_object" }
+        });
+
+        return JSON.parse(response.choices[0].message.content);
+      } catch (err) {
+        lastError = err;
+        const status = err?.status || err?.code;
+        const isTimeout = err?.name === 'TimeoutError' || err?.code === 'ETIMEDOUT';
+        const isRetryableStatus = [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(status));
+        const shouldRetry = attempt < maxAttempts && (isRetryableStatus || isTimeout || status === undefined);
+
+        console.warn(`GPT-4o Mini analysis retry ${attempt}/${maxAttempts}`, {
+          status,
+          code: err?.code,
+          name: err?.name,
+          message: err?.message
+        });
+
+        if (!shouldRetry) {
+          throw err;
+        }
+
+        const backoffMs = Math.min(1000, 250 * Math.pow(2, attempt - 1));
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+
+    throw lastError;
   } catch (error) {
     console.error('GPT-4o Mini analysis error:', error);
     throw new Error(`AI analysis failed: ${error.message}`);

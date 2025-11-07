@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { testService } from '../services/testService';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { getCachedData, setCachedData, CACHE_TTL, clearTestData } from '../utils/cacheUtils';
+import { getCachedData, getCachedEntry, setCachedData, CACHE_TTL, clearTestData } from '../utils/cacheUtils';
 import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 
 // TEST CONTEXT - React Context for Test State Management
@@ -546,24 +546,58 @@ export const TestProvider = ({ children }) => {
 
   // Load student active tests
   const loadStudentActiveTests = useCallback(async (userId = '') => {
+    const cacheKey = `student_active_tests_${userId}`;
+    const cacheEntry = getCachedEntry(cacheKey, { includeExpired: true });
+    const cachedData = cacheEntry?.data;
+    const hasCachedData = Array.isArray(cachedData) ? true : Boolean(cachedData);
+    const halfLife = CACHE_TTL.student_active_tests
+      ? CACHE_TTL.student_active_tests * 0.5
+      : 0;
+    const shouldRevalidate = !hasCachedData || cacheEntry?.isExpired || (halfLife > 0 && cacheEntry?.age > halfLife);
+    const requiresImmediateRefresh = !hasCachedData || cacheEntry?.isExpired === true;
+
+    if (hasCachedData) {
+      setActiveTests(cachedData);
+    }
+
+    if (!shouldRevalidate) {
+      setIsLoading(false);
+      return cachedData;
+    }
+
+    if (!requiresImmediateRefresh && hasCachedData) {
+      setIsLoading(false);
+      (async () => {
+        try {
+          const tests = await testService.getActiveTests();
+          setActiveTests(tests);
+          setCachedData(cacheKey, tests, CACHE_TTL.student_active_tests);
+          if (userId) {
+            try {
+              localStorage.setItem(`last_cabinet_refresh_${userId}`, Date.now().toString());
+            } catch (e) {
+              console.warn('Unable to persist last cabinet refresh timestamp:', e);
+            }
+          }
+        } catch (error) {
+          console.warn('Background refresh of active tests failed:', error);
+        }
+      })();
+      return cachedData;
+    }
+
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      // Check cache first
-      const cacheKey = `student_active_tests_${userId}`;
-      const cachedData = getCachedData(cacheKey);
-      if (cachedData) {
-        setActiveTests(cachedData);
-        return cachedData;
-      }
-      
-      // Cache miss - fetch from API
       const tests = await testService.getActiveTests();
       setActiveTests(tests);
-      
-      // Cache the result
       setCachedData(cacheKey, tests, CACHE_TTL.student_active_tests);
-      
+      if (userId) {
+        try {
+          localStorage.setItem(`last_cabinet_refresh_${userId}`, Date.now().toString());
+        } catch (e) {
+          console.warn('Unable to persist last cabinet refresh timestamp:', e);
+        }
+      }
       return tests;
     } catch (error) {
       setError(error.message || 'Failed to load active tests');
