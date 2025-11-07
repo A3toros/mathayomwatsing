@@ -672,16 +672,15 @@ export const testService = {
     }
   },
 
-  async markTestCompleted(testType, testId) {
+  async markAssignmentCompleted(assignmentId) {
     try {
-      console.log(`[DEBUG] markTestCompleted called with testType: ${testType}, testId: ${testId}`);
+      console.log(`[DEBUG] markAssignmentCompleted called with assignmentId: ${assignmentId}`);
       
       const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/mark-test-completed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          test_type: testType,
-          test_id: testId
+          assignment_id: assignmentId
         })
       });
 
@@ -690,29 +689,28 @@ export const testService = {
       }
 
       const result = await response.json();
-      console.log('[DEBUG] Mark test completed response:', result);
+      console.log('[DEBUG] Mark assignment completed response:', result);
 
       if (result.success) {
-        console.log(`Test ${testType}_${testId} marked as completed successfully`);
+        console.log(`Assignment ${assignmentId} marked as completed successfully`);
         return { success: true, message: result.message };
       } else {
-        throw new Error(result.error || 'Failed to mark test as completed');
+        throw new Error(result.error || 'Failed to mark assignment as completed');
       }
     } catch (error) {
-      console.error('Error marking test completed:', error);
+      console.error('Error marking assignment completed:', error);
       throw error;
     }
   },
 
-  async activateTest(testType, testId) {
+  async activateAssignment(assignmentId) {
     try {
-      console.log(`[DEBUG] activateTest called with testType: ${testType}, testId: ${testId}`);
+      console.log(`[DEBUG] activateAssignment called with assignmentId: ${assignmentId}`);
       const response = await window.tokenManager.makeAuthenticatedRequest('/.netlify/functions/activate-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          test_type: testType,
-          test_id: testId
+          assignment_id: assignmentId
         })
       });
 
@@ -721,16 +719,16 @@ export const testService = {
       }
 
       const result = await response.json();
-      console.log('[DEBUG] Activate test response:', result);
+      console.log('[DEBUG] Activate assignment response:', result);
 
       if (result.success) {
-        console.log(`Test ${testType}_${testId} activated successfully`);
+        console.log(`Assignment ${assignmentId} activated successfully`);
         return { success: true, message: result.message };
       } else {
-        throw new Error(result.error || 'Failed to activate test');
+        throw new Error(result.error || 'Failed to activate assignment');
       }
     } catch (error) {
-      console.error('Error activating test:', error);
+      console.error('Error activating assignment:', error);
       throw error;
     }
   },

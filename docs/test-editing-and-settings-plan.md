@@ -19,6 +19,7 @@ Enable editing of questions, answers, and correct answers for **Input, Multiple 
   - Correct answers highlighted in green box
   - Matching shows instructions only (no detailed question editing)
 - **No Edit Capability**: Currently view-only for all types
+> **Out of scope for this phase:** Matching, Word Matching, Drawing, Speaking, and Fill-the-Blanks remain read-only. Each requires bespoke editors (canvas tools, audio handling, per-blank templates) and dedicated backend flows, so they are deferred until specialised UIs are designed.
 
 ### 2. Test Settings Display (`src/teacher/TeacherCabinet.jsx` lines 1387-1420)
 - **Shuffled Status**: Displayed as "✓ Yes" or "✗ No" (read-only)

@@ -52,53 +52,83 @@ exports.handler = async function(event, context) {
       };
     }
 
-    const { test_type, test_id } = JSON.parse(event.body) || {};
+    const { assignment_id, test_type, test_id } = JSON.parse(event.body) || {};
     
-    console.log('Extracted params - test_type:', test_type, 'test_id:', test_id);
+    console.log('Extracted params - assignment_id:', assignment_id, 'test_type:', test_type, 'test_id:', test_id);
 
-    if (!test_type || !test_id) {
-      console.log('Missing required parameters');
-      return {
-        statusCode: 400,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Test type and test ID are required' })
-      };
-    }
-
-    console.log('Connecting to database...');
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection established');
 
-    // Mark all assignments for this test as inactive (completed)
     const teacher_id = userInfo.teacher_id;
-    
-    // Update all test assignments for this test to set is_active = false and mark completed
-    const updateResult = await sql`
-      UPDATE test_assignments 
-      SET is_active = false, completed_at = NOW(), updated_at = NOW()
-      WHERE test_type = ${test_type} AND test_id = ${test_id} AND teacher_id = ${teacher_id}
-      RETURNING id, test_type, test_id, grade, class
-    `;
+    let updateResult;
 
-    if (updateResult.length === 0) {
-      console.log('No assignments found for this test or teacher does not own this test');
+    // Support both assignment_id (new way) and test_type + test_id (old way for backward compatibility)
+    if (assignment_id) {
+      // New way: Update single assignment by assignment_id
+      console.log('Updating single assignment by assignment_id');
+
+      // First verify the teacher owns this assignment
+      const assignmentCheck = await sql`
+        SELECT id, test_type, test_id, grade, class
+        FROM test_assignments
+        WHERE id = ${assignment_id} AND teacher_id = ${teacher_id}
+      `;
+
+      if (assignmentCheck.length === 0) {
+        return {
+          statusCode: 404,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Assignment not found or you do not have permission to modify this assignment' })
+        };
+      }
+
+      // Update the single assignment
+      updateResult = await sql`
+        UPDATE test_assignments 
+        SET is_active = false, completed_at = NOW(), updated_at = NOW()
+        WHERE id = ${assignment_id} AND teacher_id = ${teacher_id}
+        RETURNING id, test_type, test_id, grade, class
+      `;
+    } else if (test_type && test_id) {
+      // Old way: Update all assignments for this test (backward compatibility)
+      console.log('Updating all assignments for test (backward compatibility)');
+      
+      updateResult = await sql`
+        UPDATE test_assignments 
+        SET is_active = false, completed_at = NOW(), updated_at = NOW()
+        WHERE test_type = ${test_type} AND test_id = ${test_id} AND teacher_id = ${teacher_id}
+        RETURNING id, test_type, test_id, grade, class
+      `;
+    } else {
       return {
-        statusCode: 404,
+        statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'No assignments found for this test or you do not have permission to modify this test' })
+        body: JSON.stringify({ error: 'Either assignment_id or (test_type and test_id) are required' })
       };
     }
 
-    console.log('Test assignments marked as completed successfully:', updateResult);
+    if (updateResult.length === 0) {
+      console.log('No assignments found or teacher does not own this assignment/test');
+      return {
+        statusCode: 404,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'No assignments found or you do not have permission to modify this assignment/test' })
+      };
+    }
+
+    console.log('Assignment(s) marked as completed successfully:', updateResult);
 
     return {
       statusCode: 200,
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        message: 'Test assignments marked as completed successfully',
-        test_id: test_id,
-        test_type: test_type,
+        message: assignment_id 
+          ? 'Assignment marked as completed successfully' 
+          : 'Test assignments marked as completed successfully',
+        assignment_id: assignment_id || null,
+        test_id: updateResult[0]?.test_id || test_id || null,
+        test_type: updateResult[0]?.test_type || test_type || null,
         assignments_completed: updateResult.length,
         assignments: updateResult
       })

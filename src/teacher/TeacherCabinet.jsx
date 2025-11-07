@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -49,7 +49,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [classResults, setClassResults] = useState([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
-  const [completingTestId, setCompletingTestId] = useState(null);
+  const [completingAssignmentId, setCompletingAssignmentId] = useState(null);
   // New performance graph state
   const [testPerformanceData, setTestPerformanceData] = useState([]);
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
@@ -562,53 +562,89 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [loadTests]);
   
-  // Enhanced markTestCompletedInUI from legacy code
-  const markCompleted = useCallback(async (testType, testId) => {
-    logger.debug('👨‍🏫 Marking test as completed:', testType, testId);
-    setCompletingTestId(testId);
+  // Enhanced markTestCompletedInUI from legacy code - now works with assignment_id
+  const markCompleted = useCallback(async (assignmentId) => {
+    logger.debug('👨‍🏫 Marking assignment as completed:', assignmentId);
+    setCompletingAssignmentId(assignmentId);
     try {
-      const result = await testService.markTestCompleted(testType, testId);
+      const result = await testService.markAssignmentCompleted(assignmentId);
       if (result.success) {
-        showNotification('Test marked as completed!', 'success');
+        // Update local state to reflect completion
+        setActiveTestsData(prevTests => {
+          return prevTests.map(test => ({
+            ...test,
+            assignments: test.assignments?.map(assignment => 
+              assignment.assignment_id === assignmentId
+                ? { ...assignment, is_active: false }
+                : assignment
+            ) || []
+          }));
+        });
+        
+        showNotification('Test assignment marked as completed!', 'success');
         
         // Clear the cache to force fresh data
         const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
         localStorage.removeItem(cacheKey);
         logger.debug('👨‍🏫 Cleared teacher tests cache');
         
-        await loadTests();
+        // Refresh in background (non-blocking)
+        loadTests().catch(err => {
+          logger.error('👨‍🏫 Error refreshing tests after completion:', err);
+        });
       } else {
-        throw new Error(result.error || 'Failed to mark test as completed');
+        throw new Error(result.error || 'Failed to mark assignment as completed');
       }
     } catch (error) {
-      logger.error('👨‍🏫 Error marking test as completed:', error);
-      showNotification('Failed to mark test as completed', 'error');
+      logger.error('👨‍🏫 Error marking assignment as completed:', error);
+      showNotification('Failed to mark assignment as completed', 'error');
     } finally {
-      setCompletingTestId(null);
+      setCompletingAssignmentId(null);
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
-  // Activate an inactive test to make it visible to students
-  const [activatingTestId, setActivatingTestId] = useState(null);
-  const activateTest = useCallback(async (testType, testId) => {
-    logger.debug('👨‍🏫 Activating test:', testType, testId);
-    setActivatingTestId(testId);
+  // Activate an inactive test to make it visible to students - now works with assignment_id
+  const [activatingAssignmentId, setActivatingAssignmentId] = useState(null);
+  const activateTest = useCallback(async (assignmentId) => {
+    logger.debug('👨‍🏫 Activating assignment:', assignmentId);
+    setActivatingAssignmentId(assignmentId);
+    
     try {
-      const result = await testService.activateTest(testType, testId);
-      if (result.success) {
-        showNotification('Test activated! Students can now see this test.', 'success');
-        const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
-        localStorage.removeItem(cacheKey);
-        logger.debug('👨‍🏫 Cleared teacher tests cache');
-        await loadTests();
-      } else {
-        throw new Error(result.error || 'Failed to activate test');
+      const result = await testService.activateAssignment(assignmentId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to activate assignment');
       }
+      
+      // Update local state only after API success to hide the button
+      setActiveTestsData(prevTests => {
+        return prevTests.map(test => ({
+          ...test,
+          assignments: test.assignments?.map(assignment => 
+            assignment.assignment_id === assignmentId
+              ? { ...assignment, is_active: true }
+              : assignment
+          ) || []
+        }));
+      });
+      
+      // Show notification after success
+      showNotification('Test assignment activated! Students can now see this test.', 'success');
+      
+      // Clear the cache to force fresh data
+      const cacheKey = `teacher_tests_${user?.teacher_id || user?.id || ''}`;
+      localStorage.removeItem(cacheKey);
+      logger.debug('👨‍🏫 Cleared teacher tests cache');
+      
+      // Refresh in background (non-blocking)
+      loadTests().catch(err => {
+        logger.error('👨‍🏫 Error refreshing tests after activation:', err);
+      });
+      
     } catch (error) {
-      logger.error('👨‍🏫 Error activating test:', error);
-      showNotification('Failed to activate test', 'error');
+      logger.error('👨‍🏫 Error activating assignment:', error);
+      showNotification('Failed to activate assignment', 'error');
     } finally {
-      setActivatingTestId(null);
+      setActivatingAssignmentId(null);
     }
   }, [loadTests, showNotification, user?.teacher_id, user?.id]);
   
@@ -637,6 +673,38 @@ const TeacherCabinet = ({ onBackToLogin }) => {
     }
   }, [user?.teacher_id, user?.id]);
   
+  // Transform tests into assignment cards - one card per assignment
+  const assignmentCards = useMemo(() => {
+    if (!activeTestsData || activeTestsData.length === 0) {
+      return [];
+    }
+    
+    return activeTestsData.flatMap(test => {
+      if (!test.assignments || test.assignments.length === 0) {
+        return [];
+      }
+      
+      return test.assignments.map(assignment => ({
+        // Test information
+        test_id: test.test_id,
+        test_type: test.test_type,
+        test_name: test.test_name,
+        num_questions: test.num_questions,
+        created_at: test.created_at,
+        subject_id: test.subject_id,
+        subject: test.subject,
+        teacher_id: test.teacher_id,
+        // Assignment-specific information
+        assignment_id: assignment.assignment_id,
+        grade: assignment.grade,
+        class: assignment.class,
+        is_active: assignment.is_active,
+        assigned_at: assignment.assigned_at,
+        days_remaining: assignment.days_remaining
+      }));
+    });
+  }, [activeTestsData]);
+
   // Show notification helper
   
 
@@ -1162,7 +1230,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                         } else if (grade === 4 || grade === 5 || grade === 6) {
                           classes = [13, 14];
                         } else if (grade === 7) {
-                          classes = [69];
+                          classes = [69, 70];
                         } else {
                           classes = [];
                         }
@@ -2066,7 +2134,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
           </Card>
         </motion.div>
         
-        {activeTestsData.length === 0 ? (
+        {assignmentCards.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -2103,9 +2171,9 @@ const TeacherCabinet = ({ onBackToLogin }) => {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="space-y-4"
           >
-            {activeTestsData.map((test, index) => (
+            {assignmentCards.map((assignmentCard, index) => (
               <motion.div
-                key={index}
+                key={`${assignmentCard.test_id}-${assignmentCard.assignment_id}-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
@@ -2116,45 +2184,34 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                     <div className="flex justify-between items-center">
                       <div className="flex-1 flex items-center space-x-4">
                         {/* Test Name */}
-                        <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0 max-w-xs truncate" title={test.test_name}>
-                          {test.test_name}
+                        <h3 className="text-lg font-semibold text-gray-900 min-w-0 flex-shrink-0 max-w-xs truncate" title={assignmentCard.test_name}>
+                          {assignmentCard.test_name}
                         </h3>
                         
                         {/* Test Type Badge - Hidden on mobile */}
                         <span className="hidden sm:inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
-                          {test.test_type}
+                          {assignmentCard.test_type}
+                        </span>
+                        
+                        {/* Class Badge - Prominently displayed */}
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-semibold flex-shrink-0">
+                          {assignmentCard.grade}/{assignmentCard.class}
                         </span>
                         
                         {/* Desktop: Show all details */}
                         <div className="hidden sm:flex items-center space-x-4">
-                          {/* Assignments Count */}
-                          <div className="flex items-center space-x-1 text-sm text-gray-600 flex-shrink-0">
-                            <span className="font-medium">Assignments:</span>
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                              {test.assignments?.length || 0}
-                            </span>
-                          </div>
-                          
-                          {/* Assigned Classes */}
-                          {test.assignments && test.assignments.length > 0 && (
-                            <div className="flex items-center space-x-1 text-sm text-gray-600 flex-shrink-0">
-                              <span className="font-medium">Classes:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {test.assignments.map((assignment, assignmentIndex) => (
-                                  <span 
-                                    key={assignmentIndex}
-                                    className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium"
-                                  >
-                                    {assignment.grade}/{assignment.class}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          {/* Status Badge */}
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            assignmentCard.is_active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {assignmentCard.is_active ? 'Active' : 'Inactive'}
+                          </span>
                           
                           {/* Created Date */}
                           <div className="text-sm text-gray-500 flex-shrink-0">
-                            {new Date(test.created_at).toLocaleDateString()}
+                            {new Date(assignmentCard.created_at).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -2164,10 +2221,18 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                         <div className="sm:hidden">
                           <Button
                             variant="outline"
-                            onClick={() => handleShowTestDetails(test)}
+                            onClick={() => handleShowTestDetails({
+                              ...assignmentCard,
+                              assignments: [{
+                                assignment_id: assignmentCard.assignment_id,
+                                grade: assignmentCard.grade,
+                                class: assignmentCard.class,
+                                is_active: assignmentCard.is_active
+                              }]
+                            })}
                             size="sm"
                             className="text-xs"
-                            title={`Type: ${test.test_type} | Assignments: ${test.assignments?.length || 0} | Classes: ${test.assignments?.map(a => `${a.grade}/${a.class}`).join(', ') || 'None'} | ${new Date(test.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}`}
+                            title={`Type: ${assignmentCard.test_type} | Class: ${assignmentCard.grade}/${assignmentCard.class} | ${new Date(assignmentCard.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}`}
                           >
                             Details
                           </Button>
@@ -2177,22 +2242,30 @@ const TeacherCabinet = ({ onBackToLogin }) => {
                         <div className="hidden sm:block">
                           <Button
                             variant="outline"
-                            onClick={() => handleShowTestDetails(test)}
+                            onClick={() => handleShowTestDetails({
+                              ...assignmentCard,
+                              assignments: [{
+                                assignment_id: assignmentCard.assignment_id,
+                                grade: assignmentCard.grade,
+                                class: assignmentCard.class,
+                                is_active: assignmentCard.is_active
+                              }]
+                            })}
                             size="sm"
                           >
                             Details
                           </Button>
                         </div>
                         
-                        {/* Activate button (shown when any assignment is inactive) */}
-                        {Array.isArray(test.assignments) && test.assignments.some(a => a && a.is_active === false) && (
+                        {/* Activate button (shown when assignment is inactive) */}
+                        {!assignmentCard.is_active && (
                           <Button
                             variant="primary"
-                            onClick={() => activateTest(test.test_type, test.test_id)}
+                            onClick={() => activateTest(assignmentCard.assignment_id)}
                             size="sm"
-                            disabled={activatingTestId === test.test_id}
+                            disabled={activatingAssignmentId === assignmentCard.assignment_id}
                           >
-                            {activatingTestId === test.test_id ? (
+                            {activatingAssignmentId === assignmentCard.assignment_id ? (
                               <div className="flex items-center">
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                 Activating...
@@ -2205,11 +2278,11 @@ const TeacherCabinet = ({ onBackToLogin }) => {
 
                         <Button
                           variant="success"
-                          onClick={() => markCompleted(test.test_type, test.test_id)}
+                          onClick={() => markCompleted(assignmentCard.assignment_id)}
                           size="sm"
-                          disabled={completingTestId === test.test_id}
+                          disabled={completingAssignmentId === assignmentCard.assignment_id}
                         >
-                          {completingTestId === test.test_id ? (
+                          {completingAssignmentId === assignmentCard.assignment_id ? (
                             <div className="flex items-center">
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                               Completing...
