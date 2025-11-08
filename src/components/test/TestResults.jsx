@@ -258,6 +258,24 @@ const TestResults = ({
             </div>
           </div>
         </motion.div>
+
+        {/* Back to Cabinet Button - Bottom */}
+        <motion.div 
+          className="bg-white rounded-lg shadow-lg p-6 mt-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+        >
+          <div className="flex justify-center">
+            <Button
+              onClick={onBackToCabinet}
+              variant="primary"
+              className="flex items-center gap-2"
+            >
+              ← Back to Cabinet
+            </Button>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

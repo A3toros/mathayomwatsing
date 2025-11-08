@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
@@ -75,9 +75,15 @@ import { logger } from '@/utils/logger';
 
 const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const { studentData, loadStudentData } = useUser();
   const { activeTests, testResults, loadActiveTests, loadTestResults, viewTestDetails, testDetailsModal, closeTestDetailsModal } = useTest();
+  
+  // Debug: Log when cabinet mounts/renders
+  useEffect(() => {
+    logger.debug('🎓 [DEBUG] StudentCabinet mounted/rendered, location:', location.pathname);
+  }, [location.pathname]);
   
   // Local state
   const [isLoading, setIsLoading] = useState(true);
@@ -683,12 +689,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
     );
   }
   
+  logger.debug('🎓 [DEBUG] StudentCabinet rendering, location:', location.pathname, 'isLoading:', isLoading);
+  
   return (
     <motion.div 
       className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
+      key={location.pathname} // Force re-render on route change
     >
 
       {/* Student Cabinet Header */}
