@@ -415,13 +415,13 @@ ${getScoringGuidelines(difficultyLevel)}
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const response = await openai.chat.completions.create({
-          model: "openai/gpt-4o-mini",
-          messages: [{ role: "user", content: analysisPrompt }],
-          response_format: { type: "json_object" }
-        });
+    const response = await openai.chat.completions.create({
+      model: "openai/gpt-4o-mini",
+      messages: [{ role: "user", content: analysisPrompt }],
+      response_format: { type: "json_object" }
+    });
 
-        return JSON.parse(response.choices[0].message.content);
+    return JSON.parse(response.choices[0].message.content);
       } catch (err) {
         lastError = err;
         const status = err?.status || err?.code;

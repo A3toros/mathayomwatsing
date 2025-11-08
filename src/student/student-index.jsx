@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Routes, Route, useParams } from 'react-router-dom';
+import { useNavigate, Routes, Route, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TestProvider, useTest } from '@/contexts/TestContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -24,7 +24,18 @@ const TestPage = () => {
   const { activeTests } = useTest();
   
   const handleBackToCabinet = () => {
+    logger.debug('🎓 [DEBUG] handleBackToCabinet called in TestPage');
+    logger.debug('🎓 [DEBUG] Current location before navigate:', window.location.pathname);
+    logger.debug('🎓 [DEBUG] Calling navigate("/student")');
     navigate('/student');
+    logger.debug('🎓 [DEBUG] Navigate called, checking result...');
+    setTimeout(() => {
+      logger.debug('🎓 [DEBUG] Location after navigate:', window.location.pathname);
+      if (window.location.pathname !== '/student') {
+        logger.debug('🎓 [DEBUG] Navigation failed, forcing window.location.href');
+        window.location.href = '/student';
+      }
+    }, 50);
   };
   
   // Find the full test data including retest metadata
@@ -32,8 +43,12 @@ const TestPage = () => {
     test.test_type === testType && test.test_id === parseInt(testId)
   );
   
+  const location = useLocation();
+  logger.debug('🎓 [DEBUG] TestPage rendering, location:', location.pathname, 'testType:', testType, 'testId:', testId);
+  
   return (
     <StudentTests 
+      key={`test-${testType}-${testId}`}
       onBackToCabinet={handleBackToCabinet}
       currentTest={fullTestData || { test_type: testType, test_id: parseInt(testId) }}
     />

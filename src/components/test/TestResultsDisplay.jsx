@@ -11,7 +11,8 @@ const TestResultsDisplay = ({
   onBackToCabinet,
   checkAnswerCorrectness,
   formatStudentAnswerForDisplay,
-  getCorrectAnswer
+  getCorrectAnswer,
+  caughtCheating = false
 }) => {
   const [score, setScore] = useState(0);
   const [percentage, setPercentage] = useState(0);
@@ -71,6 +72,24 @@ const TestResultsDisplay = ({
         </div>
       </Card>
       
+      {/* Cheating Warning */}
+      {caughtCheating && (
+        <Card className="mb-6 border-2 border-red-500 bg-red-50">
+          <div className="flex items-start space-x-3 p-4">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-red-700">
+                Suspicious activity was detected during this test. Your teacher has been notified.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+      
       {/* Results Summary */}
       <Card className="mb-6">
         <div className="results-summary">
@@ -113,9 +132,7 @@ const TestResultsDisplay = ({
             <div className="space-y-4">
               {questions.map((question, index) => {
                 const studentAnswer = studentAnswers[String(question.question_id)] || 'No answer';
-                console.log('🔍 TestResultsDisplay - Question', index + 1, ':', { question, studentAnswer, testType });
                 const isCorrect = checkAnswerCorrectness(question, studentAnswer, testType);
-                console.log('🔍 TestResultsDisplay - isCorrect result:', isCorrect);
                 
                 return (
                   <div 

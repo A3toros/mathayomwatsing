@@ -114,6 +114,7 @@ const WordMatchingPage = () => {
             num_questions: cachedData.num_questions,
             interaction_type: cachedData.interaction_type,
             passing_score: cachedData.passing_score,
+            allowed_time: cachedData.allowed_time,
             created_at: cachedData.created_at,
             updated_at: cachedData.updated_at,
             leftWords: cachedData.leftWords,
@@ -172,6 +173,7 @@ const WordMatchingPage = () => {
           num_questions: result.data.num_questions,
           interaction_type: result.data.interaction_type,
           passing_score: result.data.passing_score,
+          allowed_time: result.data.allowed_time,
           created_at: result.data.created_at,
           updated_at: result.data.updated_at,
           leftWords: result.data.leftWords,
@@ -238,7 +240,10 @@ const WordMatchingPage = () => {
     showNotification('Test completed successfully!', 'success');
     
     // Use the result data from the component directly (like regular tests)
-    const score = parseInt(result) || 0;
+    // Result can be either a number (score) or an object with score and cheating data
+    const score = typeof result === 'object' ? (parseInt(result.score) || 0) : (parseInt(result) || 0);
+    const caughtCheating = typeof result === 'object' ? (result.caught_cheating || false) : false;
+    const visibilityChangeTimes = typeof result === 'object' ? (result.visibility_change_times || 0) : 0;
     const maxScore = testData?.num_questions || 0;
     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
     
@@ -266,8 +271,8 @@ const WordMatchingPage = () => {
         correctAnswer: 'Match required'
       })),
       timestamp: new Date().toISOString(),
-      caught_cheating: false,
-      visibility_change_times: 0
+      caught_cheating: caughtCheating,
+      visibility_change_times: visibilityChangeTimes
     };
     
     logger.debug('🎯 Using test results data:', testResultsData);
@@ -361,6 +366,8 @@ const WordMatchingPage = () => {
             loadTestData();
           }}
           isLoading={false}
+          caught_cheating={testResults.caught_cheating || false}
+          visibility_change_times={testResults.visibility_change_times || 0}
         />
       </div>
     );
