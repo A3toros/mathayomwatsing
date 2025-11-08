@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
 import { useTestProgress } from '@/hooks/useTestProgress';
@@ -15,7 +15,6 @@ import { API_ENDPOINTS, USER_ROLES, CONFIG, TEST_TYPES } from '@/shared/shared-i
 import { logger } from '@/utils/logger';
 import { calculateTestScore, checkAnswerCorrectness, getCorrectAnswer } from '../utils/scoreCalculation';
 import useInterceptBackNavigation from '@/hooks/useInterceptBackNavigation';
-import { setCachedData, getCachedData, CACHE_TTL } from '@/utils/cacheUtils';
 
 // STUDENT TESTS - React Component for Student Test Taking - ENHANCED FOR NEW STRUCTURE
 // ✅ COMPLETED: All student test functionality from legacy src/ converted to React
@@ -102,10 +101,8 @@ const debounce = (func, delay) => {
 
 const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { activeTests, loadActiveTests: loadActiveTestsFromContext } = useTest();
-  
   // Test progress functions
   // OPTIMIZATION: Debounced progress saving to reduce localStorage writes
   const debouncedSaveProgress = useCallback(
@@ -206,7 +203,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
-  const [caughtCheating, setCaughtCheating] = useState(false);
   const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(false);
   const pendingNavigationRef = useRef(null);
 
@@ -608,6 +604,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         return;
       }
       
+      logger.debug('🔄 Starting progress restoration for test:', test.test_type, test.test_id);
       
       // Mark restoration as in progress
       setProgressRestorationState(prev => ({
@@ -619,17 +616,21 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       const studentId = user?.student_id || user?.id || 'unknown';
       const mainProgressKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}`;
       const mainProgressData = localStorage.getItem(mainProgressKey);
+      logger.debug('🔍 Checking main progress key:', mainProgressKey);
+      logger.debug('🔍 Main progress data:', mainProgressData);
       
       let initialAnswers = new Array(questions.length).fill('');
       
       if (mainProgressData) {
         try {
           const parsedProgress = JSON.parse(mainProgressData);
+          logger.debug('🔍 Parsed progress data:', parsedProgress);
           if (parsedProgress.answers && Array.isArray(parsedProgress.answers)) {
             initialAnswers = parsedProgress.answers;
+            logger.debug('✅ Loaded answers from main progress:', initialAnswers);
           }
         } catch (error) {
-          logger.error('Error parsing main progress:', error);
+          logger.error('🔍 Error parsing main progress:', error);
         }
       }
       
@@ -637,12 +638,16 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       questions.forEach((question, index) => {
         const individualKey = `test_progress_${studentId}_${test.test_type}_${test.test_id}_${question.question_id}`;
         const individualAnswer = localStorage.getItem(individualKey);
+        logger.debug(`🔍 Checking individual answer for question ${question.question_id}:`, individualAnswer);
         if (individualAnswer) {
           // Remove extra quotes if present
           const cleanAnswer = individualAnswer.replace(/^"(.*)"$/, '$1');
           initialAnswers[index] = cleanAnswer;
+          logger.debug(`✅ Loaded individual answer for question ${question.question_id}:`, cleanAnswer);
         }
       });
+      
+      logger.debug('🔍 Final initial answers after loading all sources:', initialAnswers);
       
       // OPTIMIZATION: Only set answers if we have meaningful progress
       const answeredCount = initialAnswers.filter(answer => {
@@ -650,10 +655,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       }).length;
       
       if (answeredCount > 0) {
+        logger.debug(`🔄 Restoring progress: ${answeredCount}/${questions.length} questions answered`);
         setStudentAnswers(initialAnswers);
+        
         const initialProgress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
         setProgress(initialProgress);
+        logger.debug(`🔄 Progress restored: ${initialProgress}% complete`);
       } else {
+        logger.debug('🆕 No existing progress found - starting fresh');
         setStudentAnswers(initialAnswers);
         setProgress(0);
       }
@@ -712,24 +721,34 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // OPTIMIZATION: Only restore anti-cheating data for the SAME test
       const studentIdForAntiCheating = user?.student_id || user?.id || 'unknown';
       const antiCheatingKey = `anti_cheating_${studentIdForAntiCheating}_${test.test_type}_${test.test_id}`;
+      const existingAntiCheatingData = localStorage.getItem(antiCheatingKey);
       
-      // Use getCachedData to properly unwrap the cache structure (same as goBack uses)
-      const existingAntiCheatingData = getCachedData(antiCheatingKey);
+      logger.debug('🛡️ Checking for anti-cheating data with key:', antiCheatingKey);
+      logger.debug('🛡️ Key format: anti_cheating_{studentId}_{testType}_{testId}');
+      logger.debug('🛡️ Current test details:', { testType: test.test_type, testId: test.test_id, studentId: studentIdForAntiCheating });
       
       if (existingAntiCheatingData) {
-        
-        // Show warning if student has been caught cheating in THIS test
-        if (existingAntiCheatingData.isCheating) {
-          logger.debug('⚠️ WARNING: Student has been flagged for cheating in THIS test!');
-          logger.debug('⚠️ Tab switches detected in this test:', existingAntiCheatingData.tabSwitches);
+        try {
+          const parsedData = JSON.parse(existingAntiCheatingData);
+          logger.debug('🛡️ Found existing anti-cheating data for THIS test:', parsedData);
+          logger.debug('🛡️ Visibility change times for this test:', parsedData.tabSwitches || 0);
+          logger.debug('🛡️ Cheating status for this test:', parsedData.isCheating || false);
           
-          // Show notification to user
-          showNotification(
-            `⚠️ Warning: Suspicious activity detected in this test (${existingAntiCheatingData.tabSwitches} tab switches). Continued violations may result in test disqualification.`, 
-            'warning'
-          );
+          // Show warning if student has been caught cheating in THIS test
+          if (parsedData.isCheating) {
+            logger.debug('⚠️ WARNING: Student has been flagged for cheating in THIS test!');
+            logger.debug('⚠️ Tab switches detected in this test:', parsedData.tabSwitches);
+            
+            // Show notification to user
+            showNotification(
+              `⚠️ Warning: Suspicious activity detected in this test (${parsedData.tabSwitches} tab switches). Continued violations may result in test disqualification.`, 
+              'warning'
+            );
+          }
+          // The useAntiCheating hook will automatically load this data in its useEffect
+        } catch (error) {
+          logger.error('🛡️ Error parsing existing anti-cheating data:', error);
         }
-        // The useAntiCheating hook will automatically load this data in its useEffect
       } else {
         logger.debug('🛡️ No existing anti-cheating data found for this test - starting fresh');
       }
@@ -798,9 +817,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // Get anti-cheating data
       const cheatingData = getCheatingData();
       logger.debug('🛡️ Anti-cheating data for submission:', cheatingData);
-      
-      // Store caught_cheating flag for results display
-      setCaughtCheating(cheatingData.caught_cheating || false);
       
       // Submit test with timing data and anti-cheating data
       // Build answers_by_id for order-agnostic scoring
@@ -1122,81 +1138,76 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       // Check if answer exists and is a string before calling trim
       return answer && typeof answer === 'string' && answer.trim() !== '';
     }).length;
+    logger.debug('🎓 getAnsweredCount:', { studentAnswers, answeredCount, totalQuestions: questions?.length });
     return answeredCount;
   }, [studentAnswers, questions]);
   
+  const handleCabinetExitEffects = useCallback(() => {
+    if (!currentTest || !user?.student_id) {
+      return;
+    }
+
+    logger.debug('🛡️ Cabinet navigation detected - counting as cheating attempt');
+
+    const studentId = user?.student_id || user?.id || 'unknown';
+    const antiCheatingKey = `anti_cheating_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
+
+    const existingData = localStorage.getItem(antiCheatingKey);
+    let currentTabSwitches = 0;
+    let currentIsCheating = false;
+
+    if (existingData) {
+      try {
+        const parsed = JSON.parse(existingData);
+        currentTabSwitches = parsed.tabSwitches || 0;
+        currentIsCheating = parsed.isCheating || false;
+      } catch (error) {
+        logger.error('🛡️ Error parsing existing anti-cheating data:', error);
+      }
+    }
+
+    const newTabSwitches = currentTabSwitches + 1;
+    const newIsCheating = newTabSwitches >= 2;
+
+    logger.debug(`🛡️ Tab switch count: ${currentTabSwitches} → ${newTabSwitches} (cheating: ${newIsCheating})`);
+
+    const updatedData = {
+      tabSwitches: newTabSwitches,
+      isCheating: newIsCheating,
+      lastUpdated: new Date().toISOString()
+    };
+
+    localStorage.setItem(antiCheatingKey, JSON.stringify(updatedData));
+    logger.debug('🛡️ Anti-cheating data updated for cabinet navigation:', updatedData);
+  }, [currentTest, user?.student_id, user?.id]);
+
   // Enhanced navigateBackToCabinet from legacy code
   const goBack = useCallback(() => {
-    // Record navigation back to cabinet as a visibility change (like original implementation)
-    if (currentTest && user?.student_id) {
-      const studentId = user?.student_id || user?.id || 'unknown';
-      const cacheKey = `anti_cheating_${studentId}_${currentTest.test_type}_${currentTest.test_id}`;
-      
-      // Get current anti-cheating data
-      const existingData = getCachedData(cacheKey) || { tabSwitches: 0, isCheating: false };
-      const currentTabSwitches = existingData.tabSwitches || 0;
-      
-      // Increment tab switch count (navigation back to cabinet counts as a visibility change)
-      const newTabSwitches = currentTabSwitches + 1;
-      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
-      
-      // Save updated data to localStorage (same format as useAntiCheating hook)
-      setCachedData(cacheKey, { 
-        tabSwitches: newTabSwitches, 
-        isCheating: newIsCheating 
-      }, CACHE_TTL.anti_cheating);
-    }
-    
-    // Disable intercept and clear pending navigation BEFORE navigating
+    logger.debug('🎓 Navigating back to cabinet...');
+    handleCabinetExitEffects();
     setBackInterceptEnabled(false);
     pendingNavigationRef.current = null;
-    
-    // Clean up any intercept history state
-    try {
-      const currentState = window.history.state;
-      if (currentState && currentState.__intercept) {
-        const prevState = currentState.prevState ?? null;
-        window.history.replaceState(prevState, document.title, window.location.href);
-      }
-    } catch (error) {
-      logger.warn('Failed to restore history state in goBack:', error);
+    if (onBackToCabinet) {
+      onBackToCabinet();
+    } else {
+      navigate('/student');
     }
-    
-    // Use setTimeout to ensure state cleanup completes, then navigate
-    // Force full page navigation to bypass any React Router history issues
-    setTimeout(() => {
-      // Force full page navigation to bypass React Router history issues
-      // The intercept hook has corrupted React Router's history tracking
-      window.location.href = '/student';
-    }, 100);
-  }, [onBackToCabinet, navigate, currentTest, user?.student_id, isBackInterceptEnabled, location]);
+  }, [handleCabinetExitEffects, onBackToCabinet, navigate]);
 
   const handleExitConfirm = useCallback(() => {
     setShowExitModal(false);
     const pending = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
-
-    // Disable intercept first
     setBackInterceptEnabled(false);
-    
-    // Clean up intercept history state if it exists
-    if (pending) {
-      try {
-        const currentState = window.history.state;
-        if (currentState && currentState.__intercept) {
-          const prevState = currentState.prevState ?? null;
-          window.history.replaceState(prevState, document.title, window.location.href);
-        }
-      } catch (error) {
-        logger.warn('Failed to restore history state:', error);
-      }
+
+    if (pending?.confirm) {
+      handleCabinetExitEffects();
+      pending.confirm();
+      return;
     }
 
-    // Use setTimeout to ensure intercept cleanup completes before navigation
-    setTimeout(() => {
-      goBack();
-    }, 10);
-  }, [goBack]);
+    goBack();
+  }, [goBack, handleCabinetExitEffects]);
 
   const handleExitCancel = useCallback(() => {
     const pending = pendingNavigationRef.current;
@@ -1531,14 +1542,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     );
   }
   
-  // If we've navigated away from the test route, don't render
-  const isTestRoute = location.pathname.startsWith('/student/test/');
-  logger.debug('🎓 [DEBUG] StudentTests render check - isTestRoute:', isTestRoute, 'pathname:', location.pathname, 'propCurrentTest:', !!propCurrentTest);
-  if (!isTestRoute && propCurrentTest) {
-    logger.debug('🎓 [DEBUG] Not on test route anymore, hiding component. Current path:', location.pathname);
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 overflow-y-auto">
       {/* Exit Confirmation Modal */}
@@ -1572,29 +1575,27 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           </div>
         </div>
       </PerfectModal>
-      {/* Student Tests Header - Hide when showing results */}
-      {currentView !== 'results' && (
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Student Test</h1>
+      {/* Student Tests Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Student Test</h1>
 
-              </div>
-              
-              <Button
-                variant="outline"
-                onClick={() => {
-                  pendingNavigationRef.current = null;
-                  setShowExitModal(true);
-                }}
-              >
-                Back to Cabinet
-              </Button>
             </div>
+            
+            <Button
+              variant="outline"
+              onClick={() => {
+                pendingNavigationRef.current = null;
+                setShowExitModal(true);
+              }}
+            >
+              Back to Cabinet
+            </Button>
           </div>
         </div>
-      )}
+      </div>
       
       {/* Anti-cheating Warning - Show only in immediate results after submission */}
       {isCheating && currentView === 'results' && (
@@ -1749,7 +1750,6 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
         checkAnswerCorrectness={checkAnswerCorrectness}
         formatStudentAnswerForDisplay={formatStudentAnswerForDisplay}
         getCorrectAnswer={getCorrectAnswer}
-        caughtCheating={caughtCheating}
       />
     );
   }

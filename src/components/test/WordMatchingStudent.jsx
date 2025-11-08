@@ -8,7 +8,6 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import PerfectModal from '../ui/PerfectModal';
-import ProgressTracker from './ProgressTracker';
 import { useNotification } from '../ui/Notification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../hooks/useApi';
@@ -41,20 +40,12 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   }, []);
 
   
-  const { startTracking, stopTracking, getCheatingData, clearData } = useAntiCheating(
-    'word_matching',
-    testData?.id,
-    user?.student_id || user?.id
-  );
+  const { getCheatingData, stopTracking, clearData } = useAntiCheating();
 
   // State management
   const [displayData, setDisplayData] = useState(null);
   const [studentAnswers, setStudentAnswers] = useState({});
   const [selectedWord, setSelectedWord] = useState(null);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const timerKeyRef = useRef(null);
-  const lastTickRef = useRef(null);
-  const timerInitializedRef = useRef(false);
   
   // Container ref for actual width
   const containerRef = useRef(null);
@@ -348,6 +339,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       }
       
       setDisplayData(testData);
+      setTestStartTime(new Date());
       
       // Restore progress if available
       if (user?.student_id) {
@@ -358,56 +350,10 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           setStudentArrows(savedProgress.arrows || []);
           setTestStartTime(new Date(savedProgress.startTime));
           console.log('🎯 Test progress restored:', savedProgress);
-        } else {
-          setTestStartTime(new Date());
         }
-      } else {
-        setTestStartTime(new Date());
-      }
-      
-      // Start anti-cheating tracking
-      if (testData?.id && (user?.student_id || user?.id)) {
-        startTracking();
-      }
-      
-      // Initialize timer from allowed_time with persistent cache
-      const allowedSeconds = Number(testData?.allowed_time || 0);
-      const studentIdTimerInit = user?.student_id || user?.id || 'unknown';
-      timerKeyRef.current = `test_timer_${studentIdTimerInit}_word_matching_${testData.id}`;
-      timerInitializedRef.current = false; // Reset for new test
-      if (allowedSeconds > 0) {
-        try {
-          const cached = localStorage.getItem(timerKeyRef.current);
-          const now = Date.now();
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            const drift = Math.floor((now - new Date(parsed.lastTickAt).getTime()) / 1000);
-            const remaining = Math.max(0, Number(parsed.remainingSeconds || allowedSeconds) - Math.max(0, drift));
-            setTimeRemaining(remaining);
-            lastTickRef.current = now;
-            console.log('⏱️ Timer initialized from cache:', { remaining, allowedSeconds });
-          } else {
-            setTimeRemaining(allowedSeconds);
-            lastTickRef.current = now;
-            localStorage.setItem(timerKeyRef.current, JSON.stringify({
-              remainingSeconds: allowedSeconds,
-              lastTickAt: new Date(now).toISOString(),
-              startedAt: new Date(now).toISOString()
-            }));
-            console.log('⏱️ Timer initialized fresh:', { allowedSeconds });
-          }
-          timerInitializedRef.current = true;
-        } catch (e) {
-          console.error('Timer cache init error:', e);
-          setTimeRemaining(allowedSeconds);
-          timerInitializedRef.current = true;
-        }
-      } else {
-        setTimeRemaining(0);
-        timerInitializedRef.current = true;
       }
     }
-  }, [testData, user?.student_id, user?.id, startTracking]);
+  }, [testData, user?.student_id]);
 
   // Auto-save progress
   useEffect(() => {
@@ -426,7 +372,6 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       return () => clearInterval(interval);
     }
   }, [displayData, studentAnswers, studentArrows, testStartTime, user?.student_id, testData?.id]);
-
 
   // Handle word click for arrow mode
   const handleWordClick = useCallback((side, index) => {
@@ -508,26 +453,6 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
     const pending = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
 
-    // Record navigation back to cabinet as a visibility change (like original implementation)
-    if (testData?.id && user?.student_id) {
-      const studentId = user?.student_id || user?.id || 'unknown';
-      const cacheKey = `anti_cheating_${studentId}_word_matching_${testData.id}`;
-      
-      // Get current anti-cheating data
-      const existingData = getCachedData(cacheKey) || { tabSwitches: 0, isCheating: false };
-      const currentTabSwitches = existingData.tabSwitches || 0;
-      
-      // Increment tab switch count (navigation back to cabinet counts as a visibility change)
-      const newTabSwitches = currentTabSwitches + 1;
-      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
-      
-      // Save updated data to localStorage (same format as useAntiCheating hook)
-      setCachedData(cacheKey, { 
-        tabSwitches: newTabSwitches, 
-        isCheating: newIsCheating 
-      }, CACHE_TTL.anti_cheating);
-    }
-
     if (pending?.confirm) {
       setBackInterceptEnabled(false);
       pending.confirm();
@@ -538,7 +463,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
     if (onBackToCabinet) {
       onBackToCabinet();
     }
-  }, [onBackToCabinet, testData, user?.student_id, user?.id]);
+  }, [onBackToCabinet]);
 
   const cancelBackToCabinet = useCallback(() => {
     const pending = pendingNavigationRef.current;
@@ -766,19 +691,10 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           localStorage.removeItem(retestAssignKey);
         }
         
-        // Clear timer cache after successful submission
-        if (timerKeyRef.current) {
-          localStorage.removeItem(timerKeyRef.current);
-        }
-        
-        // Navigate back to student cabinet with score and cheating data
+        // Navigate back to student cabinet with score
         if (onTestComplete) {
           setBackInterceptEnabled(false);
-          onTestComplete({
-            score,
-            caught_cheating: cheatingData.caught_cheating,
-            visibility_change_times: cheatingData.visibility_change_times
-          });
+          onTestComplete(score);
         }
         // Stop loading spinner after results are shown
         setIsSubmitting(false);
@@ -790,43 +706,6 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       setIsSubmitting(false);
     }
   }, [displayData, studentAnswers, studentArrows, testData, user, testStartTime, getCheatingData, stopTracking, clearData, makeAuthenticatedRequest, onTestComplete]);
-
-  // Test timer effect with persistence (must be after handleSubmitTest is defined)
-  useEffect(() => {
-    if (!displayData || !testData || !testStartTime) return;
-    const allowedSeconds = Number(testData?.allowed_time || 0);
-    if (!allowedSeconds) return;
-    
-    console.log('⏱️ Timer effect triggered:', { allowedSeconds, timeRemaining, initialized: timerInitializedRef.current, testData: testData?.id });
-    
-    const interval = setInterval(() => {
-      setTimeRemaining(prev => {
-        // If prev is 0, use allowedSeconds as fallback (initialization might not have completed)
-        const current = prev > 0 ? prev : allowedSeconds;
-        if (current <= 0) {
-          return 0;
-        }
-        const next = Math.max(0, current - 1);
-        try {
-          const now = Date.now();
-          if (!lastTickRef.current) lastTickRef.current = now;
-          if (timerKeyRef.current) {
-            localStorage.setItem(timerKeyRef.current, JSON.stringify({
-              remainingSeconds: next,
-              lastTickAt: new Date(now).toISOString(),
-              startedAt: testStartTime ? testStartTime.toISOString() : new Date(now - (allowedSeconds - next) * 1000).toISOString()
-            }));
-          }
-        } catch {}
-        if (next === 0) {
-          handleSubmitTest();
-        }
-        return next;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [displayData, testData?.allowed_time, testStartTime, handleSubmitTest]);
 
   if (!displayData) {
     return (
@@ -869,7 +748,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       </div>
       {/* Test Header */}
       <Card className="mb-6">
-        <div className="text-left mb-4">
+        <div className="text-left">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{testData.test_name}</h2>
           <p className="text-gray-600">
             {testData.interaction_type === 'drag' 
@@ -878,22 +757,6 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             }
           </p>
         </div>
-        
-        {/* Progress Tracker with Timer */}
-        {testData && (
-          <div className="mb-4">
-            <ProgressTracker
-              answeredCount={Object.keys(studentAnswers).length + (testData.interaction_type === 'arrow' ? studentArrows.length : 0)}
-              totalQuestions={displayData?.leftWords?.length || 0}
-              timeElapsed={(() => {
-                const allowedSeconds = Number(testData?.allowed_time || 0);
-                if (allowedSeconds <= 0) return 0;
-                // Use timeRemaining if it's been initialized (> 0), otherwise use allowedSeconds
-                return timeRemaining > 0 ? timeRemaining : allowedSeconds;
-              })()}
-            />
-          </div>
-        )}
       </Card>
 
       {/* Test Content */}

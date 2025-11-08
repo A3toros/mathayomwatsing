@@ -115,17 +115,6 @@ exports.handler = async function(event, context) {
     
     // Extract student info from JWT token
     const studentId = decoded.sub;
-    
-    // Log retest submission details immediately
-    if (retest_assignment_id) {
-      console.log('🎯 [RETEST SUBMISSION] Received retest submission:', {
-        retest_assignment_id,
-        retest_assignment_id_type: typeof retest_assignment_id,
-        studentId,
-        test_id,
-        parent_test_id
-      });
-    }
     const grade = decoded.grade;
     const className = decoded.class;
     const number = decoded.number;
@@ -196,35 +185,13 @@ exports.handler = async function(event, context) {
     let effectiveParentTestId = parent_test_id || test_id;
     let retestAssignment = null;
     if (retest_assignment_id) {
-      // Ensure retest_assignment_id is a number
-      const retestAssignmentIdNum = typeof retest_assignment_id === 'string' ? parseInt(retest_assignment_id, 10) : retest_assignment_id;
-      console.log('🔍 [RETEST] Checking retest_targets for:', {
-        retest_assignment_id: retestAssignmentIdNum,
-        studentId,
-        retest_assignment_id_type: typeof retest_assignment_id,
-        retest_assignment_id_value: retest_assignment_id
-      });
-      
       const target = await sql`
         SELECT tgt.attempt_number, tgt.max_attempts, tgt.is_completed, ra.max_attempts as ra_max_attempts, ra.window_start, ra.window_end, ra.passing_threshold
         FROM retest_targets tgt
         JOIN retest_assignments ra ON ra.id = tgt.retest_assignment_id
-        WHERE tgt.retest_assignment_id = ${retestAssignmentIdNum} AND tgt.student_id = ${studentId}
+        WHERE tgt.retest_assignment_id = ${retest_assignment_id} AND tgt.student_id = ${studentId}
       `;
-      
-      console.log('🔍 [RETEST] Query result:', {
-        found: target.length > 0,
-        attempt_number: target[0]?.attempt_number,
-        max_attempts: target[0]?.max_attempts,
-        is_completed: target[0]?.is_completed
-      });
-      
       if (target.length === 0) {
-        console.error('❌ [RETEST] No retest_targets row found for:', {
-          retest_assignment_id: retestAssignmentIdNum,
-          studentId,
-          query_used: `retest_assignment_id = ${retestAssignmentIdNum} AND student_id = ${studentId}`
-        });
         return { statusCode: 400, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Retest not found or not assigned to this student' }) };
       }
       const row = target[0];
@@ -341,20 +308,6 @@ exports.handler = async function(event, context) {
       const shouldComplete = attemptsExhausted || passed;
       
       // Update retest_targets in single transaction
-      // Ensure retest_assignment_id is a number for the UPDATE
-      const retestAssignmentIdNum = typeof retest_assignment_id === 'string' ? parseInt(retest_assignment_id, 10) : retest_assignment_id;
-      
-      console.log('🔍 [RETEST] Updating retest_targets with:', {
-        retest_assignment_id: retestAssignmentIdNum,
-        studentId,
-        currentAttempt,
-        nextAttemptNumber,
-        maxAttempts: maxAttemptsForCompletion,
-        passed,
-        attemptsExhausted,
-        shouldComplete
-      });
-      
       const updateResult = await sql`
         UPDATE retest_targets
         SET 
@@ -373,27 +326,24 @@ exports.handler = async function(event, context) {
             ELSE 'IN_PROGRESS'
           END,
           updated_at = NOW()
-        WHERE retest_assignment_id = ${retestAssignmentIdNum}
+        WHERE retest_assignment_id = ${retest_assignment_id}
           AND student_id = ${studentId}
         RETURNING *
       `;
       
       if (updateResult.length === 0) {
-        console.error('❌ [RETEST] Failed to update retest_targets - no rows matched', {
-          retest_assignment_id: retestAssignmentIdNum,
+        console.error('⚠️ Failed to update retest_targets - no rows matched', {
+          retest_assignment_id,
           studentId,
-          test_id: effectiveParentTestId,
-          where_clause: `retest_assignment_id = ${retestAssignmentIdNum} AND student_id = ${studentId}`
+          test_id: effectiveParentTestId
         });
       } else {
-        console.log('✅ [RETEST] Successfully updated retest_targets:', {
-          retest_assignment_id: retestAssignmentIdNum,
+        console.log('✅ Updated retest_targets:', {
+          retest_assignment_id,
           studentId,
-          old_attempt_number: currentAttempt,
-          new_attempt_number: updateResult[0].attempt_number,
+          attempt_number: updateResult[0].attempt_number,
           is_completed: updateResult[0].is_completed,
-          passed: updateResult[0].passed,
-          status: updateResult[0].status
+          passed: updateResult[0].passed
         });
       }
       
