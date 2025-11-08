@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { clearTestData } from '@/utils/cacheUtils';
+import { clearTestData, getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
 
 // ✅ REUSE EXISTING COMPONENTS
 import Button from '../ui/Button';
@@ -79,9 +79,12 @@ const MatchingTestStudent = ({
   useInterceptBackNavigation(
     isBackInterceptEnabled,
     useCallback(({ confirm, cancel }) => {
+      console.log('🎯 MatchingTestStudent: Browser back button intercepted during test!');
+      console.log('🎯 MatchingTestStudent: isBackInterceptEnabled:', isBackInterceptEnabled);
+      console.log('🎯 MatchingTestStudent: Setting pending navigation and showing modal');
       pendingNavigationRef.current = { confirm, cancel };
       setShowBackModal(true);
-    }, [])
+    }, [isBackInterceptEnabled])
   );
   
   const { showNotification } = useNotification();
@@ -123,19 +126,68 @@ const MatchingTestStudent = ({
 
   // Confirm back to cabinet
   const confirmBackToCabinet = useCallback(() => {
+    console.log('🎯 MatchingTestStudent: confirmBackToCabinet called');
+    console.log('🎯 MatchingTestStudent: Current location:', window.location.href);
+    console.log('🎯 MatchingTestStudent: Current history state:', window.history.state);
+    
     setShowBackModal(false);
     const pending = pendingNavigationRef.current;
+    console.log('🎯 MatchingTestStudent: Pending navigation:', pending);
     pendingNavigationRef.current = null;
 
-    if (pending?.confirm) {
-      setBackInterceptEnabled(false);
-      pending.confirm();
-      return;
+    // Record navigation back to cabinet as a visibility change (like original implementation)
+    if (testData?.id && user?.student_id) {
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const cacheKey = `anti_cheating_${studentId}_matching_type_${testData.id}`;
+      
+      // Get current anti-cheating data
+      const existingData = getCachedData(cacheKey) || { tabSwitches: 0, isCheating: false };
+      const currentTabSwitches = existingData.tabSwitches || 0;
+      
+      // Increment tab switch count (navigation back to cabinet counts as a visibility change)
+      const newTabSwitches = currentTabSwitches + 1;
+      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
+      
+      console.log('🎯 MatchingTestStudent: Tab switch count:', currentTabSwitches, '->', newTabSwitches);
+      
+      // Save updated data to localStorage (same format as useAntiCheating hook)
+      setCachedData(cacheKey, { 
+        tabSwitches: newTabSwitches, 
+        isCheating: newIsCheating 
+      }, CACHE_TTL.anti_cheating);
     }
 
+    // Disable intercept first
+    console.log('🎯 MatchingTestStudent: Disabling intercept');
     setBackInterceptEnabled(false);
-    onBackToCabinet();
-  }, [onBackToCabinet]);
+    
+    // Clean up intercept history state
+    if (pending) {
+      console.log('🎯 MatchingTestStudent: Cleaning up intercept history state');
+      try {
+        const currentState = window.history.state;
+        console.log('🎯 MatchingTestStudent: Current history state before cleanup:', currentState);
+        if (currentState && currentState.__intercept) {
+          const prevState = currentState.prevState ?? null;
+          console.log('🎯 MatchingTestStudent: Restoring previous state:', prevState);
+          window.history.replaceState(prevState, document.title, window.location.href);
+          console.log('🎯 MatchingTestStudent: History state after cleanup:', window.history.state);
+        }
+      } catch (error) {
+        console.warn('🎯 MatchingTestStudent: Failed to restore history state:', error);
+      }
+    }
+
+    // Navigate to cabinet - use window.location.href like StudentTests does
+    console.log('🎯 MatchingTestStudent: Scheduling navigation in 100ms');
+    setTimeout(() => {
+      console.log('🎯 MatchingTestStudent: Executing navigation to /student');
+      console.log('🎯 MatchingTestStudent: Current location before navigation:', window.location.href);
+      // Force full page navigation to bypass React Router history issues
+      window.location.href = '/student';
+      console.log('🎯 MatchingTestStudent: window.location.href set to /student');
+    }, 100);
+  }, [onBackToCabinet, testData, user?.student_id, user?.id]);
 
   const cancelBackToCabinet = useCallback(() => {
     const pending = pendingNavigationRef.current;
@@ -949,12 +1001,16 @@ const MatchingTestStudent = ({
               >
                 Cancel
               </Button>
-              <Button
-                onClick={confirmBackToCabinet}
-                variant="primary"
-              >
-                Go Back
-              </Button>
+            <Button
+              onClick={(e) => {
+                console.log('🎯 MatchingTestStudent: Go Back button clicked in modal');
+                console.log('🎯 MatchingTestStudent: Button click event:', e);
+                confirmBackToCabinet();
+              }}
+              variant="primary"
+            >
+              Go Back
+            </Button>
             </div>
           </div>
         </PerfectModal>

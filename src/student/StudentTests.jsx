@@ -213,13 +213,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   useInterceptBackNavigation(
     isBackInterceptEnabled,
     useCallback(({ confirm, cancel }) => {
+      // Show exit modal for both test and results views
       pendingNavigationRef.current = { confirm, cancel };
       setShowExitModal(true);
     }, [])
   );
 
   useEffect(() => {
-    if (currentView === 'test' && currentTest) {
+    if ((currentView === 'test' || currentView === 'results') && currentTest) {
       setBackInterceptEnabled(true);
     } else {
       setBackInterceptEnabled(false);
@@ -1059,7 +1060,25 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           setCurrentView('results');
         } else {
           // For drawing tests, redirect to cabinet without showing results
-          navigate('/student');
+          // Disable intercept and clean up before navigating
+          setBackInterceptEnabled(false);
+          pendingNavigationRef.current = null;
+          
+          // Clean up intercept history state
+          try {
+            const currentState = window.history.state;
+            if (currentState && currentState.__intercept) {
+              const prevState = currentState.prevState ?? null;
+              window.history.replaceState(prevState, document.title, window.location.href);
+            }
+          } catch (error) {
+            logger.warn('Failed to restore history state for drawing test:', error);
+          }
+          
+          // Force full page navigation to bypass React Router history issues
+          setTimeout(() => {
+            window.location.href = '/student';
+          }, 100);
         }
         showNotification('Test submitted successfully!', 'success');
         
@@ -1192,7 +1211,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       }
     }
 
-    // Use setTimeout to ensure intercept cleanup completes before navigation
+    // Navigate to cabinet (don't call pending.confirm() as it would go back in history,
+    // we want to go to /student instead)
     setTimeout(() => {
       goBack();
     }, 10);

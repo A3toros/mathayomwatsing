@@ -7,6 +7,7 @@ import TestResults from './TestResults';
 import Button from '../ui/Button';
 import PerfectModal from '../ui/PerfectModal';
 import useInterceptBackNavigation from '../../hooks/useInterceptBackNavigation';
+import { getCachedData, setCachedData, CACHE_TTL } from '../../utils/cacheUtils';
 
 const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) => {
   const [currentStep, setCurrentStep] = useState('recording'); // permission, recording, processing, feedback, completed
@@ -43,9 +44,12 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   useInterceptBackNavigation(
     isBackInterceptEnabled,
     useCallback(({ confirm, cancel }) => {
+      console.log('🎯 SpeakingTestStudent: Browser back button intercepted during test!');
+      console.log('🎯 SpeakingTestStudent: isBackInterceptEnabled:', isBackInterceptEnabled);
+      console.log('🎯 SpeakingTestStudent: Setting pending navigation and showing modal');
       pendingNavigationRef.current = { confirm, cancel };
       setShowExitModal(true);
-    }, [])
+    }, [isBackInterceptEnabled])
   );
 
   useEffect(() => {
@@ -754,19 +758,68 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   }, [testData.test_id, transcript, scores, attemptNumber, onComplete]);
 
   const handleExitConfirm = useCallback(() => {
+    console.log('🎯 SpeakingTestStudent: handleExitConfirm called');
+    console.log('🎯 SpeakingTestStudent: Current location:', window.location.href);
+    console.log('🎯 SpeakingTestStudent: Current history state:', window.history.state);
+    
     setShowExitModal(false);
     const pending = pendingNavigationRef.current;
+    console.log('🎯 SpeakingTestStudent: Pending navigation:', pending);
     pendingNavigationRef.current = null;
+
+    // Record navigation back to cabinet as a visibility change (like original implementation)
+    if (testData?.test_id && user?.student_id) {
+      const studentId = user?.student_id || user?.id || 'unknown';
+      const cacheKey = `anti_cheating_${studentId}_speaking_${testData.test_id}`;
+      
+      // Get current anti-cheating data
+      const existingData = getCachedData(cacheKey) || { tabSwitches: 0, isCheating: false };
+      const currentTabSwitches = existingData.tabSwitches || 0;
+      
+      // Increment tab switch count (navigation back to cabinet counts as a visibility change)
+      const newTabSwitches = currentTabSwitches + 1;
+      const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
+      
+      console.log('🎯 SpeakingTestStudent: Tab switch count:', currentTabSwitches, '->', newTabSwitches);
+      
+      // Save updated data to localStorage (same format as useAntiCheating hook)
+      setCachedData(cacheKey, { 
+        tabSwitches: newTabSwitches, 
+        isCheating: newIsCheating 
+      }, CACHE_TTL.anti_cheating);
+    }
+
+    // Disable intercept first
+    console.log('🎯 SpeakingTestStudent: Disabling intercept');
     setBackInterceptEnabled(false);
-
-    if (typeof onExit === 'function') {
-      onExit();
+    
+    // Clean up intercept history state
+    if (pending) {
+      console.log('🎯 SpeakingTestStudent: Cleaning up intercept history state');
+      try {
+        const currentState = window.history.state;
+        console.log('🎯 SpeakingTestStudent: Current history state before cleanup:', currentState);
+        if (currentState && currentState.__intercept) {
+          const prevState = currentState.prevState ?? null;
+          console.log('🎯 SpeakingTestStudent: Restoring previous state:', prevState);
+          window.history.replaceState(prevState, document.title, window.location.href);
+          console.log('🎯 SpeakingTestStudent: History state after cleanup:', window.history.state);
+        }
+      } catch (error) {
+        console.warn('🎯 SpeakingTestStudent: Failed to restore history state:', error);
+      }
     }
 
-    if (pending?.confirm) {
-      pending.confirm();
-    }
-  }, [onExit]);
+    // Navigate to cabinet - use window.location.href like StudentTests does
+    console.log('🎯 SpeakingTestStudent: Scheduling navigation in 100ms');
+    setTimeout(() => {
+      console.log('🎯 SpeakingTestStudent: Executing navigation to /student');
+      console.log('🎯 SpeakingTestStudent: Current location before navigation:', window.location.href);
+      // Force full page navigation to bypass React Router history issues
+      window.location.href = '/student';
+      console.log('🎯 SpeakingTestStudent: window.location.href set to /student');
+    }, 100);
+  }, [onExit, testData, user?.student_id, user?.id]);
 
   const handleExitCancel = useCallback(() => {
     const pending = pendingNavigationRef.current;
@@ -933,7 +986,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
           <div className="flex gap-3 justify-center">
             <Button onClick={handleExitCancel} variant="secondary">Cancel</Button>
-            <Button onClick={handleExitConfirm} variant="primary">Go Back</Button>
+            <Button 
+              onClick={(e) => {
+                console.log('🎯 SpeakingTestStudent: Go Back button clicked in modal');
+                console.log('🎯 SpeakingTestStudent: Button click event:', e);
+                handleExitConfirm();
+              }} 
+              variant="primary"
+            >
+              Go Back
+            </Button>
           </div>
         </div>
       </PerfectModal>

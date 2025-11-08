@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
@@ -8,7 +8,10 @@ import MatchingTestStudent from '../components/test/MatchingTestStudent';
 import TestResults from '../components/test/TestResults';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import PerfectModal from '../components/ui/PerfectModal';
 import { logger } from '../utils/logger';
+import useInterceptBackNavigation from '../hooks/useInterceptBackNavigation';
 
 const MatchingTestPage = () => {
   const { testId } = useParams();
@@ -22,6 +25,9 @@ const MatchingTestPage = () => {
   const [error, setError] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [showResults, setShowResults] = useState(false);
+  const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(false);
+  const pendingNavigationRef = useRef(null);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   // Anti-cheating tracking
   const { startTracking, stopTracking, getCheatingData, clearData } = useAntiCheating(
@@ -322,8 +328,70 @@ const MatchingTestPage = () => {
 
   // Handle back to cabinet
   const handleBackToCabinet = useCallback(() => {
+    setBackInterceptEnabled(false);
+    pendingNavigationRef.current = null;
     navigate('/student');
   }, [navigate]);
+
+  // Intercept browser back button when showing results
+  useInterceptBackNavigation(
+    isBackInterceptEnabled && showResults,
+    useCallback(({ confirm, cancel }) => {
+      // Show exit modal for results view
+      pendingNavigationRef.current = { confirm, cancel };
+      setShowExitModal(true);
+    }, [])
+  );
+
+  // Enable intercept when showing results
+  useEffect(() => {
+    if (showResults) {
+      setBackInterceptEnabled(true);
+    } else {
+      setBackInterceptEnabled(false);
+      pendingNavigationRef.current = null;
+    }
+  }, [showResults]);
+
+  // Handle exit confirm
+  const handleExitConfirm = useCallback(() => {
+    setShowExitModal(false);
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+
+    // Disable intercept first
+    setBackInterceptEnabled(false);
+    
+    // Clean up intercept history state if it exists
+    if (pending) {
+      try {
+        const currentState = window.history.state;
+        if (currentState && currentState.__intercept) {
+          const prevState = currentState.prevState ?? null;
+          window.history.replaceState(prevState, document.title, window.location.href);
+        }
+      } catch (error) {
+        logger.warn('Failed to restore history state:', error);
+      }
+    }
+
+    // Navigate to cabinet
+    setTimeout(() => {
+      setTestResults(null);
+      setShowResults(false);
+      navigate('/student');
+    }, 10);
+  }, [navigate]);
+
+  // Handle exit cancel
+  const handleExitCancel = useCallback(() => {
+    const pending = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (pending?.cancel) {
+      pending.cancel();
+    }
+    setShowExitModal(false);
+  }, []);
 
   // Handle retake test
   const handleRetakeTest = useCallback(() => {
@@ -395,7 +463,13 @@ const MatchingTestPage = () => {
       <div className="bg-gray-50 overflow-y-auto min-h-screen">
         <TestResults
           testResults={testResults}
-          onBackToCabinet={handleBackToCabinet}
+          onBackToCabinet={() => {
+            setBackInterceptEnabled(false);
+            pendingNavigationRef.current = null;
+            setTestResults(null);
+            setShowResults(false);
+            navigate('/student');
+          }}
           onRetakeTest={handleRetakeTest}
           isLoading={false}
         />

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/components-ui-index';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import PerfectModal from '@/components/ui/PerfectModal';
 
 // TEST RESULTS COMPONENT - Complete Test Results Display
 // ✅ COMPLETED: Full test results rendering with detailed analysis
@@ -20,6 +22,15 @@ const TestResults = ({
   caught_cheating = false,
   visibility_change_times = 0
 }) => {
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const handleBackToCabinet = () => {
+    setIsNavigating(true);
+    if (onBackToCabinet) {
+      onBackToCabinet();
+    }
+  };
+
   if (!testResults || !testResults.showResults) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -76,6 +87,20 @@ const TestResults = ({
 
   return (
     <div className="bg-gray-50 py-8 overflow-y-auto">
+      {/* Loading Modal */}
+      <PerfectModal
+        isOpen={isNavigating}
+        onClose={() => {}}
+        title="Navigating"
+        size="small"
+      >
+        <div className="flex flex-col items-center justify-center py-4">
+          <LoadingSpinner size="lg" className="mb-3" />
+          <p className="text-blue-600 font-semibold text-lg">Returning to cabinet...</p>
+          <p className="text-gray-500 text-sm mt-1">Please wait</p>
+        </div>
+      </PerfectModal>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div 
@@ -268,11 +293,19 @@ const TestResults = ({
         >
           <div className="flex justify-center">
             <Button
-              onClick={onBackToCabinet}
+              onClick={handleBackToCabinet}
               variant="primary"
               className="flex items-center gap-2"
+              disabled={isNavigating}
             >
-              ← Back to Cabinet
+              {isNavigating ? (
+                <>
+                  <LoadingSpinner size="sm" color="white" className="mr-2" />
+                  Navigating...
+                </>
+              ) : (
+                '← Back to Cabinet'
+              )}
             </Button>
           </div>
         </motion.div>

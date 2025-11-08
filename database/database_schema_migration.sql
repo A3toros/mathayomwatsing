@@ -668,11 +668,17 @@ CREATE TABLE IF NOT EXISTS retest_targets (
     retest_assignment_id INTEGER NOT NULL REFERENCES retest_assignments(id) ON DELETE CASCADE,
     student_id VARCHAR(10) NOT NULL REFERENCES users(student_id),
     attempt_count INTEGER NOT NULL DEFAULT 0,
+    attempt_number INTEGER DEFAULT 0,
+    max_attempts INTEGER,
+    is_completed BOOLEAN DEFAULT FALSE,
+    completed_at TIMESTAMP,
+    passed BOOLEAN DEFAULT FALSE,
     last_attempt_at TIMESTAMP,
     status VARCHAR(12) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_retest_status CHECK (status IN ('PENDING','IN_PROGRESS','PASSED','FAILED','EXPIRED')),
+    CONSTRAINT chk_attempt_number_range CHECK (max_attempts IS NULL OR attempt_number IS NULL OR attempt_number <= max_attempts),
     CONSTRAINT uq_retest_target UNIQUE (retest_assignment_id, student_id)
 );
 

@@ -324,9 +324,12 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   useInterceptBackNavigation(
     isBackInterceptEnabled,
     useCallback(({ confirm, cancel }) => {
+      console.log('🎯 WordMatchingStudent: Browser back button intercepted during test!');
+      console.log('🎯 WordMatchingStudent: isBackInterceptEnabled:', isBackInterceptEnabled);
+      console.log('🎯 WordMatchingStudent: Setting pending navigation and showing modal');
       pendingNavigationRef.current = { confirm, cancel };
       setShowBackModal(true);
-    }, [])
+    }, [isBackInterceptEnabled])
   );
 
   // Initialize test data
@@ -504,8 +507,13 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
 
   // Confirm back to cabinet
   const confirmBackToCabinet = useCallback(() => {
+    console.log('🎯 WordMatchingStudent: confirmBackToCabinet called');
+    console.log('🎯 WordMatchingStudent: Current location:', window.location.href);
+    console.log('🎯 WordMatchingStudent: Current history state:', window.history.state);
+    
     setShowBackModal(false);
     const pending = pendingNavigationRef.current;
+    console.log('🎯 WordMatchingStudent: Pending navigation:', pending);
     pendingNavigationRef.current = null;
 
     // Record navigation back to cabinet as a visibility change (like original implementation)
@@ -521,6 +529,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       const newTabSwitches = currentTabSwitches + 1;
       const newIsCheating = newTabSwitches >= 2; // 2+ switches = cheating
       
+      console.log('🎯 WordMatchingStudent: Tab switch count:', currentTabSwitches, '->', newTabSwitches);
+      
       // Save updated data to localStorage (same format as useAntiCheating hook)
       setCachedData(cacheKey, { 
         tabSwitches: newTabSwitches, 
@@ -528,16 +538,36 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       }, CACHE_TTL.anti_cheating);
     }
 
-    if (pending?.confirm) {
-      setBackInterceptEnabled(false);
-      pending.confirm();
-      return;
+    // Disable intercept first
+    console.log('🎯 WordMatchingStudent: Disabling intercept');
+    setBackInterceptEnabled(false);
+    
+    // Clean up intercept history state
+    if (pending) {
+      console.log('🎯 WordMatchingStudent: Cleaning up intercept history state');
+      try {
+        const currentState = window.history.state;
+        console.log('🎯 WordMatchingStudent: Current history state before cleanup:', currentState);
+        if (currentState && currentState.__intercept) {
+          const prevState = currentState.prevState ?? null;
+          console.log('🎯 WordMatchingStudent: Restoring previous state:', prevState);
+          window.history.replaceState(prevState, document.title, window.location.href);
+          console.log('🎯 WordMatchingStudent: History state after cleanup:', window.history.state);
+        }
+      } catch (error) {
+        console.warn('🎯 WordMatchingStudent: Failed to restore history state:', error);
+      }
     }
 
-    setBackInterceptEnabled(false);
-    if (onBackToCabinet) {
-      onBackToCabinet();
-    }
+    // Navigate to cabinet - use window.location.href like StudentTests does
+    console.log('🎯 WordMatchingStudent: Scheduling navigation in 100ms');
+    setTimeout(() => {
+      console.log('🎯 WordMatchingStudent: Executing navigation to /student');
+      console.log('🎯 WordMatchingStudent: Current location before navigation:', window.location.href);
+      // Force full page navigation to bypass React Router history issues
+      window.location.href = '/student';
+      console.log('🎯 WordMatchingStudent: window.location.href set to /student');
+    }, 100);
   }, [onBackToCabinet, testData, user?.student_id, user?.id]);
 
   const cancelBackToCabinet = useCallback(() => {
@@ -1283,7 +1313,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
               Cancel
             </Button>
             <Button
-              onClick={confirmBackToCabinet}
+              onClick={(e) => {
+                console.log('🎯 WordMatchingStudent: Leave button clicked in modal');
+                console.log('🎯 WordMatchingStudent: Button click event:', e);
+                confirmBackToCabinet();
+              }}
               variant="primary"
             >
               Leave
