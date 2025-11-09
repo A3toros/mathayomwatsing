@@ -396,7 +396,7 @@ const LoginPage = () => {
             <img 
               src="/pics/logo_mws.png" 
               alt="MWS Logo" 
-              className="h-28 w-28 object-contain"
+              className="h-64 w-64 object-contain"
             />
           </motion.div>
           <motion.h1 

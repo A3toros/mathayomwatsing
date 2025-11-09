@@ -7,8 +7,8 @@ const PrivacyPolicy = () => {
   // English content
   const content = {
     en: {
-      title: 'Aleksandr Petrov Privacy Policy – Independent Project',
-      subtitle: 'App: MWS Student App (Independent Project)',
+      title: 'Privacy Policy',
+      subtitle: 'App: MWS Student App',
       website: 'Website: mathayomwatsing.netlify.app',
       lastUpdated: 'Last updated:',
       introduction: {
@@ -16,14 +16,14 @@ const PrivacyPolicy = () => {
         text1: 'The MWS Student App is an independent educational project created by Aleksandr Petrov to provide learning tools for students. This app is not officially affiliated with or endorsed by Mathayomwatsing School.',
         text2: 'This Privacy Policy explains how we collect, use, store, and protect personal information. By using this app, you agree to this policy.',
         dataController: 'Independent Developer:',
-        dataControllerText: 'Aleksandr Petrov is responsible for managing and protecting personal data collected through the MWS Student App (Independent Project).',
+        dataControllerText: 'Aleksandr Petrov is responsible for managing and protecting personal data collected through the MWS Student App and Website: mathayomwatsing.netlify.app',
         pdpaTitle: 'PDPA Compliance',
         pdpaText: 'This app complies with Thailand\'s Personal Data Protection Act, B.E. 2562 (PDPA). We are committed to protecting your personal data in accordance with PDPA requirements, including lawful collection, purpose limitation, data minimization, accuracy, security, and your rights as a data subject.',
       },
       consent: {
         title: 'User Consent',
-        text1: 'By signing in or using the app, users (and their parents or legal guardians, if under 18) consent to data collection and usage as described.',
-        text2: 'If you do not agree, please do not use this app. Continued use after changes to this policy will be considered acceptance of those changes.',
+        text1: 'Users (or their parents/legal guardians if under 18) consent to data collection and usage as described in this policy.',
+        text2: 'If you do not agree, please do not use the app. Continued use after updates to this policy constitutes acceptance.',
       },
       appPurpose: {
         title: 'App Purpose',
@@ -38,7 +38,7 @@ const PrivacyPolicy = () => {
       childrenPrivacy: {
         title: "Children's Privacy",
         text1: 'The MWS Student App is designed for students. We do not knowingly collect more data than necessary to provide educational functionality.',
-        text2: "Parents or guardians may contact the school to review, delete, or request updates to a student's information. We comply with COPPA (Children's Online Privacy Protection Act), Thailand's PDPA (Personal Data Protection Act, B.E. 2562), and equivalent child-data protection laws applicable in your jurisdiction.",
+        text2: "Parents or guardians may contact the app developer to review, delete, or request updates to a student's information. We comply with COPPA (Children's Online Privacy Protection Act), Thailand's PDPA (Personal Data Protection Act, B.E. 2562), and equivalent child-data protection laws applicable in your jurisdiction.",
       },
       dataCollection: {
         title: 'Data Collection',
@@ -54,10 +54,6 @@ const PrivacyPolicy = () => {
         usageData: {
           title: 'Usage Data',
           text: 'App interactions, feature usage, and error logs (to improve functionality and stability).',
-        },
-        deviceInfo: {
-          title: 'Device Information',
-          text: 'Device type, OS version, and app version (for compatibility and support).',
         },
         important: 'Important:',
         importantText: 'This app does not use or share personal data for advertising or commercial purposes. All data collection is strictly for educational and assessment use. We comply with COPPA (Children\'s Online Privacy Protection Act), Thailand\'s PDPA (Personal Data Protection Act, B.E. 2562), and equivalent child-data protection laws. This app does not display advertisements or use tracking SDKs.',
@@ -75,12 +71,12 @@ const PrivacyPolicy = () => {
       },
       dataStorage: {
         title: 'Data Storage & Security',
-        text1: 'Data is stored securely, locally on devices, or on encrypted cloud servers (Supabase/Firebase). All transmissions are encrypted.',
+        text1: 'Data is stored securely, locally on devices, or on encrypted cloud servers (Supabase). All transmissions are encrypted.',
         text2: 'Technical and organizational measures are applied to prevent unauthorized access, alteration, disclosure, or destruction.',
       },
       dataHosting: {
         title: 'Data Hosting',
-        text1: 'The app\'s data is securely stored using trusted cloud infrastructure (such as Supabase or Firebase). These services comply with global security standards including GDPR and ISO 27001.',
+        text1: 'The app\'s data is securely stored using trusted cloud infrastructure (Supabase). These services comply with global security standards including GDPR and ISO 27001.',
         text2: 'All data hosting providers are contractually obligated to maintain the same level of data protection and security as outlined in this Privacy Policy. Data is stored in secure, encrypted databases with regular backups and monitoring.',
       },
       dataSharing: {
@@ -111,7 +107,7 @@ const PrivacyPolicy = () => {
           'Object to processing of personal data',
           'Request data portability',
         ],
-        contact: 'To exercise these rights, please contact your school administrator or the app support team.',
+        contact: 'To exercise these rights, please contact app developer at aleksandr.p@mws.ac.th',
         pdpaTitle: 'Under Thailand\'s PDPA, you have the right to:',
         pdpaItems: [
           'Access and obtain a copy of your personal data',
@@ -123,7 +119,7 @@ const PrivacyPolicy = () => {
       },
       dataRetention: {
         title: 'Data Retention',
-        text: 'We retain your personal data for as long as necessary to provide educational services and comply with legal obligations. Academic records may be retained in accordance with school policies and educational data retention requirements.',
+        text: 'We retain personal data only as long as necessary to provide educational services and comply with legal obligations. Academic records may be retained according to educational data retention requirements.',
       },
       changes: {
         title: 'Changes to This Privacy Policy',
@@ -133,76 +129,13 @@ const PrivacyPolicy = () => {
         title: 'Contact',
         text: 'For privacy inquiries, contact:',
         school: 'Aleksandr Petrov',
-        contactText: 'Email:',
         email: 'aleksandr.p@mws.ac.th',
       },
       backToLogin: '← Back to Login',
-
-      // Terms of Service (Independent Project)
-      tos: {
-        title: 'Terms of Service – Independent Project',
-        lastUpdatedInline: 'Last updated:',
-        introduction: {
-          title: '1. Introduction',
-          text: 'These Terms of Service apply to all users of the MWS Student App (Independent Project). This app is not officially affiliated with Mathayomwatsing School. By using the app, you agree to these Terms.',
-        },
-        eligibility: {
-          title: '2. Eligibility',
-          items: [
-            'Users must be students or teachers using the app for educational purposes.',
-            'Parents/guardians must consent for users under 18.',
-          ],
-        },
-        acceptableUse: {
-          title: '3. Acceptable Use',
-          items: [
-            'Use the app for educational purposes only',
-            'Maintain academic honesty and integrity',
-            'Do not attempt to bypass app security or manipulate test results',
-          ],
-        },
-        teacherAdmin: {
-          title: '4. Teacher / Admin Accounts',
-          items: [
-            'Only create tests and content for educational use',
-            'Respect students’ privacy and data',
-          ],
-        },
-        security: {
-          title: '5. Account Security',
-          items: [
-            'Keep login credentials confidential',
-            'Notify the app admin if the account is compromised',
-          ],
-        },
-        ip: {
-          title: '6. Intellectual Property',
-          text: 'The app content (tests, learning resources) is copyrighted. Users may not copy, redistribute, or claim ownership of content.',
-        },
-        liability: {
-          title: '7. Limitation of Liability',
-          text: 'The app is provided “as is” for educational purposes. The developer is not responsible for errors, data loss, or misuse. Use the app at your own risk.',
-        },
-        law: {
-          title: '8. Governing Law',
-          text: 'These Terms are governed by Thai law, including the Personal Data Protection Act (PDPA).',
-        },
-        changes: {
-          title: '9. Changes',
-          text: 'Terms may be updated. Continued use constitutes acceptance.',
-        },
-        contact: {
-          title: '10. Contact',
-          text: 'For questions about the Terms, contact:',
-          name: 'Aleksandr Petrov',
-          emailLabel: 'Email:',
-          email: 'aleksandr.p@mws.ac.th',
-        },
-      },
     },
     th: {
       title: 'นโยบายความเป็นส่วนตัว – โครงการอิสระ โดย Aleksandr Petrov',
-      subtitle: 'แอป: MWS Student App (โครงการอิสระ)',
+      subtitle: 'แอป: MWS Student App',
       website: 'เว็บไซต์: mathayomwatsing.netlify.app',
       lastUpdated: 'อัปเดตล่าสุด:',
       introduction: {
@@ -210,14 +143,14 @@ const PrivacyPolicy = () => {
         text1: 'MWS Student App เป็นโครงการการศึกษาอิสระที่พัฒนาโดย Aleksandr Petrov เพื่อมอบเครื่องมือการเรียนรู้สำหรับนักเรียน แอปนี้ไม่ได้มีความเกี่ยวข้องหรือได้รับการรับรองอย่างเป็นทางการจากโรงเรียนมัธยมวัดสิงห์',
         text2: 'นโยบายความเป็นส่วนตัวนี้อธิบายว่าเรารวบรวม ใช้ เก็บ และปกป้องข้อมูลส่วนบุคคลอย่างไร โดยการใช้งานแอปนี้ถือว่าคุณยอมรับนโยบายนี้',
         dataController: 'ผู้พัฒนาอิสระ:',
-        dataControllerText: 'Aleksandr Petrov มีความรับผิดชอบในการจัดการและปกป้องข้อมูลส่วนบุคคลที่รวบรวมผ่าน MWS Student App (โครงการอิสระ)',
+        dataControllerText: 'Aleksandr Petrov มีความรับผิดชอบในการจัดการและปกป้องข้อมูลส่วนบุคคลที่รวบรวมผ่าน MWS Student App เว็บไซต์: mathayomwatsing.netlify.app',
         pdpaTitle: 'การปฏิบัติตาม PDPA',
         pdpaText: 'แอปนี้เป็นไปตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) เรามุ่งมั่นในการปกป้องข้อมูลส่วนบุคคลของคุณตามข้อกำหนดของ PDPA รวมถึงการเก็บรวบรวมอย่างถูกกฎหมาย การจำกัดวัตถุประสงค์ การลดข้อมูลให้น้อยที่สุด ความถูกต้อง ความปลอดภัย และสิทธิของคุณในฐานะเจ้าของข้อมูล',
       },
       consent: {
         title: 'ความยินยอมของผู้ใช้',
-        text1: 'โดยการลงชื่อเข้าใช้หรือใช้แอป ผู้ใช้ (และผู้ปกครองตามกฎหมายหากอายุต่ำกว่า 18 ปี) ถือว่ายินยอมตามที่ระบุไว้ในนโยบายนี้',
-        text2: 'หากคุณไม่เห็นด้วย โปรดอย่าใช้แอปนี้ การใช้งานต่อหลังจากมีการเปลี่ยนแปลงถือเป็นการยอมรับการเปลี่ยนแปลงดังกล่าว',
+        text1: 'ผู้ใช้ (หรือผู้ปกครอง/ผู้ปกครองตามกฎหมายหากอายุต่ำกว่า 18 ปี) ยินยอมให้มีการเก็บรวบรวมและใช้ข้อมูลตามที่ระบุไว้ในนโยบายนี้',
+        text2: 'หากคุณไม่เห็นด้วย โปรดอย่าใช้แอป การใช้งานต่อหลังจากมีการอัปเดตนโยบายนี้ถือเป็นการยอมรับ',
       },
       appPurpose: {
         title: 'วัตถุประสงค์ของแอป',
@@ -232,7 +165,7 @@ const PrivacyPolicy = () => {
       childrenPrivacy: {
         title: 'ความเป็นส่วนตัวของเด็ก',
         text1: 'แอปถูกออกแบบมาสำหรับนักเรียน เราไม่เก็บข้อมูลมากกว่าที่จำเป็นในการให้บริการด้านการศึกษา',
-        text2: 'ผู้ปกครองหรือผู้ปกครองสามารถติดต่อโรงเรียนเพื่อตรวจสอบ ลบ หรือขออัปเดตข้อมูลของนักเรียน เราเป็นไปตาม COPPA (พระราชบัญญัติคุ้มครองความเป็นส่วนตัวออนไลน์ของเด็ก) พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) และกฎหมายคุ้มครองข้อมูลเด็กที่เทียบเท่าในเขตอำนาจของคุณ',
+        text2: 'ผู้ปกครองหรือผู้ปกครองสามารถติดต่อนักพัฒนาแอปเพื่อตรวจสอบ ลบ หรือขออัปเดตข้อมูลของนักเรียน เราเป็นไปตาม COPPA (พระราชบัญญัติคุ้มครองความเป็นส่วนตัวออนไลน์ของเด็ก) พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) และกฎหมายคุ้มครองข้อมูลเด็กที่เทียบเท่าในเขตอำนาจของคุณ',
       },
       dataCollection: {
         title: 'การรวบรวมข้อมูล',
@@ -248,10 +181,6 @@ const PrivacyPolicy = () => {
         usageData: {
           title: 'ข้อมูลการใช้งาน',
           text: 'การโต้ตอบกับแอป การใช้งานฟีเจอร์ และบันทึกข้อผิดพลาด (เพื่อปรับปรุงการทำงาน)',
-        },
-        deviceInfo: {
-          title: 'ข้อมูลอุปกรณ์',
-          text: 'ประเภทอุปกรณ์ เวอร์ชันระบบปฏิบัติการ และเวอร์ชันแอป (เพื่อความเข้ากันได้และการสนับสนุน)',
         },
         important: 'สำคัญ:',
         importantText: 'แอปนี้ไม่ใช้หรือแชร์ข้อมูลส่วนบุคคลเพื่อการโฆษณาหรือวัตถุประสงค์ทางการค้า การรวบรวมข้อมูลทั้งหมดใช้เพื่อการศึกษาและการประเมินเท่านั้น เราเป็นไปตาม COPPA (พระราชบัญญัติคุ้มครองความเป็นส่วนตัวออนไลน์ของเด็ก) พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) และกฎหมายคุ้มครองข้อมูลเด็กที่เทียบเท่า แอปนี้ไม่แสดงโฆษณาหรือใช้ SDK การติดตาม',
@@ -269,12 +198,12 @@ const PrivacyPolicy = () => {
       },
       dataStorage: {
         title: 'การเก็บข้อมูลและความปลอดภัย',
-        text1: 'ข้อมูลถูกเก็บไว้อย่างปลอดภัย ทั้งในอุปกรณ์และบนเซิร์ฟเวอร์คลาวด์ที่เข้ารหัส (Supabase/Firebase) การส่งข้อมูลทั้งหมดมีการเข้ารหัส',
+        text1: 'ข้อมูลถูกเก็บไว้อย่างปลอดภัย ทั้งในอุปกรณ์และบนเซิร์ฟเวอร์คลาวด์ที่เข้ารหัส (Supabase) การส่งข้อมูลทั้งหมดมีการเข้ารหัส',
         text2: 'มีมาตรการทางเทคนิคและองค์กรเพื่อป้องกันการเข้าถึง การแก้ไข การเปิดเผย หรือการทำลายโดยไม่ได้รับอนุญาต',
       },
       dataHosting: {
         title: 'การโฮสต์ข้อมูล',
-        text1: 'ข้อมูลของแอปถูกเก็บไว้อย่างปลอดภัยโดยใช้โครงสร้างพื้นฐานคลาวด์ที่เชื่อถือได้ (เช่น Supabase หรือ Firebase) บริการเหล่านี้เป็นไปตามมาตรฐานความปลอดภัยระดับโลกรวมถึง GDPR และ ISO 27001',
+        text1: 'ข้อมูลของแอปถูกเก็บไว้อย่างปลอดภัยโดยใช้โครงสร้างพื้นฐานคลาวด์ที่เชื่อถือได้ (Supabase) บริการเหล่านี้เป็นไปตามมาตรฐานความปลอดภัยระดับโลกรวมถึง GDPR และ ISO 27001',
         text2: 'ผู้ให้บริการโฮสต์ข้อมูลทั้งหมดมีภาระผูกพันตามสัญญาในการรักษาระดับการปกป้องข้อมูลและความปลอดภัยเช่นเดียวกับที่ระบุไว้ในนโยบายความเป็นส่วนตัวนี้ ข้อมูลถูกเก็บไว้ในฐานข้อมูลที่เข้ารหัสอย่างปลอดภัยพร้อมการสำรองข้อมูลและการตรวจสอบเป็นประจำ',
       },
       dataSharing: {
@@ -307,7 +236,7 @@ const PrivacyPolicy = () => {
           'คัดค้านการประมวลผลข้อมูลของคุณ',
           'ขอการพกพาข้อมูล',
         ],
-        contact: 'เพื่อใช้สิทธิ์เหล่านี้ โปรดติดต่อผู้ดูแลระบบโรงเรียนหรือทีมสนับสนุนแอป',
+        contact: 'เพื่อใช้สิทธิ์เหล่านี้ โปรดติดต่อนักพัฒนาแอปที่ aleksandr.p@mws.ac.th',
         pdpaTitle: 'ภายใต้พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) คุณมีสิทธิ์:',
         pdpaItems: [
           'เข้าถึงและขอสำเนาข้อมูลส่วนบุคคลของคุณ',
@@ -319,7 +248,7 @@ const PrivacyPolicy = () => {
       },
       dataRetention: {
         title: 'การเก็บรักษาข้อมูล',
-        text: 'เราเก็บรักษาข้อมูลส่วนบุคคลของคุณตราบเท่าที่จำเป็นในการให้บริการทางการศึกษาและปฏิบัติตามภาระผูกพันทางกฎหมาย บันทึกทางวิชาการอาจถูกเก็บรักษาตามนโยบายของโรงเรียนและข้อกำหนดการเก็บรักษาข้อมูลทางการศึกษา',
+        text: 'เราจะเก็บรักษาข้อมูลส่วนบุคคลเฉพาะเท่าที่จำเป็นในการให้บริการด้านการศึกษาและปฏิบัติตามข้อกำหนดทางกฎหมาย บันทึกทางวิชาการอาจถูกเก็บรักษาตามข้อกำหนดการเก็บรักษาข้อมูลทางการศึกษา',
       },
       changes: {
         title: 'การเปลี่ยนแปลงนโยบายความเป็นส่วนตัวนี้',
@@ -329,72 +258,9 @@ const PrivacyPolicy = () => {
         title: 'ติดต่อ',
         text: 'สำหรับคำถามด้านความเป็นส่วนตัว โปรดติดต่อ:',
         school: 'Aleksandr Petrov',
-        contactText: 'อีเมล:',
         email: 'aleksandr.p@mws.ac.th',
       },
       backToLogin: '← กลับไปหน้าเข้าสู่ระบบ',
-
-      // Terms of Service (Independent Project) - Thai
-      tos: {
-        title: 'ข้อกำหนดในการให้บริการ – โครงการอิสระ',
-        lastUpdatedInline: 'อัปเดตล่าสุด:',
-        introduction: {
-          title: '1. บทนำ',
-          text: 'ข้อกำหนดนี้ใช้กับผู้ใช้ทุกคนของ MWS Student App (โครงการอิสระ) แอปนี้ไม่มีความเกี่ยวข้องอย่างเป็นทางการกับโรงเรียนมัธยมวัดสิงห์ โดยการใช้งานแอปถือว่าคุณยอมรับข้อกำหนดนี้',
-        },
-        eligibility: {
-          title: '2. คุณสมบัติของผู้ใช้',
-          items: [
-            'ต้องเป็นนักเรียนหรือครูที่ใช้แอปเพื่อวัตถุประสงค์ทางการศึกษา',
-            'ผู้ใช้อายุต่ำกว่า 18 ปีต้องได้รับความยินยอมจากผู้ปกครอง',
-          ],
-        },
-        acceptableUse: {
-          title: '3. การใช้งานที่เหมาะสม',
-          items: [
-            'ใช้แอปเพื่อการศึกษาเท่านั้น',
-            'รักษาความซื่อสัตย์ทางวิชาการ',
-            'ห้ามพยายามเลี่ยงระบบความปลอดภัยหรือแก้ไขผลการทดสอบ',
-          ],
-        },
-        teacherAdmin: {
-          title: '4. บัญชีครู / ผู้ดูแล',
-          items: [
-            'สร้างแบบทดสอบและเนื้อหาเพื่อการศึกษาเท่านั้น',
-            'เคารพความเป็นส่วนตัวและข้อมูลของนักเรียน',
-          ],
-        },
-        security: {
-          title: '5. ความปลอดภัยของบัญชี',
-          items: [
-            'เก็บรักษาข้อมูลการเข้าสู่ระบบเป็นความลับ',
-            'แจ้งผู้ดูแลระบบหากบัญชีถูกละเมิดความปลอดภัย',
-          ],
-        },
-        ip: {
-          title: '6. ทรัพย์สินทางปัญญา',
-          text: 'เนื้อหาในแอป (แบบทดสอบ ทรัพยากรการเรียนรู้) อยู่ภายใต้ลิขสิทธิ์ ผู้ใช้ไม่มีสิทธิ์คัดลอก เผยแพร่ หรืออ้างกรรมสิทธิ์',
-        },
-        liability: {
-          title: '7. การจำกัดความรับผิด',
-          text: 'แอปนี้ให้บริการตามสภาพ “ตามที่เป็น” เพื่อวัตถุประสงค์ทางการศึกษา ผู้พัฒนาไม่รับผิดชอบต่อข้อผิดพลาด การสูญหายของข้อมูล หรือการใช้งานที่ไม่เหมาะสม การใช้งานเป็นความเสี่ยงของผู้ใช้เอง',
-        },
-        law: {
-          title: '8. กฎหมายที่ใช้บังคับ',
-          text: 'ข้อกำหนดนี้อยู่ภายใต้กฎหมายไทย รวมถึงพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA)',
-        },
-        changes: {
-          title: '9. การเปลี่ยนแปลง',
-          text: 'ข้อกำหนดอาจมีการปรับปรุง การใช้งานต่อถือเป็นการยอมรับ',
-        },
-        contact: {
-          title: '10. ติดต่อ',
-          text: 'สำหรับคำถามเกี่ยวกับข้อกำหนด โปรดติดต่อ:',
-          name: 'Aleksandr Petrov',
-          emailLabel: 'อีเมล:',
-          email: 'aleksandr.p@mws.ac.th',
-        },
-      },
     },
   };
 
@@ -554,12 +420,6 @@ const PrivacyPolicy = () => {
                 </p>
               </div>
 
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                <h3 className="font-semibold text-gray-900 mb-2">{t.dataCollection.deviceInfo.title}</h3>
-                <p className="text-sm text-gray-700">
-                  {t.dataCollection.deviceInfo.text}
-                </p>
-              </div>
             </div>
 
             {/* COPPA Compliance Notice */}
@@ -656,7 +516,24 @@ const PrivacyPolicy = () => {
               ))}
             </ul>
             <p className="text-base leading-7 text-gray-700 mt-4">
-              {t.userRights.contact}
+              {language === 'en' 
+                ? <>To exercise these rights, please contact app developer at{' '}
+                    <a
+                      href="mailto:aleksandr.p@mws.ac.th"
+                      className="text-blue-600 hover:text-blue-800 underline font-medium"
+                    >
+                      aleksandr.p@mws.ac.th
+                    </a>
+                  </>
+                : <>เพื่อใช้สิทธิ์เหล่านี้ โปรดติดต่อนักพัฒนาแอปที่{' '}
+                    <a
+                      href="mailto:aleksandr.p@mws.ac.th"
+                      className="text-blue-600 hover:text-blue-800 underline font-medium"
+                    >
+                      aleksandr.p@mws.ac.th
+                    </a>
+                  </>
+              }
             </p>
 
             {/* PDPA Rights Reminder */}
@@ -705,124 +582,11 @@ const PrivacyPolicy = () => {
                 <strong>{t.contact.school}</strong>
               </p>
               <p className="text-sm text-gray-600 mt-2">
-                {t.contact.contactText}{' '}
                 <a
                   href={`mailto:${t.contact.email}`}
                   className="text-blue-600 hover:text-blue-800 underline font-medium"
                 >
                   {t.contact.email}
-                </a>
-              </p>
-            </div>
-          </section>
-
-          {/* Terms of Service – Independent Project */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              {t.tos?.title}
-            </h2>
-            <p className="text-xs text-gray-500 mb-4">
-              {t.tos?.lastUpdatedInline} {currentDate}
-            </p>
-
-            {/* 1. Introduction */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.introduction.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700 mb-4">
-              {t.tos?.introduction.text}
-            </p>
-
-            {/* 2. Eligibility */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.eligibility.title}
-            </h3>
-            <ul className="list-disc list-inside space-y-2 text-base leading-7 text-gray-700 ml-4 mb-4">
-              {t.tos?.eligibility.items.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-
-            {/* 3. Acceptable Use */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.acceptableUse.title}
-            </h3>
-            <ul className="list-disc list-inside space-y-2 text-base leading-7 text-gray-700 ml-4 mb-4">
-              {t.tos?.acceptableUse.items.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-
-            {/* 4. Teacher / Admin */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.teacherAdmin.title}
-            </h3>
-            <ul className="list-disc list-inside space-y-2 text-base leading-7 text-gray-700 ml-4 mb-4">
-              {t.tos?.teacherAdmin.items.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-
-            {/* 5. Account Security */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.security.title}
-            </h3>
-            <ul className="list-disc list-inside space-y-2 text-base leading-7 text-gray-700 ml-4 mb-4">
-              {t.tos?.security.items.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-
-            {/* 6. IP */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.ip.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700 mb-4">
-              {t.tos?.ip.text}
-            </p>
-
-            {/* 7. Liability */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.liability.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700 mb-4">
-              {t.tos?.liability.text}
-            </p>
-
-            {/* 8. Law */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.law.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700 mb-4">
-              {t.tos?.law.text}
-            </p>
-
-            {/* 9. Changes */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.changes.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700 mb-4">
-              {t.tos?.changes.text}
-            </p>
-
-            {/* 10. Contact */}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {t.tos?.contact.title}
-            </h3>
-            <p className="text-base leading-7 text-gray-700">
-              {t.tos?.contact.text}
-            </p>
-            <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-base text-gray-700">
-                <strong>{t.tos?.contact.name}</strong>
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                {t.tos?.contact.emailLabel}{' '}
-                <a
-                  href={`mailto:${t.tos?.contact.email}`}
-                  className="text-blue-600 hover:text-blue-800 underline font-medium"
-                >
-                  {t.tos?.contact.email}
                 </a>
               </p>
             </div>

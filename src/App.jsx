@@ -89,9 +89,9 @@ const App = () => {
           >
             <div className="app">
               <Routes>
-                {/* Public Routes */}
-                <Route path="/login" element={<LoginPage />} />
+                {/* Public Routes - Must be before protected routes */}
                 <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 
                 {/* Student Routes */}
@@ -127,7 +127,7 @@ const App = () => {
                 {/* Default Route */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 
-                {/* Catch all route */}
+                {/* Catch all route - Must be last */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
             </div>
