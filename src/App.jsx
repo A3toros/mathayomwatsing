@@ -8,6 +8,7 @@ import PrivacyPolicy from '@/shared/PrivacyPolicy';
 import StudentApp from '@/student/student-index';
 import TeacherApp from '@/teacher/teacher-index';
 import AdminApp from '@/admin/admin-index';
+import CookieConsentBanner from '@/components/ui/CookieConsentBanner';
 
 // Protected Route Component - ENHANCED FOR NEW STRUCTURE
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -130,12 +131,27 @@ const App = () => {
                 {/* Catch all route - Must be last */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
+              
+              {/* Cookie Consent Banner - Only shows after user signs in */}
+              <AuthenticatedCookieBanner />
             </div>
           </Router>
         </UserProvider>
       </TestProvider>
     </AuthProvider>
   );
+};
+
+// Component to show cookie banner only when authenticated
+const AuthenticatedCookieBanner = () => {
+  const { isAuthenticated } = useAuth();
+  
+  // Only show banner if user is authenticated (signed in)
+  if (!isAuthenticated) {
+    return null;
+  }
+  
+  return <CookieConsentBanner />;
 };
 
 export default App;

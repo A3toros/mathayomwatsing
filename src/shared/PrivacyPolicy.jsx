@@ -69,6 +69,54 @@ const PrivacyPolicy = () => {
           'Provide technical support',
         ],
       },
+      cookies: {
+        title: 'Cookies and Local Storage',
+        text1: 'This app uses cookies and local storage technologies to provide essential functionality and improve your experience.',
+        essentialCookies: {
+          title: 'Essential Cookies and Storage',
+          text: 'We use essential cookies and local storage for:',
+          items: [
+            'Authentication: Storing login tokens to keep you signed in securely',
+            'Session Management: Maintaining your active session during app usage',
+            'Test Progress: Saving your test progress locally to prevent data loss',
+            'User Preferences: Storing your theme preferences and settings',
+          ],
+          note: 'These essential cookies and storage are necessary for the app to function properly and cannot be disabled.',
+        },
+        storageTypes: {
+          title: 'Types of Storage Used',
+          text: 'We use the following storage mechanisms:',
+          httpCookies: {
+            title: 'HTTP Cookies',
+            text: 'Secure, HttpOnly cookies for authentication tokens. These cookies are essential for maintaining your login session and are automatically deleted when you log out.',
+          },
+          localStorage: {
+            title: 'Local Storage',
+            text: 'Browser local storage for user data, test progress, and preferences. This data remains on your device until you clear your browser data or log out.',
+          },
+          sessionStorage: {
+            title: 'Session Storage',
+            text: 'Temporary session storage used as a fallback when local storage is unavailable. This data is automatically cleared when you close your browser.',
+          },
+        },
+        cookieManagement: {
+          title: 'Managing Cookies and Storage',
+          text: 'You can manage cookies and local storage through your browser settings. However, disabling essential cookies or storage may prevent the app from functioning correctly. To clear stored data, you can:',
+          items: [
+            'Log out of the app, which will clear authentication tokens',
+            'Clear your browser\'s cookies and local storage through browser settings',
+            'Contact us at aleksandr.p@mws.ac.th to request data deletion',
+          ],
+        },
+        thirdPartyCookies: {
+          title: 'Third-Party Cookies',
+          text: 'This app does not use third-party cookies for advertising or tracking purposes. We do not share cookie data with third parties.',
+        },
+        consent: {
+          title: 'Cookie Consent',
+          text: 'By using this app, you consent to the use of essential cookies and local storage as described in this policy. These are necessary for the app\'s core functionality and security.',
+        },
+      },
       dataStorage: {
         title: 'Data Storage & Security',
         text1: 'Data is stored securely, locally on devices, or on encrypted cloud servers (Supabase). All transmissions are encrypted.',
@@ -195,6 +243,54 @@ const PrivacyPolicy = () => {
           'ปรับปรุงฟังก์ชันการทำงานของแอปและประสบการณ์ผู้ใช้',
           'ให้การสนับสนุนทางเทคนิค',
         ],
+      },
+      cookies: {
+        title: 'คุกกี้และการเก็บข้อมูลในเครื่อง',
+        text1: 'แอปนี้ใช้คุกกี้และเทคโนโลยีการเก็บข้อมูลในเครื่องเพื่อให้บริการที่จำเป็นและปรับปรุงประสบการณ์ของคุณ',
+        essentialCookies: {
+          title: 'คุกกี้และการเก็บข้อมูลที่จำเป็น',
+          text: 'เราใช้คุกกี้และการเก็บข้อมูลที่จำเป็นสำหรับ:',
+          items: [
+            'การยืนยันตัวตน: เก็บโทเค็นการเข้าสู่ระบบเพื่อให้คุณเข้าสู่ระบบอย่างปลอดภัย',
+            'การจัดการเซสชัน: รักษาเซสชันที่ใช้งานอยู่ระหว่างการใช้แอป',
+            'ความคืบหน้าการทดสอบ: บันทึกความคืบหน้าการทดสอบในเครื่องเพื่อป้องกันการสูญหายของข้อมูล',
+            'การตั้งค่าผู้ใช้: เก็บการตั้งค่าธีมและการตั้งค่าของคุณ',
+          ],
+          note: 'คุกกี้และการเก็บข้อมูลที่จำเป็นเหล่านี้จำเป็นสำหรับการทำงานของแอปและไม่สามารถปิดการใช้งานได้',
+        },
+        storageTypes: {
+          title: 'ประเภทของการเก็บข้อมูลที่ใช้',
+          text: 'เราใช้กลไกการเก็บข้อมูลต่อไปนี้:',
+          httpCookies: {
+            title: 'คุกกี้ HTTP',
+            text: 'คุกกี้ที่ปลอดภัย HttpOnly สำหรับโทเค็นการยืนยันตัวตน คุกกี้เหล่านี้จำเป็นสำหรับการรักษาเซสชันการเข้าสู่ระบบของคุณและจะถูกลบอัตโนมัติเมื่อคุณออกจากระบบ',
+          },
+          localStorage: {
+            title: 'การเก็บข้อมูลในเครื่อง',
+            text: 'การเก็บข้อมูลในเบราว์เซอร์สำหรับข้อมูลผู้ใช้ ความคืบหน้าการทดสอบ และการตั้งค่า ข้อมูลนี้จะยังคงอยู่ในอุปกรณ์ของคุณจนกว่าคุณจะล้างข้อมูลเบราว์เซอร์หรือออกจากระบบ',
+          },
+          sessionStorage: {
+            title: 'การเก็บข้อมูลเซสชัน',
+            text: 'การเก็บข้อมูลเซสชันชั่วคราวที่ใช้เป็นทางเลือกเมื่อการเก็บข้อมูลในเครื่องไม่พร้อมใช้งาน ข้อมูลนี้จะถูกล้างอัตโนมัติเมื่อคุณปิดเบราว์เซอร์',
+          },
+        },
+        cookieManagement: {
+          title: 'การจัดการคุกกี้และการเก็บข้อมูล',
+          text: 'คุณสามารถจัดการคุกกี้และการเก็บข้อมูลในเครื่องผ่านการตั้งค่าเบราว์เซอร์ของคุณ อย่างไรก็ตาม การปิดการใช้งานคุกกี้หรือการเก็บข้อมูลที่จำเป็นอาจทำให้แอปไม่สามารถทำงานได้อย่างถูกต้อง หากต้องการล้างข้อมูลที่เก็บไว้ คุณสามารถ:',
+          items: [
+            'ออกจากระบบแอป ซึ่งจะล้างโทเค็นการยืนยันตัวตน',
+            'ล้างคุกกี้และการเก็บข้อมูลในเครื่องของเบราว์เซอร์ผ่านการตั้งค่าเบราว์เซอร์',
+            'ติดต่อเราที่ aleksandr.p@mws.ac.th เพื่อขอให้ลบข้อมูล',
+          ],
+        },
+        thirdPartyCookies: {
+          title: 'คุกกี้ของบุคคลที่สาม',
+          text: 'แอปนี้ไม่ใช้คุกกี้ของบุคคลที่สามเพื่อการโฆษณาหรือการติดตาม เราไม่แชร์ข้อมูลคุกกี้กับบุคคลที่สาม',
+        },
+        consent: {
+          title: 'ความยินยอมในการใช้คุกกี้',
+          text: 'โดยการใช้แอปนี้ คุณยินยอมให้ใช้คุกกี้และการเก็บข้อมูลในเครื่องที่จำเป็นตามที่ระบุไว้ในนโยบายนี้ สิ่งเหล่านี้จำเป็นสำหรับการทำงานหลักและความปลอดภัยของแอป',
+        },
       },
       dataStorage: {
         title: 'การเก็บข้อมูลและความปลอดภัย',
@@ -441,6 +537,90 @@ const PrivacyPolicy = () => {
                 <li key={index}>{item}</li>
               ))}
             </ul>
+          </section>
+
+          {/* Cookies and Local Storage */}
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              {t.cookies.title}
+            </h2>
+            <p className="text-base leading-7 text-gray-700 mb-4">
+              {t.cookies.text1}
+            </p>
+
+            {/* Essential Cookies */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{t.cookies.essentialCookies.title}</h3>
+              <p className="text-sm text-gray-700 mb-2">
+                {t.cookies.essentialCookies.text}
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                {t.cookies.essentialCookies.items.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+              <p className="text-sm text-gray-700 mt-2 italic">
+                {t.cookies.essentialCookies.note}
+              </p>
+            </div>
+
+            {/* Storage Types */}
+            <div className="space-y-4 mb-4">
+              <h3 className="font-semibold text-gray-900">{t.cookies.storageTypes.title}</h3>
+              <p className="text-sm text-gray-700 mb-3">
+                {t.cookies.storageTypes.text}
+              </p>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">{t.cookies.storageTypes.httpCookies.title}</h4>
+                <p className="text-sm text-gray-700">
+                  {t.cookies.storageTypes.httpCookies.text}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">{t.cookies.storageTypes.localStorage.title}</h4>
+                <p className="text-sm text-gray-700">
+                  {t.cookies.storageTypes.localStorage.text}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">{t.cookies.storageTypes.sessionStorage.title}</h4>
+                <p className="text-sm text-gray-700">
+                  {t.cookies.storageTypes.sessionStorage.text}
+                </p>
+              </div>
+            </div>
+
+            {/* Cookie Management */}
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{t.cookies.cookieManagement.title}</h3>
+              <p className="text-sm text-gray-700 mb-2">
+                {t.cookies.cookieManagement.text}
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                {t.cookies.cookieManagement.items.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Third-Party Cookies */}
+            <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{t.cookies.thirdPartyCookies.title}</h3>
+              <p className="text-sm text-gray-700">
+                {t.cookies.thirdPartyCookies.text}
+              </p>
+            </div>
+
+            {/* Cookie Consent */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{t.cookies.consent.title}</h3>
+              <p className="text-sm text-gray-700">
+                {t.cookies.consent.text}
+              </p>
+            </div>
           </section>
 
           {/* Data Storage */}
