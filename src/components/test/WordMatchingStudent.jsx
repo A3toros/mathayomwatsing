@@ -12,6 +12,8 @@ import ProgressTracker from './ProgressTracker';
 import { useNotification } from '../ui/Notification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../hooks/useApi';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '../../utils/themeUtils';
 import { useTestProgress } from '../../hooks/useTestProgress';
 import { useAntiCheating } from '../../hooks/useAntiCheating';
 import { getCachedData, setCachedData, clearTestData, CACHE_TTL } from '../../utils/cacheUtils';
@@ -21,6 +23,10 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const { user } = useAuth();
   const { makeAuthenticatedRequest } = useApi();
   const { showNotification } = useNotification();
+  
+  // Theme hook - must be at component level
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   
   // Responsive sizing hook
   const [screenSize, setScreenSize] = useState({
@@ -897,17 +903,53 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           Back to Cabinet
         </Button>
       </div>
-      {/* Test Header */}
-      <Card className="mb-6">
-        <div className="text-left mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{testData.test_name}</h2>
-          <p className="text-gray-600">
-            {testData.interaction_type === 'drag' 
-              ? 'Drag words from left to right to match them' 
-              : 'Click on the word or phrase on the left, then click on the matching word or phrase on the right to connect them'
-            }
-          </p>
-        </div>
+        {/* Test Header */}
+        <div 
+          className={`rounded-lg border-2 p-6 mb-6 ${
+            isCyberpunk 
+              ? getCyberpunkCardBg(1).className
+              : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
+          }`}
+          style={isCyberpunk ? {
+            ...getCyberpunkCardBg(1).style,
+            ...themeStyles.glow,
+            boxShadow: `${themeStyles.glow.boxShadow}, inset 0 0 20px ${colorToRgba(CYBERPUNK_COLORS.cyan, 0.1)}`
+          } : {}}
+        >
+          <div className="text-left mb-4">
+                 <h2 
+                   className={`text-2xl font-bold ${
+                     isCyberpunk ? 'tracking-wider' : themeClasses.text
+                   } mb-2`}
+                   style={isCyberpunk ? {
+                     ...themeStyles.textCyan,
+                     fontFamily: 'monospace'
+                   } : {}}
+                 >
+              {isCyberpunk
+                ? testData.test_name.toUpperCase()
+                : testData.test_name}
+            </h2>
+            <p 
+              className={`${
+                isCyberpunk
+                  ? 'text-yellow-400 tracking-wider'
+                  : themeClasses.textSecondary
+              }`}
+              style={isCyberpunk ? { 
+                fontFamily: 'monospace',
+                textShadow: '0 0 5px rgba(255, 215, 0, 0.5)'
+              } : {}}
+            >
+              {isCyberpunk
+                ? (testData.interaction_type === 'drag' 
+                    ? 'DRAG WORDS FROM LEFT TO RIGHT TO MATCH THEM' 
+                    : 'CLICK ON THE WORD OR PHRASE ON THE LEFT, THEN CLICK ON THE MATCHING WORD OR PHRASE ON THE RIGHT TO CONNECT THEM')
+                : (testData.interaction_type === 'drag' 
+                    ? 'Drag words from left to right to match them' 
+                    : 'Click on the word or phrase on the left, then click on the matching word or phrase on the right to connect them')}
+            </p>
+          </div>
         
         {/* Progress Tracker with Timer */}
         {testData && (
@@ -921,15 +963,21 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                 // Use timeRemaining if it's been initialized (> 0), otherwise use allowedSeconds
                 return timeRemaining > 0 ? timeRemaining : allowedSeconds;
               })()}
+              themeClasses={themeClasses}
+              isCyberpunk={isCyberpunk}
             />
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Test Content */}
       {testData.interaction_type === 'drag' ? (
         // Drag Mode with Konva
-        <Card className="mb-6">
+        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : ''}`}
+        style={isCyberpunk ? {
+          ...getCyberpunkCardBg(0).style,
+          ...themeStyles.glow
+        } : {}}>
           <div 
             ref={containerRef}
             className="relative w-full"
@@ -937,7 +985,13 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             <Stage 
               width={canvasWidth} 
               height={canvasHeight}
-              className={`border-2 border-gray-200 rounded-lg ${isSubmitting ? 'pointer-events-none opacity-50' : ''}`}
+              className={`border-2 rounded-lg ${isSubmitting ? 'pointer-events-none opacity-50' : ''} ${
+                isCyberpunk ? 'border-cyan-400' : 'border-gray-200'
+              }`}
+              style={isCyberpunk ? {
+                borderColor: CYBERPUNK_COLORS.cyan,
+                backgroundColor: CYBERPUNK_COLORS.black
+              } : {}}
             >
               <Layer>
                 {/* Left Words - Draggable */}
@@ -1113,7 +1167,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
         </Card>
       ) : (
         // Arrow Mode with Konva
-        <Card className="mb-6">
+        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : ''}`}
+        style={isCyberpunk ? {
+          ...getCyberpunkCardBg(0).style,
+          ...themeStyles.glow
+        } : {}}>
           <div 
             ref={containerRef}
             className="relative w-full"
@@ -1121,7 +1179,13 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             <Stage 
               width={canvasWidth} 
               height={canvasHeight}
-              className={`border-2 border-gray-200 rounded-lg ${isSubmitting ? 'pointer-events-none opacity-50' : ''}`}
+              className={`border-2 rounded-lg ${isSubmitting ? 'pointer-events-none opacity-50' : ''} ${
+                isCyberpunk ? 'border-cyan-400' : 'border-gray-200'
+              }`}
+              style={isCyberpunk ? {
+                borderColor: CYBERPUNK_COLORS.cyan,
+                backgroundColor: CYBERPUNK_COLORS.black
+              } : {}}
             >
               <Layer>
                 {/* Left Words - Clickable */}
@@ -1240,7 +1304,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       )}
 
       {/* Action Buttons */}
-      <Card>
+      <Card className={isCyberpunk ? getCyberpunkCardBg(1).className : ''}
+      style={isCyberpunk ? {
+        ...getCyberpunkCardBg(1).style,
+        ...themeStyles.glow
+      } : {}}>
         <div className={`submit-section flex justify-center space-x-4 ${isSubmitting ? 'pointer-events-none opacity-50' : ''}`}>
           <Button
             onClick={handleReset}
@@ -1252,15 +1320,23 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           <Button
             onClick={() => setShowSubmitModal(true)}
             disabled={isSubmitting}
-            className="px-8"
+            className={`px-8 ${isCyberpunk ? '' : ''}`}
+            style={isCyberpunk ? {
+              backgroundColor: CYBERPUNK_COLORS.black,
+              borderColor: CYBERPUNK_COLORS.cyan,
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace',
+              borderWidth: '2px',
+              ...themeStyles.glow
+            } : {}}
           >
             {isSubmitting ? (
               <>
-                <LoadingSpinner size="sm" color="white" className="mr-2" />
-                Submitting...
+                <LoadingSpinner size="sm" color={isCyberpunk ? CYBERPUNK_COLORS.cyan : "white"} className="mr-2" />
+                {isCyberpunk ? 'SUBMITTING...' : 'Submitting...'}
               </>
             ) : (
-              'Submit Test'
+              isCyberpunk ? 'SUBMIT TEST' : 'Submit Test'
             )}
           </Button>
         </div>
@@ -1347,8 +1423,17 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
             <Button
               onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }}
               variant="primary"
+              className={isCyberpunk ? '' : ''}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black,
+                borderColor: CYBERPUNK_COLORS.cyan,
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                borderWidth: '2px',
+                ...themeStyles.glow
+              } : {}}
             >
-              Submit
+              {isCyberpunk ? 'SUBMIT' : 'Submit'}
             </Button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { renderMathInText } from '../../utils/mathRenderer';
@@ -52,6 +54,8 @@ export const InputQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   const inputRef = useRef(null);
   
   // State
@@ -220,13 +224,35 @@ export const InputQuestion = ({
 
   // Render student mode
   const renderStudentMode = () => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
+      isCyberpunk 
+        ? getCyberpunkCardBg(0).className
+        : 'bg-white border-gray-200'
+    }`}
+    style={isCyberpunk ? {
+      ...getCyberpunkCardBg(0).style,
+      ...themeStyles.glowRed
+    } : {}}>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-gray-800">
-          Question {typeof displayNumber === 'number' ? displayNumber : question.question_id}
+        <h4 className={`text-lg font-semibold ${
+          isCyberpunk ? '' : 'text-gray-800'
+        }`}
+        style={isCyberpunk ? {
+          ...themeStyles.textCyan,
+          fontFamily: 'monospace'
+        } : {}}>
+          {isCyberpunk 
+            ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question.question_id}`
+            : `Question ${typeof displayNumber === 'number' ? displayNumber : question.question_id}`}
         </h4>
         {isAutoSaving && (
-          <div className="flex items-center space-x-1 text-sm text-gray-500">
+          <div className={`flex items-center space-x-1 text-sm ${
+            isCyberpunk ? '' : 'text-gray-500'
+          }`}
+          style={isCyberpunk ? {
+            color: CYBERPUNK_COLORS.cyan,
+            fontFamily: 'monospace'
+          } : {}}>
             <LoadingSpinner size="small" />
             <span>Saving...</span>
           </div>
@@ -234,7 +260,14 @@ export const InputQuestion = ({
       </div>
       
       <div 
-        className="question-text mb-6 text-gray-700 leading-relaxed"
+        className={`question-text mb-6 leading-relaxed ${
+          isCyberpunk ? '' : 'text-gray-700'
+        }`}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace',
+          ...themeStyles.textShadow
+        } : {}}
         dangerouslySetInnerHTML={{ 
           __html: formatQuestion(question.question) 
         }}
@@ -246,19 +279,33 @@ export const InputQuestion = ({
             ref={inputRef}
             type="text"
             id={`input_${question.question_id}`}
-            placeholder="Enter your answer here..."
+            placeholder={isCyberpunk ? "ENTER YOUR ANSWER HERE..." : "Enter your answer here..."}
             value={answer}
             onChange={(e) => handleAnswerChange(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyPress={handleKeyPress}
-            className={`w-full px-4 py-3 pr-10 border-2 rounded-lg text-gray-800 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              !isValid 
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
-                : isFocused 
-                  ? 'border-blue-500' 
-                  : 'border-gray-300 hover:border-gray-400'
+            className={`w-full px-4 py-3 pr-10 border-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 ${
+              isCyberpunk
+                ? 'border'
+                : !isValid 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500 text-gray-800 placeholder-gray-400' 
+                  : isFocused 
+                    ? 'border-blue-500 text-gray-800 placeholder-gray-400 focus:ring-blue-500' 
+                    : 'border-gray-300 hover:border-gray-400 text-gray-800 placeholder-gray-400'
             }`}
+            style={isCyberpunk ? {
+              backgroundColor: CYBERPUNK_COLORS.black,
+              borderColor: !isValid 
+                ? CYBERPUNK_COLORS.red
+                : isFocused 
+                  ? CYBERPUNK_COLORS.cyan
+                  : CYBERPUNK_COLORS.cyan,
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace',
+              ...(isFocused ? themeStyles.glow : {}),
+              ...(isFocused ? {} : {})
+            } : {}}
             data-question-id={question.question_id}
             aria-label={`Answer for question ${question.question_id}`}
             aria-invalid={!isValid}

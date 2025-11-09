@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import MathEditorButton from '../math/MathEditorButton';
@@ -58,6 +60,8 @@ export const MultipleChoiceQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   const questionRef = useRef(null);
   
   // State
@@ -312,12 +316,34 @@ export const MultipleChoiceQuestion = ({
 
   // Render student mode
   const renderStudentMode = () => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
+      isCyberpunk 
+        ? getCyberpunkCardBg(0).className
+        : 'bg-white border-gray-200'
+    }`}
+    style={isCyberpunk ? {
+      ...getCyberpunkCardBg(0).style,
+      ...themeStyles.glowRed
+    } : {}}>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-gray-800">
-          Question {typeof displayNumber === 'number' ? displayNumber : question?.question_id}
+        <h4 className={`text-lg font-semibold ${
+          isCyberpunk ? '' : 'text-gray-800'
+        }`}
+        style={isCyberpunk ? {
+          ...themeStyles.textCyan,
+          fontFamily: 'monospace'
+        } : {}}>
+          {isCyberpunk 
+            ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`
+            : `Question ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`}
         </h4>
-        <div className="flex items-center space-x-2 text-sm text-gray-500">
+        <div className={`flex items-center space-x-2 text-sm ${
+          isCyberpunk ? '' : 'text-gray-500'
+        }`}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace'
+        } : {}}>
           {isAutoSaving && (
             <div className="flex items-center space-x-1">
               <LoadingSpinner size="small" />
@@ -333,7 +359,14 @@ export const MultipleChoiceQuestion = ({
       </div>
       
       <div 
-        className="question-text mb-6 text-gray-700 leading-relaxed"
+        className={`question-text mb-6 leading-relaxed ${
+          isCyberpunk ? '' : 'text-gray-700'
+        }`}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace',
+          ...themeStyles.textShadow
+        } : {}}
         dangerouslySetInnerHTML={{ 
           __html: formatQuestionText(questionText) 
         }}
@@ -341,7 +374,20 @@ export const MultipleChoiceQuestion = ({
       
       <div className="space-y-3">
         {options.map((option, index) => (
-          <label key={index} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${selectedAnswer === String.fromCharCode(65 + index) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+          <label key={index} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+            isCyberpunk
+              ? 'border'
+              : selectedAnswer === String.fromCharCode(65 + index) 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-200 hover:border-gray-300'
+          }`}
+          style={isCyberpunk ? {
+            backgroundColor: CYBERPUNK_COLORS.black,
+            borderColor: selectedAnswer === String.fromCharCode(65 + index) 
+              ? CYBERPUNK_COLORS.cyan
+              : CYBERPUNK_COLORS.cyan,
+            ...(selectedAnswer === String.fromCharCode(65 + index) ? themeStyles.glow : {})
+          } : {}}>
             <input
               type="radio"
               name={`mcq_${testId}_${question?.question_id}`}
@@ -353,11 +399,29 @@ export const MultipleChoiceQuestion = ({
               }}
               className="mr-3"
             />
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600 mr-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold mr-3 ${
+              isCyberpunk ? '' : 'bg-gray-100 text-gray-600'
+            }`}
+            style={isCyberpunk ? {
+              backgroundColor: selectedAnswer === String.fromCharCode(65 + index) 
+                ? CYBERPUNK_COLORS.cyan
+                : CYBERPUNK_COLORS.black,
+              border: `2px solid ${CYBERPUNK_COLORS.cyan}`,
+              color: selectedAnswer === String.fromCharCode(65 + index) 
+                ? CYBERPUNK_COLORS.black
+                : CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace'
+            } : {}}>
               {String.fromCharCode(65 + index)}
             </div>
             <span 
-              className="flex-1"
+              className={`flex-1 ${
+                isCyberpunk ? '' : ''
+              }`}
+              style={isCyberpunk ? {
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace'
+              } : {}}
               dangerouslySetInnerHTML={{ 
                 __html: option ? renderMathInText(option) : `Option ${String.fromCharCode(65 + index)}` 
               }}

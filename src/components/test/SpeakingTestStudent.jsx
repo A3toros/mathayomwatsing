@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 import AudioRecorder from './AudioRecorder';
 import FeedbackDisplay from './FeedbackDisplay';
 import TestResults from './TestResults';
@@ -25,6 +27,10 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [isProcessing, setIsProcessing] = useState(false); // NEW: Flag to prevent duplicate API calls
   const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
   const pendingNavigationRef = useRef(null);
+  
+  // Theme hook - must be at component level
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   
   // iOS detection function
   const isIOS = () => {
@@ -839,12 +845,41 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       case 'recording':
         return (
           <div className="speaking-test-recording">
-            <h2 className="text-2xl font-bold mb-4 text-center">{testData.test_name}</h2>
+            <h2 
+              className={`text-2xl font-bold mb-4 text-center ${themeClasses.text} ${
+                isCyberpunk ? 'tracking-wider' : ''
+              }`}
+              style={isCyberpunk ? { 
+                fontFamily: 'monospace',
+                textShadow: '0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3)'
+              } : {}}
+            >
+              {isCyberpunk
+                ? testData.test_name.toUpperCase()
+                : testData.test_name}
+            </h2>
             <div className="mb-6 text-center">
-              <h3 className="text-lg font-semibold mb-2">Instructions:</h3>
-              <p className="text-gray-700 mb-4">{testData.prompt}</p>
-              <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <h3 className={`text-lg font-semibold mb-2 ${
+                isCyberpunk ? '' : themeClasses.text
+              }`}
+              style={isCyberpunk ? {
+                ...themeStyles.textCyan,
+                fontFamily: 'monospace'
+              } : {}}>
+                {isCyberpunk ? 'INSTRUCTIONS:' : 'Instructions:'}
+              </h3>
+              <p className={`mb-4 ${
+                isCyberpunk ? '' : themeClasses.textSecondary
+              }`}
+              style={isCyberpunk ? {
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                ...themeStyles.textShadow
+              } : {}}>
+                {testData.prompt}
+              </p>
+              <div className={`${isCyberpunk ? 'bg-cyan-400/10 border border-cyan-400/30' : 'bg-blue-50 border border-blue-200'} p-3 sm:p-4 rounded-lg`}>
+                <p className={`text-sm ${isCyberpunk ? 'text-cyan-300' : 'text-blue-800'}`}>
                   <strong>Requirements:</strong> Minimum {testData.min_words || 50} words, 
                   0-{testData.max_duration || 600} seconds duration
                 </p>
@@ -871,16 +906,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
 
       case 'processing':
         return (
-          <div className="transcription-status bg-white rounded-lg shadow-lg p-4 sm:p-8 text-center">
+          <div className={`transcription-status ${themeClasses.cardBg} rounded-lg shadow-lg p-4 sm:p-8 text-center ${themeClasses.cardBorder} border`}>
             <div className="mb-6">
-              <div className="text-6xl mb-4">⏳</div>
-              <h3 className="text-2xl font-semibold mb-2">Processing Your Speech</h3>
-              <p className="text-lg text-blue-600">Please wait while we process your audio...</p>
+              <div className={`text-6xl mb-4 ${themeClasses.textSecondary}`}>⏳</div>
+              <h3 className={`text-2xl font-semibold mb-2 ${themeClasses.text}`}>Processing Your Speech</h3>
+              <p className={`text-lg ${isCyberpunk ? 'text-cyan-400' : 'text-blue-600'}`}>Please wait while we process your audio...</p>
             </div>
             <div className="inline-flex space-x-1">
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`} style={{ animationDelay: '0.1s' }}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`} style={{ animationDelay: '0.2s' }}></div>
             </div>
           </div>
         );
@@ -956,7 +991,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   };
 
   return (
-    <div>
+    <div className="max-w-4xl mx-auto p-6">
       {/* Submit Confirmation Modal */}
       <PerfectModal
         isOpen={showSubmitModal && !isSubmitting}
@@ -965,12 +1000,26 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         size="small"
       >
         <div className="text-center">
-          <p className="text-gray-600 mb-6">
+          <p className={`${themeClasses.textSecondary} mb-6`}>
             Are you sure you want to submit? 
           </p>
           <div className="flex gap-3 justify-center">
             <Button onClick={() => setShowSubmitModal(false)} variant="secondary">Cancel</Button>
-            <Button onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }} variant="primary">Submit</Button>
+            <Button 
+              onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }} 
+              variant="primary"
+              className={isCyberpunk ? '' : ''}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black,
+                borderColor: CYBERPUNK_COLORS.cyan,
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                borderWidth: '2px',
+                ...themeStyles.glow
+              } : {}}
+            >
+              {isCyberpunk ? 'SUBMIT' : 'Submit'}
+            </Button>
           </div>
         </div>
       </PerfectModal>
@@ -983,7 +1032,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         size="small"
       >
         <div className="text-center">
-          <p className="text-gray-600 mb-6">Are you sure you want to go back to cabinet?</p>
+          <p className={`${themeClasses.textSecondary} mb-6`}>Are you sure you want to go back to cabinet?</p>
           <div className="flex gap-3 justify-center">
             <Button onClick={handleExitCancel} variant="secondary">Cancel</Button>
             <Button 
@@ -1001,7 +1050,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       </PerfectModal>
       
       {/* Test Content */}
-      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
+      <div className={`${themeClasses.cardBg} rounded-lg shadow-sm p-3 sm:p-6 ${themeClasses.cardBorder} border`}>
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">{error}</p>

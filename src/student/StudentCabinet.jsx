@@ -4,10 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTest } from '@/contexts/TestContext';
+import { useTheme } from '@/hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '@/utils/themeUtils';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Notification } from '@/components/ui/components-ui-index';
+import SettingsModal from '@/components/modals/SettingsModal';
 import { userService } from '@/services/userService';
 import { testService } from '@/services/testService';
 import { TestResults, TestDetailsModal } from '@/components/test/components-test-index';
@@ -79,6 +82,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const { studentData, loadStudentData } = useUser();
   const { activeTests, testResults, loadActiveTests, loadTestResults, viewTestDetails, testDetailsModal, closeTestDetailsModal } = useTest();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   
   // Debug: Log when cabinet mounts/renders
   useEffect(() => {
@@ -98,6 +103,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   const [showAllResults, setShowAllResults] = useState(false);
   const [isStartingTest, setIsStartingTest] = useState(false);
   const [isCompletionStatusLoaded, setIsCompletionStatusLoaded] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Initialize student cabinet on component mount
   useEffect(() => {
@@ -693,7 +699,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   return (
     <motion.div 
-      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100"
+      className={`min-h-screen ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+      style={isCyberpunk ? themeStyles.background : {}}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -702,7 +709,10 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
 
       {/* Student Cabinet Header */}
       <motion.div 
-        className="bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+        className={`${themeClasses.headerBg} border-b-2 ${themeClasses.headerBorder}`}
+        style={isCyberpunk ? {
+          boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+        } : {}}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.5 }}
@@ -718,23 +728,64 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             >
               <div className="flex-shrink-0">
                 <motion.div 
-                  className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm"
+                  className={`h-12 w-12 rounded-full flex items-center justify-center border-2 ${
+                    isCyberpunk
+                      ? 'bg-cyan-400/20 border-cyan-400'
+                      : 'bg-white/20 border-white'
+                  }`}
+                  style={isCyberpunk ? {
+                    boxShadow: '0 0 10px rgba(0, 255, 255, 0.5)'
+                  } : {}}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.3, duration: 0.3, type: "spring" }}
                   whileHover={{ scale: 1.1 }}
                 >
-                  <span className="text-white font-semibold text-xl">
+                  <span 
+                    className={`font-semibold text-xl ${
+                      isCyberpunk
+                        ? 'text-cyan-400 tracking-wider'
+                        : 'text-white'
+                    }`}
+                    style={isCyberpunk ? { 
+                      fontFamily: 'monospace',
+                      textShadow: '0 0 5px rgba(0, 255, 255, 0.5)'
+                    } : {}}
+                  >
                     {user?.name?.charAt(0) || 'S'}
                   </span>
                 </motion.div>
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                  {user?.name} {user?.surname}
-                </h1>
-                <p className="text-blue-100 text-sm sm:text-base md:text-lg">
-                  Grade {user?.grade} - Class {user?.class}
+                       <h1
+                         className={`text-lg sm:text-xl md:text-2xl font-bold ${
+                           isCyberpunk
+                             ? 'tracking-wider'
+                             : themeClasses.headerText
+                         }`}
+                         style={isCyberpunk ? {
+                           ...themeStyles.textCyan,
+                           fontFamily: 'monospace'
+                         } : {}}
+                       >
+                         {isCyberpunk
+                           ? `${user?.name?.toUpperCase()} ${user?.surname?.toUpperCase()}`
+                           : `${user?.name} ${user?.surname}`}
+                       </h1>
+                       <p
+                         className={`text-sm sm:text-base md:text-lg ${
+                           isCyberpunk
+                             ? 'tracking-wider'
+                             : 'text-white'
+                         }`}
+                         style={isCyberpunk ? {
+                           ...themeStyles.textYellow,
+                           fontFamily: 'monospace'
+                         } : {}}
+                       >
+                  {isCyberpunk
+                    ? `GRADE ${user?.grade} - CLASS ${user?.class}`
+                    : `Grade ${user?.grade} - Class ${user?.class}`}
                 </p>
               </div>
             </motion.div>
@@ -747,11 +798,20 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
             >
-              <button
-                onClick={onToggleMenu}
-                className="flex items-center space-x-1 sm:space-x-2 bg-white/10 border-white/20 text-white hover:bg-white/20 font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm border-2"
-                style={{ zIndex: 1000 }}
-              >
+                   <button
+                     onClick={onToggleMenu}
+                     className={`flex items-center space-x-1 sm:space-x-2 border-2 font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 cursor-pointer px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm ${
+                       isCyberpunk
+                         ? 'bg-cyan-400/10 border-cyan-400 text-cyan-400 hover:bg-cyan-400/20 focus:ring-cyan-400 tracking-wider'
+                         : 'bg-white/10 border-white text-white hover:bg-white/20 focus:ring-white'
+                     }`}
+                     style={isCyberpunk ? { 
+                       zIndex: 1000,
+                       fontFamily: 'monospace',
+                       boxShadow: '0 0 10px rgba(0, 255, 255, 0.3)',
+                       textShadow: '0 0 5px rgba(0, 255, 255, 0.5)'
+                     } : { zIndex: 1000 }}
+                   >
                 <span className="hidden sm:inline">Menu</span>
                 <motion.svg 
                   className="w-4 h-4 sm:w-5 sm:h-5" 
@@ -769,7 +829,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
               <AnimatePresence>
                 {isMenuOpen && (
                   <motion.div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg z-50 overflow-hidden"
+                    className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg z-50 overflow-hidden border-2 ${
+                      isCyberpunk 
+                        ? getCyberpunkCardBg(0).className
+                        : 'bg-white'
+                    }`}
+                    style={isCyberpunk ? {
+                      ...getCyberpunkCardBg(0).style,
+                      ...themeStyles.glow
+                    } : {}}
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -778,22 +846,60 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                     <div className="py-2">
                       <motion.button
                         onClick={onShowPasswordChange}
-                        className="block w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                        className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
+                          isCyberpunk 
+                            ? 'hover:bg-cyan-400/30' 
+                            : 'text-gray-700 hover:bg-blue-50'
+                        }`}
+                        style={isCyberpunk ? {
+                          color: CYBERPUNK_COLORS.cyan,
+                          fontFamily: 'monospace',
+                          ...themeStyles.textShadow
+                        } : {}}
                         whileHover={{ x: 4 }}
                         transition={{ duration: 0.2 }}
                       >
-                        Change Password
+                        {isCyberpunk ? 'CHANGE PASSWORD' : 'Change Password'}
+                      </motion.button>
+                      <motion.button
+                        onClick={() => {
+                          onToggleMenu();
+                          setShowSettings(true);
+                        }}
+                        className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
+                          isCyberpunk 
+                            ? 'hover:bg-cyan-400/30' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        style={isCyberpunk ? {
+                          color: CYBERPUNK_COLORS.cyan,
+                          fontFamily: 'monospace',
+                          ...themeStyles.textShadow
+                        } : {}}
+                        whileHover={{ x: 4 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {isCyberpunk ? 'SETTINGS' : 'Settings'}
                       </motion.button>
                       <motion.button
                         onClick={() => {
                           onToggleMenu(); // Close the dropdown first, like in teacher cabinet
                           logout();
                         }}
-                        className="block w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-red-50 transition-colors"
+                        className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
+                          isCyberpunk 
+                            ? 'hover:bg-red-400/30' 
+                            : 'text-gray-700 hover:bg-red-50'
+                        }`}
+                        style={isCyberpunk ? {
+                          color: CYBERPUNK_COLORS.red,
+                          fontFamily: 'monospace',
+                          ...themeStyles.textShadowRed
+                        } : {}}
                         whileHover={{ x: 4 }}
                         transition={{ duration: 0.2 }}
                       >
-                        Logout
+                        {isCyberpunk ? 'LOGOUT' : 'Logout'}
                       </motion.button>
                     </div>
                   </motion.div>
@@ -858,9 +964,21 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.5 }}
             >
-              <Card>
+              <Card 
+                className={isCyberpunk ? getCyberpunkCardBg(0).className : ''}
+                style={isCyberpunk ? {
+                  ...getCyberpunkCardBg(0).style,
+                  boxShadow: '0 0 20px rgba(255, 0, 60, 0.3), 0 0 40px rgba(255, 0, 60, 0.2)'
+                } : {}}>
                 <Card.Header>
-                  <Card.Title className="text-center">Active Tests</Card.Title>
+                  <Card.Title className={`text-center ${isCyberpunk ? '' : ''}`}
+                    style={isCyberpunk ? {
+                      ...themeStyles.textCyan,
+                      fontFamily: 'monospace',
+                      color: CYBERPUNK_COLORS.cyan
+                    } : {}}>
+                    {isCyberpunk ? 'ACTIVE TESTS' : 'Active Tests'}
+                  </Card.Title>
                 </Card.Header>
                 <Card.Body>
                   {activeTests && activeTests.length > 0 ? (
@@ -881,7 +999,18 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         {(showAllTests ? activeTests : activeTests.slice(0, 3)).map((test, index) => (
                         <motion.div
                           key={`${test.test_type}_${test.test_id}`}
-                          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                          className={`rounded-lg p-4 transition-shadow ${
+                            isCyberpunk 
+                              ? getCyberpunkCardBg(index + 1).className
+                              : 'border border-gray-200 hover:shadow-md'
+                          }`}
+                          style={isCyberpunk ? {
+                            ...getCyberpunkCardBg(index + 1).style,
+                            boxShadow: (index + 1) % 4 === 0 ? themeStyles.glowRed.boxShadow :
+                                      (index + 1) % 4 === 1 ? themeStyles.glowYellow.boxShadow :
+                                      (index + 1) % 4 === 2 ? themeStyles.glowPurple.boxShadow :
+                                      themeStyles.glow.boxShadow
+                          } : {}}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: showAllTests ? 0 : 0.7 + index * 0.1, duration: 0.3 }}
@@ -891,8 +1020,22 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                             <div className="flex-1">
                               {/* Mobile: Two-line layout */}
                               <div className="sm:hidden">
-                                <h3 className="text-sm font-medium text-gray-900 mb-1 break-words leading-tight">{test.test_name}</h3>
-                                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                <h3 className={`text-sm font-medium mb-1 break-words leading-tight ${
+                                  isCyberpunk ? '' : 'text-gray-900'
+                                }`}
+                                style={isCyberpunk ? {
+                                  ...themeStyles.textCyan,
+                                  fontFamily: 'monospace'
+                                } : {}}>
+                                  {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
+                                </h3>
+                                <div className={`flex items-center space-x-2 text-xs ${
+                                  isCyberpunk ? '' : 'text-gray-500'
+                                }`}
+                                style={isCyberpunk ? {
+                                  color: CYBERPUNK_COLORS.cyan,
+                                  fontFamily: 'monospace'
+                                } : {}}>
                                   <span>{test.teacher_name}</span>
                                   <span>•</span>
                                   <span>{new Date(test.assigned_at).toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' })}</span>
@@ -900,12 +1043,34 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                               </div>
                               {/* Desktop: Single line layout */}
                               <div className="hidden sm:flex items-center space-x-3 text-sm">
-                                <h3 className="text-lg font-medium text-gray-900 break-words leading-tight">{test.test_name}</h3>
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                <h3 className={`text-lg font-medium break-words leading-tight ${
+                                  isCyberpunk ? '' : 'text-gray-900'
+                                }`}
+                                style={isCyberpunk ? {
+                                  ...themeStyles.textCyan,
+                                  fontFamily: 'monospace'
+                                } : {}}>
+                                  {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
+                                </h3>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  isCyberpunk 
+                                    ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
                                   {test.subject}
                                 </span>
-                                <span className="text-gray-500">{test.teacher_name}</span>
-                                <span className="text-gray-500">
+                                <span className={isCyberpunk ? '' : 'text-gray-500'}
+                                style={isCyberpunk ? {
+                                  color: CYBERPUNK_COLORS.cyan,
+                                  fontFamily: 'monospace'
+                                } : {}}>
+                                  {test.teacher_name}
+                                </span>
+                                <span className={isCyberpunk ? '' : 'text-gray-500'}
+                                style={isCyberpunk ? {
+                                  color: CYBERPUNK_COLORS.cyan,
+                                  fontFamily: 'monospace'
+                                } : {}}>
                                   {new Date(test.assigned_at).toLocaleDateString()}
                                 </span>
                               </div>
@@ -1004,8 +1169,17 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                         size="sm"
                                         onClick={() => handleTestStart(test)}
                                         disabled={isStartingTest}
+                                        className={isCyberpunk ? '' : ''}
+                                        style={isCyberpunk ? {
+                                          backgroundColor: CYBERPUNK_COLORS.black,
+                                          borderColor: CYBERPUNK_COLORS.cyan,
+                                          color: CYBERPUNK_COLORS.cyan,
+                                          fontFamily: 'monospace',
+                                          borderWidth: '2px',
+                                          ...themeStyles.glow
+                                        } : {}}
                                       >
-                                        Start Retest
+                                        {isCyberpunk ? 'START RETEST' : 'Start Retest'}
                                       </Button>
                                     );
                                   }
@@ -1041,8 +1215,17 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                     size="sm"
                                     onClick={() => handleTestStart(test)}
                                     disabled={isStartingTest}
+                                    className={isCyberpunk ? '' : ''}
+                                    style={isCyberpunk ? {
+                                      backgroundColor: CYBERPUNK_COLORS.black,
+                                      borderColor: CYBERPUNK_COLORS.cyan,
+                                      color: CYBERPUNK_COLORS.cyan,
+                                      fontFamily: 'monospace',
+                                      borderWidth: '2px',
+                                      ...themeStyles.glow
+                                    } : {}}
                                   >
-                                    Start Test
+                                    {isCyberpunk ? 'START TEST' : 'Start Test'}
                                   </Button>
                                 );
                               })()}
@@ -1091,9 +1274,21 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.5 }}
             >
-              <Card>
+              <Card 
+                className={isCyberpunk ? getCyberpunkCardBg(2).className : ''}
+                style={isCyberpunk ? {
+                  ...getCyberpunkCardBg(2).style,
+                  ...themeStyles.glowPurple
+                } : {}}
+              >
                 <Card.Header>
-                  <Card.Title>Test Results</Card.Title>
+                  <Card.Title className={isCyberpunk ? '' : ''}
+                  style={isCyberpunk ? {
+                    ...themeStyles.textCyan,
+                    fontFamily: 'monospace'
+                  } : {}}>
+                    {isCyberpunk ? 'TEST RESULTS' : 'Test Results'}
+                  </Card.Title>
                 </Card.Header>
                 <Card.Body>
                   {/* Show detailed TestResults component if available */}
@@ -1150,6 +1345,12 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
           />
         ))}
       </div>
+      
+      {/* Settings Modal */}
+      <SettingsModal
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </motion.div>
   );
 };

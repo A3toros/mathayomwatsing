@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
+import { useTheme } from '../hooks/useTheme';
+import { getThemeStyles } from '../utils/themeUtils';
 import { useAntiCheating } from '../hooks/useAntiCheating';
 import { useNotification } from '../components/ui/Notification';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
@@ -245,15 +247,21 @@ const SpeakingTestPage = () => {
     navigate('/student');
   };
 
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      <div 
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : {}}
+      >
         {/* Speaking Test Header */}
-        <div className="bg-white shadow-sm border-b">
+        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
               </div>
               
               <Button
@@ -269,8 +277,8 @@ const SpeakingTestPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="text-gray-600 mt-4">Loading speaking test...</p>
+              <div className={`inline-block animate-spin rounded-full h-8 w-8 border-b-2 ${isCyberpunk ? 'border-cyan-400' : 'border-blue-600'}`}></div>
+              <p className={`${themeClasses.textSecondary} mt-4`}>Loading speaking test...</p>
             </div>
           </div>
         </div>
@@ -280,13 +288,16 @@ const SpeakingTestPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      <div 
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : {}}
+      >
         {/* Speaking Test Header */}
-        <div className="bg-white shadow-sm border-b">
+        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
               </div>
               
               <Button
@@ -302,9 +313,9 @@ const SpeakingTestPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="text-red-600 text-6xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Test</h2>
-              <p className="text-gray-600 mb-6">{error}</p>
+              <div className={`text-6xl mb-4 ${isCyberpunk ? 'text-red-400' : 'text-red-600'}`}>⚠️</div>
+              <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Error Loading Test</h2>
+              <p className={`${themeClasses.textSecondary} mb-6`}>{error}</p>
             </div>
           </div>
         </div>
@@ -314,13 +325,16 @@ const SpeakingTestPage = () => {
 
   if (isCompleted && testResult) {
     return (
-      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      <div 
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : {}}
+      >
         {/* Speaking Test Header */}
-        <div className="bg-white shadow-sm border-b">
+        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Speaking Test Results</h1>
+                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test Results</h1>
               </div>
               
               <Button
@@ -352,13 +366,16 @@ const SpeakingTestPage = () => {
 
   if (!testData || questions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 overflow-y-auto">
+      <div 
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : {}}
+      >
         {/* Speaking Test Header */}
-        <div className="bg-white shadow-sm border-b">
+        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
               </div>
               
               <Button
@@ -374,9 +391,9 @@ const SpeakingTestPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="text-gray-400 text-6xl mb-4">📝</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">No Test Data</h2>
-              <p className="text-gray-600 mb-6">Unable to load test information</p>
+              <div className={`text-6xl mb-4 ${themeClasses.textSecondary}`}>📝</div>
+              <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>No Test Data</h2>
+              <p className={`${themeClasses.textSecondary} mb-6`}>Unable to load test information</p>
             </div>
           </div>
         </div>
@@ -388,7 +405,8 @@ const SpeakingTestPage = () => {
   const currentQuestion = selectedQuestion;
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-y-auto">
+    <div className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-gray-50'}`}
+      style={isCyberpunk ? themeStyles.background : {}}>
       {/* Exit Confirmation Modal */}
       <PerfectModal
         isOpen={showExitModal}

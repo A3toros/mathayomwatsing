@@ -9,6 +9,8 @@ import Button from '../components/ui/Button';
 import { useNotification } from '../components/ui/Notification';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
+import { useTheme } from '../hooks/useTheme';
+import { getThemeStyles } from '../utils/themeUtils';
 import { getCachedData, setCachedData, CACHE_TTL } from '../utils/cacheUtils';
 import { logger } from '../utils/logger';
 
@@ -18,6 +20,8 @@ const WordMatchingPage = () => {
   const { user } = useAuth();
   const { makeAuthenticatedRequest } = useApi();
   const { showNotification } = useNotification();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
 
   // State management
   const [testData, setTestData] = useState(null);
@@ -293,7 +297,12 @@ const WordMatchingPage = () => {
   // Show loading state
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div 
+        className="flex justify-center items-center min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="p-8 text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-gray-600">Loading word matching test...</p>
@@ -305,7 +314,12 @@ const WordMatchingPage = () => {
   // Show error state
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div 
+        className="flex justify-center items-center min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="p-8 text-center">
           <div className="text-red-600 mb-4">
             <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +342,12 @@ const WordMatchingPage = () => {
   // Show test not found
   if (!testData) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div 
+        className="flex justify-center items-center min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="p-8 text-center">
           <div className="text-gray-600 mb-4">
             <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -351,7 +370,12 @@ const WordMatchingPage = () => {
   // Show test results if available
   if (showResults && testResults) {
     return (
-      <div className="bg-gray-50 overflow-y-auto min-h-screen">
+      <div 
+        className="bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto min-h-screen"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <TestResults
           testResults={testResults}
           onBackToCabinet={() => {
@@ -379,7 +403,8 @@ const WordMatchingPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen bg-gray-50 py-8"
+      className={`min-h-screen py-8 ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+      style={isCyberpunk ? themeStyles.background : {}}
     >
       <WordMatchingStudent 
         testData={testData} 

@@ -10,6 +10,8 @@ import { useAntiCheating } from '../../hooks/useAntiCheating';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { getCachedData, setCachedData, CACHE_TTL, clearTestData } from '../../utils/cacheUtils';
 import PerfectModal from '../ui/PerfectModal';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 
 const FillBlanksTestStudent = ({ 
   testText,
@@ -32,16 +34,54 @@ const FillBlanksTestStudent = ({
   console.log('- teacherId:', teacherId);
   console.log('- subjectId:', subjectId);
   
+  // Theme hook - must be called before any early returns
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
+  
   // Early return if no test data (following other test patterns)
   if (!testText || !blanks || !Array.isArray(blanks)) {
     console.log('❌ FillBlanksTestStudent: Missing test data');
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md w-full">
+      <div className={`min-h-screen flex items-center justify-center ${
+        isCyberpunk ? '' : 'bg-gray-50'
+      }`}
+      style={isCyberpunk ? {
+        backgroundColor: CYBERPUNK_COLORS.black
+      } : {}}>
+        <Card className={`max-w-md w-full ${
+          isCyberpunk ? getCyberpunkCardBg(0).className : ''
+        }`}
+        style={isCyberpunk ? {
+          ...getCyberpunkCardBg(0).style,
+          ...themeStyles.glow
+        } : {}}>
           <Card.Body className="text-center">
-            <div className="text-gray-500 text-6xl mb-4">📝</div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Test Data</h2>
-            <p className="text-gray-600 mb-4">Unable to load fill blanks test data</p>
+            <div className={`text-6xl mb-4 ${
+              isCyberpunk ? '' : 'text-gray-500'
+            }`}
+            style={isCyberpunk ? {
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace'
+            } : {}}>📝</div>
+            <h2 className={`text-xl font-semibold mb-2 ${
+              isCyberpunk ? '' : 'text-gray-900'
+            }`}
+            style={isCyberpunk ? {
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace',
+              ...themeStyles.textShadow
+            } : {}}>
+              {isCyberpunk ? 'NO TEST DATA' : 'No Test Data'}
+            </h2>
+            <p className={`mb-4 ${
+              isCyberpunk ? '' : 'text-gray-600'
+            }`}
+            style={isCyberpunk ? {
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace'
+            } : {}}>
+              {isCyberpunk ? 'UNABLE TO LOAD FILL BLANKS TEST DATA' : 'Unable to load fill blanks test data'}
+            </p>
             <Button onClick={() => window.history.back()} variant="primary">
               Back to Dashboard
             </Button>
@@ -113,27 +153,52 @@ const FillBlanksTestStudent = ({
            return (
              <span 
                key={index}
-               className="inline-block px-3 py-1 mx-1 bg-purple-100 text-purple-800 border-2 border-purple-400 rounded-lg font-mono font-bold shadow-sm"
+               className={`inline-block px-3 py-1 mx-1 border-2 rounded-lg font-mono font-bold shadow-sm ${
+                 isCyberpunk ? 'border' : 'bg-purple-100 text-purple-800 border-purple-400'
+               }`}
+               style={isCyberpunk ? {
+                 backgroundColor: CYBERPUNK_COLORS.black,
+                 borderColor: CYBERPUNK_COLORS.cyan,
+                 color: CYBERPUNK_COLORS.cyan,
+                 fontFamily: 'monospace',
+                 ...themeStyles.glow
+               } : {}}
              >
                {part}
              </span>
            );
          }
-         return <span key={index}>{part}</span>;
+         return <span key={index} style={isCyberpunk ? {
+           color: CYBERPUNK_COLORS.cyan,
+           fontFamily: 'monospace'
+         } : {}}>{part}</span>;
        });
        
        return (
          <div className="prose max-w-none mb-6">
-           <div className="text-lg leading-relaxed whitespace-pre-wrap">
+           <div className={`text-lg leading-relaxed whitespace-pre-wrap ${
+             isCyberpunk ? '' : ''
+           }`}
+           style={isCyberpunk ? {
+             color: CYBERPUNK_COLORS.cyan,
+             fontFamily: 'monospace'
+           } : {}}>
              {result}
            </div>
          </div>
        );
      } catch (error) {
        console.error('Error rendering text with blanks:', error);
-       return <div className="text-red-500">Error loading test content</div>;
+       return <div className={isCyberpunk ? '' : 'text-red-500'}
+       style={isCyberpunk ? {
+         color: CYBERPUNK_COLORS.red,
+         fontFamily: 'monospace',
+         ...themeStyles.textShadowRed
+       } : {}}>
+         {isCyberpunk ? 'ERROR LOADING TEST CONTENT' : 'Error loading test content'}
+       </div>;
      }
-   }, []);
+   }, [isCyberpunk, themeStyles]);
 
   // Render main text with clickable dropdown blanks (inline mode)
   const renderTextWithInlineBlanks = useCallback((text, blanks) => {
@@ -173,16 +238,34 @@ const FillBlanksTestStudent = ({
          const blankDisplay = selectedOption ? (
            <span 
              key={index}
-             className="inline-block px-3 py-2 bg-green-100 text-green-800 rounded-lg border-2 border-green-400 cursor-pointer hover:bg-green-200 hover:border-green-500 transition-all duration-200 font-bold shadow-sm"
+             className={`inline-block px-3 py-2 rounded-lg border-2 cursor-pointer transition-all duration-200 font-bold shadow-sm ${
+               isCyberpunk ? 'border' : 'bg-green-100 text-green-800 border-green-400 hover:bg-green-200 hover:border-green-500'
+             }`}
              onClick={() => setShowDropdown(blank.id)}
+             style={isCyberpunk ? {
+               backgroundColor: CYBERPUNK_COLORS.black,
+               borderColor: CYBERPUNK_COLORS.cyan,
+               color: CYBERPUNK_COLORS.cyan,
+               fontFamily: 'monospace',
+               ...themeStyles.glow
+             } : {}}
            >
              {selectedOption}
            </span>
          ) : (
            <span 
              key={index}
-             className="inline-block px-3 py-2 bg-purple-100 text-purple-800 rounded-lg border-2 border-purple-400 cursor-pointer hover:bg-purple-200 hover:border-purple-500 transition-all duration-200 font-bold shadow-sm"
+             className={`inline-block px-3 py-2 rounded-lg border-2 cursor-pointer transition-all duration-200 font-bold shadow-sm ${
+               isCyberpunk ? 'border' : 'bg-purple-100 text-purple-800 border-purple-400 hover:bg-purple-200 hover:border-purple-500'
+             }`}
              onClick={() => setShowDropdown(blank.id)}
+             style={isCyberpunk ? {
+               backgroundColor: CYBERPUNK_COLORS.black,
+               borderColor: CYBERPUNK_COLORS.cyan,
+               color: CYBERPUNK_COLORS.cyan,
+               fontFamily: 'monospace',
+               ...themeStyles.glow
+             } : {}}
            >
              {index + 1}_________
            </span>
@@ -199,7 +282,10 @@ const FillBlanksTestStudent = ({
       
       for (let i = 0; i < parts.length; i++) {
         if (parts[i]) {
-          result.push(<span key={`text-${i}`}>{parts[i]}</span>);
+          result.push(<span key={`text-${i}`} style={isCyberpunk ? {
+            color: CYBERPUNK_COLORS.cyan,
+            fontFamily: 'monospace'
+          } : {}}>{parts[i]}</span>);
         }
         if (i < blankElements.length) {
           result.push(blankElements[i]);
@@ -208,16 +294,29 @@ const FillBlanksTestStudent = ({
       
       return (
         <div className="prose max-w-none mb-6">
-          <div className="text-lg leading-relaxed whitespace-pre-wrap">
+          <div className={`text-lg leading-relaxed whitespace-pre-wrap ${
+            isCyberpunk ? '' : ''
+          }`}
+          style={isCyberpunk ? {
+            color: CYBERPUNK_COLORS.cyan,
+            fontFamily: 'monospace'
+          } : {}}>
             {result}
           </div>
         </div>
       );
     } catch (error) {
       console.error('Error rendering text with inline blanks:', error);
-      return <div className="text-red-500">Error loading test content</div>;
+      return <div className={isCyberpunk ? '' : 'text-red-500'}
+      style={isCyberpunk ? {
+        color: CYBERPUNK_COLORS.red,
+        fontFamily: 'monospace',
+        ...themeStyles.textShadowRed
+      } : {}}>
+        {isCyberpunk ? 'ERROR LOADING TEST CONTENT' : 'Error loading test content'}
+      </div>;
     }
-  }, [answers]);
+  }, [answers, isCyberpunk, themeStyles]);
 
   // Handle answer change
   const handleAnswerChange = useCallback((blankId, answer) => {
@@ -245,30 +344,81 @@ const FillBlanksTestStudent = ({
           console.log(`🔍 Blank ${index + 1} question text:`, questionText);
           
           return (
-            <Card key={blank.question_id || blank.id || index} className="p-4">
+            <Card key={blank.question_id || blank.id || index} className={`p-4 ${
+              isCyberpunk ? getCyberpunkCardBg(index % 4).className : ''
+            }`}
+            style={isCyberpunk ? {
+              ...getCyberpunkCardBg(index % 4).style,
+              ...themeStyles.glow
+            } : {}}>
               <div className="mb-4">
-                <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                  Question {index + 1}
+                <h4 className={`text-lg font-semibold mb-2 ${
+                  isCyberpunk ? '' : 'text-gray-800'
+                }`}
+                style={isCyberpunk ? {
+                  color: CYBERPUNK_COLORS.cyan,
+                  fontFamily: 'monospace',
+                  ...themeStyles.textShadow
+                } : {}}>
+                  {isCyberpunk ? `QUESTION ${index + 1}` : `Question ${index + 1}`}
                 </h4>
-                <p className="text-gray-600 mb-4">{questionText}</p>
+                <p className={`mb-4 ${
+                  isCyberpunk ? '' : 'text-gray-600'
+                }`}
+                style={isCyberpunk ? {
+                  color: CYBERPUNK_COLORS.cyan,
+                  fontFamily: 'monospace'
+                } : {}}>
+                  {questionText}
+                </p>
               </div>
               
               <div className="space-y-3">
                 {blankOptions.filter(option => option && option.trim().length > 0).map((option, optIndex) => (
-                <label key={optIndex} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                <label key={optIndex} className={`flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors border-2 ${
+                  isCyberpunk ? 'border' : 'hover:bg-gray-50'
+                }`}
+                style={isCyberpunk ? {
+                  backgroundColor: CYBERPUNK_COLORS.black,
+                  borderColor: CYBERPUNK_COLORS.cyan,
+                  ...(answers[blank.question_id || blank.id || index] === String.fromCharCode(65 + optIndex) ? themeStyles.glow : {})
+                } : {}}>
                   <input
                     type="radio"
                     name={`blank_${blank.question_id || blank.id || index}`}
                     value={String.fromCharCode(65 + optIndex)}
                     checked={answers[blank.question_id || blank.id || index] === String.fromCharCode(65 + optIndex)}
                     onChange={(e) => handleAnswerChange(blank.question_id || blank.id || index, e.target.value)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className={`w-4 h-4 ${
+                      isCyberpunk ? '' : 'text-blue-600 border-gray-300 focus:ring-blue-500'
+                    }`}
+                    style={isCyberpunk ? {
+                      accentColor: CYBERPUNK_COLORS.cyan
+                    } : {}}
                   />
                   <span className="flex items-center space-x-2">
-                    <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold border-2 ${
+                      isCyberpunk ? 'border' : 'bg-gray-100 text-gray-600'
+                    }`}
+                    style={isCyberpunk ? {
+                      backgroundColor: answers[blank.question_id || blank.id || index] === String.fromCharCode(65 + optIndex) 
+                        ? CYBERPUNK_COLORS.cyan 
+                        : CYBERPUNK_COLORS.black,
+                      borderColor: CYBERPUNK_COLORS.cyan,
+                      color: answers[blank.question_id || blank.id || index] === String.fromCharCode(65 + optIndex)
+                        ? CYBERPUNK_COLORS.black
+                        : CYBERPUNK_COLORS.cyan,
+                      fontFamily: 'monospace'
+                    } : {}}>
                       {String.fromCharCode(65 + optIndex)}
                     </span>
-                    <span className="text-gray-700">{option}</span>
+                    <span className={isCyberpunk ? '' : 'text-gray-700'}
+                    style={isCyberpunk ? {
+                      color: CYBERPUNK_COLORS.cyan,
+                      fontFamily: 'monospace'
+                    } : {}}>
+                      {option}
+                    </span>
                   </span>
                 </label>
               ))}
@@ -278,7 +428,7 @@ const FillBlanksTestStudent = ({
         })}
       </div>
     );
-  }, [answers, handleAnswerChange]);
+  }, [answers, handleAnswerChange, isCyberpunk, themeStyles]);
 
   // Initialize test start time, shuffle blanks, and load saved progress
   useEffect(() => {
@@ -550,18 +700,30 @@ const FillBlanksTestStudent = ({
       exit={{ opacity: 0, y: -20 }}
       className="space-y-4"
     >
-      <Card>
+      <Card className={isCyberpunk ? getCyberpunkCardBg(0).className : ''}
+      style={isCyberpunk ? {
+        ...getCyberpunkCardBg(0).style,
+        ...themeStyles.glow
+      } : {}}>
         {isSubmitting && (
           <Card.Header>
             <div className="flex items-center justify-center">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className={`flex items-center space-x-2 text-sm ${
+                isCyberpunk ? '' : 'text-gray-500'
+              }`}
+              style={isCyberpunk ? {
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace'
+              } : {}}>
                 <LoadingSpinner size="small" />
-                <span>Submitting...</span>
+                <span>{isCyberpunk ? 'SUBMITTING...' : 'Submitting...'}</span>
               </div>
             </div>
           </Card.Header>
         )}
-        <Card.Body>
+        <Card.Body style={isCyberpunk ? {
+          backgroundColor: CYBERPUNK_COLORS.black
+        } : {}}>
           {/* Main Text - Different rendering based on mode */}
           {separateType === true ? (
             <>
@@ -580,8 +742,23 @@ const FillBlanksTestStudent = ({
         {/* Inline Mode Dropdown */}
         {separateType === false && showDropdown && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Select Answer</h3>
+            <div className={`rounded-lg p-6 max-w-md w-full mx-4 border-2 ${
+              isCyberpunk ? getCyberpunkCardBg(0).className : 'bg-white'
+            }`}
+            style={isCyberpunk ? {
+              ...getCyberpunkCardBg(0).style,
+              ...themeStyles.glow
+            } : {}}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isCyberpunk ? '' : ''
+              }`}
+              style={isCyberpunk ? {
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                ...themeStyles.textShadow
+              } : {}}>
+                {isCyberpunk ? 'SELECT ANSWER' : 'Select Answer'}
+              </h3>
               <div className="space-y-2">
                 {blanks.find(b => b.id === showDropdown)?.options.filter(option => option.trim().length > 0).map((option, optIndex) => (
                   <button
@@ -590,9 +767,23 @@ const FillBlanksTestStudent = ({
                        handleAnswerChange(showDropdown, String.fromCharCode(65 + optIndex));
                        setShowDropdown(null);
                      }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-lg border border-gray-200"
+                    className={`w-full text-left px-4 py-2 rounded-lg border-2 ${
+                      isCyberpunk ? 'border' : 'hover:bg-gray-100 border-gray-200'
+                    }`}
+                    style={isCyberpunk ? {
+                      backgroundColor: CYBERPUNK_COLORS.black,
+                      borderColor: CYBERPUNK_COLORS.cyan,
+                      color: CYBERPUNK_COLORS.cyan,
+                      fontFamily: 'monospace'
+                    } : {}}
                   >
-                    <span className="font-semibold text-blue-600 mr-2">
+                    <span className={`font-semibold mr-2 ${
+                      isCyberpunk ? '' : 'text-blue-600'
+                    }`}
+                    style={isCyberpunk ? {
+                      color: CYBERPUNK_COLORS.cyan,
+                      fontFamily: 'monospace'
+                    } : {}}>
                       {String.fromCharCode(65 + optIndex)})
                     </span>
                     {option}

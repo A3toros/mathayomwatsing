@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
+import { useTheme } from '@/hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
 import { useTestProgress } from '@/hooks/useTestProgress';
 import { useAntiCheating } from '@/hooks/useAntiCheating';
 import { Button, LoadingSpinner, Notification, PerfectModal } from '@/components/ui/components-ui-index';
@@ -105,6 +107,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { activeTests, loadActiveTests: loadActiveTestsFromContext } = useTest();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   
   // Test progress functions
   // OPTIMIZATION: Debounced progress saving to reduce localStorage writes
@@ -1464,12 +1468,33 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     
     return (
       <div className="space-y-6">
-        {/* Test Header */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {testInfo.test_name || testInfo.title || 'Test'}
-            </h2>
+          {/* Test Header */}
+          <div 
+            className={`rounded-lg border-2 p-6 ${
+              isCyberpunk 
+                ? getCyberpunkCardBg(0).className
+                : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
+            }`}
+            style={isCyberpunk ? {
+              ...getCyberpunkCardBg(0).style,
+              ...themeStyles.glowRed,
+              boxShadow: `${themeStyles.glowRed.boxShadow}, inset 0 0 20px ${colorToRgba(CYBERPUNK_COLORS.red, 0.1)}`
+            } : {}}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 
+                className={`text-2xl font-bold ${
+                  isCyberpunk ? 'tracking-wider' : themeClasses.text
+                }`}
+                style={isCyberpunk ? {
+                  ...themeStyles.textCyan,
+                  fontFamily: 'monospace'
+                } : {}}
+              >
+                {isCyberpunk
+                  ? (testInfo.test_name || testInfo.title || 'Test').toUpperCase()
+                  : (testInfo.test_name || testInfo.title || 'Test')}
+              </h2>
             {/* Timer moved to ProgressTracker; keep header clean */}
           </div>
           
@@ -1481,13 +1506,29 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
               percentage={Math.round(progress)}
               timeElapsed={Number(testInfo?.allowed_time || 0) > 0 ? timeRemaining : 0}
               showDetails={true}
+              themeClasses={themeClasses}
+              isCyberpunk={isCyberpunk}
             />
           </div>
         </div>
         
-        {/* Questions Container - ALL questions rendered at once like legacy */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">
+          {/* Questions Container - ALL questions rendered at once like legacy */}
+          <div className={`rounded-lg shadow p-6 border ${
+            isCyberpunk 
+              ? getCyberpunkCardBg(1).className
+              : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
+          }`}
+          style={isCyberpunk ? {
+            ...getCyberpunkCardBg(1).style,
+            ...themeStyles.glow
+          } : {}}>
+            <h3 
+              className={`text-lg font-semibold ${isCyberpunk ? '' : themeClasses.text} mb-6`}
+              style={isCyberpunk ? {
+                ...themeStyles.textCyan,
+                fontFamily: 'monospace'
+              } : {}}
+            >
             Answer all questions below:
           </h3>
           
@@ -1509,8 +1550,20 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             onClick={() => setShowSubmitModal(true)}
             disabled={isSubmitting || getAnsweredCount() < questions.length}
             loading={isSubmitting}
+            className={isCyberpunk ? '' : ''}
+            style={isCyberpunk ? {
+              backgroundColor: CYBERPUNK_COLORS.black,
+              borderColor: CYBERPUNK_COLORS.cyan,
+              color: CYBERPUNK_COLORS.cyan,
+              fontFamily: 'monospace',
+              borderWidth: '2px',
+              ...themeStyles.glow
+            } : {}}
           >
-            {isSubmitting ? 'Submitting...' : `Submit Test (${getAnsweredCount()}/${questions.length})`}
+            {isCyberpunk 
+              ? (isSubmitting ? 'SUBMITTING...' : `SUBMIT TEST (${getAnsweredCount()}/${questions.length})`)
+              : (isSubmitting ? 'Submitting...' : `Submit Test (${getAnsweredCount()}/${questions.length})`)
+            }
           </Button>
         </div>
       </div>
@@ -1520,7 +1573,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <div className="text-center">
           <LoadingSpinner size="lg" />
           <p className="mt-4 text-gray-600">
@@ -1534,7 +1592,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <div className="text-center">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
             <h2 className="text-lg font-semibold text-red-800 mb-2">Tests Error</h2>
@@ -1560,7 +1623,12 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-y-auto">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto"
+      style={{
+        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+      }}
+    >
       {/* Exit Confirmation Modal */}
       <PerfectModal
         isOpen={showExitModal}
@@ -1588,18 +1656,43 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           <p className="text-gray-600 mb-6">Are you sure you want to submit?</p>
           <div className="flex gap-3 justify-center">
             <Button onClick={() => setShowSubmitModal(false)} variant="secondary">Cancel</Button>
-            <Button onClick={() => { setShowSubmitModal(false); handleSubmit(); }} variant="primary">Submit</Button>
+            <Button 
+              onClick={() => { setShowSubmitModal(false); handleSubmit(); }} 
+              variant="primary"
+              className={isCyberpunk ? '' : ''}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black,
+                borderColor: CYBERPUNK_COLORS.cyan,
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                borderWidth: '2px',
+                ...themeStyles.glow
+              } : {}}
+            >
+              {isCyberpunk ? 'SUBMIT' : 'Submit'}
+            </Button>
           </div>
         </div>
       </PerfectModal>
       {/* Student Tests Header - Only show during test, not in results */}
       {currentView !== 'results' && (
-        <div className="bg-white shadow-sm border-b">
+        <div 
+          className={`${themeClasses.headerBg} border-b-2 ${themeClasses.headerBorder}`}
+          style={isCyberpunk ? {
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : {}}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Student Test</h1>
-
+                <h1 
+                  className={`text-2xl font-bold ${themeClasses.headerText} ${
+                    isCyberpunk ? 'tracking-wider' : ''
+                  }`}
+                  style={isCyberpunk ? themeStyles.textShadow : {}}
+                >
+                  {isCyberpunk ? 'STUDENT TEST' : 'Student Test'}
+                </h1>
               </div>
               
               <Button
@@ -1608,8 +1701,16 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                   pendingNavigationRef.current = null;
                   setShowExitModal(true);
                 }}
+                className={`border-2 ${themeClasses.buttonOutline} ${
+                  isCyberpunk ? 'tracking-wider' : ''
+                }`}
+                style={isCyberpunk ? { 
+                  fontFamily: 'monospace',
+                  boxShadow: '0 0 10px rgba(0, 255, 255, 0.3)',
+                  textShadow: '0 0 5px rgba(0, 255, 255, 0.5)'
+                } : {}}
               >
-                Back to Cabinet
+                {isCyberpunk ? 'BACK TO CABINET' : 'Back to Cabinet'}
               </Button>
             </div>
           </div>
@@ -1687,7 +1788,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     if (!activeTests || activeTests.length === 0) {
       return (
         <div className="text-center py-8">
-          <p className="text-gray-500">No active tests available for your class.</p>
+          <p className={themeClasses.textSecondary}>No active tests available for your class.</p>
         </div>
       );
     }
@@ -1695,13 +1796,31 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
     return (
       <div className="space-y-6">
         {activeTests.map((test, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6">
+          <div 
+            key={index} 
+            className={`rounded-lg shadow p-6 border ${
+              isCyberpunk 
+                ? getCyberpunkCardBg(index).className
+                : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
+            }`}
+            style={isCyberpunk ? {
+              ...getCyberpunkCardBg(index).style,
+              boxShadow: index % 2 === 0 ? themeStyles.glowRed.boxShadow :
+                        themeStyles.glow.boxShadow
+            } : {}}
+          >
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {test.test_name}
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  isCyberpunk ? '' : themeClasses.text
+                }`}
+                style={isCyberpunk ? {
+                  ...themeStyles.textCyan,
+                  fontFamily: 'monospace'
+                } : {}}>
+                  {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ${themeClasses.textSecondary}`}>
                   <div>
                     <span className="font-medium">Subject:</span> {test.subject}
                   </div>
@@ -1712,7 +1831,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                     <span className="font-medium">Type:</span> {test.test_type}
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-gray-500">
+                <div className={`mt-2 text-sm ${themeClasses.textSecondary}`}>
                   Assigned: {new Date(test.assigned_at).toLocaleDateString()}
                 </div>
               </div>

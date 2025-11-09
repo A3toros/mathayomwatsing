@@ -33,11 +33,17 @@ const CardHeader = ({ children, className = '' }) => (
   </div>
 )
 
-const CardTitle = ({ children, className = '' }) => (
-  <h3 className={`text-xl font-semibold text-gray-800 ${className}`}>
-    {children}
-  </h3>
-)
+const CardTitle = ({ children, className = '', style = {} }) => {
+  // If style has color, don't apply default text-gray-800
+  const hasColorStyle = style && style.color;
+  const defaultTextClass = hasColorStyle ? '' : 'text-gray-800';
+  
+  return (
+    <h3 className={`text-xl font-semibold ${defaultTextClass} ${className}`} style={style}>
+      {children}
+    </h3>
+  );
+}
 
 const CardBody = ({ children, className = '' }) => (
   <div className={`py-4 ${className}`}>

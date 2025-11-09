@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { clearTestData, getCachedData, setCachedData, CACHE_TTL } from '@/utils/cacheUtils';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '../../utils/themeUtils';
 
 // ✅ REUSE EXISTING COMPONENTS
 import Button from '../ui/Button';
@@ -853,30 +855,71 @@ const MatchingTestStudent = ({
     return <LoadingSpinner />;
   }
 
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div 
+      className={`min-h-screen p-4 ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+      style={isCyberpunk ? themeStyles.background : {}}
+    >
       <div className="max-w-6xl mx-auto">
         {/* Top-right Back button above header */}
         <div className="flex justify-end mb-2">
           <Button onClick={handleBackToCabinet} variant="outline" size="sm">Back to Cabinet</Button>
         </div>
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className={`rounded-lg shadow-sm p-6 mb-6 border ${
+          isCyberpunk 
+            ? getCyberpunkCardBg(2).className
+            : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
+        }`}
+        style={isCyberpunk ? {
+          ...getCyberpunkCardBg(2).style,
+          ...themeStyles.glow
+        } : {}}>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{testData.test_name}</h1>
+              <h1 
+                className={`text-2xl font-bold ${isCyberpunk ? '' : themeClasses.text}`}
+                style={isCyberpunk ? {
+                  ...themeStyles.textCyan,
+                  fontFamily: 'monospace'
+                } : {}}
+              >
+                {testData.test_name}
+              </h1>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-500">Progress</div>
-              <div className="text-2xl font-bold text-blue-600">{Math.round(testProgress)}%</div>
+              <div 
+                className={`text-sm ${isCyberpunk ? '' : themeClasses.textSecondary}`}
+                style={isCyberpunk ? {
+                  ...themeStyles.textYellow,
+                  fontFamily: 'monospace'
+                } : {}}
+              >
+                Progress
+              </div>
+              <div 
+                className={`text-2xl font-bold ${isCyberpunk ? '' : 'text-blue-600'}`}
+                style={isCyberpunk ? {
+                  ...themeStyles.textCyan,
+                  fontFamily: 'monospace'
+                } : {}}
+              >
+                {Math.round(testProgress)}%
+              </div>
             </div>
           </div>
           
           {/* Progress bar */}
-          <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
+          <div className={`mt-4 w-full ${themeClasses.progressBg} rounded-full h-2 border ${isCyberpunk ? 'border-cyan-400/50' : themeClasses.border}`}>
             <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${testProgress}%` }}
+              className={`${themeClasses.progressFill} h-2 rounded-full transition-all duration-300`}
+              style={isCyberpunk ? { 
+                width: `${testProgress}%`,
+                boxShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(0, 255, 255, 0.3)'
+              } : { width: `${testProgress}%` }}
             />
           </div>
         </div>
@@ -885,7 +928,13 @@ const MatchingTestStudent = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Single responsive canvas area (words inside canvas) */}
           <div className="lg:col-span-3">
-            <Card className="p-4">
+            <Card 
+              className={`p-4 ${isCyberpunk ? getCyberpunkCardBg(3).className : ''}`}
+              style={isCyberpunk ? {
+                ...getCyberpunkCardBg(3).style,
+                ...themeStyles.glow
+              } : {}}
+            >
               {/* Reset Button - above image */}
               <div className="mb-4 text-center">
                 <Button
@@ -947,8 +996,20 @@ const MatchingTestStudent = ({
                 <Button
                   onClick={() => setShowSubmitModal(true)}
                   disabled={isSubmitting || testProgress < 100}
+                  className={isCyberpunk ? '' : ''}
+                  style={isCyberpunk ? {
+                    backgroundColor: CYBERPUNK_COLORS.black,
+                    borderColor: CYBERPUNK_COLORS.cyan,
+                    color: CYBERPUNK_COLORS.cyan,
+                    fontFamily: 'monospace',
+                    borderWidth: '2px',
+                    ...themeStyles.glow
+                  } : {}}
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Test'}
+                  {isCyberpunk 
+                    ? (isSubmitting ? 'SUBMITTING...' : 'SUBMIT TEST')
+                    : (isSubmitting ? 'Submitting...' : 'Submit Test')
+                  }
                 </Button>
               </div>
             </Card>
@@ -1036,8 +1097,17 @@ const MatchingTestStudent = ({
             <Button
               onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }}
               variant="primary"
+              className={isCyberpunk ? '' : ''}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black,
+                borderColor: CYBERPUNK_COLORS.cyan,
+                color: CYBERPUNK_COLORS.cyan,
+                fontFamily: 'monospace',
+                borderWidth: '2px',
+                ...themeStyles.glow
+              } : {}}
             >
-              Submit
+              {isCyberpunk ? 'SUBMIT' : 'Submit'}
             </Button>
           </div>
         </div>

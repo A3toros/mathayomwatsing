@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { useAntiCheating } from '../hooks/useAntiCheating';
 import { useNotification } from '../components/ui/Notification';
+import { useTheme } from '../hooks/useTheme';
+import { getThemeStyles } from '../utils/themeUtils';
 import MatchingTestStudent from '../components/test/MatchingTestStudent';
 import TestResults from '../components/test/TestResults';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -19,6 +21,10 @@ const MatchingTestPage = () => {
   const { user } = useAuth();
   const { makeAuthenticatedRequest } = useApi();
   const { showNotification } = useNotification();
+  
+  // Theme hooks - must be at component level before any conditional returns
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   
   const [testData, setTestData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -404,7 +410,12 @@ const MatchingTestPage = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="max-w-md w-full">
           <Card.Body className="text-center">
             <LoadingSpinner size="lg" />
@@ -418,7 +429,12 @@ const MatchingTestPage = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="max-w-md w-full">
           <Card.Body className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
@@ -439,7 +455,12 @@ const MatchingTestPage = () => {
   // No test data
   if (!testData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <Card className="max-w-md w-full">
           <Card.Body className="text-center">
             <div className="text-gray-500 text-6xl mb-4">📝</div>
@@ -460,7 +481,12 @@ const MatchingTestPage = () => {
   // Show test results if test is completed
   if (showResults && testResults) {
     return (
-      <div className="bg-gray-50 overflow-y-auto min-h-screen">
+      <div 
+        className="bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto min-h-screen"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+        }}
+      >
         <TestResults
           testResults={testResults}
           onBackToCabinet={() => {
@@ -479,11 +505,16 @@ const MatchingTestPage = () => {
 
   // Render matching test
   return (
-    <MatchingTestStudent
-      testData={testData}
-      onTestComplete={handleTestComplete}
-      onBackToCabinet={handleBackToCabinet}
-    />
+    <div 
+      className={`min-h-screen ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
+      style={isCyberpunk ? themeStyles.background : {}}
+    >
+      <MatchingTestStudent
+        testData={testData}
+        onTestComplete={handleTestComplete}
+        onBackToCabinet={handleBackToCabinet}
+      />
+    </div>
   );
 };
 

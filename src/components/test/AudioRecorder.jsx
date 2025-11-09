@@ -1,4 +1,6 @@
 import React, { useState, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 
 const AudioRecorder = forwardRef(({ 
   onRecordingComplete, 
@@ -8,6 +10,10 @@ const AudioRecorder = forwardRef(({
   maxAttempts = 3,
   currentAttempt = 1 
 }, ref) => {
+  // Theme hook
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
+  
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -281,25 +287,62 @@ const AudioRecorder = forwardRef(({
   };
 
   return (
-    <div className="audio-recorder bg-white rounded-lg shadow-lg p-3 sm:p-6">
+    <div className={`audio-recorder rounded-lg shadow-lg p-3 sm:p-6 ${
+      isCyberpunk ? getCyberpunkCardBg(1).className : 'bg-white'
+    }`}
+    style={isCyberpunk ? {
+      ...getCyberpunkCardBg(1).style,
+      ...themeStyles.glow
+    } : {}}>
       <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold mb-2">Record Your Response</h3>
-        <p className="text-gray-600">
-          Speak clearly and at a normal pace. You can pause and resume if needed.
+        <h3 className={`text-xl font-semibold mb-2 ${
+          isCyberpunk ? '' : ''
+        }`}
+        style={isCyberpunk ? {
+          ...themeStyles.textCyan,
+          fontFamily: 'monospace'
+        } : {}}>
+          {isCyberpunk ? 'RECORD YOUR RESPONSE' : 'Record Your Response'}
+        </h3>
+        <p className={isCyberpunk ? '' : 'text-gray-600'}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace'
+        } : {}}>
+          {isCyberpunk 
+            ? 'SPEAK CLEARLY AND AT A NORMAL PACE. YOU CAN PAUSE AND RESUME IF NEEDED.'
+            : 'Speak clearly and at a normal pace. You can pause and resume if needed.'}
         </p>
       </div>
 
       {/* Recording Status */}
       <div className="text-center mb-6">
-        <div className="text-4xl font-bold text-blue-600 mb-2">
+        <div className={`text-4xl font-bold mb-2 ${
+          isCyberpunk ? '' : 'text-blue-600'
+        }`}
+        style={isCyberpunk ? {
+          ...themeStyles.textCyan,
+          fontFamily: 'monospace'
+        } : {}}>
           {formatTime(recordingTime)}
         </div>
-        <div className={`text-sm ${getQualityColor()}`}>
+        <div className={`text-sm ${getQualityColor()}`}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace'
+        } : {}}>
           {getQualityText()}
         </div>
         {isPaused && (
-          <div className="text-yellow-600 font-semibold mt-2">
-            ⏸️ Recording Paused
+          <div className={`font-semibold mt-2 ${
+            isCyberpunk ? '' : 'text-yellow-600'
+          }`}
+          style={isCyberpunk ? {
+            color: CYBERPUNK_COLORS.yellow,
+            fontFamily: 'monospace',
+            ...themeStyles.textShadowYellow
+          } : {}}>
+            {isCyberpunk ? '⏸️ RECORDING PAUSED' : '⏸️ Recording Paused'}
           </div>
         )}
       </div>
@@ -372,11 +415,27 @@ const AudioRecorder = forwardRef(({
       )}
 
       {/* Attempt Info */}
-      <div className="mt-4 text-center text-sm text-gray-600">
-        Attempt {currentAttempt} of {maxAttempts}
+      <div className={`mt-4 text-center text-sm ${
+        isCyberpunk ? '' : 'text-gray-600'
+      }`}
+      style={isCyberpunk ? {
+        color: CYBERPUNK_COLORS.cyan,
+        fontFamily: 'monospace'
+      } : {}}>
+        {isCyberpunk 
+          ? `ATTEMPT ${currentAttempt} OF ${maxAttempts}`
+          : `Attempt ${currentAttempt} of ${maxAttempts}`}
         {currentAttempt < maxAttempts && (
-          <span className="ml-2 text-blue-600">
-            (You can re-record if needed)
+          <span className={`ml-2 ${
+            isCyberpunk ? '' : 'text-blue-600'
+          }`}
+          style={isCyberpunk ? {
+            color: CYBERPUNK_COLORS.cyan,
+            fontFamily: 'monospace'
+          } : {}}>
+            {isCyberpunk 
+              ? '(YOU CAN RE-RECORD IF NEEDED)'
+              : '(You can re-record if needed)'}
           </span>
         )}
       </div>

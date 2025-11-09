@@ -368,7 +368,10 @@ const LoginPage = () => {
   
   return (
     <motion.div 
-      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
+      className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 flex items-center justify-center p-4"
+      style={{
+        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -400,37 +403,52 @@ const LoginPage = () => {
             />
           </motion.div>
           <motion.h1 
-            className="text-2xl font-bold text-gray-900 mb-2"
+            className="text-2xl font-bold mb-2 text-cyan-400 tracking-wider"
+            style={{ 
+              fontFamily: 'monospace',
+              textShadow: '0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0px 2px 0px #000, 0px -2px 0px #000, 2px 0px 0px #000, -2px 0px 0px #000'
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.3 }}
           >
-            Test Management System
+            TEST MANAGEMENT SYSTEM
           </motion.h1>
           <motion.div
-            className="text-lg text-gray-600"
+            className="text-lg text-cyan-400 tracking-wider"
+            style={{ 
+              fontFamily: 'monospace',
+              textShadow: '0 0 5px rgba(0, 255, 255, 0.5)'
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.3 }}
           >
-            <div>for Mathayomwatsing School students</div>
+            <div>FOR MATHAYOMWATSING SCHOOL STUDENTS</div>
           </motion.div>
         </motion.div>
         
         {/* Login Form */}
         <motion.div 
-          className="bg-white rounded-xl shadow-2xl p-8"
+          className="bg-black rounded-xl shadow-2xl p-8 border-2 border-cyan-400"
+          style={{
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          }}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.7, duration: 0.5, type: "spring" }}
         >
           <motion.h2 
-            className="text-2xl font-semibold text-gray-900 text-center mb-6"
+            className="text-2xl font-semibold text-center mb-6 text-yellow-400 tracking-wider"
+            style={{ 
+              fontFamily: 'monospace',
+              textShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+            }}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.3 }}
           >
-            Login
+            LOGIN
           </motion.h2>
           
           <form onSubmit={handleLogin} className="space-y-6">
@@ -442,9 +460,10 @@ const LoginPage = () => {
             >
               <label 
                 htmlFor="username" 
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium mb-2 text-cyan-400 tracking-wider"
+                style={{ fontFamily: 'monospace' }}
               >
-                Username
+                USERNAME
               </label>
               <motion.input
                 type="text"
@@ -453,15 +472,20 @@ const LoginPage = () => {
                 value={formData.username}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter your username"
+                placeholder="ENTER YOUR USERNAME"
                 required
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-gray-800 border-2 border-yellow-400 rounded-lg text-yellow-400 placeholder-purple-400 focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all duration-200 disabled:bg-gray-900 disabled:border-gray-600 disabled:cursor-not-allowed disabled:text-gray-500"
+                style={{ 
+                  fontFamily: 'monospace',
+                  boxShadow: '0 0 10px rgba(255, 215, 0, 0.2)',
+                  textShadow: '0 0 5px rgba(255, 215, 0, 0.3)'
+                }}
                 aria-describedby={error ? "error-message" : undefined}
-                whileFocus={{ scale: 1.02 }}
+                whileFocus={{ scale: 1.02, boxShadow: '0 0 15px rgba(0, 255, 255, 0.4)' }}
                 transition={{ duration: 0.2 }}
               />
             </motion.div>
@@ -474,9 +498,10 @@ const LoginPage = () => {
             >
               <label 
                 htmlFor="password" 
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium mb-2 text-cyan-400 tracking-wider"
+                style={{ fontFamily: 'monospace' }}
               >
-                Password
+                PASSWORD
               </label>
               <motion.input
                 type="password"
@@ -485,13 +510,18 @@ const LoginPage = () => {
                 value={formData.password}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter your password"
+                placeholder="ENTER YOUR PASSWORD"
                 required
                 autoComplete="current-password"
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-gray-800 border-2 border-yellow-400 rounded-lg text-yellow-400 placeholder-purple-400 focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all duration-200 disabled:bg-gray-900 disabled:border-gray-600 disabled:cursor-not-allowed disabled:text-gray-500"
+                style={{ 
+                  fontFamily: 'monospace',
+                  boxShadow: '0 0 10px rgba(255, 215, 0, 0.2)',
+                  textShadow: '0 0 5px rgba(255, 215, 0, 0.3)'
+                }}
                 aria-describedby={error ? "error-message" : undefined}
-                whileFocus={{ scale: 1.02 }}
+                whileFocus={{ scale: 1.02, boxShadow: '0 0 15px rgba(0, 255, 255, 0.4)' }}
                 transition={{ duration: 0.2 }}
               />
             </motion.div>
@@ -501,7 +531,10 @@ const LoginPage = () => {
               {error && (
                 <motion.div 
                   id="error-message"
-                  className="bg-red-50 border border-red-200 rounded-lg p-3"
+                  className="bg-gray-800 border-2 border-red-500 rounded-lg p-3"
+                  style={{
+                    boxShadow: '0 0 15px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.1)'
+                  }}
                   role="alert"
                   aria-live="polite"
                   initial={{ opacity: 0, height: 0, y: -10 }}
@@ -509,7 +542,7 @@ const LoginPage = () => {
                   exit={{ opacity: 0, height: 0, y: -10 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <p className="text-sm text-red-600">{error}</p>
+                  <p className="text-sm text-red-400 tracking-wider" style={{ fontFamily: 'monospace' }}>{error.toUpperCase()}</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -520,22 +553,31 @@ const LoginPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.1, duration: 0.3 }}
             >
-              <Button
+              <motion.button
                 type="submit"
-                variant="primary"
-                size="lg"
                 disabled={isLoading}
-                className="w-full"
+                className="w-full px-6 py-4 bg-yellow-400 text-black font-bold rounded-lg border-2 border-cyan-400 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                style={{ 
+                  fontFamily: 'monospace',
+                  boxShadow: '0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(0, 255, 255, 0.3)',
+                  textShadow: '0 0 5px rgba(0, 0, 0, 0.5)'
+                }}
+                whileHover={{ 
+                  scale: 1.05,
+                  boxShadow: '0 0 30px rgba(255, 215, 0, 0.7), 0 0 60px rgba(0, 255, 255, 0.5)'
+                }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
               >
                 {isLoading ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />
-                    Logging in...
+                    LOGGING IN...
                   </>
                 ) : (
-                  'Log in'
+                  'LOG IN'
                 )}
-              </Button>
+              </motion.button>
             </motion.div>
           </form>
           
@@ -548,9 +590,13 @@ const LoginPage = () => {
           >
             <Link
               to="/privacy"
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
+              className="text-xs text-purple-400 hover:text-cyan-400 underline tracking-wider transition-colors duration-200"
+              style={{ 
+                fontFamily: 'monospace',
+                textShadow: '0 0 5px rgba(147, 51, 234, 0.5)'
+              }}
             >
-              Privacy Policy
+              PRIVACY POLICY
             </Link>
           </motion.div>
         </motion.div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import MathEditorButton from '../math/MathEditorButton';
@@ -53,6 +55,8 @@ export const TrueFalseQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
+  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const themeStyles = getThemeStyles(theme);
   const questionRef = useRef(null);
   
   // State
@@ -225,10 +229,26 @@ export const TrueFalseQuestion = ({
 
   // Render student mode
   const renderStudentMode = () => (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
+      isCyberpunk 
+        ? getCyberpunkCardBg(0).className
+        : 'bg-white border-gray-200'
+    }`}
+    style={isCyberpunk ? {
+      ...getCyberpunkCardBg(0).style,
+      ...themeStyles.glowRed
+    } : {}}>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-gray-800">
-          Question {typeof displayNumber === 'number' ? displayNumber : question?.question_id}
+        <h4 className={`text-lg font-semibold ${
+          isCyberpunk ? '' : 'text-gray-800'
+        }`}
+        style={isCyberpunk ? {
+          ...themeStyles.textCyan,
+          fontFamily: 'monospace'
+        } : {}}>
+          {isCyberpunk 
+            ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`
+            : `Question ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`}
         </h4>
         <div className="flex items-center space-x-2 text-sm text-gray-500">
           {isAutoSaving && (
@@ -246,7 +266,14 @@ export const TrueFalseQuestion = ({
       </div>
       
       <div 
-        className="question-text mb-6 text-gray-700 leading-relaxed"
+        className={`question-text mb-6 leading-relaxed ${
+          isCyberpunk ? '' : 'text-gray-700'
+        }`}
+        style={isCyberpunk ? {
+          color: CYBERPUNK_COLORS.cyan,
+          fontFamily: 'monospace',
+          ...themeStyles.textShadow
+        } : {}}
         dangerouslySetInnerHTML={{ 
           __html: formatQuestionText(questionText) 
         }}
@@ -254,11 +281,24 @@ export const TrueFalseQuestion = ({
       
       <div className="space-y-3">
         <label 
-          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
-            selectedAnswer === 'true' 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-200'
+          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+            isCyberpunk
+              ? selectedAnswer === 'true'
+                ? 'border'
+                : 'border'
+              : selectedAnswer === 'true' 
+                ? 'border-blue-500 bg-blue-50 hover:bg-gray-50' 
+                : 'border-gray-200 hover:bg-gray-50'
           } ${showCorrectAnswers && correctAnswer === 'true' ? 'ring-2 ring-green-400' : ''}`}
+          style={isCyberpunk ? {
+            backgroundColor: selectedAnswer === 'true' 
+              ? CYBERPUNK_COLORS.black
+              : CYBERPUNK_COLORS.black,
+            borderColor: selectedAnswer === 'true' 
+              ? CYBERPUNK_COLORS.cyan
+              : CYBERPUNK_COLORS.cyan,
+            ...(selectedAnswer === 'true' ? themeStyles.glow : {})
+          } : {}}
         >
           <input
             type="radio"
@@ -270,23 +310,57 @@ export const TrueFalseQuestion = ({
             aria-label="True"
           />
           <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-            selectedAnswer === 'true' 
-              ? 'border-blue-500 bg-blue-500' 
-              : 'border-gray-300'
-          }`}>
+            isCyberpunk
+              ? selectedAnswer === 'true'
+                ? 'border'
+                : 'border'
+              : selectedAnswer === 'true' 
+                ? 'border-blue-500 bg-blue-500' 
+                : 'border-gray-300'
+          }`}
+          style={isCyberpunk ? {
+            borderColor: selectedAnswer === 'true' ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
+            backgroundColor: selectedAnswer === 'true' ? CYBERPUNK_COLORS.cyan : 'transparent'
+          } : {}}>
             {selectedAnswer === 'true' && (
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <div className={`w-2 h-2 rounded-full ${
+                isCyberpunk ? '' : 'bg-white'
+              }`}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black
+              } : {}}></div>
             )}
           </div>
-          <span className="text-gray-800 font-medium">True</span>
+          <span className={`font-medium ${
+            isCyberpunk ? '' : 'text-gray-800'
+          }`}
+          style={isCyberpunk ? {
+            ...themeStyles.textCyan,
+            fontFamily: 'monospace'
+          } : {}}>
+            {isCyberpunk ? 'TRUE' : 'True'}
+          </span>
         </label>
         
         <label 
-          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
-            selectedAnswer === 'false' 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-200'
+          className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+            isCyberpunk
+              ? selectedAnswer === 'false'
+                ? 'border'
+                : 'border'
+              : selectedAnswer === 'false' 
+                ? 'border-blue-500 bg-blue-50 hover:bg-gray-50' 
+                : 'border-gray-200 hover:bg-gray-50'
           } ${showCorrectAnswers && correctAnswer === 'false' ? 'ring-2 ring-green-400' : ''}`}
+          style={isCyberpunk ? {
+            backgroundColor: selectedAnswer === 'false' 
+              ? CYBERPUNK_COLORS.black
+              : CYBERPUNK_COLORS.black,
+            borderColor: selectedAnswer === 'false' 
+              ? CYBERPUNK_COLORS.cyan
+              : CYBERPUNK_COLORS.cyan,
+            ...(selectedAnswer === 'false' ? themeStyles.glow : {})
+          } : {}}
         >
           <input
             type="radio"
@@ -298,15 +372,36 @@ export const TrueFalseQuestion = ({
             aria-label="False"
           />
           <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-            selectedAnswer === 'false' 
-              ? 'border-blue-500 bg-blue-500' 
-              : 'border-gray-300'
-          }`}>
+            isCyberpunk
+              ? selectedAnswer === 'false'
+                ? 'border'
+                : 'border'
+              : selectedAnswer === 'false' 
+                ? 'border-blue-500 bg-blue-500' 
+                : 'border-gray-300'
+          }`}
+          style={isCyberpunk ? {
+            borderColor: selectedAnswer === 'false' ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
+            backgroundColor: selectedAnswer === 'false' ? CYBERPUNK_COLORS.cyan : 'transparent'
+          } : {}}>
             {selectedAnswer === 'false' && (
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <div className={`w-2 h-2 rounded-full ${
+                isCyberpunk ? '' : 'bg-white'
+              }`}
+              style={isCyberpunk ? {
+                backgroundColor: CYBERPUNK_COLORS.black
+              } : {}}></div>
             )}
           </div>
-          <span className="text-gray-800 font-medium">False</span>
+          <span className={`font-medium ${
+            isCyberpunk ? '' : 'text-gray-800'
+          }`}
+          style={isCyberpunk ? {
+            ...themeStyles.textCyan,
+            fontFamily: 'monospace'
+          } : {}}>
+            {isCyberpunk ? 'FALSE' : 'False'}
+          </span>
         </label>
       </div>
       

@@ -3,6 +3,8 @@ import { useNavigate, Routes, Route, useParams, useLocation } from 'react-router
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TestProvider, useTest } from '@/contexts/TestContext';
 import { UserProvider } from '@/contexts/UserContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ThemeWrapper } from '@/components/wrappers/ThemeWrapper';
 import { Button } from '@/components/ui/components-ui-index';
 import { LoadingSpinner, Notification } from '@/components/ui/components-ui-index';
 import { userService } from '@/services/userService';
@@ -410,7 +412,7 @@ const StudentApp = () => {
   }
   
   return (
-    <div className="bg-gray-50">
+    <ThemeWrapper asBackground={true}>
       <Routes>
         {/* Student Cabinet Route */}
         <Route path="/" element={
@@ -511,17 +513,17 @@ const StudentApp = () => {
                             <LoadingSpinner size="sm" className="mr-2" />
                             Changing...
                           </>
-                        ) : (
-                          'Change Password'
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        } />
+        ) : (
+          'Change Password'
+        )}
+      </Button>
+    </div>
+  </form>
+</div>
+</div>
+)}
+</div>
+} />
         
         {/* Test Route */}
         <Route path="/test/:testType/:testId" element={<TestPage />} />
@@ -552,7 +554,7 @@ const StudentApp = () => {
           />
         ))}
       </div>
-    </div>
+    </ThemeWrapper>
   );
 };
 
@@ -562,7 +564,9 @@ const StudentAppWithProviders = () => {
     <AuthProvider>
       <TestProvider>
         <UserProvider>
-          <StudentApp />
+          <ThemeProvider>
+            <StudentApp />
+          </ThemeProvider>
         </UserProvider>
       </TestProvider>
     </AuthProvider>
