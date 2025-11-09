@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TestProvider } from '@/contexts/TestContext';
 import { UserProvider } from '@/contexts/UserContext';
 import LoginPage from '@/shared/LoginPage';
+import PrivacyPolicy from '@/shared/PrivacyPolicy';
 import StudentApp from '@/student/student-index';
 import TeacherApp from '@/teacher/teacher-index';
 import AdminApp from '@/admin/admin-index';
@@ -90,6 +91,7 @@ const App = () => {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 
                 {/* Student Routes */}

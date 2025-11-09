@@ -348,7 +348,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         student_id: studentId,
         question_id: testData.question_id || 1,
         audio_blob: audioBase64,
-        audio_duration: audioBlobData.duration || 0,
+        audio_duration: recordingDuration, // Use the actual recording duration parameter
         time_taken: timeTaken,
         started_at: startedAt,
         submitted_at: endTime.toISOString(),

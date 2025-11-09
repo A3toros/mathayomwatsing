@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -396,25 +396,25 @@ const LoginPage = () => {
             <img 
               src="/pics/logo_mws.png" 
               alt="MWS Logo" 
-              className="h-16 w-16 object-contain"
+              className="h-28 w-28 object-contain"
             />
           </motion.div>
           <motion.h1 
-            className="text-3xl font-bold text-gray-900 mb-2"
+            className="text-2xl font-bold text-gray-900 mb-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.3 }}
           >
-            Mathayom Watsing School
+            Test Management System
           </motion.h1>
-          <motion.p 
+          <motion.div
             className="text-lg text-gray-600"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.3 }}
           >
-            Test Management System
-          </motion.p>
+            <div>for Mathayomwatsing School students</div>
+          </motion.div>
         </motion.div>
         
         {/* Login Form */}
@@ -533,11 +533,26 @@ const LoginPage = () => {
                     Logging in...
                   </>
                 ) : (
-                  'Login'
+                  'Log in'
                 )}
               </Button>
             </motion.div>
           </form>
+          
+          {/* Privacy Policy Link */}
+          <motion.div
+            className="mt-6 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.2, duration: 0.3 }}
+          >
+            <Link
+              to="/privacy"
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Privacy Policy
+            </Link>
+          </motion.div>
         </motion.div>
         
       </motion.div>
