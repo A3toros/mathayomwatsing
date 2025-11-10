@@ -81,11 +81,15 @@ const sql = neon(process.env.NEON_DATABASE_URL);
 
 exports.handler = async (event, context) => {
   console.log('=== AI FEEDBACK PROCESSING WITH GPT-4O MINI ===');
-  
+  let debugMode = false;
+  let audioBlobForDebug = null;
+
   try {
     // Parse request body
     const body = JSON.parse(event.body);
-    const { test_id, audio_blob, question_id } = body;
+    const { test_id, audio_blob, question_id, debug } = body;
+    debugMode = process.env.DEBUG_SPEAKING_AUDIO === 'true' && Boolean(debug);
+    audioBlobForDebug = audio_blob;
 
     console.log('AI Feedback request data:', {
       test_id,
@@ -154,6 +158,40 @@ exports.handler = async (event, context) => {
       prompt: config.prompt,
       difficulty_level: config.difficulty_level
     };
+    const responseBody = {
+      success: true,
+      transcript: transcriptionResult.text,
+      // Use existing columns only
+      grammar_mistakes: analysis.grammar_mistakes,
+      vocabulary_mistakes: analysis.vocabulary_mistakes,
+      language_use_mistakes: analysis.language_use_mistakes,
+      word_count: analysis.word_count,
+      overall_score: overallScore,
+      // Store detailed feedback in transcript or as JSON in existing fields
+      feedback: analysis.feedback,
+      improved_transcript: analysis.improved_transcript,
+      grammar_corrections: analysis.grammar_corrections || [],
+      vocabulary_corrections: analysis.vocabulary_corrections || [],
+      language_use_corrections: analysis.language_use_corrections || [],
+      pronunciation_corrections: analysis.pronunciation_corrections || [], // NEW: Enhanced pronunciation feedback
+      // Add individual category scores for frontend display
+      grammar_score: analysis.grammar_score,
+      vocabulary_score: analysis.vocabulary_score,
+      pronunciation_score: analysis.pronunciation_score,
+      fluency_score: analysis.fluency_score,
+      content_score: analysis.content_score,
+      passed: overallScore >= config.passing_score,
+      // Complete AI feedback payload for database storage
+      ai_feedback: aiFeedback
+    };
+
+    if (debugMode) {
+      responseBody.debug = {
+        base64Length: audioBlobForDebug ? audioBlobForDebug.length : 0,
+        base64Prefix: audioBlobForDebug ? audioBlobForDebug.slice(0, 128) : null,
+        timestamp: new Date().toISOString()
+      };
+    }
 
     return {
       statusCode: 200,
@@ -163,49 +201,34 @@ exports.handler = async (event, context) => {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
       },
-      body: JSON.stringify({
-        success: true,
-        transcript: transcriptionResult.text,
-        // Use existing columns only
-        grammar_mistakes: analysis.grammar_mistakes,
-        vocabulary_mistakes: analysis.vocabulary_mistakes,
-        language_use_mistakes: analysis.language_use_mistakes,
-        word_count: analysis.word_count,
-        overall_score: overallScore,
-        // Store detailed feedback in transcript or as JSON in existing fields
-        feedback: analysis.feedback,
-        improved_transcript: analysis.improved_transcript,
-        grammar_corrections: analysis.grammar_corrections || [],
-        vocabulary_corrections: analysis.vocabulary_corrections || [],
-        language_use_corrections: analysis.language_use_corrections || [],
-        pronunciation_corrections: analysis.pronunciation_corrections || [], // NEW: Enhanced pronunciation feedback
-        // Add individual category scores for frontend display
-        grammar_score: analysis.grammar_score,
-        vocabulary_score: analysis.vocabulary_score,
-        pronunciation_score: analysis.pronunciation_score,
-        fluency_score: analysis.fluency_score,
-        content_score: analysis.content_score,
-        passed: overallScore >= config.passing_score,
-        // Complete AI feedback payload for database storage
-        ai_feedback: aiFeedback
-      })
+      body: JSON.stringify(responseBody)
     };
 
   } catch (error) {
     console.error('AI Feedback processing error:', error);
+    const responseBody = {
+      success: false,
+      message: error.message,
+      error: error.message
+    };
+
+    if (debugMode) {
+      responseBody.debug = {
+        base64Length: audioBlobForDebug ? audioBlobForDebug.length : 0,
+        base64Prefix: audioBlobForDebug ? audioBlobForDebug.slice(0, 128) : null,
+        timestamp: new Date().toISOString()
+      };
+    }
+
     return {
-      statusCode: 500,
+      statusCode: debugMode ? 200 : 500,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
       },
-      body: JSON.stringify({
-        success: false,
-        message: error.message,
-        error: error.message
-      })
+      body: JSON.stringify(responseBody)
     };
   }
 };
