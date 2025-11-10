@@ -143,7 +143,7 @@ const AudioRecorder = forwardRef(({
       };
       
       // Start recording
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(); // Start recording without timeslice to preserve duration metadata
       setIsRecording(true);
       setRecordingTime(0);
       
