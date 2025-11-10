@@ -253,9 +253,19 @@ exports.handler = async function(event, context) {
 
         // Check if test is completed (result_id will be NOT NULL if completed)
         const isCompleted = row.result_id !== null && row.result_id !== undefined;
-        
-        // ⚠️ REMOVED: Filter is now handled by student_active_tests_view at SQL level
-        // View already excludes completed retests, so we don't need to filter here
+
+        // Guard fallback: if the student already completed the original test and no active retest remains,
+        // skip the entry to avoid showing completed assignments.
+        if (isCompleted && !(retestAvailable && !retestCompleted)) {
+          console.log('Skipping row because test already completed and no active retest:', {
+            test_type: row.test_type,
+            test_id: row.test_id,
+            assignment_id: row.assignment_id,
+            retest_available: retestAvailable,
+            retest_completed: retestCompleted
+          });
+          continue;
+        }
 
         activeTests.push({
           test_id: row.test_id,

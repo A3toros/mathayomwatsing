@@ -7,6 +7,18 @@
 
 import { SecureToken } from './secureTokenStorage.js';
 
+const PUBLIC_ROUTES = ['/login', '/privacy', '/privacy-policy'];
+const PUBLIC_ROUTE_KEYWORDS = ['privacy', 'terms', 'legal'];
+
+const isPublicPath = (path) => {
+  if (!path) return false;
+  const normalizedPath = path.toLowerCase();
+  if (PUBLIC_ROUTES.some((route) => normalizedPath === route || normalizedPath.startsWith(`${route}/`))) {
+    return true;
+  }
+  return PUBLIC_ROUTE_KEYWORDS.some((keyword) => normalizedPath.includes(keyword));
+};
+
 class TokenManager {
   constructor() {
     this.tokenKey = 'auth_token';
@@ -414,7 +426,10 @@ class TokenManager {
     const isAuth = await this.isAuthenticated();
     if (!isAuth) {
       // Redirect to login if not authenticated
-      if (window.location.pathname !== '/login') {
+      const currentPath = window.location.pathname || '/';
+      const pathIsPublic = isPublicPath(currentPath);
+      console.info('[TokenManager] Unauthenticated visitor on path:', currentPath, 'public?', pathIsPublic);
+      if (!pathIsPublic) {
         window.location.href = '/login';
       }
       return false;
