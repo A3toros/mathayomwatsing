@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { convertBlobToWav } from '../../utils/audioConversion';
 
 const AudioRecorder = forwardRef(({ 
   onRecordingComplete, 
@@ -124,11 +125,18 @@ const AudioRecorder = forwardRef(({
         }
       };
       
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const outType = preferredMime && preferredMime.startsWith('audio/') ? preferredMime : 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: outType });
+        let audioBlob = new Blob(audioChunksRef.current, { type: outType });
+
+        try {
+          audioBlob = await convertBlobToWav(audioBlob, audioContextRef.current);
+        } catch (conversionError) {
+          console.warn('AudioRecorder: failed to convert audio to WAV, using original blob', conversionError);
+        }
+
         setAudioBlob(audioBlob);
-        
+
         // Call onRecordingComplete with the blob and recording time
         onRecordingComplete(audioBlob, recordingTime);
         

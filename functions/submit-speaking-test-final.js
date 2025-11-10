@@ -54,7 +54,8 @@ exports.handler = async (event, context) => {
       visibility_change_times,
       retest_assignment_id,
       parent_test_id,
-      academic_period_id
+      academic_period_id,
+      audio_mime_type
     } = body;
 
     console.log('Final submission data:', {
@@ -100,7 +101,7 @@ exports.handler = async (event, context) => {
       const tUploadStart = Date.now();
       console.log('Uploading to Supabase (including retests)...');
       try {
-        audioUrl = await uploadAudioToSupabase(audioBuffer, test_id, student_id);
+        audioUrl = await uploadAudioToSupabase(audioBuffer, test_id, student_id, audio_mime_type);
       } catch (e) {
         console.error('Supabase upload threw:', e && e.message);
         throw e;
@@ -176,15 +177,16 @@ exports.handler = async (event, context) => {
 };
 
 
-async function uploadAudioToSupabase(audioBuffer, testId, studentId) {
+async function uploadAudioToSupabase(audioBuffer, testId, studentId, mimeType) {
   try {
-    const fileName = `speaking-test-${testId}-student-${studentId}-${Date.now()}.webm`;
+    const { extension, contentType } = getStorageInfoForMime(mimeType);
+    const fileName = `speaking-test-${testId}-student-${studentId}-${Date.now()}.${extension}`;
     const filePath = `speaking-tests/${fileName}`;
 
     const { data, error } = await supabase.storage
       .from('audio')
       .upload(filePath, audioBuffer, {
-        contentType: 'audio/webm',
+        contentType,
         upsert: false
       });
 
@@ -205,6 +207,20 @@ async function uploadAudioToSupabase(audioBuffer, testId, studentId) {
     console.error('Supabase upload error:', error);
     throw new Error(`Supabase upload failed: ${error.message}`);
   }
+}
+
+function getStorageInfoForMime(mimeType) {
+  const normalized = (mimeType || '').toLowerCase();
+
+  if (normalized === 'audio/wav' || normalized === 'audio/wave' || normalized === 'audio/x-wav') {
+    return { extension: 'wav', contentType: 'audio/wav' };
+  }
+
+  if (normalized === 'audio/mp3' || normalized === 'audio/mpeg') {
+    return { extension: 'mp3', contentType: 'audio/mpeg' };
+  }
+
+  return { extension: 'webm', contentType: 'audio/webm' };
 }
 
 async function saveToDatabase(data, userInfo) {

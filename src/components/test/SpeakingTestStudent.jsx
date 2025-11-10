@@ -26,6 +26,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false); // NEW: Flag to prevent duplicate API calls
   const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
+  const [audioMimeType, setAudioMimeType] = useState('audio/webm');
   const pendingNavigationRef = useRef(null);
   
   // Theme hook - must be at component level
@@ -194,6 +195,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       const progressData = {
         test_id: testData.test_id,
         audio_blob: audioBlob ? await blobToBase64(audioBlob) : null,
+        audio_mime_type: audioBlob ? audioBlob.type || 'audio/webm' : 'audio/webm',
         attempt_number: attemptNumber,
         step: currentStep,
         timestamp: new Date().toISOString()
@@ -229,7 +231,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   }, [testData, user]);
 
   // Save speaking test data to cache (survives page reloads)
-  const saveSpeakingTestData = useCallback(async (audioBlob, transcript, scores, recordingTime, currentStep) => {
+  const saveSpeakingTestData = useCallback(async (audioBlob, transcript, scores, recordingTime, currentStep, mimeType) => {
     if (testData?.test_id && user?.student_id) {
       try {
         const { setCachedData, CACHE_TTL } = await import('../../utils/cacheUtils');
@@ -240,6 +242,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         
         const cacheData = {
           audioBlob: audioBase64,
+          audioMimeType: mimeType || 'audio/webm',
           transcript,
           scores,
           recordingTime,
@@ -268,8 +271,10 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           
           // Restore audio blob from base64
           if (cachedData.audioBlob) {
-            const audioBlob = new Blob([Uint8Array.from(atob(cachedData.audioBlob), c => c.charCodeAt(0))], { type: 'audio/webm' });
+            const mimeType = cachedData.audioMimeType || 'audio/webm';
+            const audioBlob = new Blob([Uint8Array.from(atob(cachedData.audioBlob), c => c.charCodeAt(0))], { type: mimeType });
             setAudioBlob(audioBlob);
+            setAudioMimeType(mimeType);
           }
           
           // Restore other data
@@ -277,6 +282,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           if (cachedData.scores) setScores(cachedData.scores);
           if (cachedData.recordingTime) setRecordingTime(cachedData.recordingTime);
           if (cachedData.currentStep) setCurrentStep(cachedData.currentStep);
+          if (cachedData.audioMimeType) setAudioMimeType(cachedData.audioMimeType);
           
           return true; // Data was loaded
         }
@@ -313,9 +319,9 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   // Save speaking test data to cache whenever state changes
   useEffect(() => {
     if (testData?.test_id && user?.student_id && (audioBlob || transcript || scores)) {
-      saveSpeakingTestData(audioBlob, transcript, scores, recordingTime, currentStep);
+      saveSpeakingTestData(audioBlob, transcript, scores, recordingTime, currentStep, audioMimeType);
     }
-  }, [audioBlob, transcript, scores, recordingTime, currentStep, testData, user, saveSpeakingTestData]);
+  }, [audioBlob, transcript, scores, recordingTime, currentStep, testData, user, saveSpeakingTestData, audioMimeType]);
 
   const handleRecordingComplete = useCallback(async (audioBlobData, recordingDuration) => {
     // Prevent duplicate processing
@@ -327,6 +333,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     console.log('🎤 Recording completed, duration:', recordingDuration);
     setIsProcessing(true); // Set flag to prevent duplicate calls
     setAudioBlob(audioBlobData);
+    setAudioMimeType(audioBlobData?.type || 'audio/webm');
     setRecordingTime(recordingDuration);
     setCurrentStep('processing');
     setError(null);
@@ -354,6 +361,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         student_id: studentId,
         question_id: testData.question_id || 1,
         audio_blob: audioBase64,
+        audio_mime_type: audioBlobData?.type || 'audio/webm',
         audio_duration: recordingDuration, // Use the actual recording duration parameter
         time_taken: timeTaken,
         started_at: startedAt,
@@ -378,7 +386,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
           body: JSON.stringify({
             test_id: testData.test_id,
             question_id: testData.question_id || 1,
-            audio_blob: audioBase64
+            audio_blob: audioBase64,
+            audio_mime_type: audioBlobData?.type || 'audio/webm'
           })
         });
         
@@ -484,6 +493,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       setScores(null);
       setError(null);
       setIsProcessing(false); // Reset processing flag for new attempt
+      setAudioMimeType('audio/webm');
       
       // Increment attempt when student decides to re-record after seeing results
       const newAttempt = attemptNumber + 1;
@@ -541,6 +551,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         is_completed: true,
         retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         parent_test_id: testData.test_id,
+        audio_mime_type: audioMimeType,
         // Include already processed results
         transcript: transcript,
         scores: scores,
@@ -978,6 +989,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
                 setTranscript('');
                 setScores(null);
                 setAudioBlob(null);
+                setAudioMimeType('audio/webm');
                 setAttemptNumber(1);
               }}
               isLoading={false}

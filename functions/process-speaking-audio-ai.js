@@ -87,7 +87,7 @@ exports.handler = async (event, context) => {
   try {
     // Parse request body
     const body = JSON.parse(event.body);
-    const { test_id, audio_blob, question_id, debug } = body;
+    const { test_id, audio_blob, question_id, debug, audio_mime_type } = body;
     debugMode = process.env.DEBUG_SPEAKING_AUDIO === 'true' && Boolean(debug);
     audioBlobForDebug = audio_blob;
 
@@ -189,7 +189,8 @@ exports.handler = async (event, context) => {
       responseBody.debug = {
         base64Length: audioBlobForDebug ? audioBlobForDebug.length : 0,
         base64Prefix: audioBlobForDebug ? audioBlobForDebug.slice(0, 128) : null,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        mimeType: audio_mime_type || 'audio/webm'
       };
     }
 
@@ -216,7 +217,8 @@ exports.handler = async (event, context) => {
       responseBody.debug = {
         base64Length: audioBlobForDebug ? audioBlobForDebug.length : 0,
         base64Prefix: audioBlobForDebug ? audioBlobForDebug.slice(0, 128) : null,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        mimeType: audio_mime_type || 'audio/webm'
       };
     }
 
