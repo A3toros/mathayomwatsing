@@ -269,16 +269,7 @@ exports.handler = async function(event, context) {
               options = optionsObj;
             }
             
-            // Auto-fill missing options with underscores based on num_options
-            const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
-            for (let j = 0; j < num_options; j++) {
-              const letter = optionLetters[j];
-              const optionKey = `option_${letter.toLowerCase()}`;
-              if (!options[optionKey] || options[optionKey].trim() === '') {
-                options[optionKey] = '_';
-                console.log(`Question ${i + 1}: Auto-filled ${optionKey} with "_"`);
-              }
-            }
+            // No auto-fill - keep nulls as null (deleted options stay null)
             
             // Ensure we have at least 2 options (option_a and option_b are required)
             if (!options.option_a || !options.option_b) {

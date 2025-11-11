@@ -441,6 +441,44 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const handleWordClick = useCallback((side, index) => {
     console.log('🎯 handleWordClick called:', { side, index, interactionType: testData?.interaction_type, selectedWord });
     
+    // Handle right word click - clear match or delete arrow
+    if (side === 'right') {
+      if (testData?.interaction_type === 'arrow') {
+        // Arrow mode: Check if this right word has an arrow
+        const arrowIndex = studentArrows.findIndex(arrow => 
+          arrow.endWord.side === 'right' && arrow.endWord.index === index
+        );
+        if (arrowIndex !== -1) {
+          // Delete the arrow
+          const leftIndex = studentArrows[arrowIndex].startWord.index;
+          setStudentArrows(prev => prev.filter((_, i) => i !== arrowIndex));
+          setStudentAnswers(prev => {
+            const newAnswers = { ...prev };
+            delete newAnswers[leftIndex];
+            return newAnswers;
+          });
+          if (selectedWord?.side === 'right' && selectedWord?.index === index) {
+            setSelectedWord(null);
+          }
+          return;
+        }
+      } else {
+        // Drag mode: Check if this right word is matched
+        const matchedLeftIndex = Object.keys(studentAnswers).find(
+          leftIndex => studentAnswers[leftIndex] === index
+        );
+        if (matchedLeftIndex !== undefined) {
+          // Clear the match
+          setStudentAnswers(prev => {
+            const newAnswers = { ...prev };
+            delete newAnswers[matchedLeftIndex];
+            return newAnswers;
+          });
+          return;
+        }
+      }
+    }
+    
     if (testData?.interaction_type !== 'arrow') {
       console.log('🎯 Not arrow mode, ignoring click');
       return;
@@ -480,7 +518,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       console.log('🎯 Selecting word:', { side, index });
       setSelectedWord({ side, index });
     }
-  }, [selectedWord, testData?.interaction_type]);
+  }, [selectedWord, testData?.interaction_type, studentArrows, studentAnswers]);
 
   // Handle drag end for drag mode
   const handleDragEnd = useCallback((leftIndex, rightIndex) => {
@@ -1114,7 +1152,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                   );
                   
                   return (
-                    <Group key={`right-${index}`} x={rightBlockX} y={y}>
+                    <Group key={`right-${index}`} x={rightBlockX} y={y} onClick={() => handleWordClick('right', index)}>
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
@@ -1122,6 +1160,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                         stroke={matchedLeftIndex ? '#059669' : '#d1d5db'}
                         strokeWidth={2}
                         cornerRadius={8}
+                        listening={true}
                       />
                       <Text
                         text={word}
@@ -1237,20 +1276,32 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                   const y = position ? position.y : blockStartY + index * blockSpacing;
                   const isSelected = selectedWord?.side === 'right' && selectedWord?.index === index;
                   
+                  // Check if matched/has arrow
+                  const hasArrow = studentArrows.some(arrow => arrow.endWord.side === 'right' && arrow.endWord.index === index);
+                  const isMatched = hasArrow;
+                  
                   return (
                     <Group
                       key={`right-${index}`}
                       x={rightBlockX}
                       y={y}
                       onClick={() => handleWordClick('right', index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab' || e.key === 'Enter') {
+                          e.preventDefault();
+                          handleWordClick('right', index);
+                        }
+                      }}
+                      tabIndex={0}
                     >
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
-                        fill={isSelected ? '#3b82f6' : '#f3f4f6'}
-                        stroke={isSelected ? '#1d4ed8' : '#d1d5db'}
+                        fill={isSelected ? '#3b82f6' : isMatched ? '#10b981' : '#f3f4f6'}
+                        stroke={isSelected ? '#1d4ed8' : isMatched ? '#059669' : '#d1d5db'}
                         strokeWidth={isSelected ? 3 : 2}
                         cornerRadius={8}
+                        listening={true}
                       />
                       <Text
                         text={word}

@@ -1217,7 +1217,7 @@ const TeacherTests = () => {
           question_id: parseInt(questionId),
           question: question.question,
           ...correctAnswerField,
-          options: question.options || [] // Send as array - backend will handle conversion
+          options: question.options || [] // Send full array with nulls - backend will handle conversion to '_'
         };
         
         console.log(`🔍 Question ${questionId} correct_answers:`, question.correct_answers);
@@ -2171,6 +2171,74 @@ const TeacherTests = () => {
     }));
   };
 
+  // Handle option deletion for multiple choice (sets to null)
+  const handleDeleteOption = useCallback((questionId, optionIndex) => {
+    setFormData(prev => {
+      const currentOptions = prev.questions[questionId]?.options || [];
+      const newOptions = [...currentOptions];
+      newOptions[optionIndex] = null; // Set to null instead of removing
+      
+      // If the deleted option was the correct answer, clear it
+      const optionLetter = String.fromCharCode(65 + optionIndex);
+      const currentCorrectAnswer = prev.questions[questionId]?.correctAnswer || '';
+      const updatedCorrectAnswer = currentCorrectAnswer === optionLetter ? '' : currentCorrectAnswer;
+      
+      return {
+        ...prev,
+        questions: {
+          ...prev.questions,
+          [questionId]: {
+            ...prev.questions[questionId],
+            options: newOptions,
+            correctAnswer: updatedCorrectAnswer
+          }
+        }
+      };
+    });
+  }, []);
+
+  // Handle adding a new option for multiple choice
+  const handleAddOption = useCallback((questionId) => {
+    setFormData(prev => {
+      const currentOptions = prev.questions[questionId]?.options || [];
+      // Count non-null options to check if we can add more
+      const validOptionsCount = currentOptions.filter(opt => opt !== null && opt !== undefined).length;
+      
+      // Maximum is 6 options (A-F)
+      if (validOptionsCount >= 6) {
+        return prev; // Don't add if already at max
+      }
+      
+      // Find the first null slot or add to the end
+      let newOptions = [...currentOptions];
+      const nullIndex = newOptions.findIndex(opt => opt === null);
+      
+      if (nullIndex !== -1) {
+        // Reuse a deleted slot
+        newOptions[nullIndex] = '';
+      } else {
+        // Add new option at the end
+        newOptions.push('');
+      }
+      
+      // Update numOptions if needed
+      const newValidCount = newOptions.filter(opt => opt !== null && opt !== undefined).length;
+      const updatedNumOptions = Math.max(prev.numOptions || 0, newValidCount);
+      
+      return {
+        ...prev,
+        numOptions: updatedNumOptions,
+        questions: {
+          ...prev.questions,
+          [questionId]: {
+            ...prev.questions[questionId],
+            options: newOptions
+          }
+        }
+      };
+    });
+  }, []);
+
   // Create test questions based on type
   const createTestQuestions = (type, testName, numQuestions, numOptions = 0) => {
     const questions = {};
@@ -2969,37 +3037,98 @@ const TeacherTests = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
                     <div className="space-y-2">
-                                  {formData.questions[questionId]?.options?.map((option, index) => (
-                                    <div key={index} className="flex items-center space-x-2">
-                                      <span className="w-6 text-sm font-medium text-gray-700">
-                                        {String.fromCharCode(65 + index)}:
-                          </span>
-                          <div className="relative flex-1">
-                          <input
-                            type="text"
-                            value={option}
-                            onChange={(e) => {
-                                          const newOptions = [...formData.questions[questionId].options];
-                                          newOptions[index] = e.target.value;
-                                          handleQuestionChange(questionId, 'options', newOptions);
-                            }}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                                        id={`option_${questionId}_${index}`}
-                                      />
-                          <MathEditorButton
-                      showPreview={true}
-                            inputRef={() => document.getElementById(`option_${questionId}_${index}`)}
-                            onChange={(e) => {
-                              const newOptions = [...formData.questions[questionId].options];
-                              newOptions[index] = e.target.value;
-                              handleQuestionChange(questionId, 'options', newOptions);
-                            }}
-                          />
-                          </div>
-                        </div>
-                      ))}
+                                  {formData.questions[questionId]?.options?.map((option, index) => {
+                                    const isRequired = index < 2; // First 2 options (A, B) are required
+                                    const isDeleted = option === null;
+                                    
+                                    // Skip rendering deleted options visually
+                                    if (isDeleted && !isRequired) {
+                                      return null;
+                                    }
+                                    
+                                    return (
+                                      <div key={index} className="flex items-center space-x-2">
+                                        <span className="w-6 text-sm font-medium text-gray-700">
+                                          {String.fromCharCode(65 + index)}:
+                                        </span>
+                                        <div className="relative flex-1">
+                                          <input
+                                            type="text"
+                                            value={option || ''}
+                                            onChange={(e) => {
+                                              const newOptions = [...formData.questions[questionId].options];
+                                              newOptions[index] = e.target.value;
+                                              handleQuestionChange(questionId, 'options', newOptions);
+                                            }}
+                                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                            id={`option_${questionId}_${index}`}
+                                          />
+                                          <MathEditorButton
+                                            showPreview={true}
+                                            inputRef={() => document.getElementById(`option_${questionId}_${index}`)}
+                                            onChange={(e) => {
+                                              const newOptions = [...formData.questions[questionId].options];
+                                              newOptions[index] = e.target.value;
+                                              handleQuestionChange(questionId, 'options', newOptions);
+                                            }}
+                                          />
+                                        </div>
+                                        {!isRequired && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteOption(questionId, index)}
+                                            style={{
+                                              background: '#dc3545',
+                                              border: '1px solid #dc3545',
+                                              borderRadius: '4px',
+                                              cursor: 'pointer',
+                                              fontSize: '18px',
+                                              fontWeight: 'bold',
+                                              color: '#ffffff',
+                                              padding: '4px 10px',
+                                              lineHeight: '1',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              minWidth: '32px',
+                                              height: '32px',
+                                              transition: 'all 0.2s',
+                                              flexShrink: 0
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.background = '#c82333';
+                                              e.target.style.borderColor = '#c82333';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.background = '#dc3545';
+                                              e.target.style.borderColor = '#dc3545';
+                                            }}
+                                            title="Delete this option"
+                                          >
+                                            ×
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                     </div>
+                    {/* Add Option Button */}
+                    {(() => {
+                      const currentOptions = formData.questions[questionId]?.options || [];
+                      const validOptionsCount = currentOptions.filter(opt => opt !== null && opt !== undefined).length;
+                      const canAddMore = validOptionsCount < 6;
+                      
+                      return canAddMore ? (
+                        <button
+                          type="button"
+                          onClick={() => handleAddOption(questionId)}
+                          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-colors"
+                        >
+                          + Add Option
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                             )}
                   
@@ -3016,11 +3145,14 @@ const TeacherTests = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select correct answer</option>
-                        {formData.questions[questionId]?.options?.map((_, index) => (
-                          <option key={index} value={String.fromCharCode(65 + index)}>
-                            {String.fromCharCode(65 + index)}
-                          </option>
-                        ))}
+                        {formData.questions[questionId]?.options
+                          ?.map((option, index) => ({ option, index }))
+                          .filter(({ option }) => option !== null && option !== '' && option !== undefined)
+                          .map(({ index }) => (
+                            <option key={index} value={String.fromCharCode(65 + index)}>
+                              {String.fromCharCode(65 + index)}
+                            </option>
+                          ))}
                       </select>
                     </div>
                               ) : testType === 'trueFalse' ? (

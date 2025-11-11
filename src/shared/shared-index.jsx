@@ -33,8 +33,6 @@ export { default as Notification } from '../components/ui/Notification';
 
 // Form Components
 export { default as LoginForm } from '../components/forms/LoginForm';
-export { default as TestForm } from '../components/forms/TestForm';
-export { default as QuestionForm } from '../components/forms/QuestionForm';
 
 // Test Components
 export { default as TrueFalseQuestion } from '../components/test/TrueFalseQuestion';
