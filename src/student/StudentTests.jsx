@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '@/utils/themeUtils';
 import { useTestProgress } from '@/hooks/useTestProgress';
 import { useAntiCheating } from '@/hooks/useAntiCheating';
 import { Button, LoadingSpinner, Notification, PerfectModal } from '@/components/ui/components-ui-index';
@@ -107,7 +107,7 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { activeTests, loadActiveTests: loadActiveTestsFromContext } = useTest();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // Test progress functions
@@ -1473,12 +1473,18 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
             className={`rounded-lg border-2 p-6 ${
               isCyberpunk 
                 ? getCyberpunkCardBg(0).className
+                : isKpop
+                ? getKpopCardBg(0).className
                 : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
             }`}
             style={isCyberpunk ? {
               ...getCyberpunkCardBg(0).style,
               ...themeStyles.glowRed,
               boxShadow: `${themeStyles.glowRed.boxShadow}, inset 0 0 20px ${colorToRgba(CYBERPUNK_COLORS.red, 0.1)}`
+            } : isKpop ? {
+              ...getKpopCardBg(0).style,
+              borderColor: KPOP_COLORS.primary,
+              boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
             } : {}}
           >
             <div className="flex justify-between items-center mb-4">
@@ -1489,6 +1495,8 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                 style={isCyberpunk ? {
                   ...themeStyles.textCyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.headerText
                 } : {}}
               >
                 {isCyberpunk
@@ -1516,11 +1524,16 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
           <div className={`rounded-lg shadow p-6 border ${
             isCyberpunk 
               ? getCyberpunkCardBg(1).className
+              : isKpop
+              ? getKpopCardBg(1).className
               : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
           }`}
           style={isCyberpunk ? {
             ...getCyberpunkCardBg(1).style,
             ...themeStyles.glow
+          } : isKpop ? {
+            ...getKpopCardBg(1).style,
+            ...themeStyles.glowPurple
           } : {}}>
             <h3 
               className={`text-lg font-semibold ${isCyberpunk ? '' : themeClasses.text} mb-6`}
@@ -1624,10 +1637,14 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto"
-      style={{
+      className={`min-h-screen overflow-y-auto ${
+        isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'
+      }`}
+      style={isCyberpunk ? {
         backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
-      }}
+      } : isKpop ? {
+        ...themeStyles.background
+      } : {}}
     >
       {/* Exit Confirmation Modal */}
       <PerfectModal
@@ -1677,9 +1694,13 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
       {/* Student Tests Header - Only show during test, not in results */}
       {currentView !== 'results' && (
         <div 
-          className={`${themeClasses.headerBg} border-b-2 ${themeClasses.headerBorder}`}
+          className={`${isKpop ? '' : themeClasses.headerBg} border-b-2 ${isKpop ? '' : themeClasses.headerBorder}`}
           style={isCyberpunk ? {
             boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
           } : {}}
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1689,7 +1710,9 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                   className={`text-2xl font-bold ${themeClasses.headerText} ${
                     isCyberpunk ? 'tracking-wider' : ''
                   }`}
-                  style={isCyberpunk ? themeStyles.textShadow : {}}
+                  style={isCyberpunk ? themeStyles.textShadow : isKpop ? {
+                    ...themeStyles.headerText
+                  } : {}}
                 >
                   {isCyberpunk ? 'STUDENT TEST' : 'Student Test'}
                 </h1>
@@ -1817,7 +1840,11 @@ const StudentTests = ({ onBackToCabinet, currentTest: propCurrentTest }) => {
                 style={isCyberpunk ? {
                   ...themeStyles.textCyan,
                   fontFamily: 'monospace'
-                } : {}}>
+                } : isKpop ? {
+              backgroundColor: KPOP_COLORS.primary,
+              color: KPOP_COLORS.white,
+              ...themeStyles.glow
+            } : {}}>
                   {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
                 </h3>
                 <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ${themeClasses.textSecondary}`}>

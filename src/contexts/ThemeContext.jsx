@@ -3,10 +3,11 @@ import { getThemeClasses } from '../utils/themeUtils';
 import { applyThemeToDocument } from '../utils/themeUtils';
 
 const ThemeContext = createContext({
-  theme: 'cyberpunk', // 'light' | 'cyberpunk'
+  theme: 'cyberpunk', // 'light' | 'cyberpunk' | 'kpop'
   setTheme: (theme) => {},
   isCyberpunk: true,
   isLight: false,
+  isKpop: false,
   themeClasses: {}, // Helper object for theme-aware classes
 });
 
@@ -15,7 +16,10 @@ export const ThemeProvider = ({ children }) => {
     // Load from localStorage on mount
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('student_theme_preference');
-      return saved === 'light' ? 'light' : 'cyberpunk';
+      if (saved === 'light' || saved === 'cyberpunk' || saved === 'kpop') {
+        return saved;
+      }
+      return 'cyberpunk';
     }
     return 'cyberpunk';
   });
@@ -26,7 +30,7 @@ export const ThemeProvider = ({ children }) => {
   }, [theme]);
 
   const setTheme = (newTheme) => {
-    if (newTheme !== 'light' && newTheme !== 'cyberpunk') {
+    if (newTheme !== 'light' && newTheme !== 'cyberpunk' && newTheme !== 'kpop') {
       console.warn(`Invalid theme: ${newTheme}. Defaulting to cyberpunk.`);
       newTheme = 'cyberpunk';
     }
@@ -47,6 +51,7 @@ export const ThemeProvider = ({ children }) => {
     setTheme,
     isCyberpunk: theme === 'cyberpunk',
     isLight: theme === 'light',
+    isKpop: theme === 'kpop',
     themeClasses: getThemeClasses(theme),
   };
 

@@ -10,7 +10,7 @@ import { useNotification } from '../components/ui/Notification';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { useTheme } from '../hooks/useTheme';
-import { getThemeStyles } from '../utils/themeUtils';
+import { getThemeStyles, KPOP_COLORS } from '../utils/themeUtils';
 import { getCachedData, setCachedData, CACHE_TTL } from '../utils/cacheUtils';
 import { logger } from '../utils/logger';
 
@@ -20,7 +20,7 @@ const WordMatchingPage = () => {
   const { user } = useAuth();
   const { makeAuthenticatedRequest } = useApi();
   const { showNotification } = useNotification();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
 
   // State management
@@ -371,10 +371,15 @@ const WordMatchingPage = () => {
   if (showResults && testResults) {
     return (
       <div 
-        className="bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto min-h-screen"
-        style={{
+        className={`overflow-y-auto min-h-screen ${
+          isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'
+        }`}
+        style={isCyberpunk ? {
           backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
-        }}
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.backgroundSecondary,
+          boxShadow: '0 0 30px rgba(236, 72, 153, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)'
+        } : {}}
       >
         <TestResults
           testResults={testResults}
@@ -403,8 +408,13 @@ const WordMatchingPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className={`min-h-screen py-8 ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-      style={isCyberpunk ? themeStyles.background : {}}
+      className={`min-h-screen py-8 ${
+        isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'
+      }`}
+      style={isCyberpunk ? themeStyles.background : isKpop ? {
+        backgroundColor: KPOP_COLORS.backgroundSecondary,
+        boxShadow: '0 0 30px rgba(236, 72, 153, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)'
+      } : {}}
     >
       <WordMatchingStudent 
         testData={testData} 

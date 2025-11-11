@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import AudioRecorder from './AudioRecorder';
 import FeedbackDisplay from './FeedbackDisplay';
 import TestResults from './TestResults';
@@ -30,7 +30,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const pendingNavigationRef = useRef(null);
   
   // Theme hook - must be at component level
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // iOS detection function
@@ -863,6 +863,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
               style={isCyberpunk ? { 
                 fontFamily: 'monospace',
                 textShadow: '0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3)'
+              } : isKpop ? {
+                ...themeStyles.headerText
               } : {}}
             >
               {isCyberpunk
@@ -876,6 +878,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.headerText
               } : {}}>
                 {isCyberpunk ? 'INSTRUCTIONS:' : 'Instructions:'}
               </h3>
@@ -886,11 +890,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
                 color: CYBERPUNK_COLORS.cyan,
                 fontFamily: 'monospace',
                 ...themeStyles.textShadow
+              } : isKpop ? {
+                ...themeStyles.textAccent
               } : {}}>
                 {testData.prompt}
               </p>
-              <div className={`${isCyberpunk ? 'bg-cyan-400/10 border border-cyan-400/30' : 'bg-blue-50 border border-blue-200'} p-3 sm:p-4 rounded-lg`}>
-                <p className={`text-sm ${isCyberpunk ? 'text-cyan-300' : 'text-blue-800'}`}>
+              <div className={`${isCyberpunk ? 'bg-cyan-400/10 border border-cyan-400/30' : isKpop ? 'bg-pink-500/10 border border-pink-500/30' : 'bg-blue-50 border border-blue-200'} p-3 sm:p-4 rounded-lg`}>
+                <p className={`text-sm ${isCyberpunk ? 'text-cyan-300' : isKpop ? 'text-pink-400' : 'text-blue-800'}`}
+                style={isKpop ? {
+                  ...themeStyles.textAccent
+                } : {}}>
                   <strong>Requirements:</strong> Minimum {testData.min_words || 50} words, 
                   0-{testData.max_duration || 600} seconds duration
                 </p>
@@ -908,8 +917,15 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             />
             
             {error && (
-              <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800">{error}</p>
+              <div className={`mt-4 p-3 sm:p-4 ${isKpop ? 'bg-red-500/10 border border-red-500/50' : 'bg-red-50 border border-red-200'} rounded-lg`}
+              style={isKpop ? {
+                ...themeStyles.glowRed
+              } : {}}>
+                <p className={isKpop ? 'text-red-400' : 'text-red-800'}
+                style={isKpop ? {
+                  color: KPOP_COLORS.error,
+                  ...themeStyles.textShadowRed
+                } : {}}>{error}</p>
               </div>
             )}
           </div>
@@ -917,16 +933,38 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
 
       case 'processing':
         return (
-          <div className={`transcription-status ${themeClasses.cardBg} rounded-lg shadow-lg p-4 sm:p-8 text-center ${themeClasses.cardBorder} border`}>
+          <div className={`transcription-status ${isKpop ? getKpopCardBg(0).className : themeClasses.cardBg} rounded-lg shadow-lg p-4 sm:p-8 text-center ${isKpop ? '' : themeClasses.cardBorder} border`}
+          style={isKpop ? {
+            ...getKpopCardBg(0).style,
+            borderColor: KPOP_COLORS.primary,
+            ...themeStyles.glow
+          } : {}}>
             <div className="mb-6">
               <div className={`text-6xl mb-4 ${themeClasses.textSecondary}`}>⏳</div>
-              <h3 className={`text-2xl font-semibold mb-2 ${themeClasses.text}`}>Processing Your Speech</h3>
-              <p className={`text-lg ${isCyberpunk ? 'text-cyan-400' : 'text-blue-600'}`}>Please wait while we process your audio...</p>
+              <h3 className={`text-2xl font-semibold mb-2 ${themeClasses.text}`}
+              style={isKpop ? {
+                ...themeStyles.headerText
+              } : {}}>Processing Your Speech</h3>
+              <p className={`text-lg ${isCyberpunk ? 'text-cyan-400' : isKpop ? 'text-pink-400' : 'text-blue-600'}`}
+              style={isKpop ? {
+                ...themeStyles.textPink
+              } : {}}>Please wait while we process your audio...</p>
             </div>
             <div className="inline-flex space-x-1">
-              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`}></div>
-              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`} style={{ animationDelay: '0.1s' }}></div>
-              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : 'bg-blue-600'}`} style={{ animationDelay: '0.2s' }}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : isKpop ? 'bg-pink-500' : 'bg-blue-600'}`}
+              style={isKpop ? {
+                boxShadow: `0 0 8px ${KPOP_COLORS.primary}`
+              } : {}}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : isKpop ? 'bg-pink-500' : 'bg-blue-600'}`} 
+              style={isKpop ? {
+                boxShadow: `0 0 8px ${KPOP_COLORS.primary}`,
+                animationDelay: '0.1s'
+              } : { animationDelay: '0.1s' }}></div>
+              <div className={`w-2 h-2 rounded-full animate-bounce ${isCyberpunk ? 'bg-cyan-400' : isKpop ? 'bg-pink-500' : 'bg-blue-600'}`} 
+              style={isKpop ? {
+                boxShadow: `0 0 8px ${KPOP_COLORS.primary}`,
+                animationDelay: '0.2s'
+              } : { animationDelay: '0.2s' }}></div>
             </div>
           </div>
         );
@@ -1003,7 +1041,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto py-6 px-0 sm:p-6">
       {/* Submit Confirmation Modal */}
       <PerfectModal
         isOpen={showSubmitModal && !isSubmitting}
@@ -1020,13 +1058,17 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             <Button 
               onClick={() => { setShowSubmitModal(false); handleSubmitTest(); }} 
               variant="primary"
-              className={isCyberpunk ? '' : ''}
+              className={isCyberpunk ? '' : isKpop ? 'bg-pink-500 text-white hover:bg-pink-600' : ''}
               style={isCyberpunk ? {
                 backgroundColor: CYBERPUNK_COLORS.black,
                 borderColor: CYBERPUNK_COLORS.cyan,
                 color: CYBERPUNK_COLORS.cyan,
                 fontFamily: 'monospace',
                 borderWidth: '2px',
+                ...themeStyles.glow
+              } : isKpop ? {
+                backgroundColor: KPOP_COLORS.primary,
+                color: KPOP_COLORS.white,
                 ...themeStyles.glow
               } : {}}
             >
@@ -1062,10 +1104,21 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       </PerfectModal>
       
       {/* Test Content */}
-      <div className={`${themeClasses.cardBg} rounded-lg shadow-sm p-3 sm:p-6 ${themeClasses.cardBorder} border`}>
+      <div className={`${isKpop ? getKpopCardBg(0).className : themeClasses.cardBg} rounded-lg shadow-sm py-3 px-0 sm:p-6 ${isKpop ? '' : themeClasses.cardBorder} border`}
+      style={isKpop ? {
+        ...getKpopCardBg(0).style,
+        borderColor: KPOP_COLORS.primary
+      } : {}}>
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800">{error}</p>
+          <div className={`mb-4 p-4 ${isKpop ? 'bg-red-500/10 border border-red-500/50' : 'bg-red-50 border border-red-200'} rounded-lg`}
+          style={isKpop ? {
+            ...themeStyles.glowRed
+          } : {}}>
+            <p className={isKpop ? 'text-red-400' : 'text-red-800'}
+            style={isKpop ? {
+              color: KPOP_COLORS.error,
+              ...themeStyles.textShadowRed
+            } : {}}>{error}</p>
           </div>
         )}
         

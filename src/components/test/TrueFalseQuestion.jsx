@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import MathEditorButton from '../math/MathEditorButton';
@@ -55,7 +55,7 @@ export const TrueFalseQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   const questionRef = useRef(null);
   
@@ -232,19 +232,26 @@ export const TrueFalseQuestion = ({
     <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
       isCyberpunk 
         ? getCyberpunkCardBg(0).className
+        : isKpop
+        ? getKpopCardBg(0).className
         : 'bg-white border-gray-200'
     }`}
     style={isCyberpunk ? {
       ...getCyberpunkCardBg(0).style,
       ...themeStyles.glowRed
+    } : isKpop ? {
+      ...getKpopCardBg(0).style,
+      ...themeStyles.glow
     } : {}}>
       <div className="flex items-center justify-between mb-4">
         <h4 className={`text-lg font-semibold ${
-          isCyberpunk ? '' : 'text-gray-800'
+          isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
         }`}
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.headerText
         } : {}}>
           {isCyberpunk 
             ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`
@@ -309,11 +316,15 @@ export const TrueFalseQuestion = ({
             className="sr-only"
             aria-label="True"
           />
-          <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+          <div           className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
             isCyberpunk
               ? selectedAnswer === 'true'
                 ? 'border'
                 : 'border'
+              : isKpop
+              ? selectedAnswer === 'true' 
+                ? 'border-pink-500 bg-pink-500' 
+                : 'border-pink-500/50'
               : selectedAnswer === 'true' 
                 ? 'border-blue-500 bg-blue-500' 
                 : 'border-gray-300'
@@ -321,6 +332,13 @@ export const TrueFalseQuestion = ({
           style={isCyberpunk ? {
             borderColor: selectedAnswer === 'true' ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
             backgroundColor: selectedAnswer === 'true' ? CYBERPUNK_COLORS.cyan : 'transparent'
+          } : isKpop ? {
+            borderColor: selectedAnswer === 'true' ? KPOP_COLORS.primary : KPOP_COLORS.border,
+            backgroundColor: selectedAnswer === 'true' ? KPOP_COLORS.primary : 'transparent',
+            ...(selectedAnswer === 'true' ? {
+              ...themeStyles.glow,
+              boxShadow: `${themeStyles.glow.boxShadow}, 0 0 15px ${KPOP_COLORS.primary}`
+            } : {})
           } : {}}>
             {selectedAnswer === 'true' && (
               <div className={`w-2 h-2 rounded-full ${
@@ -332,11 +350,13 @@ export const TrueFalseQuestion = ({
             )}
           </div>
           <span className={`font-medium ${
-            isCyberpunk ? '' : 'text-gray-800'
+            isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
           }`}
           style={isCyberpunk ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.textWhite
           } : {}}>
             {isCyberpunk ? 'TRUE' : 'True'}
           </span>
@@ -371,11 +391,15 @@ export const TrueFalseQuestion = ({
             className="sr-only"
             aria-label="False"
           />
-          <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+          <div           className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
             isCyberpunk
               ? selectedAnswer === 'false'
                 ? 'border'
                 : 'border'
+              : isKpop
+              ? selectedAnswer === 'false' 
+                ? 'border-pink-500 bg-pink-500' 
+                : 'border-pink-500/50'
               : selectedAnswer === 'false' 
                 ? 'border-blue-500 bg-blue-500' 
                 : 'border-gray-300'
@@ -383,6 +407,13 @@ export const TrueFalseQuestion = ({
           style={isCyberpunk ? {
             borderColor: selectedAnswer === 'false' ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
             backgroundColor: selectedAnswer === 'false' ? CYBERPUNK_COLORS.cyan : 'transparent'
+          } : isKpop ? {
+            borderColor: selectedAnswer === 'false' ? KPOP_COLORS.primary : KPOP_COLORS.border,
+            backgroundColor: selectedAnswer === 'false' ? KPOP_COLORS.primary : 'transparent',
+            ...(selectedAnswer === 'false' ? {
+              ...themeStyles.glow,
+              boxShadow: `${themeStyles.glow.boxShadow}, 0 0 15px ${KPOP_COLORS.primary}`
+            } : {})
           } : {}}>
             {selectedAnswer === 'false' && (
               <div className={`w-2 h-2 rounded-full ${
@@ -394,11 +425,13 @@ export const TrueFalseQuestion = ({
             )}
           </div>
           <span className={`font-medium ${
-            isCyberpunk ? '' : 'text-gray-800'
+            isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
           }`}
           style={isCyberpunk ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.textWhite
           } : {}}>
             {isCyberpunk ? 'FALSE' : 'False'}
           </span>

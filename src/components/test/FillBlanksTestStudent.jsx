@@ -11,7 +11,7 @@ import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { getCachedData, setCachedData, CACHE_TTL, clearTestData } from '../../utils/cacheUtils';
 import PerfectModal from '../ui/PerfectModal';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 
 const FillBlanksTestStudent = ({ 
   testText,
@@ -35,7 +35,7 @@ const FillBlanksTestStudent = ({
   console.log('- subjectId:', subjectId);
   
   // Theme hook - must be called before any early returns
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // Early return if no test data (following other test patterns)
@@ -43,10 +43,12 @@ const FillBlanksTestStudent = ({
     console.log('❌ FillBlanksTestStudent: Missing test data');
     return (
       <div className={`min-h-screen flex items-center justify-center ${
-        isCyberpunk ? '' : 'bg-gray-50'
+        isCyberpunk ? '' : isKpop ? 'bg-black' : 'bg-gray-50'
       }`}
       style={isCyberpunk ? {
         backgroundColor: CYBERPUNK_COLORS.black
+      } : isKpop ? {
+        ...themeStyles.background
       } : {}}>
         <Card className={`max-w-md w-full ${
           isCyberpunk ? getCyberpunkCardBg(0).className : ''
@@ -171,17 +173,21 @@ const FillBlanksTestStudent = ({
          return <span key={index} style={isCyberpunk ? {
            color: CYBERPUNK_COLORS.cyan,
            fontFamily: 'monospace'
+         } : isKpop ? {
+           color: KPOP_COLORS.text
          } : {}}>{part}</span>;
        });
        
        return (
          <div className="prose max-w-none mb-6">
            <div className={`text-lg leading-relaxed whitespace-pre-wrap ${
-             isCyberpunk ? '' : ''
+             isCyberpunk ? '' : isKpop ? '' : ''
            }`}
            style={isCyberpunk ? {
              color: CYBERPUNK_COLORS.cyan,
              fontFamily: 'monospace'
+           } : isKpop ? {
+             ...themeStyles.textWhite
            } : {}}>
              {result}
            </div>
@@ -189,11 +195,14 @@ const FillBlanksTestStudent = ({
        );
      } catch (error) {
        console.error('Error rendering text with blanks:', error);
-       return <div className={isCyberpunk ? '' : 'text-red-500'}
+       return <div className={isCyberpunk ? '' : isKpop ? '' : 'text-red-500'}
        style={isCyberpunk ? {
          color: CYBERPUNK_COLORS.red,
          fontFamily: 'monospace',
          ...themeStyles.textShadowRed
+       } : isKpop ? {
+         color: KPOP_COLORS.error,
+         textShadow: `0 0 8px ${KPOP_COLORS.error}`
        } : {}}>
          {isCyberpunk ? 'ERROR LOADING TEST CONTENT' : 'Error loading test content'}
        </div>;
@@ -285,6 +294,8 @@ const FillBlanksTestStudent = ({
           result.push(<span key={`text-${i}`} style={isCyberpunk ? {
             color: CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            color: KPOP_COLORS.text
           } : {}}>{parts[i]}</span>);
         }
         if (i < blankElements.length) {
@@ -295,11 +306,13 @@ const FillBlanksTestStudent = ({
       return (
         <div className="prose max-w-none mb-6">
           <div className={`text-lg leading-relaxed whitespace-pre-wrap ${
-            isCyberpunk ? '' : ''
+            isCyberpunk ? '' : isKpop ? '' : ''
           }`}
           style={isCyberpunk ? {
             color: CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.textWhite
           } : {}}>
             {result}
           </div>
@@ -698,22 +711,32 @@ const FillBlanksTestStudent = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="space-y-4"
+      className={`space-y-4 ${isCyberpunk ? 'bg-black' : isKpop ? 'bg-black' : ''}`}
+      style={isCyberpunk ? {
+        backgroundColor: CYBERPUNK_COLORS.black
+      } : isKpop ? {
+        ...themeStyles.background
+      } : {}}
     >
-      <Card className={isCyberpunk ? getCyberpunkCardBg(0).className : ''}
+      <Card className={isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(0).style,
+        ...themeStyles.glow
+      } : isKpop ? {
+        ...getKpopCardBg(0).style,
         ...themeStyles.glow
       } : {}}>
         {isSubmitting && (
           <Card.Header>
             <div className="flex items-center justify-center">
               <div className={`flex items-center space-x-2 text-sm ${
-                isCyberpunk ? '' : 'text-gray-500'
+                isCyberpunk ? '' : isKpop ? 'text-violet-600' : 'text-gray-500'
               }`}
               style={isCyberpunk ? {
                 color: CYBERPUNK_COLORS.cyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                color: KPOP_COLORS.primary
               } : {}}>
                 <LoadingSpinner size="small" />
                 <span>{isCyberpunk ? 'SUBMITTING...' : 'Submitting...'}</span>
@@ -723,6 +746,8 @@ const FillBlanksTestStudent = ({
         )}
         <Card.Body style={isCyberpunk ? {
           backgroundColor: CYBERPUNK_COLORS.black
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background
         } : {}}>
           {/* Main Text - Different rendering based on mode */}
           {separateType === true ? (

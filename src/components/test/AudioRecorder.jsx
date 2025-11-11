@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import { convertBlobToWav } from '../../utils/audioConversion';
 
 const AudioRecorder = forwardRef(({ 
@@ -12,7 +12,7 @@ const AudioRecorder = forwardRef(({
   currentAttempt = 1 
 }, ref) => {
   // Theme hook
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -295,12 +295,15 @@ const AudioRecorder = forwardRef(({
   };
 
   return (
-    <div className={`audio-recorder rounded-lg shadow-lg p-3 sm:p-6 ${
-      isCyberpunk ? getCyberpunkCardBg(1).className : 'bg-white'
+    <div className={`audio-recorder rounded-lg shadow-lg py-3 px-0 sm:p-6 ${
+      isCyberpunk ? getCyberpunkCardBg(1).className : isKpop ? getKpopCardBg(1).className : 'bg-white'
     }`}
     style={isCyberpunk ? {
       ...getCyberpunkCardBg(1).style,
       ...themeStyles.glow
+    } : isKpop ? {
+      ...getKpopCardBg(1).style,
+      borderColor: KPOP_COLORS.primary
     } : {}}>
       <div className="text-center mb-6">
         <h3 className={`text-xl font-semibold mb-2 ${
@@ -309,6 +312,8 @@ const AudioRecorder = forwardRef(({
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.headerText
         } : {}}>
           {isCyberpunk ? 'RECORD YOUR RESPONSE' : 'Record Your Response'}
         </h3>
@@ -316,6 +321,8 @@ const AudioRecorder = forwardRef(({
         style={isCyberpunk ? {
           color: CYBERPUNK_COLORS.cyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.textAccent
         } : {}}>
           {isCyberpunk 
             ? 'SPEAK CLEARLY AND AT A NORMAL PACE. YOU CAN PAUSE AND RESUME IF NEEDED.'
@@ -326,29 +333,37 @@ const AudioRecorder = forwardRef(({
       {/* Recording Status */}
       <div className="text-center mb-6">
         <div className={`text-4xl font-bold mb-2 ${
-          isCyberpunk ? '' : 'text-blue-600'
+          isCyberpunk ? '' : isKpop ? '' : 'text-blue-600'
         }`}
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.textPink
         } : {}}>
           {formatTime(recordingTime)}
         </div>
-        <div className={`text-sm ${getQualityColor()}`}
+        <div className={`text-sm ${isKpop ? '' : getQualityColor()}`}
         style={isCyberpunk ? {
           color: CYBERPUNK_COLORS.cyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          color: recordingQuality === 'good' ? KPOP_COLORS.success : recordingQuality === 'fair' ? KPOP_COLORS.primary : KPOP_COLORS.error,
+          ...themeStyles.textShadow
         } : {}}>
           {getQualityText()}
         </div>
         {isPaused && (
           <div className={`font-semibold mt-2 ${
-            isCyberpunk ? '' : 'text-yellow-600'
+            isCyberpunk ? '' : isKpop ? '' : 'text-yellow-600'
           }`}
           style={isCyberpunk ? {
             color: CYBERPUNK_COLORS.yellow,
             fontFamily: 'monospace',
             ...themeStyles.textShadowYellow
+          } : isKpop ? {
+            color: KPOP_COLORS.primary,
+            ...themeStyles.textShadow
           } : {}}>
             {isCyberpunk ? '⏸️ RECORDING PAUSED' : '⏸️ Recording Paused'}
           </div>
@@ -379,7 +394,7 @@ const AudioRecorder = forwardRef(({
         {!isRecording ? (
           <button
             onClick={startRecording}
-            className="w-full sm:w-auto bg-red-600 text-white px-6 py-4 rounded-full hover:bg-red-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
+            className={`w-full sm:w-auto ${isKpop ? 'bg-pink-500 hover:bg-pink-600' : 'bg-red-600 hover:bg-red-700'} text-white px-6 py-4 rounded-full flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold`}
           >
             <span className="text-xl">🎤</span>
             <span>Start Recording</span>
@@ -417,29 +432,41 @@ const AudioRecorder = forwardRef(({
 
       {/* Error Display */}
       {error && (
-        <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800">{error}</p>
+        <div className={`mt-4 py-3 px-0 sm:p-4 ${isKpop ? 'bg-red-500/10 border border-red-500/50' : 'bg-red-50 border border-red-200'} rounded-lg`}
+        style={isKpop ? {
+          ...themeStyles.glowRed
+        } : {}}>
+          <p className={isKpop ? 'text-red-400' : 'text-red-800'}
+          style={isKpop ? {
+            color: KPOP_COLORS.error,
+            ...themeStyles.textShadowRed
+          } : {}}>{error}</p>
         </div>
       )}
 
       {/* Attempt Info */}
       <div className={`mt-4 text-center text-sm ${
-        isCyberpunk ? '' : 'text-gray-600'
+        isCyberpunk ? '' : isKpop ? '' : 'text-gray-600'
       }`}
       style={isCyberpunk ? {
         color: CYBERPUNK_COLORS.cyan,
         fontFamily: 'monospace'
+      } : isKpop ? {
+        ...themeStyles.textAccent
       } : {}}>
         {isCyberpunk 
           ? `ATTEMPT ${currentAttempt} OF ${maxAttempts}`
           : `Attempt ${currentAttempt} of ${maxAttempts}`}
         {currentAttempt < maxAttempts && (
           <span className={`ml-2 ${
-            isCyberpunk ? '' : 'text-blue-600'
+            isCyberpunk ? '' : isKpop ? '' : 'text-blue-600'
           }`}
           style={isCyberpunk ? {
             color: CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            color: KPOP_COLORS.primary,
+            ...themeStyles.textShadow
           } : {}}>
             {isCyberpunk 
               ? '(YOU CAN RE-RECORD IF NEEDED)'

@@ -5,7 +5,7 @@ import { useApi } from '../hooks/useApi';
 import { useAntiCheating } from '../hooks/useAntiCheating';
 import { useNotification } from '../components/ui/Notification';
 import { useTheme } from '../hooks/useTheme';
-import { getThemeStyles } from '../utils/themeUtils';
+import { getThemeStyles, KPOP_COLORS } from '../utils/themeUtils';
 import MatchingTestStudent from '../components/test/MatchingTestStudent';
 import TestResults from '../components/test/TestResults';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -23,7 +23,7 @@ const MatchingTestPage = () => {
   const { showNotification } = useNotification();
   
   // Theme hooks - must be at component level before any conditional returns
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   const [testData, setTestData] = useState(null);
@@ -482,10 +482,15 @@ const MatchingTestPage = () => {
   if (showResults && testResults) {
     return (
       <div 
-        className="bg-gradient-to-br from-black via-gray-900 to-purple-900 overflow-y-auto min-h-screen"
-        style={{
+        className={`overflow-y-auto min-h-screen ${
+          isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'
+        }`}
+        style={isCyberpunk ? {
           backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)'
-        }}
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.backgroundSecondary,
+          boxShadow: '0 0 30px rgba(236, 72, 153, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)'
+        } : {}}
       >
         <TestResults
           testResults={testResults}
@@ -506,8 +511,13 @@ const MatchingTestPage = () => {
   // Render matching test
   return (
     <div 
-      className={`min-h-screen ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-      style={isCyberpunk ? themeStyles.background : {}}
+      className={`min-h-screen ${
+        isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'
+      }`}
+      style={isCyberpunk ? themeStyles.background : isKpop ? {
+        backgroundColor: KPOP_COLORS.backgroundSecondary,
+        boxShadow: '0 0 30px rgba(236, 72, 153, 0.4), 0 0 60px rgba(236, 72, 153, 0.2)'
+      } : {}}
     >
       <MatchingTestStudent
         testData={testData}

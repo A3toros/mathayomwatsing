@@ -13,7 +13,7 @@ import { useNotification } from '../ui/Notification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../hooks/useApi';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '../../utils/themeUtils';
 import { useTestProgress } from '../../hooks/useTestProgress';
 import { useAntiCheating } from '../../hooks/useAntiCheating';
 import { getCachedData, setCachedData, clearTestData, CACHE_TTL } from '../../utils/cacheUtils';
@@ -25,7 +25,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
   const { showNotification } = useNotification();
   
   // Theme hook - must be at component level
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // Responsive sizing hook
@@ -915,7 +915,14 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="max-w-4xl mx-auto p-6"
+      className={`max-w-4xl mx-auto p-6 ${
+        isCyberpunk ? 'bg-black' : isKpop ? 'bg-black' : 'bg-white'
+      }`}
+      style={isCyberpunk ? {
+        backgroundColor: CYBERPUNK_COLORS.black
+      } : isKpop ? {
+        ...themeStyles.background
+      } : {}}
     >
       {/* Submit Spinner Modal */}
       <PerfectModal
@@ -946,12 +953,18 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           className={`rounded-lg border-2 p-6 mb-6 ${
             isCyberpunk 
               ? getCyberpunkCardBg(1).className
+              : isKpop
+              ? getKpopCardBg(1).className
               : `${themeClasses.cardBg} ${themeClasses.cardBorder}`
           }`}
           style={isCyberpunk ? {
             ...getCyberpunkCardBg(1).style,
             ...themeStyles.glow,
             boxShadow: `${themeStyles.glow.boxShadow}, inset 0 0 20px ${colorToRgba(CYBERPUNK_COLORS.cyan, 0.1)}`
+          } : isKpop ? {
+            ...getKpopCardBg(1).style,
+            borderColor: KPOP_COLORS.primary,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
           } : {}}
         >
           <div className="text-left mb-4">
@@ -962,6 +975,8 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                    style={isCyberpunk ? {
                      ...themeStyles.textCyan,
                      fontFamily: 'monospace'
+                   } : isKpop ? {
+                     ...themeStyles.headerText
                    } : {}}
                  >
               {isCyberpunk
@@ -1011,9 +1026,12 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       {/* Test Content */}
       {testData.interaction_type === 'drag' ? (
         // Drag Mode with Konva
-        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : ''}`}
+        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''}`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(0).style,
+          ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(0).style,
           ...themeStyles.glow
         } : {}}>
           <div 
@@ -1116,8 +1134,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
-                        fill={isDragged ? '#e5e7eb' : '#3b82f6'}
-                        stroke={isDragged ? '#9ca3af' : '#1d4ed8'}
+                        fill={isDragged ? (isKpop ? '#1a0014' : '#e5e7eb') : (isKpop ? KPOP_COLORS.primary : '#3b82f6')}
+                        stroke={isDragged ? (isKpop ? KPOP_COLORS.border : '#9ca3af') : (isKpop ? KPOP_COLORS.primary : '#1d4ed8')}
+                        shadowBlur={isKpop && !isDragged ? 15 : 0}
+                        shadowColor={isKpop && !isDragged ? KPOP_COLORS.primary : undefined}
+                        shadowOpacity={isKpop && !isDragged ? 0.6 : undefined}
                         strokeWidth={2}
                         cornerRadius={8}
                         opacity={isDragged ? 0.5 : 1}
@@ -1152,7 +1173,13 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                   );
                   
                   return (
-                    <Group key={`right-${index}`} x={rightBlockX} y={y} onClick={() => handleWordClick('right', index)}>
+                    <Group 
+                      key={`right-${index}`} 
+                      x={rightBlockX} 
+                      y={y} 
+                      onClick={() => handleWordClick('right', index)}
+                      onTap={() => handleWordClick('right', index)}
+                    >
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
@@ -1206,9 +1233,12 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
         </Card>
       ) : (
         // Arrow Mode with Konva
-        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : ''}`}
+        <Card className={`mb-6 ${isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''}`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(0).style,
+          ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(0).style,
           ...themeStyles.glow
         } : {}}>
           <div 
@@ -1240,12 +1270,16 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       x={leftBlockX}
                       y={y}
                       onClick={() => handleWordClick('left', index)}
+                      onTap={() => handleWordClick('left', index)}
                     >
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
-                        fill={isSelected ? '#3b82f6' : '#f3f4f6'}
-                        stroke={isSelected ? '#1d4ed8' : '#d1d5db'}
+                        fill={isSelected ? (isKpop ? KPOP_COLORS.primary : '#3b82f6') : (isKpop ? KPOP_COLORS.backgroundSecondary : '#f3f4f6')}
+                        stroke={isSelected ? (isKpop ? KPOP_COLORS.primary : '#1d4ed8') : (isKpop ? KPOP_COLORS.border : '#d1d5db')}
+                        shadowBlur={isKpop && isSelected ? 20 : 0}
+                        shadowColor={isKpop && isSelected ? KPOP_COLORS.primary : undefined}
+                        shadowOpacity={isKpop && isSelected ? 0.8 : undefined}
                         strokeWidth={isSelected ? 3 : 2}
                         cornerRadius={8}
                       />
@@ -1286,6 +1320,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       x={rightBlockX}
                       y={y}
                       onClick={() => handleWordClick('right', index)}
+                      onTap={() => handleWordClick('right', index)}
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' || e.key === 'Enter') {
                           e.preventDefault();
@@ -1297,8 +1332,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                       <Rect
                         width={actualBlockWidth}
                         height={dynamicHeight}
-                        fill={isSelected ? '#3b82f6' : isMatched ? '#10b981' : '#f3f4f6'}
-                        stroke={isSelected ? '#1d4ed8' : isMatched ? '#059669' : '#d1d5db'}
+                        fill={isSelected ? (isKpop ? KPOP_COLORS.primary : '#3b82f6') : isMatched ? (isKpop ? KPOP_COLORS.success : '#10b981') : (isKpop ? KPOP_COLORS.backgroundSecondary : '#f3f4f6')}
+                        stroke={isSelected ? (isKpop ? KPOP_COLORS.primary : '#1d4ed8') : isMatched ? (isKpop ? KPOP_COLORS.success : '#059669') : (isKpop ? KPOP_COLORS.border : '#d1d5db')}
+                        shadowBlur={isKpop && (isSelected || isMatched) ? 20 : 0}
+                        shadowColor={isKpop && isSelected ? KPOP_COLORS.primary : (isKpop && isMatched ? KPOP_COLORS.success : undefined)}
+                        shadowOpacity={isKpop && (isSelected || isMatched) ? 0.8 : undefined}
                         strokeWidth={isSelected ? 3 : 2}
                         cornerRadius={8}
                         listening={true}
@@ -1340,8 +1378,11 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
                     <Line
                       key={arrowIndex}
                       points={[leftBlockX + actualBlockWidth + 20, startY, rightBlockX - 20, endY]} // Responsive arrow positioning
-                      stroke={arrow.color || '#3b82f6'}
-                      strokeWidth={STROKE_WIDTH} // Responsive stroke width
+                      stroke={isKpop ? (arrow.color || KPOP_COLORS.primary) : (arrow.color || '#3b82f6')}
+                      shadowBlur={isKpop ? 10 : 0}
+                      shadowColor={isKpop ? KPOP_COLORS.primary : undefined}
+                      shadowOpacity={isKpop ? 0.6 : undefined}
+                      strokeWidth={isKpop ? Math.max(STROKE_WIDTH, 3) : STROKE_WIDTH} // Responsive stroke width with enhanced glow for K-pop
                       lineCap="round"
                       lineJoin="round"
                     />
@@ -1355,10 +1396,13 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
       )}
 
       {/* Action Buttons */}
-      <Card className={isCyberpunk ? getCyberpunkCardBg(1).className : ''}
+      <Card className={isCyberpunk ? getCyberpunkCardBg(1).className : isKpop ? getKpopCardBg(1).className : ''}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(1).style,
         ...themeStyles.glow
+      } : isKpop ? {
+        ...getKpopCardBg(1).style,
+        ...themeStyles.glowPurple
       } : {}}>
         <div className={`submit-section flex justify-center space-x-4 ${isSubmitting ? 'pointer-events-none opacity-50' : ''}`}>
           <Button
@@ -1371,7 +1415,7 @@ const WordMatchingStudent = ({ testData, onTestComplete, onBackToCabinet }) => {
           <Button
             onClick={() => setShowSubmitModal(true)}
             disabled={isSubmitting}
-            className={`px-8 ${isCyberpunk ? '' : ''}`}
+            className={`px-8 ${isCyberpunk ? '' : isKpop ? 'bg-pink-500 text-white hover:bg-pink-600' : ''}`}
             style={isCyberpunk ? {
               backgroundColor: CYBERPUNK_COLORS.black,
               borderColor: CYBERPUNK_COLORS.cyan,

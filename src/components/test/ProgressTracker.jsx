@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '@/utils/themeUtils';
 
 // PROGRESS TRACKER COMPONENT - Visual Progress Tracking UI
 // ✅ COMPLETED: Real-time progress tracking with visual indicators
@@ -23,9 +23,10 @@ const ProgressTracker = ({
   themeClasses,
   isCyberpunk
 }) => {
-  const { theme } = useTheme();
+  const { theme, isKpop } = useTheme();
   const themeStyles = getThemeStyles(theme);
   const cyberpunkMode = isCyberpunk !== undefined ? isCyberpunk : theme === 'cyberpunk';
+  const kpopMode = isKpop !== undefined ? isKpop : theme === 'kpop';
   const percentage = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
   const remainingQuestions = totalQuestions - answeredCount;
   
@@ -60,20 +61,27 @@ const ProgressTracker = ({
     <div className={`rounded-lg shadow-lg p-6 border-2 ${
       cyberpunkMode 
         ? getCyberpunkCardBg(1).className
+        : kpopMode
+        ? getKpopCardBg(1).className
         : 'bg-white'
     } ${className}`}
     style={cyberpunkMode ? {
       ...getCyberpunkCardBg(1).style,
       ...themeStyles.glow
+    } : kpopMode ? {
+      ...getKpopCardBg(1).style,
+      ...themeStyles.glow
     } : {}}>
       {/* Progress Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${
-          cyberpunkMode ? '' : 'text-gray-900'
+          cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-900'
         }`}
         style={cyberpunkMode ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : kpopMode ? {
+          ...themeStyles.headerText
         } : {}}>
           {cyberpunkMode ? 'TEST PROGRESS' : 'Test Progress'}
         </h3>
@@ -82,11 +90,13 @@ const ProgressTracker = ({
           <div className="flex items-center space-x-2">
             <span className="text-2xl">⏱️</span>
             <span className={`text-sm font-mono ${
-              cyberpunkMode ? '' : 'text-gray-600'
+              cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-600'
             }`}
             style={cyberpunkMode ? {
               ...themeStyles.textYellow,
               fontFamily: 'monospace'
+            } : kpopMode ? {
+              ...themeStyles.textAccent
             } : {}}>
               {formatTime(timeElapsed)}
             </span>
@@ -99,20 +109,24 @@ const ProgressTracker = ({
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className={`text-sm font-medium ${
-            cyberpunkMode ? '' : 'text-gray-700'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-700'
           }`}
           style={cyberpunkMode ? {
             color: CYBERPUNK_COLORS.yellow,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textAccent
           } : {}}>
             Progress
           </span>
           <span className={`text-sm font-semibold ${
-            cyberpunkMode ? '' : getProgressTextColor(percentage)
+            cyberpunkMode ? '' : kpopMode ? '' : getProgressTextColor(percentage)
           }`}
           style={cyberpunkMode ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textPink
           } : {}}>
             {percentage}%
           </span>
@@ -121,9 +135,13 @@ const ProgressTracker = ({
         <div className={`w-full rounded-full h-3 overflow-hidden border ${
           cyberpunkMode 
             ? 'bg-gray-800 border-cyan-400/50'
+            : kpopMode
+            ? 'bg-black border-pink-500/50'
             : 'bg-gray-200'
         }`}
-        style={cyberpunkMode ? themeStyles.glow : {}}>
+        style={cyberpunkMode ? themeStyles.glow : kpopMode ? {
+          ...themeStyles.glow
+        } : {}}>
           <motion.div
             className={`h-full transition-colors duration-300 ${
               cyberpunkMode ? '' : getProgressColor(percentage)
@@ -144,27 +162,36 @@ const ProgressTracker = ({
         <div className={`text-center p-2 sm:p-3 rounded-lg border ${
           cyberpunkMode 
             ? getCyberpunkCardBg(3).className
+            : kpopMode
+            ? getKpopCardBg(0).className
             : 'bg-blue-50'
         }`}
         style={cyberpunkMode ? {
           ...getCyberpunkCardBg(3).style,
           ...themeStyles.glow
+        } : kpopMode ? {
+          ...getKpopCardBg(0).style,
+          ...themeStyles.glow
         } : {}}>
           <div className={`text-lg sm:text-2xl font-bold ${
-            cyberpunkMode ? '' : 'text-blue-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-blue-600'
           }`}
           style={cyberpunkMode ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textPink
           } : {}}>
             {answeredCount}
           </div>
           <div className={`text-xs ${
-            cyberpunkMode ? '' : 'text-blue-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-blue-600'
           }`}
           style={cyberpunkMode ? {
             color: CYBERPUNK_COLORS.yellow,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textAccent
           } : {}}>
             Answered
           </div>
@@ -172,27 +199,36 @@ const ProgressTracker = ({
         <div className={`text-center p-2 sm:p-3 rounded-lg border ${
           cyberpunkMode 
             ? getCyberpunkCardBg(1).className
+            : kpopMode
+            ? getKpopCardBg(1).className
             : 'bg-gray-50'
         }`}
         style={cyberpunkMode ? {
           ...getCyberpunkCardBg(1).style,
           ...themeStyles.glow
+        } : kpopMode ? {
+          ...getKpopCardBg(1).style,
+          ...themeStyles.glowPurple
         } : {}}>
           <div className={`text-lg sm:text-2xl font-bold ${
-            cyberpunkMode ? '' : 'text-gray-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-600'
           }`}
           style={cyberpunkMode ? {
             ...themeStyles.textYellow,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textWhite
           } : {}}>
             {remainingQuestions}
           </div>
           <div className={`text-xs ${
-            cyberpunkMode ? '' : 'text-gray-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-600'
           }`}
           style={cyberpunkMode ? {
             color: CYBERPUNK_COLORS.yellow,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textAccent
           } : {}}>
             Remaining
           </div>
@@ -200,27 +236,36 @@ const ProgressTracker = ({
         <div className={`text-center p-2 sm:p-3 rounded-lg border ${
           cyberpunkMode 
             ? getCyberpunkCardBg(2).className
+            : kpopMode
+            ? getKpopCardBg(2).className
             : 'bg-purple-50'
         }`}
         style={cyberpunkMode ? {
           ...getCyberpunkCardBg(2).style,
           ...themeStyles.glow
+        } : kpopMode ? {
+          ...getKpopCardBg(2).style,
+          ...themeStyles.glowPurple
         } : {}}>
           <div className={`text-lg sm:text-2xl font-bold ${
-            cyberpunkMode ? '' : 'text-purple-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-purple-600'
           }`}
           style={cyberpunkMode ? {
             ...themeStyles.textPurple,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textPurple
           } : {}}>
             {totalQuestions}
           </div>
           <div className={`text-xs ${
-            cyberpunkMode ? '' : 'text-purple-600'
+            cyberpunkMode ? '' : kpopMode ? '' : 'text-purple-600'
           }`}
           style={cyberpunkMode ? {
             color: CYBERPUNK_COLORS.yellow,
             fontFamily: 'monospace'
+          } : kpopMode ? {
+            ...themeStyles.textAccent
           } : {}}>
             Total
           </div>
@@ -246,11 +291,14 @@ const ProgressTracker = ({
             transition={{ duration: 0.3 }}
           >
             <span className={`font-medium ${
-              cyberpunkMode ? '' : 'text-green-600'
+              cyberpunkMode ? '' : kpopMode ? '' : 'text-green-600'
             }`}
             style={cyberpunkMode ? {
               ...themeStyles.textGreen,
               fontFamily: 'monospace'
+            } : kpopMode ? {
+              color: KPOP_COLORS.success,
+              textShadow: `0 0 10px ${KPOP_COLORS.success}`
             } : {}}>
               🎉 All questions answered! Ready to submit.
             </span>
@@ -272,11 +320,13 @@ const ProgressTracker = ({
             transition={{ duration: 0.3 }}
           >
             <span className={`font-medium ${
-              cyberpunkMode ? '' : 'text-yellow-600'
+              cyberpunkMode ? '' : kpopMode ? '' : 'text-yellow-600'
             }`}
             style={cyberpunkMode ? {
               ...themeStyles.textYellow,
               fontFamily: 'monospace'
+            } : kpopMode ? {
+              ...themeStyles.textPink
             } : {}}>
               Almost there! 1 question remaining.
             </span>
@@ -285,18 +335,25 @@ const ProgressTracker = ({
           <div className={`flex items-center justify-center p-3 border rounded-lg ${
             cyberpunkMode 
               ? 'border'
+              : kpopMode
+              ? 'bg-pink-500/10 border-pink-500/50'
               : 'bg-gray-50 border-gray-200'
           }`}
           style={cyberpunkMode ? {
             backgroundColor: CYBERPUNK_COLORS.black,
             borderColor: CYBERPUNK_COLORS.cyan
+          } : kpopMode ? {
+            backgroundColor: KPOP_COLORS.backgroundSecondary,
+            borderColor: KPOP_COLORS.border
           } : {}}>
             <span className={`font-medium ${
-              cyberpunkMode ? '' : 'text-gray-600'
+              cyberpunkMode ? '' : kpopMode ? '' : 'text-gray-600'
             }`}
             style={cyberpunkMode ? {
               color: CYBERPUNK_COLORS.cyan,
               fontFamily: 'monospace'
+            } : kpopMode ? {
+              ...themeStyles.textAccent
             } : {}}>
               {remainingQuestions} questions remaining
             </span>

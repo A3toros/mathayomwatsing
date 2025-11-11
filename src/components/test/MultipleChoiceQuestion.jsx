@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import MathEditorButton from '../math/MathEditorButton';
@@ -60,7 +60,7 @@ export const MultipleChoiceQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   const questionRef = useRef(null);
   
@@ -319,30 +319,39 @@ export const MultipleChoiceQuestion = ({
     <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
       isCyberpunk 
         ? getCyberpunkCardBg(0).className
+        : isKpop
+        ? getKpopCardBg(0).className
         : 'bg-white border-gray-200'
     }`}
     style={isCyberpunk ? {
       ...getCyberpunkCardBg(0).style,
       ...themeStyles.glowRed
+    } : isKpop ? {
+      ...getKpopCardBg(0).style,
+      ...themeStyles.glow
     } : {}}>
       <div className="flex items-center justify-between mb-4">
         <h4 className={`text-lg font-semibold ${
-          isCyberpunk ? '' : 'text-gray-800'
+          isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
         }`}
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.headerText
         } : {}}>
           {isCyberpunk 
             ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`
             : `Question ${typeof displayNumber === 'number' ? displayNumber : question?.question_id}`}
         </h4>
         <div className={`flex items-center space-x-2 text-sm ${
-          isCyberpunk ? '' : 'text-gray-500'
+          isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
         }`}
         style={isCyberpunk ? {
           color: CYBERPUNK_COLORS.cyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.textAccent
         } : {}}>
           {isAutoSaving && (
             <div className="flex items-center space-x-1">
@@ -360,12 +369,14 @@ export const MultipleChoiceQuestion = ({
       
       <div 
         className={`question-text mb-6 leading-relaxed ${
-          isCyberpunk ? '' : 'text-gray-700'
+          isCyberpunk ? '' : isKpop ? 'text-violet-900' : 'text-gray-700'
         }`}
         style={isCyberpunk ? {
           color: CYBERPUNK_COLORS.cyan,
           fontFamily: 'monospace',
           ...themeStyles.textShadow
+        } : isKpop ? {
+          color: KPOP_COLORS.text
         } : {}}
         dangerouslySetInnerHTML={{ 
           __html: formatQuestionText(questionText) 
@@ -377,6 +388,10 @@ export const MultipleChoiceQuestion = ({
           <label key={index} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
             isCyberpunk
               ? 'border'
+              : isKpop
+              ? selectedAnswer === String.fromCharCode(65 + index)
+                ? 'border-pink-500 bg-pink-500/20'
+                : 'border-pink-500/50 hover:border-pink-500'
               : selectedAnswer === String.fromCharCode(65 + index) 
                 ? 'border-blue-500 bg-blue-50' 
                 : 'border-gray-200 hover:border-gray-300'
@@ -386,6 +401,14 @@ export const MultipleChoiceQuestion = ({
             borderColor: selectedAnswer === String.fromCharCode(65 + index) 
               ? CYBERPUNK_COLORS.cyan
               : CYBERPUNK_COLORS.cyan,
+            ...(selectedAnswer === String.fromCharCode(65 + index) ? themeStyles.glow : {})
+          } : isKpop ? {
+            backgroundColor: selectedAnswer === String.fromCharCode(65 + index) 
+              ? KPOP_COLORS.backgroundSecondary
+              : KPOP_COLORS.background,
+            borderColor: selectedAnswer === String.fromCharCode(65 + index)
+              ? KPOP_COLORS.primary
+              : KPOP_COLORS.border,
             ...(selectedAnswer === String.fromCharCode(65 + index) ? themeStyles.glow : {})
           } : {}}>
             <input
@@ -400,7 +423,11 @@ export const MultipleChoiceQuestion = ({
               className="mr-3"
             />
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold mr-3 ${
-              isCyberpunk ? '' : 'bg-gray-100 text-gray-600'
+              isCyberpunk ? '' : isKpop 
+              ? selectedAnswer === String.fromCharCode(65 + index)
+                ? 'bg-pink-500 text-white'
+                : 'bg-pink-500/20 text-pink-400'
+              : 'bg-gray-100 text-gray-600'
             }`}
             style={isCyberpunk ? {
               backgroundColor: selectedAnswer === String.fromCharCode(65 + index) 
@@ -411,16 +438,30 @@ export const MultipleChoiceQuestion = ({
                 ? CYBERPUNK_COLORS.black
                 : CYBERPUNK_COLORS.cyan,
               fontFamily: 'monospace'
+            } : isKpop ? {
+              backgroundColor: selectedAnswer === String.fromCharCode(65 + index) 
+                ? KPOP_COLORS.primary
+                : KPOP_COLORS.background,
+              border: `2px solid ${selectedAnswer === String.fromCharCode(65 + index) ? KPOP_COLORS.primary : KPOP_COLORS.border}`,
+              color: selectedAnswer === String.fromCharCode(65 + index) 
+                ? KPOP_COLORS.white
+                : KPOP_COLORS.primary,
+              ...(selectedAnswer === String.fromCharCode(65 + index) ? {
+                ...themeStyles.glow,
+                boxShadow: `${themeStyles.glow.boxShadow}, 0 0 15px ${KPOP_COLORS.primary}`
+              } : {})
             } : {}}>
               {String.fromCharCode(65 + index)}
             </div>
             <span 
               className={`flex-1 ${
-                isCyberpunk ? '' : ''
+                isCyberpunk ? '' : isKpop ? 'text-violet-900' : ''
               }`}
               style={isCyberpunk ? {
                 color: CYBERPUNK_COLORS.cyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                color: KPOP_COLORS.text
               } : {}}
               dangerouslySetInnerHTML={{ 
                 __html: option ? renderMathInText(option) : `Option ${String.fromCharCode(65 + index)}` 

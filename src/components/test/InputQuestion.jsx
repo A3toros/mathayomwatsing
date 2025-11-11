@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorageManager } from '../../hooks/useLocalStorage';
 import { useNotification } from '../ui/Notification';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import Button from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { renderMathInText } from '../../utils/mathRenderer';
@@ -54,7 +54,7 @@ export const InputQuestion = ({
   // Hooks
   const { getItem, setItem } = useLocalStorageManager();
   const { showNotification } = useNotification();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   const inputRef = useRef(null);
   
@@ -227,19 +227,26 @@ export const InputQuestion = ({
     <div className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow duration-200 ${
       isCyberpunk 
         ? getCyberpunkCardBg(0).className
+        : isKpop
+        ? getKpopCardBg(0).className
         : 'bg-white border-gray-200'
     }`}
     style={isCyberpunk ? {
       ...getCyberpunkCardBg(0).style,
       ...themeStyles.glowRed
+    } : isKpop ? {
+      ...getKpopCardBg(0).style,
+      ...themeStyles.glow
     } : {}}>
       <div className="flex items-center justify-between mb-4">
         <h4 className={`text-lg font-semibold ${
-          isCyberpunk ? '' : 'text-gray-800'
+          isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
         }`}
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.headerText
         } : {}}>
           {isCyberpunk 
             ? `QUESTION ${typeof displayNumber === 'number' ? displayNumber : question.question_id}`
@@ -247,11 +254,13 @@ export const InputQuestion = ({
         </h4>
         {isAutoSaving && (
           <div className={`flex items-center space-x-1 text-sm ${
-            isCyberpunk ? '' : 'text-gray-500'
+            isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
           }`}
           style={isCyberpunk ? {
             color: CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.textAccent
           } : {}}>
             <LoadingSpinner size="small" />
             <span>Saving...</span>

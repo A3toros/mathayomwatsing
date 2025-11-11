@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { useTheme } from '../hooks/useTheme';
-import { getThemeStyles } from '../utils/themeUtils';
+import { getThemeStyles, KPOP_COLORS } from '../utils/themeUtils';
 import { useAntiCheating } from '../hooks/useAntiCheating';
 import { useNotification } from '../components/ui/Notification';
 import SpeakingTestStudent from '../components/test/SpeakingTestStudent';
@@ -247,21 +247,35 @@ const SpeakingTestPage = () => {
     navigate('/student');
   };
 
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
 
   if (isLoading) {
     return (
       <div 
-        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-        style={isCyberpunk ? themeStyles.background : {}}
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}
       >
         {/* Speaking Test Header */}
-        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
+        <div 
+          className={`${isKpop ? '' : themeClasses.headerBg} shadow-sm border-b ${isKpop ? '' : themeClasses.headerBorder}`}
+          style={isCyberpunk ? {
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+          } : {}}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
+                <h1 
+                  className={`text-2xl font-bold ${themeClasses.headerText}`}
+                  style={isKpop ? {
+                    ...themeStyles.headerText
+                  } : {}}
+                >Speaking Test</h1>
               </div>
               
               <Button
@@ -289,15 +303,29 @@ const SpeakingTestPage = () => {
   if (error) {
     return (
       <div 
-        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-        style={isCyberpunk ? themeStyles.background : {}}
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}
       >
         {/* Speaking Test Header */}
-        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
+        <div 
+          className={`${isKpop ? '' : themeClasses.headerBg} shadow-sm border-b ${isKpop ? '' : themeClasses.headerBorder}`}
+          style={isCyberpunk ? {
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+          } : {}}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
+                <h1 
+                  className={`text-2xl font-bold ${themeClasses.headerText}`}
+                  style={isKpop ? {
+                    ...themeStyles.headerText
+                  } : {}}
+                >Speaking Test</h1>
               </div>
               
               <Button
@@ -326,15 +354,29 @@ const SpeakingTestPage = () => {
   if (isCompleted && testResult) {
     return (
       <div 
-        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-        style={isCyberpunk ? themeStyles.background : {}}
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}
       >
         {/* Speaking Test Header */}
-        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
+        <div 
+          className={`${isKpop ? '' : themeClasses.headerBg} shadow-sm border-b ${isKpop ? '' : themeClasses.headerBorder}`}
+          style={isCyberpunk ? {
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+          } : {}}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test Results</h1>
+                <h1 
+                  className={`text-2xl font-bold ${themeClasses.headerText}`}
+                  style={isKpop ? {
+                    ...themeStyles.headerText
+                  } : {}}
+                >Speaking Test Results</h1>
               </div>
               
               <Button
@@ -367,15 +409,29 @@ const SpeakingTestPage = () => {
   if (!testData || questions.length === 0) {
     return (
       <div 
-        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-        style={isCyberpunk ? themeStyles.background : {}}
+        className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'}`}
+        style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}
       >
         {/* Speaking Test Header */}
-        <div className={`${themeClasses.headerBg} shadow-sm border-b ${themeClasses.headerBorder}`}>
+        <div 
+          className={`${isKpop ? '' : themeClasses.headerBg} shadow-sm border-b ${isKpop ? '' : themeClasses.headerBorder}`}
+          style={isCyberpunk ? {
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+          } : {}}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className={`text-2xl font-bold ${themeClasses.headerText}`}>Speaking Test</h1>
+                <h1 
+                  className={`text-2xl font-bold ${themeClasses.headerText}`}
+                  style={isKpop ? {
+                    ...themeStyles.headerText
+                  } : {}}
+                >Speaking Test</h1>
               </div>
               
               <Button
@@ -405,8 +461,8 @@ const SpeakingTestPage = () => {
   const currentQuestion = selectedQuestion;
 
   return (
-    <div className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-gray-50'}`}
-      style={isCyberpunk ? themeStyles.background : {}}>
+    <div className={`min-h-screen overflow-y-auto ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-gray-50'}`}
+      style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}>
       {/* Exit Confirmation Modal */}
       <PerfectModal
         isOpen={showExitModal}
@@ -423,11 +479,25 @@ const SpeakingTestPage = () => {
         </div>
       </PerfectModal>
       {/* Speaking Test Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div 
+        className={`${isKpop ? '' : themeClasses.headerBg} shadow-sm border-b ${isKpop ? '' : themeClasses.headerBorder}`}
+        style={isCyberpunk ? {
+          boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background,
+          borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+          boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+        } : {}}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Speaking Test</h1>
+              <h1 
+                className={`text-2xl font-bold ${themeClasses.headerText}`}
+                style={isKpop ? {
+                  ...themeStyles.headerText
+                } : {}}
+              >Speaking Test</h1>
             </div>
             
             <Button

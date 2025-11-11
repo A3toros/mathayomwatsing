@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '@/utils/themeUtils';
 import { calculateTestScore } from '../../utils/scoreCalculation';
 
 const TestResultsDisplay = ({ 
@@ -16,9 +16,8 @@ const TestResultsDisplay = ({
   getCorrectAnswer,
   caughtCheating = false
 }) => {
-  const { theme } = useTheme();
+  const { theme, isCyberpunk, isKpop } = useTheme();
   const themeStyles = getThemeStyles(theme);
-  const isCyberpunk = theme === 'cyberpunk';
   const [score, setScore] = useState(0);
   const [percentage, setPercentage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,16 +60,20 @@ const TestResultsDisplay = ({
 
   return (
     <div className={`test-results-page max-w-4xl mx-auto p-6 overflow-y-auto min-h-screen ${
-      isCyberpunk ? 'bg-black' : ''
+      isCyberpunk ? 'bg-black' : isKpop ? 'bg-black' : ''
     }`}
-    style={isCyberpunk ? themeStyles.background : {}}>
+    style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}>
       {/* Results Header */}
       <Card className={`mb-6 border-2 ${
-        isCyberpunk ? getCyberpunkCardBg(0).className : ''
+        isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''
       }`}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(0).style,
         ...themeStyles.glowRed
+      } : isKpop ? {
+        ...getKpopCardBg(0).style,
+        borderColor: KPOP_COLORS.primary,
+        ...themeStyles.glow
       } : {}}>
         <div className="results-header text-center">
           <h2 className={`text-2xl font-bold mb-2 ${
@@ -79,6 +82,8 @@ const TestResultsDisplay = ({
           style={isCyberpunk ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.headerText
           } : {}}>
             {isCyberpunk ? `TEST RESULTS: ${testName.toUpperCase()}` : `Test Results: ${testName}`}
           </h2>
@@ -99,26 +104,33 @@ const TestResultsDisplay = ({
       {/* Cheating Warning */}
       {caughtCheating && (
         <Card className={`mb-6 border-2 ${
-          isCyberpunk ? 'border' : 'border-red-500 bg-red-50'
+          isCyberpunk ? 'border' : isKpop ? 'border' : 'border-red-500 bg-red-50'
         }`}
         style={isCyberpunk ? {
           backgroundColor: CYBERPUNK_COLORS.black,
           borderColor: CYBERPUNK_COLORS.red,
           ...themeStyles.glowRed
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background,
+          borderColor: KPOP_COLORS.error,
+          ...themeStyles.glowRed
         } : {}}>
           <div className="flex items-start space-x-3 p-4">
             <div className="flex-shrink-0">
-              <svg className={`h-6 w-6 ${isCyberpunk ? '' : 'text-red-600'}`}
-                style={isCyberpunk ? { color: CYBERPUNK_COLORS.red } : {}}
+              <svg className={`h-6 w-6 ${isCyberpunk ? '' : isKpop ? '' : 'text-red-600'}`}
+                style={isCyberpunk ? { color: CYBERPUNK_COLORS.red } : isKpop ? { color: KPOP_COLORS.error } : {}}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
             <div className="flex-1">
-              <p className={isCyberpunk ? '' : 'text-red-700'}
+              <p className={isCyberpunk ? '' : isKpop ? '' : 'text-red-700'}
               style={isCyberpunk ? {
                 ...themeStyles.textRed,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                color: KPOP_COLORS.error,
+                ...themeStyles.textShadowRed
               } : {}}>
                 Suspicious activity was detected during this test. Your teacher has been notified.
               </p>
@@ -129,10 +141,14 @@ const TestResultsDisplay = ({
       
       {/* Results Summary */}
       <Card className={`mb-6 border-2 ${
-        isCyberpunk ? getCyberpunkCardBg(1).className : ''
+        isCyberpunk ? getCyberpunkCardBg(1).className : isKpop ? getKpopCardBg(1).className : ''
       }`}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(1).style,
+        ...themeStyles.glow
+      } : isKpop ? {
+        ...getKpopCardBg(1).style,
+        borderColor: KPOP_COLORS.primary,
         ...themeStyles.glow
       } : {}}>
         <div className="results-summary">
@@ -142,6 +158,8 @@ const TestResultsDisplay = ({
           style={isCyberpunk ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.headerText
           } : {}}>
             {isCyberpunk 
               ? `YOUR SCORE: ${score} / ${totalQuestions} (${percentage}%)`
@@ -152,12 +170,16 @@ const TestResultsDisplay = ({
           <div className={`w-full rounded-full h-4 mb-4 border ${
             isCyberpunk 
               ? 'bg-gray-800 border-cyan-400/50'
+              : isKpop
+              ? 'bg-black border-pink-500/50'
               : 'bg-gray-200'
           }`}
-          style={isCyberpunk ? themeStyles.glow : {}}>
+          style={isCyberpunk ? themeStyles.glow : isKpop ? {
+            ...themeStyles.glow
+          } : {}}>
             <div 
               className={`h-4 rounded-full transition-all duration-500 ${
-                isCyberpunk ? '' :
+                isCyberpunk ? '' : isKpop ? '' :
                 percentage >= 80 ? 'bg-green-500' :
                 percentage >= 60 ? 'bg-yellow-500' :
                 'bg-red-500'
@@ -165,6 +187,10 @@ const TestResultsDisplay = ({
               style={isCyberpunk ? {
                 background: `linear-gradient(to right, ${CYBERPUNK_COLORS.yellow}, ${CYBERPUNK_COLORS.cyan})`,
                 boxShadow: `0 0 10px ${CYBERPUNK_COLORS.cyan}`,
+                width: `${percentage}%`
+              } : isKpop ? {
+                background: `linear-gradient(to right, ${KPOP_COLORS.primary}, ${KPOP_COLORS.secondary})`,
+                boxShadow: `0 0 10px ${KPOP_COLORS.primary}`,
                 width: `${percentage}%`
               } : {width: `${percentage}%`}}
             ></div>
@@ -199,10 +225,14 @@ const TestResultsDisplay = ({
       {/* Questions Review */}
       {questions && questions.length > 0 && (
         <Card className={`mb-6 border-2 ${
-          isCyberpunk ? getCyberpunkCardBg(2).className : ''
+          isCyberpunk ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(1).className : ''
         }`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(2).style,
+          ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(1).style,
+          borderColor: KPOP_COLORS.primary,
           ...themeStyles.glow
         } : {}}>
           <div className="questions-review">
@@ -212,6 +242,8 @@ const TestResultsDisplay = ({
             style={isCyberpunk ? {
               ...themeStyles.textCyan,
               fontFamily: 'monospace'
+            } : isKpop ? {
+              ...themeStyles.headerText
             } : {}}>
               {isCyberpunk ? 'QUESTION REVIEW' : 'Question Review'}
             </h3>
@@ -226,6 +258,8 @@ const TestResultsDisplay = ({
                     className={`question-review p-4 rounded-lg border-2 ${
                       isCyberpunk 
                         ? 'border'
+                        : isKpop
+                        ? 'border'
                         : isCorrect 
                           ? 'bg-green-50 border-green-200' 
                           : 'bg-red-50 border-red-200'
@@ -233,6 +267,12 @@ const TestResultsDisplay = ({
                     style={isCyberpunk ? {
                       backgroundColor: CYBERPUNK_COLORS.black,
                       borderColor: isCorrect ? CYBERPUNK_COLORS.green : CYBERPUNK_COLORS.red,
+                      boxShadow: isCorrect 
+                        ? themeStyles.glow.boxShadow
+                        : themeStyles.glowRed.boxShadow
+                    } : isKpop ? {
+                      backgroundColor: KPOP_COLORS.background,
+                      borderColor: isCorrect ? KPOP_COLORS.success : KPOP_COLORS.error,
                       boxShadow: isCorrect 
                         ? themeStyles.glow.boxShadow
                         : themeStyles.glowRed.boxShadow
@@ -340,11 +380,15 @@ const TestResultsDisplay = ({
       
       {/* Results Actions */}
       <Card className={`border-2 ${
-        isCyberpunk ? getCyberpunkCardBg(0).className : ''
+        isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''
       }`}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(0).style,
         ...themeStyles.glowRed
+      } : isKpop ? {
+        ...getKpopCardBg(0).style,
+        borderColor: KPOP_COLORS.primary,
+        ...themeStyles.glow
       } : {}}>
         <div className="results-actions text-center">
           <Button 

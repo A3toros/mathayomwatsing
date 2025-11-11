@@ -18,6 +18,31 @@ export const CYBERPUNK_COLORS = {
 };
 
 /**
+ * BLACKPINK theme color palette - black and pink with glowing effects
+ */
+export const KPOP_COLORS = {
+  primary: '#ec4899',        // Pink-500 (BLACKPINK pink - main accent)
+  primaryDark: '#db2777',    // Pink-600 (darker pink)
+  primaryLight: '#f472b6',   // Pink-400 (lighter pink)
+  secondary: '#a855f7',      // Purple-500 (vibrant purple)
+  background: '#000000',     // Black (BLACKPINK black)
+  backgroundSecondary: '#1a0014', // Dark pink-black (deep background)
+  backgroundTertiary: '#2d1b3d',  // Dark purple-black
+  text: '#ffffff',           // White (bright text on dark)
+  textSecondary: '#fce7f3',  // Pink-50 (soft pink text)
+  textAccent: '#ec4899',    // Pink-500 (accent text)
+  border: '#ec4899',         // Pink-500 (glowing borders)
+  borderSecondary: '#a855f7', // Purple-500 (purple borders)
+  accent: '#f472b6',         // Pink-400 (bright accent)
+  glow: '#ec4899',           // Pink glow
+  glowPurple: '#a855f7',    // Purple glow
+  success: '#10b981',        // Green-500 (success states)
+  error: '#ef4444',          // Red-500 (error states)
+  white: '#ffffff',
+  black: '#000000',
+};
+
+/**
  * Converts hex color to rgba
  */
 const hexToRgba = (hex, alpha = 1) => {
@@ -74,8 +99,64 @@ export const getCyberpunkCardBg = (index = null) => {
 };
 
 /**
+ * Returns a varied BLACKPINK card background with dark backgrounds and glowing pink/purple borders
+ * Uses black/pink/purple color scheme with bright glowing effects
+ * @param {number} index - Optional index to determine color (for consistent coloring)
+ * @returns {Object} Object with className and style for card background
+ */
+export const getKpopCardBg = (index = null) => {
+  const colorConfigs = [
+    { 
+      background: '#1a0014', // Dark pink-black
+      border: KPOP_COLORS.primary,      // Pink-500
+      shadow: '0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 30px rgba(236, 72, 153, 0.2)'
+    },
+    { 
+      background: '#2d1b3d', // Dark purple-black
+      border: KPOP_COLORS.secondary,    // Purple-500
+      shadow: '0 0 30px rgba(168, 85, 247, 0.8), 0 0 60px rgba(168, 85, 247, 0.6), 0 0 90px rgba(168, 85, 247, 0.4), inset 0 0 30px rgba(168, 85, 247, 0.2)'
+    },
+    { 
+      background: '#1f0a1f', // Darker pink-black
+      border: KPOP_COLORS.primaryDark,  // Pink-600
+      shadow: '0 0 30px rgba(219, 39, 119, 0.8), 0 0 60px rgba(219, 39, 119, 0.6), 0 0 90px rgba(219, 39, 119, 0.4), inset 0 0 30px rgba(219, 39, 119, 0.2)'
+    },
+    { 
+      background: '#2a1b3d', // Dark purple variant
+      border: KPOP_COLORS.primaryLight, // Pink-400
+      shadow: '0 0 30px rgba(244, 114, 182, 0.8), 0 0 60px rgba(244, 114, 182, 0.6), 0 0 90px rgba(244, 114, 182, 0.4), inset 0 0 30px rgba(244, 114, 182, 0.2)'
+    },
+    { 
+      background: '#1a0a1a', // Deep black-pink
+      border: KPOP_COLORS.primary,      // Pink-500
+      shadow: '0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 30px rgba(236, 72, 153, 0.2)'
+    },
+    { 
+      background: '#2d1b3d', // Dark purple-black (repeat)
+      border: KPOP_COLORS.secondary,    // Purple-500
+      shadow: '0 0 30px rgba(168, 85, 247, 0.8), 0 0 60px rgba(168, 85, 247, 0.6), 0 0 90px rgba(168, 85, 247, 0.4), inset 0 0 30px rgba(168, 85, 247, 0.2)'
+    },
+  ];
+  
+  const selected = index !== null 
+    ? colorConfigs[index % colorConfigs.length]
+    : colorConfigs[Math.floor(Math.random() * colorConfigs.length)];
+  
+  // BLACKPINK style: Dark backgrounds with bright glowing pink/purple borders
+  return {
+    className: 'border-2',
+    style: {
+      backgroundColor: selected.background, // Dark black/pink/purple backgrounds
+      borderColor: selected.border, // Bright pink/purple glowing borders
+      borderWidth: '2px',
+      boxShadow: selected.shadow, // Glowing pink/purple shadows
+    }
+  };
+};
+
+/**
  * Returns theme-specific Tailwind CSS class mappings
- * @param {string} theme - 'light' | 'cyberpunk'
+ * @param {string} theme - 'light' | 'cyberpunk' | 'kpop'
  * @returns {Object} Object with theme-specific class names
  */
 export const getThemeClasses = (theme) => {
@@ -128,6 +209,30 @@ export const getThemeClasses = (theme) => {
       buttonRed: '', // Use inline style
       buttonYellow: '', // Use inline style
       buttonPurple: '', // Use inline style
+    },
+    kpop: {
+      // BLACKPINK THEME - BLACK AND PINK WITH GLOWING EFFECTS
+      background: 'bg-black',
+      backgroundSecondary: 'bg-black',
+      text: '', // Use inline style: { color: KPOP_COLORS.text }
+      textSecondary: '', // Use inline style: { color: KPOP_COLORS.textSecondary }
+      border: '', // Use inline style: { borderColor: KPOP_COLORS.border }
+      headerBg: 'bg-black',
+      headerText: '', // Use inline style: { color: KPOP_COLORS.primary }
+      headerBorder: '', // Use inline style: { borderColor: KPOP_COLORS.border }
+      buttonPrimary: '', // Use inline style with pink glow
+      buttonSecondary: '', // Use inline style
+      buttonOutline: '', // Use inline style
+      cardBg: '', // Use getKpopCardBg() instead
+      cardBorder: '', // Use getKpopCardBg() instead
+      inputBg: 'bg-black',
+      inputBorder: '', // Use inline style: { borderColor: KPOP_COLORS.border }
+      inputText: '', // Use inline style: { color: KPOP_COLORS.text }
+      progressBg: 'bg-black',
+      progressFill: '', // Use inline style with pink gradient
+      // Additional color variants
+      buttonPink: '', // Use inline style with pink glow
+      buttonPurple: '', // Use inline style with purple glow
     }
   };
   return themes[theme] || themes.cyberpunk;
@@ -135,7 +240,7 @@ export const getThemeClasses = (theme) => {
 
 /**
  * Returns theme-specific inline style objects
- * @param {string} theme - 'light' | 'cyberpunk'
+ * @param {string} theme - 'light' | 'cyberpunk' | 'kpop'
  * @returns {Object} Object with theme-specific inline styles
  */
 
@@ -198,6 +303,92 @@ export const getThemeStyles = (theme) => {
       }
     };
   }
+  
+  if (theme === 'kpop') {
+    return {
+      background: {
+        backgroundColor: KPOP_COLORS.background,
+        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%), radial-gradient(circle at 40% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%)'
+      },
+      backgroundSecondary: {
+        backgroundColor: KPOP_COLORS.backgroundSecondary
+      },
+      // Bright glowing pink/purple shadows - BLACKPINK style (ENHANCED)
+      glow: {
+        boxShadow: `0 0 30px ${KPOP_COLORS.glow}, 0 0 60px ${KPOP_COLORS.glow}, 0 0 90px ${KPOP_COLORS.glow}, 0 0 120px rgba(236, 72, 153, 0.3)`
+      },
+      glowPurple: {
+        boxShadow: `0 0 30px ${KPOP_COLORS.glowPurple}, 0 0 60px ${KPOP_COLORS.glowPurple}, 0 0 90px ${KPOP_COLORS.glowPurple}, 0 0 120px rgba(168, 85, 247, 0.3)`
+      },
+      glowRed: {
+        boxShadow: `0 0 30px ${KPOP_COLORS.primary}, 0 0 60px ${KPOP_COLORS.primary}, 0 0 90px ${KPOP_COLORS.primary}, 0 0 120px rgba(236, 72, 153, 0.3)`
+      },
+      shadow: {
+        boxShadow: `0 0 20px ${KPOP_COLORS.glow}, 0 0 40px ${KPOP_COLORS.glow}, 0 0 60px rgba(236, 72, 153, 0.4)`
+      },
+      shadowMd: {
+        boxShadow: `0 0 30px ${KPOP_COLORS.glow}, 0 0 60px ${KPOP_COLORS.glow}, 0 0 90px rgba(236, 72, 153, 0.4)`
+      },
+      shadowLg: {
+        boxShadow: `0 0 40px ${KPOP_COLORS.glow}, 0 0 80px ${KPOP_COLORS.glow}, 0 0 120px rgba(236, 72, 153, 0.5)`
+      },
+      // Bright glowing text shadows - BLACKPINK style (ENHANCED)
+      textShadow: {
+        textShadow: `0 0 15px ${KPOP_COLORS.glow}, 0 0 30px ${KPOP_COLORS.glow}, 0 0 45px ${KPOP_COLORS.glow}, 0 0 60px rgba(236, 72, 153, 0.4)`
+      },
+      textShadowMd: {
+        textShadow: `0 0 12px ${KPOP_COLORS.glow}, 0 0 24px ${KPOP_COLORS.glow}, 0 0 36px rgba(236, 72, 153, 0.5)`
+      },
+      textShadowRed: {
+        textShadow: `0 0 15px ${KPOP_COLORS.primary}, 0 0 30px ${KPOP_COLORS.primary}, 0 0 45px rgba(236, 72, 153, 0.6)`
+      },
+      // Bright pink/purple text colors with glow (ENHANCED)
+      textPink: {
+        color: KPOP_COLORS.primary,
+        textShadow: `0 0 15px ${KPOP_COLORS.primary}, 0 0 30px ${KPOP_COLORS.primary}, 0 0 45px ${KPOP_COLORS.primary}, 0 0 60px rgba(236, 72, 153, 0.5)`
+      },
+      textPurple: {
+        color: KPOP_COLORS.secondary,
+        textShadow: `0 0 15px ${KPOP_COLORS.secondary}, 0 0 30px ${KPOP_COLORS.secondary}, 0 0 45px ${KPOP_COLORS.secondary}, 0 0 60px rgba(168, 85, 247, 0.5)`
+      },
+      textWhite: {
+        color: KPOP_COLORS.text,
+        textShadow: `0 0 10px ${KPOP_COLORS.glow}, 0 0 20px ${KPOP_COLORS.glow}, 0 0 30px rgba(236, 72, 153, 0.4)`
+      },
+      textAccent: {
+        color: KPOP_COLORS.textAccent,
+        textShadow: `0 0 12px ${KPOP_COLORS.textAccent}, 0 0 24px ${KPOP_COLORS.textAccent}, 0 0 36px rgba(236, 72, 153, 0.5)`
+      },
+      // Legacy names for compatibility (ENHANCED)
+      textViolet: {
+        color: KPOP_COLORS.primary,
+        textShadow: `0 0 15px ${KPOP_COLORS.primary}, 0 0 30px ${KPOP_COLORS.primary}, 0 0 45px rgba(236, 72, 153, 0.5)`
+      },
+      textVioletDark: {
+        color: KPOP_COLORS.text,
+        textShadow: `0 0 8px ${KPOP_COLORS.glow}, 0 0 16px rgba(236, 72, 153, 0.3)`
+      },
+      textVioletLight: {
+        color: KPOP_COLORS.primaryLight,
+        textShadow: `0 0 12px ${KPOP_COLORS.primaryLight}, 0 0 24px ${KPOP_COLORS.primaryLight}, 0 0 36px rgba(244, 114, 182, 0.5)`
+      },
+      // Button hover effects
+      buttonHover: {
+        transition: 'all 0.2s ease-in-out'
+      },
+      // Header gradient - black to pink with more pink accent
+      headerGradient: {
+        background: 'linear-gradient(135deg, #000000 0%, #1a0014 20%, #ec4899 60%, #f472b6 100%)',
+        boxShadow: `0 0 30px ${KPOP_COLORS.primary}, 0 0 60px ${KPOP_COLORS.primary}, 0 0 90px rgba(236, 72, 153, 0.5), inset 0 0 30px rgba(236, 72, 153, 0.2)`
+      },
+      // Header text with glow - pink text with white outline
+      headerText: {
+        color: KPOP_COLORS.primary,
+        textShadow: `-1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff, 0 -1px 0 #ffffff, 0 1px 0 #ffffff, -1px 0 0 #ffffff, 1px 0 0 #ffffff, 0 0 15px ${KPOP_COLORS.primary}, 0 0 30px ${KPOP_COLORS.primary}, 0 0 45px ${KPOP_COLORS.primary}, 0 0 60px rgba(236, 72, 153, 0.5)`
+      }
+    };
+  }
+  
   // Light theme: NO special styles - return empty object to use default/standard styling
   // This ensures we restore the original appearance without any cyberpunk effects
   return {};
@@ -205,7 +396,7 @@ export const getThemeStyles = (theme) => {
 
 /**
  * Applies theme to document root (for CSS variables or data attributes)
- * @param {string} theme - 'light' | 'cyberpunk'
+ * @param {string} theme - 'light' | 'cyberpunk' | 'kpop'
  */
 export const applyThemeToDocument = (theme) => {
   if (typeof document === 'undefined') return;
@@ -213,6 +404,8 @@ export const applyThemeToDocument = (theme) => {
   // Set data-theme attribute on document root
   if (theme === 'cyberpunk') {
     document.documentElement.setAttribute('data-theme', 'cyberpunk');
+  } else if (theme === 'kpop') {
+    document.documentElement.setAttribute('data-theme', 'kpop');
   } else {
     document.documentElement.setAttribute('data-theme', 'light');
   }

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTest } from '@/contexts/TestContext';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '@/utils/themeUtils';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -82,7 +82,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const { studentData, loadStudentData } = useUser();
   const { activeTests, testResults, loadActiveTests, loadTestResults, viewTestDetails, testDetailsModal, closeTestDetailsModal } = useTest();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // Debug: Log when cabinet mounts/renders
@@ -699,8 +699,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
   
   return (
     <motion.div 
-      className={`min-h-screen ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : 'bg-white'}`}
-      style={isCyberpunk ? themeStyles.background : {}}
+      className={`min-h-screen ${isCyberpunk ? 'bg-gradient-to-br from-black via-gray-900 to-purple-900' : isKpop ? 'bg-black' : 'bg-white'}`}
+      style={isCyberpunk ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -709,9 +709,13 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
 
       {/* Student Cabinet Header */}
       <motion.div 
-        className={`${themeClasses.headerBg} border-b-2 ${themeClasses.headerBorder}`}
+        className={`${isKpop ? '' : themeClasses.headerBg} border-b-2 ${isKpop ? '' : themeClasses.headerBorder}`}
         style={isCyberpunk ? {
           boxShadow: '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1)'
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background,
+          borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+          boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
         } : {}}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -731,10 +735,14 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                   className={`h-12 w-12 rounded-full flex items-center justify-center border-2 ${
                     isCyberpunk
                       ? 'bg-cyan-400/20 border-cyan-400'
+                      : isKpop
+                      ? 'bg-pink-500/20 border-pink-500'
                       : 'bg-white/20 border-white'
                   }`}
                   style={isCyberpunk ? {
                     boxShadow: '0 0 10px rgba(0, 255, 255, 0.5)'
+                  } : isKpop ? {
+                    boxShadow: '0 2px 4px rgba(139, 92, 246, 0.2)'
                   } : {}}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -745,6 +753,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                     className={`font-semibold text-xl ${
                       isCyberpunk
                         ? 'text-cyan-400 tracking-wider'
+                        : isKpop
+                        ? ''
                         : 'text-white'
                     }`}
                     style={isCyberpunk ? { 
@@ -766,6 +776,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                          style={isCyberpunk ? {
                            ...themeStyles.textCyan,
                            fontFamily: 'monospace'
+                         } : isKpop ? {
+                           ...themeStyles.headerText
                          } : {}}
                        >
                          {isCyberpunk
@@ -803,6 +815,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                      className={`flex items-center space-x-1 sm:space-x-2 border-2 font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 cursor-pointer px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm ${
                        isCyberpunk
                          ? 'bg-cyan-400/10 border-cyan-400 text-cyan-400 hover:bg-cyan-400/20 focus:ring-cyan-400 tracking-wider'
+                         : isKpop
+                         ? 'bg-pink-500/10 border-pink-400 text-pink-400 hover:bg-pink-500/20 focus:ring-pink-400'
                          : 'bg-white/10 border-white text-white hover:bg-white/20 focus:ring-white'
                      }`}
                      style={isCyberpunk ? { 
@@ -832,11 +846,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                     className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg z-50 overflow-hidden border-2 ${
                       isCyberpunk 
                         ? getCyberpunkCardBg(0).className
+                        : isKpop
+                        ? getKpopCardBg(0).className
                         : 'bg-white'
                     }`}
                     style={isCyberpunk ? {
                       ...getCyberpunkCardBg(0).style,
                       ...themeStyles.glow
+                    } : isKpop ? {
+                      ...getKpopCardBg(0).style
                     } : {}}
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -849,12 +867,16 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
                           isCyberpunk 
                             ? 'hover:bg-cyan-400/30' 
+                            : isKpop
+                            ? 'text-pink-400 hover:bg-pink-500/20'
                             : 'text-gray-700 hover:bg-blue-50'
                         }`}
                         style={isCyberpunk ? {
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace',
                           ...themeStyles.textShadow
+                        } : isKpop ? {
+                          color: KPOP_COLORS.primary
                         } : {}}
                         whileHover={{ x: 4 }}
                         transition={{ duration: 0.2 }}
@@ -869,12 +891,16 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
                           isCyberpunk 
                             ? 'hover:bg-cyan-400/30' 
+                            : isKpop
+                            ? 'text-pink-400 hover:bg-pink-500/20'
                             : 'text-gray-700 hover:bg-gray-50'
                         }`}
                         style={isCyberpunk ? {
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace',
                           ...themeStyles.textShadow
+                        } : isKpop ? {
+                          color: KPOP_COLORS.primary
                         } : {}}
                         whileHover={{ x: 4 }}
                         transition={{ duration: 0.2 }}
@@ -889,12 +915,16 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
                           isCyberpunk 
                             ? 'hover:bg-red-400/30' 
+                            : isKpop
+                            ? 'text-red-600 hover:bg-red-50'
                             : 'text-gray-700 hover:bg-red-50'
                         }`}
                         style={isCyberpunk ? {
                           color: CYBERPUNK_COLORS.red,
                           fontFamily: 'monospace',
                           ...themeStyles.textShadowRed
+                        } : isKpop ? {
+                          color: KPOP_COLORS.error
                         } : {}}
                         whileHover={{ x: 4 }}
                         transition={{ duration: 0.2 }}
@@ -947,7 +977,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                       >
                         {averageScore}%
                       </motion.div>
-                      <p className="text-sm text-gray-500">Overall Performance</p>
+                      <p className={`text-sm ${
+                        isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
+                      }`}
+                      style={isCyberpunk ? {
+                        color: CYBERPUNK_COLORS.yellow,
+                        fontFamily: 'monospace'
+                      } : isKpop ? {
+                        ...themeStyles.textAccent
+                      } : {}}>Overall Performance</p>
                     </motion.div>
                   </Card.Body>
                 </Card>
@@ -965,17 +1003,28 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             transition={{ delay: 0.6, duration: 0.5 }}
             >
               <Card 
-                className={isCyberpunk ? getCyberpunkCardBg(0).className : ''}
+                className={isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : ''}
                 style={isCyberpunk ? {
                   ...getCyberpunkCardBg(0).style,
                   boxShadow: '0 0 20px rgba(255, 0, 60, 0.3), 0 0 40px rgba(255, 0, 60, 0.2)'
+                } : isKpop ? {
+                  ...getKpopCardBg(0).style,
+                  ...themeStyles.glow
                 } : {}}>
-                <Card.Header>
-                  <Card.Title className={`text-center ${isCyberpunk ? '' : ''}`}
+                <Card.Header style={isKpop ? {
+                  backgroundColor: KPOP_COLORS.background,
+                  borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+                  padding: '1.5rem',
+                  borderRadius: '0.5rem 0.5rem 0 0',
+                  boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+                } : {}}>
+                  <Card.Title className={`text-center ${isCyberpunk ? '' : isKpop ? '' : ''}`}
                     style={isCyberpunk ? {
                       ...themeStyles.textCyan,
                       fontFamily: 'monospace',
                       color: CYBERPUNK_COLORS.cyan
+                    } : isKpop ? {
+                      ...themeStyles.headerText
                     } : {}}>
                     {isCyberpunk ? 'ACTIVE TESTS' : 'Active Tests'}
                   </Card.Title>
@@ -986,11 +1035,40 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                       {/* Loading Overlay */}
                       {logger.debug('🎓 Rendering overlay, isStartingTest:', isStartingTest)}
                       {isStartingTest && (
-                        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50 rounded-lg border-2 border-blue-200">
+                        <div className={`absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50 rounded-lg border-2 ${
+                          isCyberpunk ? 'border-cyan-400' : isKpop ? 'border-pink-500' : 'border-blue-200'
+                        }`}
+                        style={isCyberpunk ? {
+                          backgroundColor: CYBERPUNK_COLORS.black + 'E6',
+                          borderColor: CYBERPUNK_COLORS.cyan
+                        } : isKpop ? {
+                          borderColor: KPOP_COLORS.border
+                        } : {}}>
                           <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-                            <p className="text-blue-600 font-semibold text-lg">Starting test...</p>
-                            <p className="text-gray-500 text-sm mt-1">Please wait...</p>
+                            <div className={`animate-spin rounded-full h-12 w-12 border-4 mx-auto mb-4 ${
+                              isCyberpunk ? 'border-cyan-400/30 border-t-cyan-400' : isKpop ? 'border-pink-500/30 border-t-pink-500' : 'border-blue-200 border-t-blue-600'
+                            }`}
+                            style={isKpop ? {
+                              ...themeStyles.glow
+                            } : {}}></div>
+                            <p className={`font-semibold text-lg ${
+                              isCyberpunk ? 'text-cyan-400' : isKpop ? '' : 'text-blue-600'
+                            }`}
+                        style={isCyberpunk ? {
+                          color: CYBERPUNK_COLORS.cyan,
+                          fontFamily: 'monospace'
+                        } : isKpop ? {
+                          ...themeStyles.textPink
+                        } : {}}>Starting test...</p>
+                            <p className={`text-sm mt-1 ${
+                              isCyberpunk ? 'text-cyan-400' : isKpop ? '' : 'text-gray-500'
+                            }`}
+                            style={isCyberpunk ? {
+                              color: CYBERPUNK_COLORS.cyan,
+                              fontFamily: 'monospace'
+                            } : isKpop ? {
+                              ...themeStyles.textAccent
+                            } : {}}>Please wait...</p>
                           </div>
                         </div>
                       )}
@@ -1002,6 +1080,8 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                           className={`rounded-lg p-4 transition-shadow ${
                             isCyberpunk 
                               ? getCyberpunkCardBg(index + 1).className
+                              : isKpop
+                              ? getKpopCardBg(index + 1).className
                               : 'border border-gray-200 hover:shadow-md'
                           }`}
                           style={isCyberpunk ? {
@@ -1010,6 +1090,9 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                       (index + 1) % 4 === 1 ? themeStyles.glowYellow.boxShadow :
                                       (index + 1) % 4 === 2 ? themeStyles.glowPurple.boxShadow :
                                       themeStyles.glow.boxShadow
+                          } : isKpop ? {
+                            ...getKpopCardBg(index + 1).style,
+                            ...(index % 2 === 0 ? themeStyles.glow : themeStyles.glowPurple)
                           } : {}}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -1020,21 +1103,25 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                             <div className="flex-1">
                               {/* Mobile: Two-line layout */}
                               <div className="sm:hidden">
-                                <h3 className={`text-sm font-medium mb-1 break-words leading-tight ${
-                                  isCyberpunk ? '' : 'text-gray-900'
+                                <h3                                 className={`text-sm font-medium mb-1 break-words leading-tight ${
+                                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-900'
                                 }`}
                                 style={isCyberpunk ? {
                                   ...themeStyles.textCyan,
                                   fontFamily: 'monospace'
+                                } : isKpop ? {
+                                  ...themeStyles.textWhite
                                 } : {}}>
                                   {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
                                 </h3>
                                 <div className={`flex items-center space-x-2 text-xs ${
-                                  isCyberpunk ? '' : 'text-gray-500'
+                                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                                 }`}
                                 style={isCyberpunk ? {
                                   color: CYBERPUNK_COLORS.cyan,
                                   fontFamily: 'monospace'
+                                } : isKpop ? {
+                                  ...themeStyles.textAccent
                                 } : {}}>
                                   <span>{test.teacher_name}</span>
                                   <span>•</span>
@@ -1044,32 +1131,43 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                               {/* Desktop: Single line layout */}
                               <div className="hidden sm:flex items-center space-x-3 text-sm">
                                 <h3 className={`text-lg font-medium break-words leading-tight ${
-                                  isCyberpunk ? '' : 'text-gray-900'
+                                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-900'
                                 }`}
                                 style={isCyberpunk ? {
                                   ...themeStyles.textCyan,
                                   fontFamily: 'monospace'
+                                } : isKpop ? {
+                                  ...themeStyles.textWhite
                                 } : {}}>
                                   {isCyberpunk ? test.test_name.toUpperCase() : test.test_name}
                                 </h3>
                                 <span className={`px-2 py-1 rounded text-xs ${
                                   isCyberpunk 
                                     ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50' 
+                                    : isKpop
+                                    ? 'bg-pink-500/20 text-pink-400 border border-pink-500'
                                     : 'bg-blue-100 text-blue-800'
-                                }`}>
+                                }`}
+                                style={isKpop ? {
+                                  ...themeStyles.glow
+                                } : {}}>
                                   {test.subject}
                                 </span>
-                                <span className={isCyberpunk ? '' : 'text-gray-500'}
+                                <span className={isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'}
                                 style={isCyberpunk ? {
                                   color: CYBERPUNK_COLORS.cyan,
                                   fontFamily: 'monospace'
+                                } : isKpop ? {
+                                  ...themeStyles.textAccent
                                 } : {}}>
                                   {test.teacher_name}
                                 </span>
-                                <span className={isCyberpunk ? '' : 'text-gray-500'}
+                                <span className={isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'}
                                 style={isCyberpunk ? {
                                   color: CYBERPUNK_COLORS.cyan,
                                   fontFamily: 'monospace'
+                                } : isKpop ? {
+                                  ...themeStyles.textAccent
                                 } : {}}>
                                   {new Date(test.assigned_at).toLocaleDateString()}
                                 </span>
@@ -1140,7 +1238,13 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                       variant="secondary"
                                       size="sm"
                                       disabled
-                                      className="bg-gray-100 text-gray-500 border-gray-200"
+                                      className={isCyberpunk ? '' : isKpop ? 'bg-pink-500/20 text-pink-400 border-pink-500/50' : 'bg-gray-100 text-gray-500 border-gray-200'}
+                                      style={isCyberpunk ? {
+                                        backgroundColor: CYBERPUNK_COLORS.black,
+                                        borderColor: CYBERPUNK_COLORS.cyan,
+                                        color: CYBERPUNK_COLORS.cyan,
+                                        fontFamily: 'monospace'
+                                      } : {}}
                                     >
                                       Loading...
                                     </Button>
@@ -1169,7 +1273,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                         size="sm"
                                         onClick={() => handleTestStart(test)}
                                         disabled={isStartingTest}
-                                        className={isCyberpunk ? '' : ''}
+                                        className={isCyberpunk ? '' : isKpop ? 'bg-pink-500 text-white hover:bg-pink-600' : ''}
                                         style={isCyberpunk ? {
                                           backgroundColor: CYBERPUNK_COLORS.black,
                                           borderColor: CYBERPUNK_COLORS.cyan,
@@ -1177,6 +1281,9 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                           fontFamily: 'monospace',
                                           borderWidth: '2px',
                                           ...themeStyles.glow
+                                        } : isKpop ? {
+                                          backgroundColor: KPOP_COLORS.primary,
+                                          color: KPOP_COLORS.white
                                         } : {}}
                                       >
                                         {isCyberpunk ? 'START RETEST' : 'Start Retest'}
@@ -1215,7 +1322,7 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                     size="sm"
                                     onClick={() => handleTestStart(test)}
                                     disabled={isStartingTest}
-                                    className={isCyberpunk ? '' : ''}
+                                    className={isCyberpunk ? '' : isKpop ? 'bg-pink-500 text-white hover:bg-pink-600' : ''}
                                     style={isCyberpunk ? {
                                       backgroundColor: CYBERPUNK_COLORS.black,
                                       borderColor: CYBERPUNK_COLORS.cyan,
@@ -1223,6 +1330,10 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                                       fontFamily: 'monospace',
                                       borderWidth: '2px',
                                       ...themeStyles.glow
+                                    } : isKpop ? {
+                                      backgroundColor: KPOP_COLORS.primary,
+                                      color: KPOP_COLORS.white,
+                                      borderWidth: '0px'
                                     } : {}}
                                   >
                                     {isCyberpunk ? 'START TEST' : 'Start Test'}
@@ -1261,7 +1372,15 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
                       />
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">No Active Tests</h3>
+                      <h3 className={`text-lg font-semibold mb-2 ${
+                        isCyberpunk ? '' : isKpop ? '' : 'text-gray-800'
+                      }`}
+                      style={isCyberpunk ? {
+                        ...themeStyles.textCyan,
+                        fontFamily: 'monospace'
+                      } : isKpop ? {
+                        ...themeStyles.textPink
+                      } : {}}>No Active Tests</h3>
                     </motion.div>
                   )}
                 </Card.Body>
@@ -1275,17 +1394,29 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
             transition={{ delay: 0.8, duration: 0.5 }}
             >
               <Card 
-                className={isCyberpunk ? getCyberpunkCardBg(2).className : ''}
+                className={`${isCyberpunk ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(2).className : ''}`}
+                paddingClass="py-6 px-3 sm:p-6"
                 style={isCyberpunk ? {
                   ...getCyberpunkCardBg(2).style,
                   ...themeStyles.glowPurple
+                } : isKpop ? {
+                  ...getKpopCardBg(2).style,
+                  ...themeStyles.glowPurple
                 } : {}}
               >
-                <Card.Header>
-                  <Card.Title className={isCyberpunk ? '' : ''}
+                <Card.Header style={isKpop ? {
+                  backgroundColor: KPOP_COLORS.background,
+                  borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+                  padding: '1.5rem',
+                  borderRadius: '0.5rem 0.5rem 0 0',
+                  boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
+                } : {}}>
+                  <Card.Title className={`${isCyberpunk ? '' : isKpop ? '' : ''} text-center`}
                   style={isCyberpunk ? {
                     ...themeStyles.textCyan,
                     fontFamily: 'monospace'
+                  } : isKpop ? {
+                    ...themeStyles.headerText
                   } : {}}>
                     {isCyberpunk ? 'TEST RESULTS' : 'Test Results'}
                   </Card.Title>

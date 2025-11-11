@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import AudioPlayer from './AudioPlayer';
 
 const FeedbackDisplay = ({ 
@@ -16,7 +16,7 @@ const FeedbackDisplay = ({
   isSubmitting = false
 }) => {
   // Theme hook
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   const [showDetailedFeedback, setShowDetailedFeedback] = useState(false);
@@ -77,6 +77,9 @@ const FeedbackDisplay = ({
     style={isCyberpunk ? {
       ...getCyberpunkCardBg(0).style,
       ...themeStyles.glow
+    } : isKpop ? {
+      ...getKpopCardBg(0).style,
+      borderColor: KPOP_COLORS.primary
     } : {}}>
       <div className="mb-6">
         <h2 className={`text-2xl font-bold mb-2 ${
@@ -85,6 +88,8 @@ const FeedbackDisplay = ({
         style={isCyberpunk ? {
           ...themeStyles.textCyan,
           fontFamily: 'monospace'
+        } : isKpop ? {
+          ...themeStyles.headerText
         } : {}}>
           {isCyberpunk ? 'SPEAKING TEST RESULTS' : 'Speaking Test Results'}
         </h2>
@@ -101,11 +106,14 @@ const FeedbackDisplay = ({
 
       {/* Overall Score */}
       <div className={`p-3 sm:p-6 rounded-lg mb-6 border-2 ${
-        isCyberpunk ? getCyberpunkCardBg(1).className : 'bg-gradient-to-r from-blue-50 to-green-50'
+        isCyberpunk ? getCyberpunkCardBg(1).className : isKpop ? getKpopCardBg(1).className : 'bg-gradient-to-r from-blue-50 to-green-50'
       }`}
       style={isCyberpunk ? {
         ...getCyberpunkCardBg(1).style,
         ...themeStyles.glow
+      } : isKpop ? {
+        ...getKpopCardBg(1).style,
+        borderColor: KPOP_COLORS.primary
       } : {}}>
         <div className="text-center">
           <div className={`text-4xl font-bold ${
@@ -486,12 +494,15 @@ const FeedbackDisplay = ({
 
       {/* AI Feedback - Prominent Display */}
       {scores?.feedback && (
-        <div className={`mb-6 p-3 sm:p-6 rounded-lg border-2 ${
-          isCyberpunk ? getCyberpunkCardBg(2).className : 'bg-gradient-to-r from-green-50 to-blue-50 border-green-200'
+        <div className={`mb-6 py-3 px-0 sm:p-6 rounded-lg border-2 ${
+          isCyberpunk ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(2).className : 'bg-gradient-to-r from-green-50 to-blue-50 border-green-200'
         }`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(2).style,
           ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(2).style,
+          borderColor: KPOP_COLORS.primary
         } : {}}>
           <div className="flex items-start space-x-3">
             <span className="text-2xl">🤖</span>
@@ -522,11 +533,14 @@ const FeedbackDisplay = ({
       {/* Improved Transcript */}
       {scores?.improved_transcript && (
         <div className={`mb-6 rounded-lg p-3 sm:p-4 border-2 ${
-          isCyberpunk ? getCyberpunkCardBg(0).className : 'bg-green-50 border-green-200'
+          isCyberpunk ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(0).className : 'bg-green-50 border-green-200'
         }`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(0).style,
           ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(0).style,
+          borderColor: KPOP_COLORS.primary
         } : {}}>
           <div className="flex items-start space-x-2 mb-3">
             <span className="text-lg">✨</span>
@@ -595,11 +609,14 @@ const FeedbackDisplay = ({
       {/* Detailed Feedback */}
       {showDetailedFeedback && (
         <div className={`mb-6 p-3 sm:p-4 rounded-lg border-2 ${
-          isCyberpunk ? getCyberpunkCardBg(2).className : 'bg-blue-50'
+          isCyberpunk ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(2).className : 'bg-blue-50'
         }`}
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(2).style,
           ...themeStyles.glow
+        } : isKpop ? {
+          ...getKpopCardBg(2).style,
+          borderColor: KPOP_COLORS.primary
         } : {}}>
           <h4 className={`font-semibold mb-3 ${
             isCyberpunk ? '' : ''
@@ -1018,7 +1035,7 @@ const FeedbackDisplay = ({
             borderColor: !isSubmitting ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
             color: !isSubmitting ? CYBERPUNK_COLORS.cyan : CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace',
-            ...(!isSubmitting ? themeStyles.glow : {})
+            ...(isKpop ? {} : (!isSubmitting ? themeStyles.glow : {}))
           } : {}}
         >
           {isSubmitting ? (

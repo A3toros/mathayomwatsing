@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/components-ui-index';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import PerfectModal from '@/components/ui/PerfectModal';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '@/utils/themeUtils';
 
 // TEST RESULTS COMPONENT - Complete Test Results Display
 // ✅ COMPLETED: Full test results rendering with detailed analysis
@@ -27,7 +27,7 @@ const TestResults = ({
   isCyberpunk
 }) => {
   const [isNavigating, setIsNavigating] = useState(false);
-  const { theme } = useTheme();
+  const { theme, isKpop } = useTheme();
   const themeStyles = getThemeStyles(theme);
   const cyberpunkMode = isCyberpunk !== undefined ? isCyberpunk : theme === 'cyberpunk';
 
@@ -93,8 +93,8 @@ const TestResults = ({
   }
 
   return (
-    <div className={`${cyberpunkMode ? 'bg-black' : 'bg-gray-50'} py-8 overflow-y-auto`}
-      style={cyberpunkMode ? themeStyles.background : {}}>
+    <div className={`${cyberpunkMode ? 'bg-black' : isKpop ? 'bg-black' : 'bg-gray-50'} py-8 overflow-y-auto`}
+      style={cyberpunkMode ? themeStyles.background : isKpop ? themeStyles.backgroundSecondary : {}}>
       {/* Loading Modal */}
       <PerfectModal
         isOpen={isNavigating}
@@ -115,11 +115,17 @@ const TestResults = ({
           className={`rounded-lg shadow-lg p-6 mb-6 border-2 ${
             cyberpunkMode 
               ? getCyberpunkCardBg(0).className
+              : isKpop
+              ? getKpopCardBg(0).className
               : 'bg-white'
           }`}
           style={cyberpunkMode ? {
             ...getCyberpunkCardBg(0).style,
             ...themeStyles.glowRed
+          } : isKpop ? {
+            ...getKpopCardBg(0).style,
+            borderColor: KPOP_COLORS.primary,
+            ...themeStyles.glow
           } : {}}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -130,26 +136,35 @@ const TestResults = ({
             <div className={`mb-6 border-2 rounded-lg ${
               cyberpunkMode 
                 ? 'border'
+                : isKpop
+                ? 'border'
                 : 'border-red-500 bg-red-50'
             }`}
             style={cyberpunkMode ? {
               backgroundColor: CYBERPUNK_COLORS.black,
               borderColor: CYBERPUNK_COLORS.red,
               ...themeStyles.glowRed
+            } : isKpop ? {
+              backgroundColor: KPOP_COLORS.background,
+              borderColor: KPOP_COLORS.error,
+              ...themeStyles.glowRed
             } : {}}>
               <div className="flex items-start space-x-3 p-4">
                 <div className="flex-shrink-0">
-                  <svg className={`h-6 w-6 ${cyberpunkMode ? '' : 'text-red-600'}`}
-                    style={cyberpunkMode ? { color: CYBERPUNK_COLORS.red } : {}}
+                  <svg className={`h-6 w-6 ${cyberpunkMode ? '' : isKpop ? '' : 'text-red-600'}`}
+                    style={cyberpunkMode ? { color: CYBERPUNK_COLORS.red } : isKpop ? { color: KPOP_COLORS.error } : {}}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className={cyberpunkMode ? '' : 'text-red-700'}
+                  <p className={cyberpunkMode ? '' : isKpop ? '' : 'text-red-700'}
                     style={cyberpunkMode ? {
                       ...themeStyles.textRed,
                       fontFamily: 'monospace'
+                    } : isKpop ? {
+                      color: KPOP_COLORS.error,
+                      ...themeStyles.textShadowRed
                     } : {}}>
                     Suspicious activity was detected during this test. Your teacher has been notified.
                   </p>
@@ -166,6 +181,8 @@ const TestResults = ({
               style={cyberpunkMode ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.headerText
               } : {}}>
                 {cyberpunkMode ? 'TEST RESULTS' : 'Test Results'}
               </h1>
@@ -175,6 +192,8 @@ const TestResults = ({
               style={cyberpunkMode ? {
                 ...themeStyles.textYellow,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.headerText
               } : {}}>
                 {testInfo?.test_name || 'Test'}
               </h2>
@@ -213,10 +232,16 @@ const TestResults = ({
             <div className={`text-center p-4 rounded-lg border ${
               cyberpunkMode 
                 ? getCyberpunkCardBg(1).className
+                : isKpop
+                ? getKpopCardBg(1).className
                 : 'bg-gray-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(1).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(1).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}>
               <div className={`text-3xl font-bold ${
@@ -241,10 +266,16 @@ const TestResults = ({
             <div className={`text-center p-4 rounded-lg border ${
               cyberpunkMode 
                 ? getCyberpunkCardBg(2).className
+                : isKpop
+                ? getKpopCardBg(2).className
                 : 'bg-gray-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(2).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(2).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}>
               <div className={`text-3xl font-bold ${
@@ -269,10 +300,16 @@ const TestResults = ({
             <div className={`text-center p-4 rounded-lg border ${
               cyberpunkMode 
                 ? getCyberpunkCardBg(3).className
+                : isKpop
+                ? getKpopCardBg(0).className
                 : 'bg-gray-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(3).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(0).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}>
               <div className={`text-3xl font-bold ${
@@ -303,16 +340,23 @@ const TestResults = ({
           <div className={`w-full rounded-full h-3 mb-6 border ${
             cyberpunkMode 
               ? 'bg-gray-800 border-cyan-400/50'
+              : isKpop
+              ? 'bg-black border-pink-500/50'
               : 'bg-gray-200'
           }`}
-          style={cyberpunkMode ? themeStyles.glow : {}}>
+          style={cyberpunkMode ? themeStyles.glow : isKpop ? {
+            ...themeStyles.glow
+          } : {}}>
             <motion.div 
               className={`h-3 rounded-full ${
-                cyberpunkMode ? '' : getScoreColor(percentage).split(' ')[1]
+                cyberpunkMode ? '' : isKpop ? '' : getScoreColor(percentage).split(' ')[1]
               }`}
               style={cyberpunkMode ? {
                 background: `linear-gradient(to right, ${CYBERPUNK_COLORS.yellow}, ${CYBERPUNK_COLORS.cyan})`,
                 boxShadow: `0 0 10px ${CYBERPUNK_COLORS.cyan}`
+              } : isKpop ? {
+                background: `linear-gradient(to right, ${KPOP_COLORS.primary}, ${KPOP_COLORS.secondary})`,
+                boxShadow: `0 0 10px ${KPOP_COLORS.primary}`
               } : {}}
               initial={{ width: 0 }}
               animate={{ width: `${percentage}%` }}
@@ -329,10 +373,16 @@ const TestResults = ({
             className={`rounded-lg shadow-lg p-6 border-2 ${
               cyberpunkMode 
                 ? getCyberpunkCardBg(1).className
+                : isKpop
+                ? getKpopCardBg(1).className
                 : 'bg-white'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(1).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(1).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}
             initial={{ opacity: 0, y: 20 }}
@@ -345,6 +395,8 @@ const TestResults = ({
             style={cyberpunkMode ? {
               ...themeStyles.textCyan,
               fontFamily: 'monospace'
+            } : isKpop ? {
+              ...themeStyles.headerText
             } : {}}>
               {cyberpunkMode ? 'QUESTION REVIEW' : 'Question Review'}
             </h3>
@@ -356,6 +408,8 @@ const TestResults = ({
                   className={`p-4 rounded-lg border-2 ${
                     cyberpunkMode 
                       ? 'border'
+                      : isKpop
+                      ? 'border'
                       : q.isCorrect 
                         ? 'bg-green-50 border-green-200' 
                         : 'bg-red-50 border-red-200'
@@ -363,6 +417,12 @@ const TestResults = ({
                     style={cyberpunkMode ? {
                       backgroundColor: CYBERPUNK_COLORS.black,
                       borderColor: q.isCorrect ? CYBERPUNK_COLORS.green : CYBERPUNK_COLORS.red,
+                      boxShadow: q.isCorrect 
+                        ? themeStyles.glow.boxShadow
+                        : themeStyles.glowRed.boxShadow
+                    } : isKpop ? {
+                      backgroundColor: KPOP_COLORS.background,
+                      borderColor: q.isCorrect ? KPOP_COLORS.success : KPOP_COLORS.error,
                       boxShadow: q.isCorrect 
                         ? themeStyles.glow.boxShadow
                         : themeStyles.glowRed.boxShadow
@@ -490,10 +550,16 @@ const TestResults = ({
           className={`rounded-lg shadow-lg p-6 mt-6 border-2 ${
             cyberpunkMode 
               ? getCyberpunkCardBg(0).className
+              : isKpop
+              ? getKpopCardBg(0).className
               : 'bg-white'
           }`}
           style={cyberpunkMode ? {
             ...getCyberpunkCardBg(0).style,
+            ...themeStyles.glow
+          } : isKpop ? {
+            ...getKpopCardBg(0).style,
+            borderColor: KPOP_COLORS.primary,
             ...themeStyles.glow
           } : {}}
           initial={{ opacity: 0, y: 20 }}
@@ -507,16 +573,22 @@ const TestResults = ({
             color: CYBERPUNK_COLORS.cyan,
             fontFamily: 'monospace',
             ...themeStyles.textShadow
+          } : isKpop ? {
+            ...themeStyles.headerText
           } : {}}>
             {cyberpunkMode ? 'SUMMARY STATISTICS' : 'Summary Statistics'}
           </h3>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className={`text-center p-4 rounded-lg border-2 ${
-              cyberpunkMode ? getCyberpunkCardBg(2).className : 'bg-blue-50'
+              cyberpunkMode ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(1).className : 'bg-blue-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(2).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(1).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}>
               <div className={`text-2xl font-bold ${
@@ -540,10 +612,14 @@ const TestResults = ({
               </div>
             </div>
             <div className={`text-center p-4 rounded-lg border-2 ${
-              cyberpunkMode ? getCyberpunkCardBg(0).className : 'bg-red-50'
+              cyberpunkMode ? getCyberpunkCardBg(0).className : isKpop ? getKpopCardBg(2).className : 'bg-red-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(0).style,
+              ...themeStyles.glowRed
+            } : isKpop ? {
+              ...getKpopCardBg(2).style,
+              borderColor: KPOP_COLORS.error,
               ...themeStyles.glowRed
             } : {}}>
               <div className={`text-2xl font-bold ${
@@ -567,10 +643,14 @@ const TestResults = ({
               </div>
             </div>
             <div className={`text-center p-4 rounded-lg border-2 ${
-              cyberpunkMode ? getCyberpunkCardBg(1).className : 'bg-gray-50'
+              cyberpunkMode ? getCyberpunkCardBg(1).className : isKpop ? getKpopCardBg(0).className : 'bg-gray-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(1).style,
+              ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(0).style,
+              borderColor: KPOP_COLORS.primary,
               ...themeStyles.glow
             } : {}}>
               <div className={`text-2xl font-bold ${
@@ -594,11 +674,15 @@ const TestResults = ({
               </div>
             </div>
             <div className={`text-center p-4 rounded-lg border-2 ${
-              cyberpunkMode ? getCyberpunkCardBg(2).className : 'bg-purple-50'
+              cyberpunkMode ? getCyberpunkCardBg(2).className : isKpop ? getKpopCardBg(1).className : 'bg-purple-50'
             }`}
             style={cyberpunkMode ? {
               ...getCyberpunkCardBg(2).style,
               ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(1).style,
+              borderColor: KPOP_COLORS.secondary,
+              ...themeStyles.glowPurple
             } : {}}>
               <div className={`text-2xl font-bold ${
                 cyberpunkMode ? '' : 'text-purple-600'
@@ -628,11 +712,17 @@ const TestResults = ({
           className={`rounded-lg shadow-lg p-6 mt-6 border-2 ${
             cyberpunkMode 
               ? getCyberpunkCardBg(0).className
+              : isKpop
+              ? getKpopCardBg(0).className
               : 'bg-white'
           }`}
           style={cyberpunkMode ? {
             ...getCyberpunkCardBg(0).style,
             ...themeStyles.glowRed
+          } : isKpop ? {
+            ...getKpopCardBg(0).style,
+            borderColor: KPOP_COLORS.primary,
+            ...themeStyles.glow
           } : {}}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

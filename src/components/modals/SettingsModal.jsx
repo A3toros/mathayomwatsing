@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS } from '../../utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
  * @param {Function} props.onClose - Function to call when closing the modal
  */
 const SettingsModal = ({ visible, onClose }) => {
-  const { theme, setTheme, isCyberpunk, isLight, themeClasses } = useTheme();
+  const { theme, setTheme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
 
   const handleThemeChange = (newTheme) => {
@@ -42,11 +42,15 @@ const SettingsModal = ({ visible, onClose }) => {
             className={`relative w-full max-w-md mx-4 rounded-lg shadow-xl ${
               isCyberpunk
                 ? getCyberpunkCardBg(0).className
+                : isKpop
+                ? getKpopCardBg(0).className
                 : 'bg-white border border-gray-200'
             }`}
             style={isCyberpunk ? {
               ...getCyberpunkCardBg(0).style,
               ...themeStyles.glow
+            } : isKpop ? {
+              ...getKpopCardBg(0).style
             } : {}}
           >
             {/* Header */}
@@ -54,10 +58,15 @@ const SettingsModal = ({ visible, onClose }) => {
               className={`px-6 py-4 border-b ${
                 isCyberpunk
                   ? 'border-cyan-400'
+                  : isKpop
+                  ? 'border-violet-500'
                   : 'border-gray-200'
               }`}
               style={isCyberpunk ? {
                 borderColor: CYBERPUNK_COLORS.cyan,
+                borderBottomWidth: '2px'
+              } : isKpop ? {
+                borderColor: KPOP_COLORS.primary,
                 borderBottomWidth: '2px'
               } : {}}
             >
@@ -65,11 +74,13 @@ const SettingsModal = ({ visible, onClose }) => {
                 className={`text-2xl font-bold ${
                   isCyberpunk
                     ? `${themeClasses.headerText} tracking-wider`
+                    : isKpop
+                    ? 'text-violet-600'
                     : 'text-gray-900'
                 }`}
-                style={isCyberpunk ? themeStyles.textShadow : {}}
+                style={isCyberpunk ? themeStyles.textShadow : isKpop ? themeStyles.textShadow : {}}
               >
-                {isCyberpunk ? 'SETTINGS' : 'Settings'}
+                {isCyberpunk ? 'SETTINGS' : isKpop ? 'Settings' : 'Settings'}
               </h2>
             </div>
 
@@ -79,7 +90,7 @@ const SettingsModal = ({ visible, onClose }) => {
               <div>
                 <h3
                   className={`text-lg font-semibold mb-4 ${
-                    isCyberpunk ? themeClasses.text : 'text-gray-900'
+                    isCyberpunk ? themeClasses.text : isKpop ? 'text-violet-700' : 'text-gray-900'
                   }`}
                 >
                   {isCyberpunk ? 'THEME' : 'Theme'}
@@ -161,6 +172,8 @@ const SettingsModal = ({ visible, onClose }) => {
                     className={`w-full p-4 rounded-lg border-2 transition-all ${
                       isCyberpunk
                         ? 'border-cyan-400'
+                        : isKpop
+                        ? 'bg-violet-50 border-violet-300 hover:border-violet-400'
                         : isLight
                         ? 'bg-gray-50 border-gray-300 hover:border-gray-400'
                         : 'bg-white border-gray-300 hover:border-gray-400'
@@ -189,6 +202,8 @@ const SettingsModal = ({ visible, onClose }) => {
                           className={`font-medium ${
                             isCyberpunk
                               ? 'text-cyan-400'
+                              : isKpop
+                              ? 'text-violet-600'
                               : isLight
                               ? 'text-gray-600'
                               : 'text-gray-600'
@@ -203,6 +218,63 @@ const SettingsModal = ({ visible, onClose }) => {
                       )}
                     </div>
                   </button>
+
+                  {/* K-Pop Theme Toggle */}
+                  <button
+                    onClick={() => handleThemeChange('kpop')}
+                    className={`w-full p-4 rounded-lg border-2 transition-all ${
+                      isKpop
+                        ? 'border-violet-500'
+                        : isCyberpunk
+                        ? 'bg-black border-gray-700 hover:border-cyan-400'
+                        : isLight
+                        ? 'bg-gray-50 border-gray-300 hover:border-gray-400'
+                        : 'bg-white border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={isKpop ? {
+                      backgroundColor: KPOP_COLORS.background,
+                      borderColor: KPOP_COLORS.primary,
+                      borderWidth: '2px',
+                      ...themeStyles.shadow
+                    } : isCyberpunk ? {
+                      backgroundColor: CYBERPUNK_COLORS.black,
+                      borderColor: CYBERPUNK_COLORS.cyan,
+                      borderWidth: '2px'
+                    } : {}}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 ${
+                            isKpop
+                              ? 'bg-violet-500 border-violet-500'
+                              : 'border-gray-400'
+                          }`}
+                        >
+                          {isKpop && (
+                            <div className="w-full h-full rounded-full bg-violet-500" />
+                          )}
+                        </div>
+                        <span
+                          className={`font-medium ${
+                            isKpop
+                              ? 'text-violet-600'
+                              : isCyberpunk
+                              ? 'text-gray-400'
+                              : isLight
+                              ? 'text-gray-600'
+                              : 'text-gray-600'
+                          }`}
+                          style={isKpop ? themeStyles.textShadow : {}}
+                        >
+                          {isKpop ? 'K-POP THEME' : 'K-Pop Theme'}
+                        </span>
+                      </div>
+                      {isKpop && (
+                        <span className="text-sm text-violet-600">Active</span>
+                      )}
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -212,10 +284,15 @@ const SettingsModal = ({ visible, onClose }) => {
               className={`px-6 py-4 border-t ${
                 isCyberpunk
                   ? 'border-cyan-400'
+                  : isKpop
+                  ? 'border-violet-500'
                   : 'border-gray-200'
               }`}
               style={isCyberpunk ? {
                 borderColor: CYBERPUNK_COLORS.cyan,
+                borderTopWidth: '2px'
+              } : isKpop ? {
+                borderColor: KPOP_COLORS.primary,
                 borderTopWidth: '2px'
               } : {}}
             >
@@ -224,6 +301,8 @@ const SettingsModal = ({ visible, onClose }) => {
                 className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
                   isCyberpunk
                     ? 'bg-cyan-400 text-black hover:bg-cyan-300'
+                    : isKpop
+                    ? 'bg-violet-500 text-white hover:bg-violet-600'
                     : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
               >

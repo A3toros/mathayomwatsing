@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTest } from '@/contexts/TestContext';
 import { useTheme } from '@/hooks/useTheme';
-import { getThemeStyles, getCyberpunkCardBg, CYBERPUNK_COLORS, colorToRgba } from '@/utils/themeUtils';
+import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS, colorToRgba } from '@/utils/themeUtils';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Notification } from '@/components/ui/Notification';
@@ -66,7 +66,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { testResults, loadTestResults } = useTest();
-  const { theme, isCyberpunk, themeClasses } = useTheme();
+  const { theme, isCyberpunk, isLight, isKpop, themeClasses } = useTheme();
   const themeStyles = getThemeStyles(theme);
   
   // Force re-render when theme changes
@@ -268,51 +268,69 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
         <table className={`w-full divide-y border-2 ${
           isCyberpunk 
             ? 'divide-cyan-400 border-cyan-400' 
+            : isKpop
+            ? 'divide-pink-500 border-pink-500'
             : 'divide-gray-200'
         }`}
         style={isCyberpunk ? {
           backgroundColor: CYBERPUNK_COLORS.black,
           borderColor: CYBERPUNK_COLORS.cyan
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background,
+          borderColor: KPOP_COLORS.primary,
+          ...themeStyles.glow
         } : {}}>
-          <thead className={isCyberpunk ? '' : 'bg-gray-50'}
+          <thead className={isCyberpunk ? '' : isKpop ? '' : 'bg-gray-50'}
           style={isCyberpunk ? {
             backgroundColor: CYBERPUNK_COLORS.black,
             borderBottom: `2px solid ${CYBERPUNK_COLORS.cyan}`
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.backgroundSecondary,
+            borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+            ...themeStyles.glow
           } : {}}>
             <tr>
               <th className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isCyberpunk ? '' : 'text-gray-500'
+                isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
               }`}
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.textPink
               } : {}}>
                 {isCyberpunk ? 'SUBJECT' : 'Subject'}
               </th>
               <th className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isCyberpunk ? '' : 'text-gray-500'
+                isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
               }`}
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.textPink
               } : {}}>
                 {isCyberpunk ? 'TEACHER' : 'Teacher'}
               </th>
               <th className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isCyberpunk ? '' : 'text-gray-500'
+                isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
               }`}
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.textPink
               } : {}}>
                 {isCyberpunk ? 'TEST NAME' : 'Test Name'}
               </th>
               <th className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isCyberpunk ? '' : 'text-gray-500'
+                isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
               }`}
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.textPink
               } : {}}>
                 {isCyberpunk ? 'RESULT' : 'Result'}
               </th>
@@ -330,16 +348,22 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
           <tbody className={`divide-y ${
             isCyberpunk 
               ? 'divide-cyan-400' 
+              : isKpop
+              ? 'divide-pink-500'
               : 'bg-white divide-gray-200'
           }`}
           style={isCyberpunk ? {
             backgroundColor: CYBERPUNK_COLORS.black
+          } : isKpop ? {
+            backgroundColor: KPOP_COLORS.background
           } : {}}>
             {displayResults.map((result, index) => (
               <tr 
                 key={index} 
                 className={isCyberpunk 
                   ? 'border-b border-cyan-400' 
+                  : isKpop
+                  ? 'border-b border-pink-500/50 hover:bg-pink-500/10'
                   : 'hover:bg-gray-50'
                 }
                 style={isCyberpunk ? {
@@ -348,15 +372,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                 } : {}}
               >
                 <td className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-4 whitespace-nowrap text-xs font-medium ${
-                  isCyberpunk ? '' : 'text-gray-900'
+                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-900'
                 }`}
                 style={isCyberpunk ? {
                   ...themeStyles.textCyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.textWhite
                 } : {}}>
                   <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs border ${
                     isCyberpunk 
                       ? 'border' 
+                      : isKpop
+                      ? 'bg-pink-500/20 text-pink-400 border-pink-500'
                       : 'bg-blue-100 text-blue-800'
                   }`}
                   style={isCyberpunk ? {
@@ -365,34 +393,45 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                     color: CYBERPUNK_COLORS.yellow,
                     fontFamily: 'monospace',
                     ...themeStyles.textShadowYellow
+                  } : isKpop ? {
+                    backgroundColor: KPOP_COLORS.backgroundSecondary,
+                    borderColor: KPOP_COLORS.primary,
+                    color: KPOP_COLORS.primary,
+                    ...themeStyles.glow
                   } : {}}>
                     {getSubjectAbbreviation(result.subject)}
                   </span>
                 </td>
                 <td className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-4 whitespace-nowrap text-xs truncate max-w-12 sm:max-w-none ${
-                  isCyberpunk ? '' : 'text-gray-500'
+                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                 }`}
                 style={isCyberpunk ? {
                   color: CYBERPUNK_COLORS.cyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.textAccent
                 } : {}}>
                   {result.teacher_name}
                 </td>
                 <td className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-4 whitespace-nowrap text-xs truncate max-w-16 sm:max-w-none ${
-                  isCyberpunk ? '' : 'text-gray-500'
+                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                 }`}
                 style={isCyberpunk ? {
                   ...themeStyles.textCyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.textWhite
                 } : {}}>
                   {isCyberpunk ? result.test_name.toUpperCase() : result.test_name}
                 </td>
                 <td className={`px-1 sm:px-4 lg:px-6 py-1 sm:py-4 whitespace-nowrap text-xs text-left ${
-                  isCyberpunk ? '' : 'text-gray-500'
+                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                 }`}
                 style={isCyberpunk ? {
                   color: CYBERPUNK_COLORS.cyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.textAccent
                 } : {}}>
                   <div className="flex flex-col items-start space-y-1">
                     {result.test_type === 'drawing' ? (
@@ -418,6 +457,20 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                                   themeStyles.textShadowRed)
                             };
                           }
+                          if (isKpop) {
+                            const color = percentage >= 80 
+                              ? KPOP_COLORS.success
+                              : percentage >= 60 
+                              ? KPOP_COLORS.primary
+                              : KPOP_COLORS.error;
+                            return {
+                              backgroundColor: KPOP_COLORS.backgroundSecondary,
+                              borderColor: color,
+                              color: color,
+                              ...themeStyles.glow,
+                              textShadow: `0 0 10px ${color}, 0 0 20px ${color}`
+                            };
+                          }
                           return percentage >= 80 
                             ? {} 
                             : percentage >= 60 
@@ -431,7 +484,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                         </span>
                       ) : (
                         <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold border ${
-                          isCyberpunk ? 'border' : 'bg-gray-100 text-gray-800'
+                          isCyberpunk ? 'border' : isKpop ? 'bg-pink-500/20 text-pink-400 border-pink-500' : 'bg-gray-100 text-gray-800'
                         }`}
                         style={isCyberpunk ? {
                           backgroundColor: CYBERPUNK_COLORS.black,
@@ -439,6 +492,11 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace',
                           ...themeStyles.textShadow
+                        } : isKpop ? {
+                          backgroundColor: KPOP_COLORS.backgroundSecondary,
+                          borderColor: KPOP_COLORS.primary,
+                          color: KPOP_COLORS.primary,
+                          ...themeStyles.glow
                         } : {}}>
                           {isCyberpunk ? 'PENDING REVIEW' : 'Pending Review'}
                         </span>
@@ -472,7 +530,7 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                         </span>
                       ) : (
                         <span className={`px-0.5 sm:px-2 py-0.5 rounded text-xs font-semibold border ${
-                          isCyberpunk ? 'border' : 'bg-gray-100 text-gray-800'
+                          isCyberpunk ? 'border' : isKpop ? 'bg-pink-500/20 text-pink-400 border-pink-500' : 'bg-gray-100 text-gray-800'
                         }`}
                         style={isCyberpunk ? {
                           backgroundColor: CYBERPUNK_COLORS.black,
@@ -480,6 +538,11 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace',
                           ...themeStyles.textShadow
+                        } : isKpop ? {
+                          backgroundColor: KPOP_COLORS.backgroundSecondary,
+                          borderColor: KPOP_COLORS.primary,
+                          color: KPOP_COLORS.primary,
+                          ...themeStyles.glow
                         } : {}}>
                           {isCyberpunk ? 'PENDING REVIEW' : 'Pending Review'}
                         </span>
@@ -518,11 +581,13 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                   </div>
                 </td>
                 <td className={`hidden sm:table-cell px-2 sm:px-4 lg:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm ${
-                  isCyberpunk ? '' : 'text-gray-500'
+                  isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                 }`}
                 style={isCyberpunk ? {
                   color: CYBERPUNK_COLORS.cyan,
                   fontFamily: 'monospace'
+                } : isKpop ? {
+                  ...themeStyles.textAccent
                 } : {}}>
                   {new Date(result.submitted_at).toLocaleDateString()}
                 </td>
@@ -595,13 +660,19 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
         style={isCyberpunk ? {
           ...getCyberpunkCardBg(0).style,
           ...themeStyles.glowRed
+        } : isKpop ? {
+          backgroundColor: KPOP_COLORS.background,
+          borderColor: KPOP_COLORS.primary,
+          boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
         } : {}}>
           <h2 className={`text-2xl font-bold mb-4 ${
-            isCyberpunk ? '' : 'text-gray-900'
+            isCyberpunk ? '' : isKpop ? '' : 'text-gray-900'
           }`}
           style={isCyberpunk ? {
             ...themeStyles.textCyan,
             fontFamily: 'monospace'
+          } : isKpop ? {
+            ...themeStyles.headerText
           } : {}}>
             {isCyberpunk 
               ? `TEST RESULTS: ${(testInfo.test_name || testInfo.title || 'TEST').toUpperCase()}`
@@ -798,6 +869,8 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
             className={`rounded-lg shadow border ${
               isCyberpunk 
                 ? getCyberpunkCardBg(subjectIndex).className
+                : isKpop
+                ? getKpopCardBg(subjectIndex).className
                 : 'bg-white'
             }`}
             style={isCyberpunk ? {
@@ -806,19 +879,28 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                         subjectIndex % 4 === 1 ? themeStyles.glowYellow.boxShadow :
                         subjectIndex % 4 === 2 ? themeStyles.glowPurple.boxShadow :
                         themeStyles.glow.boxShadow
+            } : isKpop ? {
+              ...getKpopCardBg(subjectIndex).style,
+              ...(subjectIndex % 2 === 0 ? themeStyles.glow : themeStyles.glowPurple)
             } : {}}>
             <div className={`px-6 py-4 border-b ${
               isCyberpunk 
                 ? 'border' 
+                : isKpop
+                ? 'border-violet-300'
                 : 'border-gray-200'
             }`}
             style={isCyberpunk ? {
               borderBottomColor: CYBERPUNK_COLORS.cyan
+            } : isKpop ? {
+              borderBottomColor: KPOP_COLORS.border
             } : {}}>
               <h3 className={`text-lg font-semibold ${
-                isCyberpunk ? themeClasses.text : 'text-gray-900'
+                isCyberpunk ? themeClasses.text : isKpop ? '' : 'text-gray-900'
               }`}
-              style={isCyberpunk ? themeStyles.textShadow : {}}>
+              style={isCyberpunk ? themeStyles.textShadow : isKpop ? {
+                ...themeStyles.headerText
+              } : {}}>
                 {isCyberpunk ? subject.toUpperCase() : subject}
               </h3>
             </div>
@@ -826,51 +908,69 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
               <table className={`min-w-full divide-y border-2 ${
                 isCyberpunk 
                   ? 'divide-cyan-400 border-cyan-400' 
+                  : isKpop
+                  ? 'divide-pink-500 border-pink-500'
                   : 'divide-gray-200'
               }`}
               style={isCyberpunk ? {
                 backgroundColor: CYBERPUNK_COLORS.black,
                 borderColor: CYBERPUNK_COLORS.cyan
+              } : isKpop ? {
+                backgroundColor: KPOP_COLORS.background,
+                borderColor: KPOP_COLORS.primary,
+                ...themeStyles.glow
               } : {}}>
-                <thead className={isCyberpunk ? '' : 'bg-gray-50'}
+                <thead className={isCyberpunk ? '' : isKpop ? '' : 'bg-gray-50'}
                 style={isCyberpunk ? {
                   backgroundColor: CYBERPUNK_COLORS.black,
                   borderBottom: `2px solid ${CYBERPUNK_COLORS.cyan}`
+                } : isKpop ? {
+                  backgroundColor: KPOP_COLORS.backgroundSecondary,
+                  borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+                  ...themeStyles.glow
                 } : {}}>
                   <tr>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isCyberpunk ? '' : 'text-gray-500'
+                      isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                     }`}
                     style={isCyberpunk ? {
                       ...themeStyles.textCyan,
                       fontFamily: 'monospace'
+                    } : isKpop ? {
+                      ...themeStyles.textPink
                     } : {}}>
                       {isCyberpunk ? 'TEST NAME' : 'Test Name'}
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isCyberpunk ? '' : 'text-gray-500'
+                      isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                     }`}
                     style={isCyberpunk ? {
                       ...themeStyles.textCyan,
                       fontFamily: 'monospace'
+                    } : isKpop ? {
+                      ...themeStyles.textPink
                     } : {}}>
                       {isCyberpunk ? 'TEACHER' : 'Teacher'}
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isCyberpunk ? '' : 'text-gray-500'
+                      isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                     }`}
                     style={isCyberpunk ? {
                       ...themeStyles.textCyan,
                       fontFamily: 'monospace'
+                    } : isKpop ? {
+                      ...themeStyles.textPink
                     } : {}}>
                       {isCyberpunk ? 'SCORE' : 'Score'}
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      isCyberpunk ? '' : 'text-gray-500'
+                      isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                     }`}
                     style={isCyberpunk ? {
                       ...themeStyles.textCyan,
                       fontFamily: 'monospace'
+                    } : isKpop ? {
+                      ...themeStyles.textPink
                     } : {}}>
                       {isCyberpunk ? 'DATE' : 'Date'}
                     </th>
@@ -879,10 +979,14 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                 <tbody className={`divide-y ${
                   isCyberpunk 
                     ? 'divide-cyan-400' 
+                    : isKpop
+                    ? 'divide-pink-500'
                     : 'bg-white divide-gray-200'
                 }`}
                 style={isCyberpunk ? {
                   backgroundColor: CYBERPUNK_COLORS.black
+                } : isKpop ? {
+                  backgroundColor: KPOP_COLORS.background
                 } : {}}>
                   {subjectResults.map((result, index) => {
                     const { score, maxScore, percentage } = getDisplayScores(result);
@@ -903,25 +1007,29 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                         } : {}}
                       >
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          isCyberpunk ? '' : 'text-gray-900'
+                          isCyberpunk ? '' : isKpop ? '' : 'text-gray-900'
                         }`}
                         style={isCyberpunk ? {
                           ...themeStyles.textCyan,
                           fontFamily: 'monospace'
+                        } : isKpop ? {
+                          ...themeStyles.textWhite
                         } : {}}>
                           {isCyberpunk ? result.test_name.toUpperCase() : result.test_name}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                          isCyberpunk ? '' : 'text-gray-500'
+                          isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                         }`}
                         style={isCyberpunk ? {
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace'
+                        } : isKpop ? {
+                          ...themeStyles.textAccent
                         } : {}}>
                           {result.teacher_name || (isCyberpunk ? 'UNKNOWN' : 'Unknown')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={isCyberpunk ? '' : scoreClass}
+                          <span className={isCyberpunk ? '' : isKpop ? '' : scoreClass}
                             style={isCyberpunk ? {
                               color: percentage >= 80 
                                 ? CYBERPUNK_COLORS.green
@@ -932,16 +1040,29 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
                               ...(percentage >= 80 ? themeStyles.textShadowGreen :
                                   percentage >= 60 ? themeStyles.textShadowYellow :
                                   themeStyles.textShadowRed)
+                            } : isKpop ? {
+                              color: percentage >= 80 
+                                ? KPOP_COLORS.success
+                                : percentage >= 60 
+                                ? KPOP_COLORS.primary
+                                : KPOP_COLORS.error,
+                              textShadow: percentage >= 80 
+                                ? `0 0 10px ${KPOP_COLORS.success}, 0 0 20px ${KPOP_COLORS.success}`
+                                : percentage >= 60 
+                                ? `0 0 10px ${KPOP_COLORS.primary}, 0 0 20px ${KPOP_COLORS.primary}`
+                                : `0 0 10px ${KPOP_COLORS.error}, 0 0 20px ${KPOP_COLORS.error}`
                             } : {}}>
                             {score}/{maxScore} ({percentage}%)
                           </span>
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                          isCyberpunk ? '' : 'text-gray-500'
+                          isCyberpunk ? '' : isKpop ? '' : 'text-gray-500'
                         }`}
                         style={isCyberpunk ? {
                           color: CYBERPUNK_COLORS.cyan,
                           fontFamily: 'monospace'
+                        } : isKpop ? {
+                          ...themeStyles.textAccent
                         } : {}}>
                           {new Date(result.submitted_at).toLocaleDateString()}
                         </td>
@@ -1137,22 +1258,28 @@ const StudentResults = ({ testType, testId, studentAnswers, onBackToCabinet, com
     >
       {/* Student Results Header */}
       <div className={`shadow-sm border-b ${
-        isCyberpunk ? 'border' : `${themeClasses.headerBg} ${themeClasses.headerBorder}`
+        isCyberpunk ? 'border' : isKpop ? '' : `${themeClasses.headerBg} ${themeClasses.headerBorder}`
       }`}
       style={isCyberpunk ? {
         backgroundColor: CYBERPUNK_COLORS.black,
         borderBottomColor: CYBERPUNK_COLORS.cyan,
         borderBottomWidth: '2px'
+      } : isKpop ? {
+        backgroundColor: KPOP_COLORS.background,
+        borderBottom: `2px solid ${KPOP_COLORS.primary}`,
+        boxShadow: `0 0 30px rgba(236, 72, 153, 0.8), 0 0 60px rgba(236, 72, 153, 0.6), 0 0 90px rgba(236, 72, 153, 0.4), inset 0 0 40px rgba(236, 72, 153, 0.5), inset 0 0 80px rgba(236, 72, 153, 0.3), inset 0 0 120px rgba(236, 72, 153, 0.15)`
       } : {}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className={`text-2xl font-bold ${
-                isCyberpunk ? '' : themeClasses.headerText
+                isCyberpunk ? '' : isKpop ? '' : themeClasses.headerText
               }`}
               style={isCyberpunk ? {
                 ...themeStyles.textCyan,
                 fontFamily: 'monospace'
+              } : isKpop ? {
+                ...themeStyles.headerText
               } : {}}>
                 {isCyberpunk ? 'STUDENT RESULTS' : 'Student Results'}
               </h1>
