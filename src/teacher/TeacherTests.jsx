@@ -1151,7 +1151,8 @@ const TeacherTests = () => {
           time_limit: speakingData.time_limit,
           min_duration: speakingData.min_duration,
           max_duration: speakingData.max_duration,
-          max_attempts: speakingData.max_attempts,
+          allowed_attempts: speakingData.allowed_attempts, // NEW: Add this
+          max_attempts: speakingData.max_attempts, // Keep for backward compatibility
           min_words: speakingData.min_words,
           passing_score: speakingData.passing_score,
           allowed_time: formData.enableTimer ? Math.max(0, Math.floor((Number(formData.timerMinutes || 0)) * 60)) : null,

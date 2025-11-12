@@ -214,7 +214,7 @@ exports.handler = async function(event, context) {
           SELECT 
             st.id, st.test_name, st.teacher_id, st.subject_id, 
             st.time_limit, st.min_duration, st.max_duration,
-            st.max_attempts, st.min_words, st.passing_score, st.allowed_time,
+            st.allowed_attempts, st.max_attempts, st.min_words, st.passing_score, st.allowed_time,
             st.created_at, st.updated_at,
             s.subject, t.first_name as teacher_name
           FROM speaking_tests st

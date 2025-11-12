@@ -220,6 +220,12 @@ function getStorageInfoForMime(mimeType) {
     return { extension: 'mp3', contentType: 'audio/mpeg' };
   }
 
+  // WebM/Opus is the preferred format for storage (smaller file size)
+  if (normalized === 'audio/webm' || normalized === 'audio/webm;codecs=opus' || normalized.includes('webm')) {
+    return { extension: 'webm', contentType: 'audio/webm' };
+  }
+
+  // Default to WebM for unknown types
   return { extension: 'webm', contentType: 'audio/webm' };
 }
 

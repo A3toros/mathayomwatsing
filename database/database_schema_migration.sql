@@ -573,6 +573,7 @@ CREATE TABLE IF NOT EXISTS speaking_tests (
     min_duration INTEGER DEFAULT 30,
     max_duration INTEGER DEFAULT 600,
     max_attempts INTEGER DEFAULT 3,
+    allowed_attempts INTEGER DEFAULT 3,
     min_words INTEGER DEFAULT 50,
     passing_score INTEGER,
     allowed_time INTEGER,
@@ -583,7 +584,8 @@ CREATE TABLE IF NOT EXISTS speaking_tests (
     CONSTRAINT chk_min_words CHECK (min_words > 0),
     CONSTRAINT chk_duration CHECK (min_duration <= max_duration),
     CONSTRAINT chk_time_limit CHECK (time_limit > 0),
-    CONSTRAINT chk_max_attempts CHECK (max_attempts > 0)
+    CONSTRAINT chk_max_attempts CHECK (max_attempts > 0),
+    CONSTRAINT chk_allowed_attempts CHECK (allowed_attempts >= 1 AND allowed_attempts <= 3)
 );
 
 CREATE TABLE IF NOT EXISTS speaking_test_questions (
@@ -1320,6 +1322,32 @@ INSERT INTO users (grade, class, number, student_id, name, surname, nickname, pa
 (7, 70, 3, '70008', 'Sophia', 'Taylor', 'Sophia', '70008'),
 (7, 70, 4, '70009', 'Liam', 'Thomas', 'Liam', '70009'),
 (7, 70, 5, '70010', 'Isabella', 'Jackson', 'Isabella', '70010');
+
+-- ========================================
+-- MIGRATION: Update existing speaking_tests records
+-- ========================================
+
+-- Add allowed_attempts column if it doesn't exist (for existing databases)
+ALTER TABLE speaking_tests 
+ADD COLUMN IF NOT EXISTS allowed_attempts INTEGER DEFAULT 3;
+
+-- Add constraint if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'chk_allowed_attempts'
+    ) THEN
+        ALTER TABLE speaking_tests 
+        ADD CONSTRAINT chk_allowed_attempts 
+        CHECK (allowed_attempts >= 1 AND allowed_attempts <= 3);
+    END IF;
+END $$;
+
+-- Update existing records to set allowed_attempts from max_attempts
+UPDATE speaking_tests 
+SET allowed_attempts = COALESCE(max_attempts, 3) 
+WHERE allowed_attempts IS NULL OR allowed_attempts = 3;
 
 -- ========================================
 -- VERIFICATION

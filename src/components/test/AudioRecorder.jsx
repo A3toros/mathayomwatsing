@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { getThemeStyles, getCyberpunkCardBg, getKpopCardBg, CYBERPUNK_COLORS, KPOP_COLORS } from '../../utils/themeUtils';
-import { convertBlobToWav } from '../../utils/audioConversion';
+// Audio conversion is now handled by SpeakingTestStudent
+// import { convertBlobToWav } from '../../utils/audioConversion';
 
 const AudioRecorder = forwardRef(({ 
   onRecordingComplete, 
@@ -21,6 +22,9 @@ const AudioRecorder = forwardRef(({
   const [audioBlob, setAudioBlob] = useState(null);
   const [error, setError] = useState(null);
   const [recordingQuality, setRecordingQuality] = useState('good');
+  // NEW: State for stop/rerecord/send flow
+  const [isStopped, setIsStopped] = useState(false);
+  const [stoppedBlob, setStoppedBlob] = useState(null);
   
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -127,18 +131,12 @@ const AudioRecorder = forwardRef(({
       
       mediaRecorder.onstop = async () => {
         const outType = preferredMime && preferredMime.startsWith('audio/') ? preferredMime : 'audio/webm';
-        let audioBlob = new Blob(audioChunksRef.current, { type: outType });
-
-        try {
-          audioBlob = await convertBlobToWav(audioBlob, audioContextRef.current);
-        } catch (conversionError) {
-          console.warn('AudioRecorder: failed to convert audio to WAV, using original blob', conversionError);
-        }
+        // Keep original WebM blob - conversion will be handled by SpeakingTestStudent
+        const audioBlob = new Blob(audioChunksRef.current, { type: outType });
 
         setAudioBlob(audioBlob);
-
-        // Call onRecordingComplete with the blob and recording time
-        onRecordingComplete(audioBlob, recordingTime);
+        setStoppedBlob(audioBlob); // NEW: Store stopped blob
+        setIsStopped(true); // NEW: Mark as stopped (don't call onRecordingComplete yet)
         
         // Clean up
         if (streamRef.current) {
@@ -204,13 +202,33 @@ const AudioRecorder = forwardRef(({
         clearInterval(timerRef.current);
       }
       
+      // Note: onRecordingComplete is now called from handleSend, not here
       // Check if recording meets minimum requirements
       if (recordingTime < minDuration) {
         setError(`Recording must be at least ${minDuration} seconds long.`);
         return;
       }
     }
-  }, [isRecording, recordingTime, minDuration, audioBlob, onRecordingComplete]);
+  }, [isRecording, recordingTime, minDuration]);
+
+  // NEW: Handle sending recording to parent
+  const handleSend = useCallback(() => {
+    if (stoppedBlob) {
+      onRecordingComplete(stoppedBlob, recordingTime);
+      setIsStopped(false);
+      setStoppedBlob(null);
+    }
+  }, [stoppedBlob, recordingTime, onRecordingComplete]);
+
+  // NEW: Handle rerecording
+  const handleRerecord = useCallback(() => {
+    setIsStopped(false);
+    setStoppedBlob(null);
+    setAudioBlob(null);
+    setError(null);
+    setRecordingTime(0);
+    // Reset state to allow new recording
+  }, []);
 
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording && !isPaused) {
@@ -391,42 +409,40 @@ const AudioRecorder = forwardRef(({
 
       {/* Controls - Mobile Optimized */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-6">
-        {!isRecording ? (
+        {!isRecording && !isStopped ? (
           <button
             onClick={startRecording}
-            className={`w-full sm:w-auto ${isKpop ? 'bg-pink-500 hover:bg-pink-600' : 'bg-red-600 hover:bg-red-700'} text-white px-6 py-4 rounded-full flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold`}
+            className={`w-full sm:w-auto ${isKpop ? 'bg-pink-500 hover:bg-pink-600' : isCyberpunk ? 'bg-red-600 hover:bg-red-700 font-mono' : 'bg-red-600 hover:bg-red-700'} text-white px-6 py-4 rounded-full flex items-center justify-center min-h-[48px] text-lg font-semibold`}
+            style={isCyberpunk ? { ...themeStyles.glowRed } : isKpop ? { ...themeStyles.shadow } : {}}
           >
-            <span className="text-xl">🎤</span>
-            <span>Start Recording</span>
+            <span>{isCyberpunk ? 'START RECORDING' : 'Start Recording'}</span>
           </button>
-        ) : (
+        ) : isRecording ? (
+          <button
+            onClick={stopRecording}
+            className={`w-full sm:w-auto ${isCyberpunk ? 'bg-gray-600 hover:bg-gray-700 font-mono' : isKpop ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-600 hover:bg-gray-700'} text-white px-6 py-4 rounded-full flex items-center justify-center min-h-[48px] text-lg font-semibold`}
+            style={isCyberpunk ? { ...themeStyles.glow } : isKpop ? { ...themeStyles.shadow } : {}}
+          >
+            <span>{isCyberpunk ? 'STOP' : 'Stop'}</span>
+          </button>
+        ) : isStopped ? (
           <>
-            {!isPaused ? (
-              <button
-                onClick={pauseRecording}
-                className="w-full sm:w-auto bg-yellow-600 text-white px-6 py-4 rounded-full hover:bg-yellow-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
-              >
-                <span className="text-xl">⏸️</span>
-                <span>Pause</span>
-              </button>
-            ) : (
-              <button
-                onClick={resumeRecording}
-                className="w-full sm:w-auto bg-green-600 text-white px-6 py-4 rounded-full hover:bg-green-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
-              >
-                <span className="text-xl">▶️</span>
-                <span>Resume</span>
-              </button>
-            )}
             <button
-              onClick={stopRecording}
-              className="w-full sm:w-auto bg-gray-600 text-white px-6 py-4 rounded-full hover:bg-gray-700 flex items-center justify-center space-x-2 min-h-[48px] text-lg font-semibold"
+              onClick={handleRerecord}
+              className={`w-full sm:w-auto ${isCyberpunk ? 'bg-yellow-600 hover:bg-yellow-700 font-mono' : isKpop ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-yellow-600 hover:bg-yellow-700'} text-white px-6 py-4 rounded-full flex items-center justify-center min-h-[48px] text-lg font-semibold`}
+              style={isCyberpunk ? { ...themeStyles.glowYellow } : isKpop ? { ...themeStyles.shadow } : {}}
             >
-              <span className="text-xl">⏹️</span>
-              <span>Stop & Submit</span>
+              <span>{isCyberpunk ? 'RERECORD' : 'Rerecord'}</span>
+            </button>
+            <button
+              onClick={handleSend}
+              className={`w-full sm:w-auto ${isCyberpunk ? 'bg-green-600 hover:bg-green-700 font-mono' : isKpop ? 'bg-green-500 hover:bg-green-600' : 'bg-green-600 hover:bg-green-700'} text-white px-6 py-4 rounded-full flex items-center justify-center min-h-[48px] text-lg font-semibold`}
+              style={isCyberpunk ? { ...themeStyles.glowGreen } : isKpop ? { ...themeStyles.shadow } : {}}
+            >
+              <span>{isCyberpunk ? 'SEND' : 'Send'}</span>
             </button>
           </>
-        )}
+        ) : null}
       </div>
 
 

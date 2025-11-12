@@ -1,23 +1,46 @@
+/**
+ * Convert any audio blob to WAV format
+ * NOTE: Now optimized to 16kHz for smaller file sizes
+ * This is an alias for convertBlobToWav16kHz() for backward compatibility
+ * @param {Blob} blob - Audio blob
+ * @param {AudioContext} audioContext - Existing AudioContext or null
+ * @returns {Promise<Blob>} WAV blob at 16 kHz, mono, 16-bit
+ */
 export async function convertBlobToWav(blob, audioContext) {
-  if (!blob) {
-    return blob;
-  }
+  // Delegate to the optimized 16kHz conversion function
+  return convertBlobToWav16kHz(blob, audioContext);
+}
 
-  const type = blob.type || '';
-  if (type === 'audio/wav' || type === 'audio/wave' || type === 'audio/x-wav') {
+/**
+ * Convert any audio blob to WAV format at 16 kHz sample rate
+ * Optimized for speech recognition (Assembly AI)
+ * @param {Blob} blob - Audio blob (typically WebM/Opus from MediaRecorder)
+ * @param {AudioContext} audioContext - Existing AudioContext or null
+ * @returns {Promise<Blob>} WAV blob at 16 kHz, mono, 16-bit
+ */
+export async function convertBlobToWav16kHz(blob, audioContext) {
+  if (!blob) {
     return blob;
   }
 
   try {
     const arrayBuffer = await blob.arrayBuffer();
-
     const context = await getAudioContext(audioContext);
     const decodedBuffer = await decodeAudioData(context, arrayBuffer);
-    const wavBuffer = audioBufferToWav(decodedBuffer);
-
-    return new Blob([wavBuffer], { type: 'audio/wav' });
+    
+    // Resample to 16kHz if needed
+    const resampledBuffer = await resampleAudioBuffer(decodedBuffer, 16000);
+    
+    // Convert to mono if stereo
+    const monoBuffer = await convertToMono(resampledBuffer);
+    
+    // Encode as WAV using existing function (will use 16kHz from resampled buffer)
+    const wavBuffer = audioBufferToWav(monoBuffer);
+    const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+    
+    return wavBlob;
   } catch (error) {
-    console.warn('convertBlobToWav: failed to convert, returning original blob', error);
+    console.warn('convertBlobToWav16kHz: failed to convert, returning original blob', error);
     return blob;
   }
 }
@@ -116,6 +139,108 @@ function audioBufferToWav(buffer) {
 function writeString(view, offset, string) {
   for (let i = 0; i < string.length; i++) {
     view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+
+/**
+ * Resample AudioBuffer to target sample rate
+ * @param {AudioBuffer} audioBuffer - Source AudioBuffer
+ * @param {number} targetSampleRate - Target sample rate (e.g., 16000)
+ * @returns {Promise<AudioBuffer>} Resampled AudioBuffer
+ */
+async function resampleAudioBuffer(audioBuffer, targetSampleRate) {
+  const originalSampleRate = audioBuffer.sampleRate;
+  
+  // If already at target rate, return as-is
+  if (originalSampleRate === targetSampleRate) {
+    return audioBuffer;
+  }
+  
+  const numberOfChannels = audioBuffer.numberOfChannels;
+  const ratio = targetSampleRate / originalSampleRate;
+  const newLength = Math.round(audioBuffer.length * ratio);
+  
+  // Use OfflineAudioContext for efficient resampling
+  const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OfflineAudioContext) {
+    console.warn('OfflineAudioContext not supported, cannot resample');
+    return audioBuffer; // Fallback: return original
+  }
+  
+  const offlineContext = new OfflineAudioContext(
+    numberOfChannels,
+    newLength,
+    targetSampleRate
+  );
+  
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offlineContext.destination);
+  source.start();
+  
+  try {
+    const resampledBuffer = await offlineContext.startRendering();
+    return resampledBuffer;
+  } catch (error) {
+    console.warn('Resampling failed, returning original buffer', error);
+    return audioBuffer; // Fallback: return original
+  }
+}
+
+/**
+ * Convert AudioBuffer to mono (single channel)
+ * @param {AudioBuffer} audioBuffer - Source AudioBuffer (can be mono or stereo)
+ * @returns {Promise<AudioBuffer>} Mono AudioBuffer
+ */
+async function convertToMono(audioBuffer) {
+  if (audioBuffer.numberOfChannels === 1) {
+    return audioBuffer;
+  }
+  
+  const numberOfChannels = 1;
+  const length = audioBuffer.length;
+  const sampleRate = audioBuffer.sampleRate;
+  
+  // Create new mono buffer
+  const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OfflineAudioContext) {
+    console.warn('OfflineAudioContext not supported, cannot convert to mono');
+    return audioBuffer; // Fallback: return original
+  }
+  
+  const offlineContext = new OfflineAudioContext(
+    numberOfChannels,
+    length,
+    sampleRate
+  );
+  
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  
+  // If stereo, mix channels to mono
+  if (audioBuffer.numberOfChannels === 2) {
+    const merger = offlineContext.createChannelMerger(1);
+    const splitter = offlineContext.createChannelSplitter(2);
+    
+    source.connect(splitter);
+    splitter.connect(merger, 0, 0);
+    splitter.connect(merger, 1, 0);
+    merger.connect(offlineContext.destination);
+  } else {
+    // For other multi-channel, just take first channel
+    const splitter = offlineContext.createChannelSplitter(1);
+    source.connect(splitter);
+    splitter.connect(offlineContext.destination, 0, 0);
+  }
+  
+  source.start();
+  
+  try {
+    const monoBuffer = await offlineContext.startRendering();
+    return monoBuffer;
+  } catch (error) {
+    console.warn('Mono conversion failed, returning original buffer', error);
+    return audioBuffer; // Fallback: return original
   }
 }
 

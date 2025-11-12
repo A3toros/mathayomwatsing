@@ -10,6 +10,7 @@ import Button from '../ui/Button';
 import PerfectModal from '../ui/PerfectModal';
 import useInterceptBackNavigation from '../../hooks/useInterceptBackNavigation';
 import { getCachedData, setCachedData, CACHE_TTL } from '../../utils/cacheUtils';
+import { convertBlobToWav16kHz } from '../../utils/audioConversion';
 
 const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) => {
   const [currentStep, setCurrentStep] = useState('recording'); // permission, recording, processing, feedback, completed
@@ -21,12 +22,16 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
   const [showExitModal, setShowExitModal] = useState(false);
   const [error, setError] = useState(null);
   const [attemptNumber, setAttemptNumber] = useState(1);
-  const [maxAttempts] = useState(testData.max_attempts || 3);
+  const [maxAttempts] = useState(testData.allowed_attempts || testData.max_attempts || 3);
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false); // NEW: Flag to prevent duplicate API calls
   const [isBackInterceptEnabled, setBackInterceptEnabled] = useState(true);
   const [audioMimeType, setAudioMimeType] = useState('audio/webm');
+  // NEW: Error handling state
+  const [submissionError, setSubmissionError] = useState(null);
+  const [failedPayload, setFailedPayload] = useState(null); // Store payload for retry
+  const [isResending, setIsResending] = useState(false);
   const pendingNavigationRef = useRef(null);
   
   // Theme hook - must be at component level
@@ -97,6 +102,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     let progress = 0;
     if (currentStep === 'recording') progress = 25;
     else if (currentStep === 'processing') progress = 50;
+    else if (currentStep === 'error') progress = 50; // Error state is same as processing
     else if (currentStep === 'feedback') progress = 75;
     else if (currentStep === 'completed') progress = 100;
     
@@ -332,6 +338,8 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     
     console.log('🎤 Recording completed, duration:', recordingDuration);
     setIsProcessing(true); // Set flag to prevent duplicate calls
+    
+    // Store original WebM blob for final submission
     setAudioBlob(audioBlobData);
     setAudioMimeType(audioBlobData?.type || 'audio/webm');
     setRecordingTime(recordingDuration);
@@ -339,8 +347,9 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     setError(null);
 
     try {
-      // Convert blob to base64 for API
-      const audioBase64 = await blobToBase64(audioBlobData);
+      // Convert WebM blob to WAV 16kHz for AI processing
+      const wavBlob = await convertBlobToWav16kHz(audioBlobData, null);
+      const wavBase64 = await blobToBase64(wavBlob);
       
       // Calculate timing
       const endTime = new Date();
@@ -352,48 +361,46 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       const retestAssignKey = `retest_assignment_id_${studentId}_speaking_${testData.test_id}`;
       const retestAssignmentId = localStorage.getItem(retestAssignKey);
       
-      // Prepare submission data (following other tests pattern)
-      const submissionData = {
+      // Prepare payload for AI processing
+      const payload = {
         test_id: testData.test_id,
-        test_name: testData.test_name,
-        teacher_id: testData.teacher_id || null,
-        subject_id: testData.subject_id || null,
-        student_id: studentId,
         question_id: testData.question_id || 1,
-        audio_blob: audioBase64,
-        audio_mime_type: audioBlobData?.type || 'audio/webm',
-        audio_duration: recordingDuration, // Use the actual recording duration parameter
-        time_taken: timeTaken,
-        started_at: startedAt,
-        submitted_at: endTime.toISOString(),
-        caught_cheating: false,
-        visibility_change_times: 0,
-        is_completed: true,
-        retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
-        parent_test_id: testData.test_id
+        audio_blob: wavBase64,
+        audio_mime_type: 'audio/wav'
       };
       
-      console.log('🎤 Submitting speaking test:', submissionData);
+      // Store payload for potential retry
+      setFailedPayload(payload);
       
       // Process audio immediately with real AI (like other tests do)
       console.log('🎤 Processing audio with AI...');
       
       try {
-        // Send audio to backend for AI processing (feedback only)
+        // Send WAV 16kHz to backend for AI processing (feedback only)
         const response = await makeAuthenticatedRequest('/.netlify/functions/process-speaking-audio-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            test_id: testData.test_id,
-            question_id: testData.question_id || 1,
-            audio_blob: audioBase64,
-            audio_mime_type: audioBlobData?.type || 'audio/webm'
-          })
+          body: JSON.stringify(payload)
         });
         
-        const result = await response.json();
-      
-      if (result.success) {
+        // Check if response is valid JSON
+        let result;
+        try {
+          const responseText = await response.text();
+          result = JSON.parse(responseText);
+        } catch (jsonError) {
+          // Handle invalid JSON (Assembly AI server overload)
+          throw new Error('AI_SERVER_ERROR');
+        }
+        
+        if (!result.success) {
+          throw new Error(result.message || result.error || 'AI processing failed');
+        }
+        
+        // Success - clear error state
+        setSubmissionError(null);
+        setFailedPayload(null);
+        
         // Set real AI results - map the AI response to the expected format
         console.log('🎤 AI Analysis Result:', result);
         setTranscript(result.transcript);
@@ -442,26 +449,33 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         });
         setScores(mappedScores);
         setCurrentStep('feedback');
-      } else {
-        throw new Error(result.message || result.error || 'Failed to process audio with AI');
-      }
-      
+        
         // Clear progress from localStorage
         localStorage.removeItem(`speaking_progress_${testData.test_id}`);
       } catch (error) {
-        console.error('Speaking test submission error:', error);
+        // Handle AI submission errors
+        console.error('🎤 AI submission error:', error);
         
-        // Handle authentication errors specifically
-        if (error.message.includes('No valid authentication token found')) {
-          setError('Your session has expired. Please refresh the page and try again.');
-          // Optionally redirect to login or refresh the page
+        // Preserve the recording blob
+        setAudioBlob(audioBlobData);
+        setAudioMimeType(audioBlobData?.type || 'audio/webm');
+        
+        // Set user-friendly error message
+        let errorMessage = 'Looks like AI servers are overloaded, please try again';
+        if (error.message === 'AI_SERVER_ERROR' || error.message.includes('JSON') || error.message.includes('invalid')) {
+          errorMessage = 'Looks like AI servers are overloaded, please try again';
+        } else if (error.message.includes('No valid authentication token found')) {
+          errorMessage = 'Your session has expired. Please refresh the page and try again.';
           setTimeout(() => {
             window.location.reload();
           }, 3000);
-        } else {
-          setError(error.message);
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-        setCurrentStep('recording');
+        
+        setSubmissionError(errorMessage);
+        setCurrentStep('error'); // NEW: Add error step
+        setIsProcessing(false); // Allow retry
       }
     } catch (error) {
       console.error('Speaking test submission error:', error);
@@ -470,7 +484,86 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
     } finally {
       setIsProcessing(false); // Clear flag when processing completes or fails
     }
-  }, [testData, user, makeAuthenticatedRequest, attemptNumber, saveAttemptsToStorage, isProcessing]);
+  }, [testData, user, makeAuthenticatedRequest, attemptNumber, saveAttemptsToStorage, isProcessing, audioBlob]);
+
+  // NEW: Handle resending to AI (not submitting to DB)
+  const handleResend = useCallback(async () => {
+    if (!failedPayload || !audioBlob) {
+      return;
+    }
+    
+    setIsResending(true);
+    setSubmissionError(null);
+    setCurrentStep('processing');
+    
+    try {
+      const response = await makeAuthenticatedRequest('/.netlify/functions/process-speaking-audio-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(failedPayload) // Use same payload
+      });
+      
+      let result;
+      try {
+        const responseText = await response.text();
+        result = JSON.parse(responseText);
+      } catch (jsonError) {
+        throw new Error('AI_SERVER_ERROR');
+      }
+      
+      if (!result.success) {
+        throw new Error(result.message || result.error || 'AI processing failed');
+      }
+      
+      // Success - clear error state
+      setSubmissionError(null);
+      setFailedPayload(null);
+      setIsResending(false);
+      
+      // Process the successful result (same as in handleRecordingComplete)
+      setTranscript(result.transcript);
+      
+      const actualWordCount = result.transcript ? result.transcript.split(/\s+/).filter(word => word.length > 0).length : 0;
+      const displayWordCount = actualWordCount;
+      
+      const mappedScores = {
+        overall_score: result.overall_score,
+        word_count: displayWordCount,
+        grammar_score: result.grammar_score,
+        vocabulary_score: result.vocabulary_score,
+        pronunciation_score: result.pronunciation_score,
+        fluency_score: result.fluency_score,
+        content_score: result.content_score,
+        grammar_mistakes: result.grammar_mistakes,
+        vocabulary_mistakes: result.vocabulary_mistakes,
+        feedback: result.feedback,
+        improved_transcript: result.improved_transcript,
+        grammar_corrections: result.grammar_corrections || [],
+        vocabulary_corrections: result.vocabulary_corrections || [],
+        language_use_corrections: result.language_use_corrections || [],
+        pronunciation_corrections: result.pronunciation_corrections || [],
+        ai_feedback: result.ai_feedback || null
+      };
+      
+      setScores(mappedScores);
+      setCurrentStep('feedback');
+      
+      // Clear progress from localStorage
+      localStorage.removeItem(`speaking_progress_${testData.test_id}`);
+      
+    } catch (error) {
+      console.error('🎤 Resend error:', error);
+      let errorMessage = 'Looks like AI servers are overloaded, please try again';
+      if (error.message === 'AI_SERVER_ERROR' || error.message.includes('JSON')) {
+        errorMessage = 'Looks like AI servers are overloaded, please try again';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setSubmissionError(errorMessage);
+      setCurrentStep('error');
+      setIsResending(false);
+    }
+  }, [failedPayload, audioBlob, makeAuthenticatedRequest, testData]);
 
   // Recovery effect to handle page reload during processing
   useEffect(() => {
@@ -533,6 +626,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
       }
 
       // Prepare final submission data (AI processing already done)
+      // Use original WebM blob for storage (smaller file size than WAV)
       const finalSubmissionData = {
         test_id: testData.test_id,
         test_name: testData.test_name,
@@ -541,7 +635,7 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         student_id: studentId,
         academic_period_id: academic_period_id,
         question_id: testData.question_id || 1,
-        audio_blob: audioBlob ? await blobToBase64(audioBlob) : null,
+        audio_blob: audioBlob ? await blobToBase64(audioBlob) : null, // Original WebM blob
         audio_duration: audioBlob?.duration || 0,
         time_taken: timeTaken,
         started_at: startedAt,
@@ -551,14 +645,14 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
         is_completed: true,
         retest_assignment_id: retestAssignmentId ? Number(retestAssignmentId) : null,
         parent_test_id: testData.test_id,
-        audio_mime_type: audioMimeType,
+        audio_mime_type: audioMimeType || 'audio/webm', // WebM format for storage
         // Include already processed results
         transcript: transcript,
         scores: scores,
         final_submission: true // Flag to indicate this is the final submission
       };
       
-      console.log('🎤 Final submission:', finalSubmissionData);
+      console.log('🎤 Final submission with WebM blob (size:', audioBlob?.size, 'bytes):', finalSubmissionData);
       
       // Submit final results to backend
       console.log('🎤 Making final submission request...');
@@ -984,6 +1078,53 @@ const SpeakingTestStudent = ({ testData, onComplete, onExit, onTestComplete }) =
             maxAttempts={maxAttempts}
             isSubmitting={isSubmitting}
           />
+        );
+
+      case 'error':
+        return (
+          <div className={`p-4 sm:p-6 rounded-lg ${
+            isCyberpunk 
+              ? 'bg-red-900/50 border border-red-500' 
+              : isKpop 
+              ? 'bg-red-500/10 border border-red-500/50' 
+              : 'bg-red-50 border border-red-200'
+          }`}
+          style={isCyberpunk ? { ...themeStyles.glowRed } : isKpop ? { ...themeStyles.shadow } : {}}>
+            <div className="flex items-start space-x-3">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1">
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  isCyberpunk ? 'text-red-400' : isKpop ? 'text-red-400' : 'text-red-800'
+                }`}>
+                  {isCyberpunk ? 'ERROR: AI PROCESSING FAILED' : 'AI Processing Error'}
+                </h3>
+                <p className={`mb-4 ${
+                  isCyberpunk ? 'text-red-300 font-mono' : isKpop ? 'text-red-300' : 'text-red-700'
+                }`}>
+                  {submissionError}
+                </p>
+                <p className={`text-sm mb-4 ${
+                  isCyberpunk ? 'text-cyan-400 font-mono' : isKpop ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Your recording has been saved. Click "Resend" to try again.
+                </p>
+                <button
+                  onClick={handleResend}
+                  disabled={isResending}
+                  className={`w-full sm:w-auto px-6 py-4 rounded-full min-h-[48px] text-lg font-semibold flex items-center justify-center ${
+                    isCyberpunk 
+                      ? 'bg-green-600 text-black font-mono' 
+                      : isKpop 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-green-600 text-white'
+                  } ${isResending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={isCyberpunk ? { ...themeStyles.glowGreen } : isKpop ? { ...themeStyles.shadow } : {}}
+                >
+                  <span>{isResending ? (isCyberpunk ? 'RESENDING...' : 'Resending...') : (isCyberpunk ? 'RESEND' : 'Resend')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         );
 
       case 'completed':

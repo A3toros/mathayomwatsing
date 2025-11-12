@@ -59,7 +59,8 @@ exports.handler = async function(event, context) {
       time_limit,
       min_duration,
       max_duration,
-      max_attempts,
+      allowed_attempts,  // NEW: Add this
+      max_attempts,      // Keep for backward compatibility
       min_words,
       passing_score,
       allowed_time
@@ -73,6 +74,7 @@ exports.handler = async function(event, context) {
       time_limit: time_limit || 'Not provided',
       min_duration: min_duration || 'Not provided',
       max_duration: max_duration || 'Not provided',
+      allowed_attempts: allowed_attempts || 'Not provided',
       max_attempts: max_attempts || 'Not provided',
       min_words: min_words || 'Not provided',
       passing_score: passing_score || 'Not provided',
@@ -113,6 +115,18 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // Validate allowed_attempts
+    if (allowed_attempts !== undefined && (allowed_attempts < 1 || allowed_attempts > 3)) {
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          message: 'allowed_attempts must be between 1 and 3'
+        })
+      };
+    }
+
     console.log('Connecting to database...');
     const sql = neon(process.env.NEON_DATABASE_URL);
     console.log('Database connection established');
@@ -125,15 +139,18 @@ exports.handler = async function(event, context) {
     try {
       // Insert speaking test
       console.log('Inserting speaking test...');
+      // Determine allowed_attempts value (prefer allowed_attempts, fallback to max_attempts, default to 3)
+      const finalAllowedAttempts = allowed_attempts !== undefined ? allowed_attempts : (max_attempts || 3);
+      
       const speakingTestResult = await sql`
         INSERT INTO speaking_tests (
           teacher_id, subject_id, test_name, num_questions, time_limit, min_duration, max_duration, 
-          max_attempts, min_words, passing_score, allowed_time, created_at, updated_at
+          max_attempts, allowed_attempts, min_words, passing_score, allowed_time, created_at, updated_at
         )
         VALUES (
           ${teacher_id}, ${assignments[0].subject_id}, ${test_name}, ${questions.length},
           ${time_limit || 300}, ${min_duration || 30}, ${max_duration || 600},
-          ${max_attempts || 3}, ${min_words || 50}, ${passing_score || null}, 
+          ${max_attempts || 3}, ${finalAllowedAttempts}, ${min_words || 50}, ${passing_score || null}, 
           ${allowed_time || null}, NOW(), NOW()
         )
         RETURNING id
