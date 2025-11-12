@@ -79,10 +79,16 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
       } catch (_) { return false; }
     };
 
-    async function getSignedUrlIfNeeded(url) {
-      if (!url) return url;
-      if (signedTried || /\/object\/sign\//.test(url)) return url;
-      if (!isSupabasePublicPath(url)) return url;
+    async function getSignedUrl(url) {
+      if (!url) return null;
+      // If already signed, use it directly
+      if (/\/object\/sign\//.test(url)) {
+        return url;
+      }
+      // Only get signed URL for Supabase public paths
+      if (!isSupabasePublicPath(url)) {
+        return url;
+      }
       try {
         const u = new URL(url);
         const path = u.pathname.replace(/^\/storage\/v1\/object\/public\//, '');
@@ -93,28 +99,31 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
           const { url: signed } = await resp.json();
           if (!aborted && !unmountedRef.current) {
             setSignedTried(true);
-            // Do a tiny byte-range preflight to nudge storage/CDN, then set URL
-            try { await fetch(signed, { headers: { Range: 'bytes=0-1' }, mode: 'cors' }); } catch (_) {}
             setAudioObjectUrl(signed);
           }
           return signed;
         }
-      } catch (_) {}
-      return url;
+      } catch (error) {
+        console.error('Failed to get signed URL:', error);
+      }
+      return null;
     }
 
     (async () => {
       if (audioUrl) {
-        const resolved = await getSignedUrlIfNeeded(audioUrl);
-        // Do a tiny byte-range preflight before assigning to audio element
-        try { await fetch(resolved, { headers: { Range: 'bytes=0-1' }, mode: 'cors' }); } catch (_) {}
-        if (!aborted && !unmountedRef.current && !signedTried) {
-          setAudioObjectUrl(resolved);
+        // Always get signed URL for Supabase paths (primary method)
+        const signedUrl = await getSignedUrl(audioUrl);
+        if (signedUrl && !aborted && !unmountedRef.current) {
+          // Use signed URL directly, no preflight needed
+          setAudioObjectUrl(signedUrl);
+        } else if (!isSupabasePublicPath(audioUrl) && !aborted && !unmountedRef.current) {
+          // For non-Supabase URLs, use directly
+          setAudioObjectUrl(audioUrl);
         }
       }
     })();
     return () => { aborted = true; };
-  }, [audioUrl, signedTried]);
+  }, [audioUrl]);
 
   // Reset error states whenever we switch source URL
   useEffect(() => {
@@ -549,24 +558,35 @@ const AudioPlayer = ({ audioBlob, audioUrl, recordingTime, className = '' }) => 
           <div className="mb-4">
             <div
               ref={progressRef}
-              className={`w-full rounded-full h-3 cursor-pointer hover:h-4 transition-all min-h-[24px] ${
-                shouldApplyTheme ? 'bg-gray-800' : 'bg-gray-200'
+              className={`w-full rounded-full cursor-pointer transition-all ${
+                shouldApplyTheme ? 'bg-gray-800 border-2 border-gray-700' : 'bg-gray-200 border-2 border-gray-300'
               }`}
-              onClick={handleSeek}
               style={shouldApplyTheme ? {
-                ...themeStyles.glow
-              } : {}}
+                ...themeStyles.glow,
+                height: '8px',
+                minHeight: '8px'
+              } : {
+                height: '8px',
+                minHeight: '8px',
+                boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.1)'
+              }}
+              onClick={handleSeek}
             >
               <div
-                className={`h-3 rounded-full transition-all ${
+                className={`rounded-full transition-all ${
                   shouldApplyTheme ? '' : 'bg-blue-600'
                 }`}
                 style={shouldApplyTheme ? {
                   backgroundColor: CYBERPUNK_COLORS.cyan,
                   width: `${(currentTime / duration) * 100}%`,
-                  boxShadow: `0 0 8px ${CYBERPUNK_COLORS.cyan}`
+                  height: '4px',
+                  boxShadow: `0 0 8px ${CYBERPUNK_COLORS.cyan}`,
+                  marginTop: '2px'
                 } : {
-                  width: `${(currentTime / duration) * 100}%`
+                  width: `${(currentTime / duration) * 100}%`,
+                  height: '4px',
+                  marginTop: '2px',
+                  boxShadow: '0 1px 3px rgba(37, 99, 235, 0.4)'
                 }}
               />
             </div>

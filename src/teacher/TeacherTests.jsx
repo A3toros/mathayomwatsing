@@ -794,10 +794,14 @@ const TeacherTests = () => {
     console.log('🔍 Selected Classes:', selectedClasses);
     console.log('🔍 User:', user);
     
+    // Disable button immediately on first press
+    setIsLoading(true);
+    
     // Check if user session is still valid using JWT
     if (!user || !user.teacher_id) {
       console.error('❌ No valid teacher session found in assignTestToClasses, redirecting to login');
       showNotification('Missing teacher session. Please sign in again.', 'error');
+      setIsLoading(false);
       return;
     }
     
@@ -806,6 +810,7 @@ const TeacherTests = () => {
     if (selectedClasses.length === 0) {
       console.warn('⚠️ No classes selected');
       showNotification('Please select at least one class.', 'warning');
+      setIsLoading(false);
       return;
     }
     
@@ -1277,6 +1282,7 @@ const TeacherTests = () => {
       showNotification('Error creating and assigning test. Please try again.', 'error');
     } finally {
       setIsAssigningTest(false);
+      setIsLoading(false);
     }
     
     console.log('🔍 === ASSIGN TEST TO CLASSES DEBUG END ===');
