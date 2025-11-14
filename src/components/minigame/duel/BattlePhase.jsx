@@ -89,18 +89,11 @@ const BattlePhase = ({
     loadBg();
   }, [loadImage]);
 
-  // Initialize player positions based on orientation
+  // Initialize player positions - always horizontal layout (player left, opponent right)
   useEffect(() => {
-    if (screenOrientation.isMobile) {
-      // Mobile: player bottom, opponent top
-      setPlayerPosition({ x: screenOrientation.width / 2, y: screenOrientation.height - 150 });
-      setOpponentPosition({ x: screenOrientation.width / 2, y: 150 });
-    } else {
-      // Desktop: player left, opponent right
-      setPlayerPosition({ x: 100, y: 300 });
-      setOpponentPosition({ x: 700, y: 300 });
-    }
-  }, [screenOrientation]);
+    setPlayerPosition({ x: 100, y: 300 });
+    setOpponentPosition({ x: 700, y: 300 });
+  }, []);
 
   // Initialize HP from battle state when round starts
   useEffect(() => {
@@ -259,25 +252,13 @@ const BattlePhase = ({
     
     // Create spell slightly offset from player position to avoid immediate collision
     const offsetDistance = 40; // Offset to avoid hitting caster
-    let startPos;
+    // Always horizontal layout: offset to the right from player
+    const startPos = {
+      x: playerPosition.x + offsetDistance,
+      y: playerPosition.y
+    };
     
-    if (screenOrientation.isMobile) {
-      // Mobile: offset vertically (up from player)
-      startPos = {
-        x: playerPosition.x,
-        y: playerPosition.y - offsetDistance
-      };
-    } else {
-      // Desktop: offset horizontally (right from player)
-      startPos = {
-        x: playerPosition.x + offsetDistance,
-        y: playerPosition.y
-      };
-    }
-    
-    const targetPos = screenOrientation.isMobile
-      ? { x: opponentPosition.x, y: opponentPosition.y } // Mobile: target is above
-      : { x: opponentPosition.x, y: opponentPosition.y }; // Desktop: target is to the right
+    const targetPos = { x: opponentPosition.x, y: opponentPosition.y };
     
     // Create temporary spell for immediate visual feedback
     const tempSpell = {
@@ -296,7 +277,7 @@ const BattlePhase = ({
     
     // Send to server - server will create spell with real ID
     onSpellCast(spellType, direction);
-  }, [playerPosition, opponentPosition, screenOrientation, isPlayer1, onSpellCast]);
+  }, [playerPosition, opponentPosition, isPlayer1, onSpellCast]);
   
   // Cooldown timer - update remaining cooldown
   useEffect(() => {
@@ -334,7 +315,7 @@ const BattlePhase = ({
     };
   }, []);
 
-  // Touch controls for mobile
+  // Touch controls for mobile (horizontal layout)
   useEffect(() => {
     if (!screenOrientation.isMobile) return;
 
@@ -394,15 +375,16 @@ const BattlePhase = ({
       let newY = playerPosition.y;
       let moved = false;
 
-      if (screenOrientation.isMobile) {
-        // Mobile: vertical layout - player on bottom half
-        const halfHeight = screenOrientation.height / 2;
-        const playerMinY = halfHeight; // Bottom half
-        const playerMaxY = screenOrientation.height - 100;
-        const playerMinX = 0;
-        const playerMaxX = screenOrientation.width - 50;
+      // Always horizontal layout - player on left half
+      const halfWidth = CANVAS_WIDTH / 2;
+      const playerMinX = 0;
+      const playerMaxX = halfWidth - 50;
+      const playerMinY = 0;
+      const playerMaxY = CANVAS_HEIGHT - 100;
 
-        // Touch controls
+      // Touch controls (mobile) or keyboard controls (desktop)
+      if (screenOrientation.isMobile) {
+        // Touch controls for horizontal layout
         if (touchControls.left) {
           newX = Math.max(playerMinX, newX - PLAYER_SPEED);
           moved = true;
@@ -420,13 +402,6 @@ const BattlePhase = ({
           moved = true;
         }
       } else {
-        // Desktop: horizontal layout - player on left half
-        const halfWidth = CANVAS_WIDTH / 2;
-        const playerMinX = 0;
-        const playerMaxX = halfWidth - 50;
-        const playerMinY = 0;
-        const playerMaxY = CANVAS_HEIGHT - 100;
-
         // Keyboard controls
         if (keys['a'] || keys['arrowleft']) {
           newX = Math.max(playerMinX, newX - PLAYER_SPEED);
@@ -607,9 +582,8 @@ const BattlePhase = ({
   // Handle fire button press
   const handleFireButton = (spellType) => {
     // Cooldown check is handled in handleLocalSpellCast
-    const direction = screenOrientation.isMobile 
-      ? (isPlayer1 ? 1 : -1) // Mobile: 1 = up (towards opponent at top), -1 = down
-      : (isPlayer1 ? 1 : -1); // Desktop: 1 = right (towards opponent on right), -1 = left
+    // Always horizontal layout: 1 = right (towards opponent on right), -1 = left
+    const direction = isPlayer1 ? 1 : -1;
     handleLocalSpellCast(spellType, direction);
   };
   
@@ -617,8 +591,9 @@ const BattlePhase = ({
   const cooldownPercent = Math.min(100, (spellCooldown / 1000) * 100);
   const isOnCooldown = spellCooldown > 0;
 
-  const canvasWidth = screenOrientation.isMobile ? screenOrientation.width : CANVAS_WIDTH;
-  const canvasHeight = screenOrientation.isMobile ? screenOrientation.height : CANVAS_HEIGHT;
+  // Always use fixed canvas dimensions for consistent layout
+  const canvasWidth = CANVAS_WIDTH;
+  const canvasHeight = CANVAS_HEIGHT;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-900 relative overflow-hidden">
@@ -711,47 +686,26 @@ const BattlePhase = ({
           ref={stageRef}
         >
           <Layer>
-            {/* Background - rotate 90deg on mobile */}
+            {/* Background - always horizontal */}
             {backgroundImage && (
-              <Group
-                rotation={screenOrientation.isMobile ? 90 : 0}
-                x={screenOrientation.isMobile ? canvasWidth / 2 : 0}
-                y={screenOrientation.isMobile ? canvasHeight / 2 : 0}
-                offsetX={screenOrientation.isMobile ? canvasHeight / 2 : 0}
-                offsetY={screenOrientation.isMobile ? canvasWidth / 2 : 0}
-              >
-                <Image
-                  image={backgroundImage}
-                  x={0}
-                  y={0}
-                  width={screenOrientation.isMobile ? canvasHeight : canvasWidth}
-                  height={screenOrientation.isMobile ? canvasWidth : canvasHeight}
-                />
-              </Group>
+              <Image
+                image={backgroundImage}
+                x={0}
+                y={0}
+                width={canvasWidth}
+                height={canvasHeight}
+              />
             )}
 
-            {/* Center divider */}
-            {screenOrientation.isMobile ? (
-              // Mobile: horizontal divider (top/bottom split)
-              <Rect
-                x={0}
-                y={canvasHeight / 2 - 2}
-                width={canvasWidth}
-                height={4}
-                fill="#666"
-                opacity={0.5}
-              />
-            ) : (
-              // Desktop: vertical divider (left/right split)
-              <Rect
-                x={canvasWidth / 2 - 2}
-                y={0}
-                width={4}
-                height={canvasHeight}
-                fill="#666"
-                opacity={0.5}
-              />
-            )}
+            {/* Center divider - vertical divider (left/right split) */}
+            <Rect
+              x={canvasWidth / 2 - 2}
+              y={0}
+              width={4}
+              height={canvasHeight}
+              fill="#666"
+              opacity={0.5}
+            />
 
             {/* Player Character */}
             <CharacterSprite
@@ -762,11 +716,7 @@ const BattlePhase = ({
                   ? Object.values(touchControls).some(v => v)
                   : Object.values(keys).some(v => v)
               }
-              direction={
-                screenOrientation.isMobile 
-                  ? (isPlayer1 ? 1 : -1) // Mobile: facing up/down
-                  : (isPlayer1 ? 1 : -1) // Desktop: facing left/right
-              }
+              direction={isPlayer1 ? 1 : -1} // Always horizontal: 1 = right, -1 = left
               isHurt={playerIsHurt}
             />
 
@@ -775,11 +725,7 @@ const BattlePhase = ({
               characterId={matchData?.opponentCharacter || 'archer'}
               position={opponentPosition}
               isMoving={false}
-              direction={
-                screenOrientation.isMobile 
-                  ? (isPlayer1 ? -1 : 1) // Mobile: opponent faces opposite
-                  : (isPlayer1 ? -1 : 1) // Desktop: opponent faces opposite
-              }
+              direction={isPlayer1 ? -1 : 1} // Always horizontal: opponent faces opposite
               isHurt={opponentIsHurt}
             />
 
@@ -796,7 +742,7 @@ const BattlePhase = ({
                     <SpellProjectile
                       key={spell.id}
                       spell={spell}
-                      isMobile={screenOrientation.isMobile}
+                      isMobile={false} // Always horizontal layout
                       characterId={casterCharacterId} // Use caster's character ID to determine spell visual
                       onUpdate={(pos) => handleSpellUpdate(spell.id, pos)}
                     />
