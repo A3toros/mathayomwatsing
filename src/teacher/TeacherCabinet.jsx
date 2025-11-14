@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
@@ -20,10 +20,12 @@ import { logger } from '@/utils/logger';
 import { renderMathInText } from '@/utils/mathRenderer';
 import TestSettingsEditor from '@/components/test/TestSettingsEditor';
 import TestDetailsModal from '@/components/test/TestDetailsModal';
+import MiniGame from './MiniGame';
 
 
 const TeacherCabinet = ({ onBackToLogin }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, logout, getCurrentTeacherUsername } = useAuth();
   const { teacherData, loadTeacherData } = useUser();
   const { activeTests, loadActiveTests } = useTest();
@@ -32,7 +34,8 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   // Local state
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'subjects', 'tests', 'results'
+  // Initialize currentView from location state if provided, otherwise default to 'main'
+  const [currentView, setCurrentView] = useState(location.state?.view || 'main'); // 'main', 'subjects', 'tests', 'results', 'minigames'
   const [subjects, setSubjects] = useState([]);
   const [activeTestsData, setActiveTestsData] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -83,6 +86,15 @@ const TeacherCabinet = ({ onBackToLogin }) => {
   useEffect(() => {
     initializeTeacherCabinet();
   }, []);
+
+  // Update view when location state changes (e.g., when navigating from creator page)
+  useEffect(() => {
+    if (location.state?.view) {
+      setCurrentView(location.state.view);
+      // Clear the state to avoid keeping it on subsequent navigations
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -1095,6 +1107,7 @@ const TeacherCabinet = ({ onBackToLogin }) => {
             {[
               { key: 'main', label: 'Main Dashboard', shortLabel: 'Dashboard' },
               { key: 'tests', label: 'Test Management', shortLabel: 'Tests' },
+              { key: 'minigames', label: 'Mini Games', shortLabel: 'Games' },
               { key: 'results', label: 'Class Results', shortLabel: 'Results' },
               { key: 'subjects', label: 'Subject Management', shortLabel: 'Subjects' }
             ].map((tab, index) => (
@@ -1159,6 +1172,17 @@ const TeacherCabinet = ({ onBackToLogin }) => {
               transition={{ duration: 0.3 }}
             >
               {renderActiveTests()}
+            </motion.div>
+          )}
+          {currentView === 'minigames' && (
+            <motion.div
+              key="minigames"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <MiniGame onBackToCabinet={() => setCurrentView('main')} />
             </motion.div>
           )}
           {currentView === 'results' && (

@@ -8,6 +8,7 @@ import PrivacyPolicy from '@/shared/PrivacyPolicy';
 import StudentApp from '@/student/student-index';
 import TeacherApp from '@/teacher/teacher-index';
 import AdminApp from '@/admin/admin-index';
+import DuelGamePage from '@/student/DuelGamePage';
 import CookieConsentBanner from '@/components/ui/CookieConsentBanner';
 
 // Protected Route Component - ENHANCED FOR NEW STRUCTURE
@@ -94,6 +95,9 @@ const App = () => {
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                
+                {/* Mini Game Route - Public (no auth required, login prompt shown in component) */}
+                <Route path="/student/duel/:sessionCode" element={<DuelGamePage />} />
                 
                 {/* Student Routes */}
                 <Route 

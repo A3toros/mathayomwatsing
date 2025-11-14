@@ -63,8 +63,8 @@ const PerfectModal = ({
   // Size classes - made bigger
   const sizeClasses = {
     small: 'max-w-md',
-    medium: 'max-w-lg',
-    large: 'max-w-4xl'
+    medium: 'max-w-2xl',
+    large: 'max-w-6xl'
   };
 
   if (!isOpen) return null;
@@ -85,6 +85,7 @@ const PerfectModal = ({
           hover:shadow-lg hover:-translate-y-1 transition-all duration-200
           w-full ${sizeClasses[size]} mx-auto
           ${className}
+          relative
         `}
         onClick={(e) => e.stopPropagation()}
       >

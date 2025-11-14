@@ -1,0 +1,26 @@
+/* CSS Sprite Animation for Character Selection */
+.character-sprite {
+  width: var(--frame-width, 64px);
+  height: var(--frame-height, 64px);
+  background-image: var(--sprite-url);
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  /* Scale sprite sheet: total width = frameWidth * numFrames, height = frameHeight */
+  background-size: calc(var(--frame-width) * var(--num-frames)) var(--frame-height);
+  /* Clip to show only one frame */
+  overflow: hidden;
+  image-rendering: pixelated; /* Keep pixel art crisp */
+  /* Animate: move background left by exactly (numFrames - 1) * frameWidth to show all frames */
+  animation: sprite-animate var(--animation-duration) steps(var(--num-frames)) infinite;
+}
+
+@keyframes sprite-animate {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    /* Move to show the last frame: move left by (numFrames - 1) frame widths */
+    background-position: calc((var(--num-frames) - 1) * var(--frame-width) * -1) 0;
+  }
+}
+

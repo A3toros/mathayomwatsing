@@ -16,6 +16,8 @@ import StudentResults from './StudentResults';
 import MatchingTestPage from './MatchingTestPage';
 import WordMatchingPage from './WordMatchingPage';
 import SpeakingTestPage from './SpeakingTestPage';
+import DuelGamePage from './DuelGamePage';
+import JoinGamePage from './JoinGamePage';
 
 
 
@@ -539,6 +541,11 @@ const StudentApp = () => {
         
         {/* Results Route */}
         <Route path="/results" element={<StudentResults />} />
+        
+        {/* Join Game Route */}
+        <Route path="/join-game" element={<JoinGamePage />} />
+        
+        {/* Duel game route moved to main App.jsx as public route */}
       </Routes>
       
       {/* Notifications */}

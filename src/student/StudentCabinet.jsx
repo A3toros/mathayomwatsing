@@ -909,6 +909,30 @@ const StudentCabinet = ({ isMenuOpen, onToggleMenu, onShowPasswordChange }) => {
                       </motion.button>
                       <motion.button
                         onClick={() => {
+                          onToggleMenu();
+                          navigate('/student/join-game');
+                        }}
+                        className={`block w-full text-left px-4 py-3 text-sm transition-colors ${
+                          isCyberpunk 
+                            ? 'hover:bg-cyan-400/30' 
+                            : isKpop
+                            ? 'text-pink-400 hover:bg-pink-500/20'
+                            : 'text-gray-700 hover:bg-blue-50'
+                        }`}
+                        style={isCyberpunk ? {
+                          color: CYBERPUNK_COLORS.cyan,
+                          fontFamily: 'monospace',
+                          ...themeStyles.textShadow
+                        } : isKpop ? {
+                          color: KPOP_COLORS.primary
+                        } : {}}
+                        whileHover={{ x: 4 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {isCyberpunk ? 'JOIN GAME' : 'Join Game'}
+                      </motion.button>
+                      <motion.button
+                        onClick={() => {
                           onToggleMenu(); // Close the dropdown first, like in teacher cabinet
                           logout();
                         }}

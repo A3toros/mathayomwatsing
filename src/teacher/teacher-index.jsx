@@ -8,6 +8,8 @@ import TeacherTests from './TeacherTests';
 import TeacherData from './TeacherData';
 import TeacherSubjects from './TeacherSubjects';
 import TeacherResults from './TeacherResults';
+import MiniGame from './MiniGame';
+import MiniGameCreatorPage from './MiniGameCreatorPage';
 
 // TEACHER INDEX - Teacher App Initialization and Exports
 // ✅ COMPLETED: All teacher app functionality from legacy src/ converted to React
@@ -44,6 +46,8 @@ const TeacherApp = () => {
         <Route path="/data" element={<TeacherData />} />
         <Route path="/subjects" element={<TeacherSubjects />} />
         <Route path="/results" element={<TeacherResults />} />
+        <Route path="/minigames" element={<MiniGame />} />
+        <Route path="/minigames/create" element={<MiniGameCreatorPage />} />
         <Route path="*" element={<Navigate to="/teacher" replace />} />
       </Routes>
     </div>

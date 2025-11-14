@@ -35,8 +35,8 @@
     # Force HTTPS
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     
-    # Very permissive CSP to allow all external resources including blob URLs
-    Content-Security-Policy = "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; connect-src *; font-src * data:; media-src * blob:;"
+    # Very permissive CSP to allow all external resources including blob URLs and WebSocket connections
+    Content-Security-Policy = "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; connect-src * wss: ws:; font-src * data:; media-src * blob:;"
     
     # Referrer Policy
     Referrer-Policy = "strict-origin-when-cross-origin"
